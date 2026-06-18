@@ -184,6 +184,15 @@ function calculateReadingTime(content: string): number {
   return Math.max(1, Math.ceil(words / 200));
 }
 
+function getPostType(item: WpItem): string {
+  const raw = item as Record<string, unknown>;
+  return toText(item['wp:post_type'] ?? raw.post_type).toLowerCase();
+}
+
+function isPublishedPost(item: WpItem): boolean {
+  return getPostType(item) === 'post';
+}
+
 async function importAuthor(wpAuthor: WpAuthor): Promise<string | null> {
   const login = toText(wpAuthor['wp:author_login']);
   if (!login) return null;
@@ -353,8 +362,8 @@ async function importArticle(item: WpItem, authorMap: Map<number, string>): Prom
         slug,
         excerpt: stripHtml(excerpt).slice(0, 500),
         content,
-        status: item['wp:status'] === 'publish' ? 'published' : 'draft',
-        publishedAt: item['wp:post_date'],
+        status: toText(item['wp:status']) === 'publish' ? 'published' : 'draft',
+        publishedAt: toText(item['wp:post_date']),
         wpId,
         readingTime: calculateReadingTime(content),
         canonicalUrl: oldUrl,
@@ -421,9 +430,16 @@ async function main() {
 
   // Import articles
   console.log('📰 Import des articles...');
-  let items = toArray(channel.item as WpItem).filter(
-    (item) => item['wp:post_type'] === 'post'
-  );
+  const rawItems = toArray(channel.item as WpItem);
+  console.log(`  Éléments XML bruts : ${rawItems.length}`);
+
+  if (rawItems.length > 0) {
+    const types = [...new Set(rawItems.map((item) => getPostType(item) || '(vide)'))];
+    console.log(`  Types détectés : ${types.slice(0, 12).join(', ')}`);
+  }
+
+  let items = rawItems.filter(isPublishedPost);
+  console.log(`  Articles (post) : ${items.length}`);
 
   if (OFFSET > 0) items = items.slice(OFFSET);
   if (LIMIT > 0) items = items.slice(0, LIMIT);
