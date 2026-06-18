@@ -213,7 +213,7 @@ function normalizeSlug(raw: string, fallbackId?: number): string {
     .replace(/^-+|-+$/g, '');
 
   if (!slug) {
-    slug = fallbackId ? `article-${fallbackId}` : 'article';
+    slug = typeof fallbackId === 'number' ? `article-${fallbackId}` : 'article';
   }
 
   return slug.slice(0, 200);
