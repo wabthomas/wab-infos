@@ -1,0 +1,44 @@
+node_modules/
+.next/
+.cache/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+apps/cms/.env
+apps/web/.env.local
+
+# Strapi
+apps/cms/.tmp/
+apps/cms/.strapi/
+apps/cms/dist/
+apps/cms/public/uploads/*
+!apps/cms/public/uploads/.gitkeep
+
+# Data
+data/
+*.sql.gz
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# PM2
+.pm2/
+
+# WordPress import
+scripts/wordpress-import/data/

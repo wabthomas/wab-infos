@@ -1,0 +1,165 @@
+import Link from 'next/link';
+import type { Article } from '@wab-infos/shared';
+import { ArticleImage } from '@/components/ui/article-image';
+import { cn, formatRelativeDate, getStrapiMediaUrl } from '@/lib/utils';
+
+interface ArticleCardProps {
+  article: Article;
+  variant?: 'default' | 'featured' | 'compact' | 'horizontal';
+  className?: string;
+  priority?: boolean;
+}
+
+export function ArticleCard({
+  article,
+  variant = 'default',
+  className,
+  priority = false,
+}: ArticleCardProps) {
+  const href = `/${article.category?.slug ?? 'actualites'}/${article.slug}`;
+  const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
+  const categoryColor = article.category?.color ?? '#E63946';
+
+  if (variant === 'featured') {
+    return (
+      <article
+        className={cn(
+          'group relative overflow-hidden rounded-2xl shadow-lg ring-1 ring-black/5 dark:ring-white/10',
+          className
+        )}
+      >
+        <Link href={href} className="block">
+          <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+            <ArticleImage
+              src={imageUrl}
+              alt={article.title}
+              className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+              priority={priority}
+              sizes="(max-width: 768px) 100vw, 66vw"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
+            {article.category && (
+              <span
+                className="mb-3 inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm"
+                style={{ backgroundColor: categoryColor }}
+              >
+                {article.category.name}
+              </span>
+            )}
+            <h2 className="font-display text-2xl font-bold leading-tight text-white md:text-3xl lg:text-4xl">
+              {article.title}
+            </h2>
+            <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-white/85 md:text-base">
+              {article.excerpt}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/70">
+              {article.author && <span className="font-medium text-white/90">{article.author.name}</span>}
+              <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
+              <span aria-hidden>·</span>
+              <span>{article.readingTime} min de lecture</span>
+            </div>
+          </div>
+        </Link>
+      </article>
+    );
+  }
+
+  if (variant === 'horizontal') {
+    return (
+      <article
+        className={cn(
+          'group card-elevated flex gap-4 p-3',
+          className
+        )}
+      >
+        <Link
+          href={href}
+          className="relative h-24 w-32 shrink-0 overflow-hidden rounded-lg bg-muted md:h-28 md:w-36"
+        >
+          <ArticleImage
+            src={imageUrl}
+            alt={article.title}
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="144px"
+          />
+        </Link>
+        <div className="flex flex-1 flex-col justify-center py-0.5">
+          {article.category && (
+            <Link
+              href={`/${article.category.slug}`}
+              className="mb-1.5 text-[11px] font-bold uppercase tracking-wider hover:underline"
+              style={{ color: categoryColor }}
+            >
+              {article.category.name}
+            </Link>
+          )}
+          <Link href={href}>
+            <h3 className="font-display line-clamp-3 text-sm font-semibold leading-snug transition-colors group-hover:text-primary md:text-base">
+              {article.title}
+            </h3>
+          </Link>
+          <time dateTime={article.publishedAt} className="mt-2 text-xs text-muted-foreground">
+            {formatRelativeDate(article.publishedAt)}
+          </time>
+        </div>
+      </article>
+    );
+  }
+
+  if (variant === 'compact') {
+    return (
+      <article className={cn('group flex-1', className)}>
+        <Link href={href}>
+          <h3 className="line-clamp-3 text-sm font-medium leading-snug transition-colors group-hover:text-primary">
+            {article.title}
+          </h3>
+          <time dateTime={article.publishedAt} className="mt-1.5 block text-xs text-muted-foreground">
+            {formatRelativeDate(article.publishedAt)}
+          </time>
+        </Link>
+      </article>
+    );
+  }
+
+  return (
+    <article className={cn('group card-elevated overflow-hidden', className)}>
+      <Link href={href} className="block">
+        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+          <ArticleImage
+            src={imageUrl}
+            alt={article.title}
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+          <div
+            className="absolute left-0 top-0 h-full w-1 opacity-0 transition-opacity group-hover:opacity-100"
+            style={{ backgroundColor: categoryColor }}
+          />
+        </div>
+        <div className="p-4">
+          {article.category && (
+            <span
+              className="mb-2 inline-block text-[11px] font-bold uppercase tracking-wider"
+              style={{ color: categoryColor }}
+            >
+              {article.category.name}
+            </span>
+          )}
+          <h3 className="font-display line-clamp-3 text-base font-semibold leading-snug transition-colors group-hover:text-primary md:text-lg">
+            {article.title}
+          </h3>
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+            {article.excerpt}
+          </p>
+          <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+            <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
+            <span aria-hidden>·</span>
+            <span>{article.readingTime} min</span>
+          </div>
+        </div>
+      </Link>
+    </article>
+  );
+}

@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "ad_placements",
+  "info": {
+    "singularName": "ad-placement",
+    "pluralName": "ad-placements",
+    "displayName": "Emplacement publicitaire"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "slot": {
+      "type": "enumeration",
+      "enum": ["header", "sidebar", "in-article", "footer", "sticky-mobile"],
+      "required": true
+    },
+    "adUnitId": {
+      "type": "string",
+      "required": true
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

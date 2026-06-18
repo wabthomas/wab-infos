@@ -1,0 +1,32 @@
+{
+  "name": "wab-infos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plateforme média professionnelle Wab-infos",
+  "workspaces": [
+    "apps/web",
+    "packages/*",
+    "scripts/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:cms\"",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:cms": "cd apps/cms && npm run develop",
+    "build": "npm run build --workspace=apps/web",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:cms": "npm run build --prefix apps/cms",
+    "start:web": "npm run start --workspace=apps/web",
+    "start:cms": "npm run start --prefix apps/cms",
+    "import:wordpress": "npm run import --workspace=scripts/wordpress-import",
+    "db:start": "powershell -ExecutionPolicy Bypass -File scripts/start-postgres.ps1",
+    "setup:cms": "powershell -ExecutionPolicy Bypass -File scripts/setup-strapi-link.ps1",
+    "postinstall": "powershell -ExecutionPolicy Bypass -File scripts/setup-strapi-link.ps1",
+    "lint": "npm run lint --workspace=apps/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
