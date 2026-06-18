@@ -18,6 +18,7 @@ export const siteConfig = {
 } as const;
 
 export const categories = [
+  { name: 'Actualité', slug: 'actualite', color: '#E63946' },
   { name: 'Actualités RDC', slug: 'actualites-rdc', color: '#E63946' },
   { name: 'Politique', slug: 'politique', color: '#1D3557' },
   { name: 'Économie', slug: 'economie', color: '#2A9D8F' },
@@ -30,3 +31,20 @@ export const categories = [
 ] as const;
 
 export type CategorySlug = (typeof categories)[number]['slug'];
+
+/** Rubrique connue ou repli depuis les données Strapi / l'URL */
+export function resolveCategoryMeta(
+  slug: string,
+  fallback?: { name?: string; color?: string }
+) {
+  const found = categories.find((c) => c.slug === slug);
+  if (found) return found;
+
+  return {
+    name:
+      fallback?.name ??
+      slug.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+    slug,
+    color: fallback?.color ?? '#E63946',
+  };
+}

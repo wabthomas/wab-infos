@@ -97,6 +97,7 @@ interface WpAuthor {
 }
 
 const CATEGORY_MAP: Record<string, string> = {
+  'actualite': 'actualite',
   'actualites-rdc': 'actualites-rdc',
   'actualites': 'actualites-rdc',
   'politique': 'politique',

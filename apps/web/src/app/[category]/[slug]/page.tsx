@@ -1,11 +1,11 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArticleCard } from '@/components/articles/article-card';
 import { ArticleImage } from '@/components/ui/article-image';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { InArticleAd, SidebarAd } from '@/components/ads/adsense';
-import { categories, siteConfig } from '@/config/site';
+import { resolveCategoryMeta, siteConfig } from '@/config/site';
 import { getMockArticles } from '@/lib/mock-data';
 import {
   generateArticleJsonLd,
@@ -36,9 +36,6 @@ export const revalidate = 60;
 export default async function ArticlePage({ params }: PageProps) {
   const { category, slug } = await params;
 
-  const cat = categories.find((c) => c.slug === category);
-  if (!cat) notFound();
-
   let article;
   try {
     article = await getArticleBySlug(slug);
@@ -47,6 +44,16 @@ export default async function ArticlePage({ params }: PageProps) {
   }
 
   if (!article) notFound();
+
+  const articleCategorySlug = article.category?.slug;
+  if (articleCategorySlug && articleCategorySlug !== category) {
+    redirect(`/${articleCategorySlug}/${slug}`);
+  }
+
+  const cat = resolveCategoryMeta(category, {
+    name: article.category?.name,
+    color: article.category?.color,
+  });
 
   let recommended: Awaited<ReturnType<typeof getRecommendedArticles>> = [];
   try {
