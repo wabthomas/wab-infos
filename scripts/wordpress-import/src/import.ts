@@ -23,7 +23,7 @@ import FormData from 'form-data';
 const STRAPI_URL = process.env.STRAPI_URL || 'http://localhost:8090';
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN || '';
 const WP_EXPORT_PATH = process.env.WP_EXPORT_PATH || './data/wordpress-export.xml';
-const WP_BASE_URL = process.env.WP_BASE_URL || 'https://ancien-site.wab-infos.com';
+const WP_BASE_URL = process.env.WP_BASE_URL || 'https://wab-infos.com';
 const WP_UPLOADS_PATH = process.env.WP_UPLOADS_PATH || './data/uploads';
 const DRY_RUN = process.argv.includes('--dry-run');
 const LIMIT = parseInt(getArg('--limit') || '0', 10);

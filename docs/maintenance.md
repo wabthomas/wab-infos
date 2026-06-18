@@ -66,7 +66,7 @@ Activer `isBreaking` sur l'article. Le bandeau défilant s'affiche automatiqueme
 Après publication, Strapi déclenche automatiquement la revalidation ISR via webhook. En cas de problème :
 
 ```bash
-curl -X POST https://wab-infos.com/api/revalidate \
+curl -X POST https://app.wab-infos.com/api/revalidate \
   -H "x-revalidation-secret: VOTRE_SECRET" \
   -H "Content-Type: application/json" \
   -d '{"type":"article","slug":"mon-article","category":"politique"}'
@@ -132,7 +132,7 @@ tar xzf uploads-backup.tar.gz -C apps/cms/public/
 
 ```bash
 # Forcer la revalidation
-curl -X POST https://wab-infos.com/api/revalidate \
+curl -X POST https://app.wab-infos.com/api/revalidate \
   -H "x-revalidation-secret: SECRET" \
   -d '{"path":"/"}'
 

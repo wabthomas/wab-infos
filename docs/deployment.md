@@ -3,16 +3,12 @@
 ## Architecture de production
 
 ```
-wab-infos.com (Cloudflare DNS)
-    │
-    ├── Cloudflare CDN (cache, WAF, SSL)
-    │
-    ├── wab-infos.com → Next.js (port 3000, PM2)
-    │
-    ├── cms.wab-infos.com → Strapi (port 1337, PM2)
-    │
-    └── PostgreSQL (PlanetHoster ou Docker)
+wab-infos.com          → WordPress (site actuel, inchangé)
+app.wab-infos.com      → Nouvelle plateforme Next.js (port 3000, PM2)
+cms.app.wab-infos.com  → Strapi CMS (port 8090, PM2)
 ```
+
+Les deux stacks peuvent coexister : WordPress sur le domaine principal, la nouvelle app sur le sous-domaine `app`.
 
 ## Prérequis PlanetHoster
 
@@ -62,8 +58,9 @@ nano apps/cms/.env
 ```
 
 Variables critiques :
-- `NEXT_PUBLIC_SITE_URL=https://wab-infos.com`
-- `STRAPI_URL=https://cms.wab-infos.com`
+- `NEXT_PUBLIC_SITE_URL=https://app.wab-infos.com`
+- `STRAPI_URL=https://cms.app.wab-infos.com`
+- `WP_BASE_URL=https://wab-infos.com` (pour l'import WordPress)
 - `DATABASE_*` — credentials PostgreSQL
 - `APP_KEYS`, `JWT_SECRET`, etc. — générer des valeurs aléatoires
 
@@ -82,65 +79,29 @@ pm2 startup
 
 ### 5. Configuration Nginx (reverse proxy)
 
-```nginx
-# /etc/nginx/sites-available/wab-infos.com
-server {
-    listen 80;
-    server_name wab-infos.com www.wab-infos.com;
-    return 301 https://wab-infos.com$request_uri;
-}
+Utilisez le fichier prêt à l'emploi :
 
-server {
-    listen 443 ssl http2;
-    server_name wab-infos.com www.wab-infos.com;
-
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-
-# CMS
-server {
-    listen 443 ssl http2;
-    server_name cms.wab-infos.com;
-
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    client_max_body_size 50M;
-
-    location / {
-        proxy_pass http://127.0.0.1:1337;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+```bash
+sudo cp deploy/nginx/wab-infos.conf /etc/nginx/sites-available/wab-infos-app.conf
+sudo ln -sf /etc/nginx/sites-available/wab-infos-app.conf /etc/nginx/sites-enabled/
+sudo certbot --nginx -d app.wab-infos.com -d cms.app.wab-infos.com
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-### 6. Cloudflare
+Voir `deploy/nginx/wab-infos.conf` pour la configuration complète (`app.wab-infos.com` + `cms.app.wab-infos.com`).
 
-1. Ajouter le domaine à Cloudflare
-2. Configurer les DNS :
-   - `A` wab-infos.com → IP serveur (proxied)
-   - `A` cms.wab-infos.com → IP serveur (proxied)
-3. SSL/TLS : Full (strict)
-4. Activer : Auto Minify (JS, CSS, HTML), Brotli, HTTP/3
-5. Page Rules :
-   - `wab-infos.com/uploads/*` → Cache Everything
-   - `wab-infos.com/_next/static/*` → Cache Everything
+### 6. Cloudflare / DNS
+
+Enregistrements pour la **nouvelle plateforme** (même IP serveur ou serveur dédié) :
+
+| Type | Nom | Valeur |
+|------|-----|--------|
+| A | `app` | IP du serveur |
+| A | `cms.app` | IP du serveur |
+
+> `wab-infos.com` reste pointé vers WordPress (ne pas modifier tant que la migration n'est pas terminée).
+
+SSL/TLS : Full (strict). Cache recommandé sur `app.wab-infos.com/_next/static/*`.
 
 ### 7. Import WordPress
 

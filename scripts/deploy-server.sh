@@ -71,5 +71,5 @@ fi
 
 echo ""
 echo "✅ Déploiement terminé."
-echo "   Site: vérifier https://wab-infos.com"
-echo "   CMS:  vérifier https://cms.wab-infos.com/admin"
+echo "   Site: vérifier https://app.wab-infos.com"
+echo "   CMS:  vérifier https://cms.app.wab-infos.com/admin"

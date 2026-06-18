@@ -78,11 +78,11 @@ Chaque article génère automatiquement :
 
 1. Aller sur [publishercenter.google.com](https://publishercenter.google.com)
 2. Ajouter la publication « Wab-infos »
-3. URL : `https://wab-infos.com`
+3. URL : `https://app.wab-infos.com`
 4. Catégorie : News
 5. Pays : République Démocratique du Congo
 6. Langue : Français
-7. Soumettre le sitemap : `https://wab-infos.com/sitemap-news.xml`
+7. Soumettre le sitemap : `https://app.wab-infos.com/sitemap-news.xml`
 
 ### Sections à déclarer
 
