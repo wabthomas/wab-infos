@@ -10,7 +10,7 @@
  * Options:
  *   --dry-run    Simule l'import sans écrire dans Strapi
  *   --limit=N    Limite le nombre d'articles importés
- *   --offset=N   Commence à l'article N (reprise après erreur)
+ *   --backfill-images  Télécharge les images à la une pour les articles déjà importés
  */
 
 import fs from 'fs';
@@ -56,6 +56,7 @@ const WP_EXPORT_PATH = process.env.WP_EXPORT_PATH || path.join(__dirname, '../da
 const WP_BASE_URL = process.env.WP_BASE_URL || 'https://wab-infos.com';
 const WP_UPLOADS_PATH = process.env.WP_UPLOADS_PATH || path.join(__dirname, '../data/uploads');
 const DRY_RUN = process.argv.includes('--dry-run');
+const BACKFILL_IMAGES = process.argv.includes('--backfill-images');
 const LIMIT = parseInt(getArg('--limit') || '0', 10);
 const OFFSET = parseInt(getArg('--offset') || '0', 10);
 
@@ -152,6 +153,35 @@ async function strapiRequest(
   return res.json();
 }
 
+async function uploadImageFromUrl(imageUrl: string, alt?: string): Promise<number | null> {
+  if (DRY_RUN) return 1;
+
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) return null;
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const filename = path.basename(new URL(imageUrl).pathname) || 'image.jpg';
+    const contentType = res.headers.get('content-type') || 'image/jpeg';
+
+    const form = new FormData();
+    form.append('files', buffer, { filename, contentType });
+    if (alt) form.append('fileInfo', JSON.stringify({ alternativeText: alt }));
+
+    const uploadRes = await fetch(`${STRAPI_URL}/api/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${STRAPI_TOKEN}` },
+      body: form as unknown as BodyInit,
+    });
+
+    if (!uploadRes.ok) return null;
+    const data = (await uploadRes.json()) as { id: number }[];
+    return data[0]?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function uploadImage(filePath: string, alt?: string): Promise<number | null> {
   if (!fs.existsSync(filePath)) return null;
   if (DRY_RUN) return 1;
@@ -218,6 +248,36 @@ function normalizeSlug(raw: string, fallbackId?: number): string {
   }
 
   return slug.slice(0, 200);
+}
+
+function buildAttachmentMap(items: WpItem[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const item of items) {
+    if (getPostType(item) !== 'attachment') continue;
+    const id = toText(item['wp:post_id']);
+    const url = toText(item['wp:attachment_url']);
+    if (id && url) map.set(id, url);
+  }
+  return map;
+}
+
+async function resolveFeaturedMediaId(
+  item: WpItem,
+  title: string,
+  attachmentMap: Map<string, string>
+): Promise<number | null> {
+  const postmeta = toArray(item['wp:postmeta']);
+  const thumbnailMeta = postmeta.find((m) => toText(m['wp:meta_key']) === '_thumbnail_id');
+  if (!thumbnailMeta) return null;
+
+  const thumbId = toText(thumbnailMeta['wp:meta_value']);
+  const remoteUrl = attachmentMap.get(thumbId);
+  if (remoteUrl) {
+    return uploadImageFromUrl(remoteUrl, title);
+  }
+
+  const localPath = path.join(WP_UPLOADS_PATH, `${thumbId}.jpg`);
+  return uploadImage(localPath, title);
 }
 
 async function importAuthor(wpAuthor: WpAuthor): Promise<string | null> {
@@ -320,7 +380,11 @@ async function importTag(nicename: string, name: string): Promise<string | null>
   }
 }
 
-async function importArticle(item: WpItem, authorMap: Map<number, string>): Promise<void> {
+async function importArticle(
+  item: WpItem,
+  authorMap: Map<number, string>,
+  attachmentMap: Map<string, string>
+): Promise<void> {
   const wpId = Number(item['wp:post_id']) || 0;
   const slug = normalizeSlug(toText(item['wp:post_name']), wpId);
   const title = toText(item.title);
@@ -348,17 +412,8 @@ async function importArticle(item: WpItem, authorMap: Map<number, string>): Prom
     if (id) tagIds.push(id);
   }
 
-  // Image à la une
-  const postmeta = toArray(item['wp:postmeta']);
-  const thumbnailMeta = postmeta.find((m) => m['wp:meta_key'] === '_thumbnail_id');
-  let featuredImageId: number | null = null;
-
-  if (thumbnailMeta) {
-    const thumbId = thumbnailMeta['wp:meta_value'];
-    const localPath = path.join(WP_UPLOADS_PATH, `${thumbId}.jpg`);
-    featuredImageId = await uploadImage(localPath, title);
-    if (featuredImageId) stats.images++;
-  }
+  const featuredImageId = await resolveFeaturedMediaId(item, title, attachmentMap);
+  if (featuredImageId) stats.images++;
 
   const oldUrl = `${WP_BASE_URL}/${categories[0]?.['@_nicename'] || 'actualites'}/${slug}`;
   const newCategory = categories[0]?.['@_nicename']
@@ -412,11 +467,90 @@ async function importArticle(item: WpItem, authorMap: Map<number, string>): Prom
   }
 }
 
+async function backfillFeaturedImages(
+  items: WpItem[],
+  attachmentMap: Map<string, string>
+): Promise<void> {
+  console.log('🖼 Import des images à la une (articles existants)...');
+  console.log(`  Pièces jointes dans le XML : ${attachmentMap.size}`);
+
+  let posts = items.filter(isPublishedPost);
+  if (OFFSET > 0) posts = posts.slice(OFFSET);
+  if (LIMIT > 0) posts = posts.slice(0, LIMIT);
+
+  console.log(`  Articles à traiter : ${posts.length}`);
+
+  for (const item of posts) {
+    const wpId = Number(item['wp:post_id']) || 0;
+    const title = toText(item.title);
+    if (!wpId) continue;
+
+    try {
+      const existing = (await strapiRequest(
+        'GET',
+        `/articles?filters[wpId][$eq]=${wpId}&populate=featuredImage&pagination[pageSize]=1`
+      )) as { data: { documentId: string; featuredImage?: unknown | null }[] };
+
+      const article = existing.data?.[0];
+      if (!article) {
+        stats.skipped++;
+        continue;
+      }
+      if (article.featuredImage) {
+        stats.skipped++;
+        continue;
+      }
+
+      const mediaId = await resolveFeaturedMediaId(item, title, attachmentMap);
+      if (!mediaId) {
+        stats.errors++;
+        continue;
+      }
+
+      if (DRY_RUN) {
+        stats.images++;
+        console.log(`  [DRY] Image → ${title.slice(0, 50)}...`);
+        continue;
+      }
+
+      await strapiRequest('PUT', `/articles/${article.documentId}`, {
+        data: { featuredImage: mediaId },
+      });
+
+      stats.images++;
+      if (stats.images % 50 === 0) {
+        console.log(`  → ${stats.images} images importées...`);
+      }
+    } catch (err) {
+      console.error(`  ✗ Image "${title.slice(0, 40)}":`, err);
+      stats.errors++;
+    }
+  }
+}
+
+function printResults(redirectsPath?: string): void {
+  console.log('');
+  console.log('═══════════════════════════════════════════');
+  console.log('  Résultats');
+  console.log('═══════════════════════════════════════════');
+  console.log(`  Articles  : ${stats.articles}`);
+  console.log(`  Catégories: ${stats.categories}`);
+  console.log(`  Tags      : ${stats.tags}`);
+  console.log(`  Auteurs   : ${stats.authors}`);
+  console.log(`  Images    : ${stats.images}`);
+  console.log(`  Ignorés   : ${stats.skipped}`);
+  console.log(`  Erreurs   : ${stats.errors}`);
+  if (redirectsPath) {
+    console.log(`  Redirections: ${Object.keys(redirects).length} → ${redirectsPath}`);
+  }
+  console.log('');
+}
+
 async function main() {
   console.log('═══════════════════════════════════════════');
   console.log('  Wab-infos — Import WordPress → Strapi');
   console.log('═══════════════════════════════════════════');
-  console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'PRODUCTION'}`);
+  console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'PRODUCTION'}${BACKFILL_IMAGES ? ' (images)' : ''}`);
   console.log(`Fichier: ${WP_EXPORT_PATH}`);
   console.log(`Strapi: ${STRAPI_URL}`);
   if (!STRAPI_TOKEN && !DRY_RUN) {
@@ -462,6 +596,15 @@ async function main() {
     process.exit(1);
   }
 
+  const rawItems = toArray(channel.item as WpItem);
+  const attachmentMap = buildAttachmentMap(rawItems);
+
+  if (BACKFILL_IMAGES) {
+    await backfillFeaturedImages(rawItems, attachmentMap);
+    printResults();
+    return;
+  }
+
   // Import auteurs
   console.log('📋 Import des auteurs...');
   const wpAuthors = toArray(channel['wp:author'] as WpAuthor);
@@ -474,8 +617,8 @@ async function main() {
 
   // Import articles
   console.log('📰 Import des articles...');
-  const rawItems = toArray(channel.item as WpItem);
   console.log(`  Éléments XML bruts : ${rawItems.length}`);
+  console.log(`  Pièces jointes (images) : ${attachmentMap.size}`);
 
   if (rawItems.length > 0) {
     const types = [...new Set(rawItems.map((item) => getPostType(item) || '(vide)'))];
@@ -491,26 +634,14 @@ async function main() {
   console.log(`  Total à traiter : ${items.length}`);
 
   for (const item of items) {
-    await importArticle(item, authorMap);
+    await importArticle(item, authorMap, attachmentMap);
   }
 
   // Sauvegarder les redirections
   const redirectsPath = path.join(path.dirname(WP_EXPORT_PATH), 'redirects.json');
   fs.writeFileSync(redirectsPath, JSON.stringify(redirects, null, 2));
 
-  console.log('');
-  console.log('═══════════════════════════════════════════');
-  console.log('  Résultats');
-  console.log('═══════════════════════════════════════════');
-  console.log(`  Articles  : ${stats.articles}`);
-  console.log(`  Catégories: ${stats.categories}`);
-  console.log(`  Tags      : ${stats.tags}`);
-  console.log(`  Auteurs   : ${stats.authors}`);
-  console.log(`  Images    : ${stats.images}`);
-  console.log(`  Ignorés   : ${stats.skipped}`);
-  console.log(`  Erreurs   : ${stats.errors}`);
-  console.log(`  Redirections: ${Object.keys(redirects).length} → ${redirectsPath}`);
-  console.log('');
+  printResults(redirectsPath);
 }
 
 main().catch((err) => {
