@@ -1,11 +1,15 @@
 import type { Article, Category } from '@wab-infos/shared';
 import type { NewsArticle, WithContext, BreadcrumbList, WebSite } from 'schema-dts';
-import { siteConfig } from '@/config/site';
+import { siteConfig, resolveArticleCategorySlug } from '@/config/site';
 import { getStrapiMediaUrl } from '@/lib/utils';
 
-export function generateArticleJsonLd(article: Article): WithContext<NewsArticle> {
+export function generateArticleJsonLd(
+  article: Article,
+  urlCategory?: string
+): WithContext<NewsArticle> {
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url) ?? siteConfig.ogImage;
-  const articleUrl = `${siteConfig.url}/${article.category?.slug ?? 'actualites'}/${article.slug}`;
+  const categorySlug = resolveArticleCategorySlug(article, urlCategory);
+  const articleUrl = `${siteConfig.url}/${categorySlug}/${article.slug}`;
 
   return {
     '@context': 'https://schema.org',
@@ -84,9 +88,10 @@ export function generateWebsiteJsonLd(): WithContext<WebSite> {
   };
 }
 
-export function generateArticleMetadata(article: Article) {
+export function generateArticleMetadata(article: Article, urlCategory?: string) {
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url) ?? siteConfig.ogImage;
-  const url = `${siteConfig.url}/${article.category?.slug ?? 'actualites'}/${article.slug}`;
+  const categorySlug = resolveArticleCategorySlug(article, urlCategory);
+  const url = `${siteConfig.url}/${categorySlug}/${article.slug}`;
 
   return {
     title: article.seoTitle || article.title,

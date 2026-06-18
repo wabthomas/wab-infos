@@ -32,7 +32,25 @@ export const categories = [
 
 export type CategorySlug = (typeof categories)[number]['slug'];
 
-/** Rubrique connue ou repli depuis les données Strapi / l'URL */
+const categorySlugSet = new Set<string>(categories.map((c) => c.slug));
+
+export function isValidCategorySlug(slug: string): slug is CategorySlug {
+  return categorySlugSet.has(slug);
+}
+
+export function getCategoryBySlug(slug: string) {
+  return categories.find((c) => c.slug === slug);
+}
+
+/** Slug de rubrique pour les URLs article (données Strapi > segment URL > défaut) */
+export function resolveArticleCategorySlug(
+  article: { category?: { slug?: string } },
+  urlCategory?: string
+): string {
+  return article.category?.slug ?? urlCategory ?? 'actualite';
+}
+
+/** Rubrique connue ou repli depuis les données Strapi / l'URL (pages article uniquement) */
 export function resolveCategoryMeta(
   slug: string,
   fallback?: { name?: string; color?: string }

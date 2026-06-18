@@ -173,7 +173,7 @@ export async function getArticles(options?: {
     ...articlePopulate,
     sort: ['publishedAt:desc'],
     pagination: { page: options?.page ?? 1, pageSize: options?.pageSize ?? 12 },
-    publicationState: 'live',
+    status: 'published',
   });
 
   return {
@@ -189,7 +189,7 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
     filters: { slug: { $eq: slug } },
     ...articlePopulate,
-    publicationState: 'live',
+    status: 'published',
   });
 
   if (!response.data.length) return null;
@@ -226,7 +226,7 @@ export async function searchArticles(query: string, page = 1): Promise<{
     ...articlePopulate,
     sort: ['publishedAt:desc'],
     pagination: { page, pageSize: 12 },
-    publicationState: 'live',
+    status: 'published',
   });
 
   return {
@@ -272,7 +272,7 @@ export async function getVideos(options?: { type?: Video['type']; pageSize?: num
     populate: { thumbnail: true, show: { populate: { thumbnail: true } } },
     sort: ['publishedAt:desc'],
     pagination: { pageSize: options?.pageSize ?? 12 },
-    publicationState: 'live',
+    status: 'published',
   });
 
   return response.data.map(mapVideo);
@@ -307,7 +307,7 @@ export async function getAllArticleSlugs(): Promise<string[]> {
     const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
       fields: ['slug'],
       pagination: { page, pageSize: 100 },
-      publicationState: 'live',
+      status: 'published',
     });
     slugs.push(...response.data.map((a) => a.slug as string));
     pageCount = response.meta?.pagination?.pageCount ?? 1;
@@ -325,7 +325,7 @@ export async function getRecentArticlesForNewsSitemap(hours = 48): Promise<Artic
     populate: { category: true },
     sort: ['publishedAt:desc'],
     pagination: { pageSize: 1000 },
-    publicationState: 'live',
+    status: 'published',
   });
 
   return response.data.map(mapArticle);

@@ -5,7 +5,7 @@ import { ArticleCard } from '@/components/articles/article-card';
 import { ArticleImage } from '@/components/ui/article-image';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { InArticleAd, SidebarAd } from '@/components/ads/adsense';
-import { resolveCategoryMeta, siteConfig } from '@/config/site';
+import { siteConfig, resolveArticleCategorySlug, resolveCategoryMeta, isValidCategorySlug } from '@/config/site';
 import { getMockArticles } from '@/lib/mock-data';
 import {
   generateArticleJsonLd,
@@ -20,13 +20,13 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, category } = await params;
   try {
     const article = await getArticleBySlug(slug);
-    if (article) return generateArticleMetadata(article);
+    if (article) return generateArticleMetadata(article, category);
   } catch {
     const mock = getMockArticles().find((a) => a.slug === slug);
-    if (mock) return generateArticleMetadata(mock);
+    if (mock) return generateArticleMetadata(mock, category);
   }
   return { title: 'Article non trouvé' };
 }
@@ -50,7 +50,12 @@ export default async function ArticlePage({ params }: PageProps) {
     redirect(`/${articleCategorySlug}/${slug}`);
   }
 
-  const cat = resolveCategoryMeta(category, {
+  if (!articleCategorySlug && !isValidCategorySlug(category)) {
+    notFound();
+  }
+
+  const categorySlug = resolveArticleCategorySlug(article, category);
+  const cat = resolveCategoryMeta(categorySlug, {
     name: article.category?.name,
     color: article.category?.color,
   });
@@ -64,12 +69,12 @@ export default async function ArticlePage({ params }: PageProps) {
     );
   }
 
-  const articleUrl = `${siteConfig.url}/${category}/${slug}`;
+  const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
-  const articleJsonLd = generateArticleJsonLd(article);
+  const articleJsonLd = generateArticleJsonLd(article, category);
   const breadcrumbJsonLd = generateBreadcrumbJsonLd([
     { name: 'Accueil', url: siteConfig.url },
-    { name: cat.name, url: `${siteConfig.url}/${category}` },
+    { name: cat.name, url: `${siteConfig.url}/${categorySlug}` },
     { name: article.title, url: articleUrl },
   ]);
 
@@ -86,7 +91,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
       <article className="container mx-auto px-4 py-6">
         <Breadcrumbs
-          items={[{ name: cat.name, href: `/${category}` }, { name: article.title }]}
+          items={[{ name: cat.name, href: `/${categorySlug}` }, { name: article.title }]}
         />
 
         <div className="grid gap-8 lg:grid-cols-3">

@@ -1,8 +1,14 @@
+import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArticleCard } from '@/components/articles/article-card';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { SidebarAd } from '@/components/ads/adsense';
-import { categories, resolveCategoryMeta, siteConfig } from '@/config/site';
+import {
+  categories,
+  getCategoryBySlug,
+  isValidCategorySlug,
+  siteConfig,
+} from '@/config/site';
 import { getMockArticles } from '@/lib/mock-data';
 import { generateCategoryMetadata } from '@/lib/seo';
 import { getArticles } from '@/lib/strapi';
@@ -19,7 +25,10 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { category } = await params;
-  const cat = resolveCategoryMeta(category);
+  if (!isValidCategorySlug(category)) {
+    return { title: 'Rubrique non trouvée' };
+  }
+  const cat = getCategoryBySlug(category)!;
   return generateCategoryMetadata({
     id: 0,
     documentId: '',
@@ -34,7 +43,11 @@ export const revalidate = 60;
 export default async function CategoryPage({ params }: PageProps) {
   const { category } = await params;
 
-  const cat = resolveCategoryMeta(category);
+  if (!isValidCategorySlug(category)) {
+    notFound();
+  }
+
+  const cat = getCategoryBySlug(category)!;
 
   let articles;
   try {
