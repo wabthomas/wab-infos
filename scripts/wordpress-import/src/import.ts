@@ -396,6 +396,23 @@ async function main() {
     console.error('STRAPI_API_TOKEN manquant dans .env');
     process.exit(1);
   }
+
+  if (!DRY_RUN) {
+    if (/your-strapi|change-me|placeholder/i.test(STRAPI_TOKEN)) {
+      console.error('STRAPI_API_TOKEN est encore une valeur placeholder dans .env');
+      process.exit(1);
+    }
+    try {
+      await strapiRequest('GET', '/articles?pagination[pageSize]=1');
+      console.log('✓ Token API Strapi valide');
+    } catch {
+      console.error('✗ Token API Strapi refusé (401).');
+      console.error('  Strapi admin → Settings → API Tokens → Create → Full access');
+      console.error('  Puis ajoutez STRAPI_API_TOKEN=... dans ~/wab-infos/.env');
+      process.exit(1);
+    }
+  }
+
   console.log('');
 
   if (!fs.existsSync(WP_EXPORT_PATH)) {
