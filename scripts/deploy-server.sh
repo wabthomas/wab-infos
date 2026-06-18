@@ -49,6 +49,10 @@ npm install
 echo "→ npm install (CMS)"
 npm install --prefix apps/cms
 
+echo "→ npm install (web, binaires natifs Linux)"
+rm -rf apps/web/node_modules apps/web/.next
+npm install --workspace=apps/web --include=optional
+
 echo "→ Lien Strapi monorepo"
 node scripts/setup-strapi-link.js
 
