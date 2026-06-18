@@ -13,7 +13,7 @@ import {
   generateBreadcrumbJsonLd,
 } from '@/lib/seo';
 import { getArticleBySlug, getRelatedArticles } from '@/lib/strapi';
-import { formatDate, getStrapiMediaUrl } from '@/lib/utils';
+import { formatDate, getStrapiMediaUrl, rewriteWordPressContent } from '@/lib/utils';
 
 interface PageProps {
   params: Promise<{ category: string; slug: string }>;
@@ -138,7 +138,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
             <div
               className="prose-article"
-              dangerouslySetInnerHTML={{ __html: article.content }}
+              dangerouslySetInnerHTML={{ __html: rewriteWordPressContent(article.content) }}
             />
 
             <InArticleAd />

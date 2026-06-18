@@ -36,11 +36,18 @@ export function calculateReadingTime(content: string): number {
   return Math.max(1, Math.ceil(words / wordsPerMinute));
 }
 
+export function rewriteWordPressContent(html: string): string {
+  return html.replace(
+    /https?:\/\/wab-infos\.com\/wp-content\/uploads\//gi,
+    '/wp-content/uploads/'
+  );
+}
+
 export function getStrapiMediaUrl(url?: string): string | null {
   if (!url) return null;
   if (url.startsWith('http')) return url;
-  const base = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
-  return `${base}${url}`;
+  // Proxy Next.js : app.wab-infos.com/uploads → Strapi
+  return url.startsWith('/') ? url : `/${url}`;
 }
 
 export function truncate(text: string, length: number): string {

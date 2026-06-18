@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '8090', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: 'wab-infos.com', pathname: '/wp-content/uploads/**' },
       { protocol: 'https', hostname: '**.wab-infos.com', pathname: '/**' },
       { protocol: 'https', hostname: 'i.ytimg.com', pathname: '/**' },
       { protocol: 'https', hostname: 'img.youtube.com', pathname: '/**' },
@@ -23,6 +24,10 @@ const nextConfig: NextConfig = {
       {
         source: '/uploads/:path*',
         destination: `${strapiUrl}/uploads/:path*`,
+      },
+      {
+        source: '/wp-content/uploads/:path*',
+        destination: 'https://wab-infos.com/wp-content/uploads/:path*',
       },
     ];
   },

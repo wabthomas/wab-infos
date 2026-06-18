@@ -11,6 +11,7 @@
  *   --dry-run    Simule l'import sans écrire dans Strapi
  *   --limit=N    Limite le nombre d'articles importés
  *   --backfill-images  Télécharge les images à la une pour les articles déjà importés
+ *   --force-images     Réimporte les images même si une image est déjà liée
  */
 
 import fs from 'fs';
@@ -57,6 +58,7 @@ const WP_BASE_URL = process.env.WP_BASE_URL || 'https://wab-infos.com';
 const WP_UPLOADS_PATH = process.env.WP_UPLOADS_PATH || path.join(__dirname, '../data/uploads');
 const DRY_RUN = process.argv.includes('--dry-run');
 const BACKFILL_IMAGES = process.argv.includes('--backfill-images');
+const FORCE_IMAGES = process.argv.includes('--force-images');
 const LIMIT = parseInt(getArg('--limit') || '0', 10);
 const OFFSET = parseInt(getArg('--offset') || '0', 10);
 
@@ -174,10 +176,19 @@ async function uploadImageFromUrl(imageUrl: string, alt?: string): Promise<numbe
       body: form as unknown as BodyInit,
     });
 
-    if (!uploadRes.ok) return null;
-    const data = (await uploadRes.json()) as { id: number }[];
-    return data[0]?.id ?? null;
-  } catch {
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text();
+      console.error(`  ✗ Upload ${imageUrl}: ${uploadRes.status} — ${text.slice(0, 150)}`);
+      return null;
+    }
+    const data = (await uploadRes.json()) as { id?: number }[];
+    const mediaId = data[0]?.id ?? null;
+    if (!mediaId) {
+      console.error(`  ✗ Upload sans id: ${imageUrl}`);
+    }
+    return mediaId;
+  } catch (err) {
+    console.error(`  ✗ Téléchargement ${imageUrl}:`, err);
     return null;
   }
 }
@@ -467,6 +478,15 @@ async function importArticle(
   }
 }
 
+function hasFeaturedImage(featuredImage: unknown): boolean {
+  if (!featuredImage || FORCE_IMAGES) return false;
+  if (typeof featuredImage !== 'object') return false;
+  const record = featuredImage as Record<string, unknown>;
+  if (record.url) return true;
+  if (record.id) return true;
+  return false;
+}
+
 async function backfillFeaturedImages(
   items: WpItem[],
   attachmentMap: Map<string, string>
@@ -496,13 +516,14 @@ async function backfillFeaturedImages(
         stats.skipped++;
         continue;
       }
-      if (article.featuredImage) {
+      if (hasFeaturedImage(article.featuredImage)) {
         stats.skipped++;
         continue;
       }
 
       const mediaId = await resolveFeaturedMediaId(item, title, attachmentMap);
       if (!mediaId) {
+        console.error(`  ✗ Pas d'image pour wpId=${wpId} "${title.slice(0, 40)}"`);
         stats.errors++;
         continue;
       }
@@ -513,7 +534,7 @@ async function backfillFeaturedImages(
         continue;
       }
 
-      await strapiRequest('PUT', `/articles/${article.documentId}`, {
+      await strapiRequest('PUT', `/articles/${article.documentId}?status=published`, {
         data: { featuredImage: mediaId },
       });
 

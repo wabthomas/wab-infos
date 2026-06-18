@@ -47,14 +47,31 @@ async function fetchAPI<T>(path: string, params?: Record<string, unknown>, optio
 
 function mapMedia(media: StrapiEntity | null | undefined): StrapiMedia | undefined {
   if (!media) return undefined;
+
+  const record = media as Record<string, unknown>;
+  if (record.data && typeof record.data === 'object') {
+    return mapMedia(record.data as StrapiEntity);
+  }
+
+  const url = media.url as string | undefined;
+  if (!url) return undefined;
+
+  const formats = media.formats as StrapiMedia['formats'];
+  const thumbnailUrl = formats?.thumbnail?.url;
+
   return {
     id: media.id,
-    url: media.url as string,
+    url: thumbnailUrl || url,
     alternativeText: media.alternativeText as string | undefined,
     width: media.width as number | undefined,
     height: media.height as number | undefined,
-    formats: media.formats as StrapiMedia['formats'],
+    formats,
   };
+}
+
+function firstImageFromHtml(html: string): string | undefined {
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return match?.[1];
 }
 
 function mapAuthor(entity: StrapiEntity): Author {
@@ -92,18 +109,28 @@ function mapTag(entity: StrapiEntity): Tag {
 }
 
 function mapArticle(entity: StrapiEntity): Article {
+  let featuredImage = mapMedia(entity.featuredImage as StrapiEntity);
+  const content = entity.content as string;
+
+  if (!featuredImage?.url && content) {
+    const fallbackUrl = firstImageFromHtml(content);
+    if (fallbackUrl) {
+      featuredImage = { id: 0, url: fallbackUrl };
+    }
+  }
+
   return {
     id: entity.id,
     documentId: entity.documentId,
     title: entity.title as string,
     slug: entity.slug as string,
     excerpt: entity.excerpt as string,
-    content: entity.content as string,
+    content,
     status: entity.status as Article['status'],
     publishedAt: entity.publishedAt as string,
     updatedAt: entity.updatedAt as string,
     createdAt: entity.createdAt as string,
-    featuredImage: mapMedia(entity.featuredImage as StrapiEntity),
+    featuredImage,
     author: entity.author ? mapAuthor(entity.author as StrapiEntity) : undefined,
     category: entity.category ? mapCategory(entity.category as StrapiEntity) : undefined,
     tags: Array.isArray(entity.tags)
