@@ -32,9 +32,21 @@ for (const envFile of [path.join(repoRoot, '.env'), path.join(repoRoot, 'apps/cm
     const eq = trimmed.indexOf('=');
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    const value = trimmed.slice(eq + 1).trim();
+    const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
     if (!process.env[key]) process.env[key] = value;
   }
+}
+
+/** WordPress XML peut renvoyer string, number ou { #text } */
+function toText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.length ? toText(value[0]) : '';
+  if (typeof value === 'object' && '#text' in value) {
+    return toText((value as { '#text': unknown })['#text']);
+  }
+  return String(value).trim();
 }
 
 // --- Configuration ---
@@ -164,7 +176,7 @@ function toArray<T>(item: T | T[] | undefined): T[] {
 }
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim();
+  return toText(html).replace(/<[^>]*>/g, '').trim();
 }
 
 function calculateReadingTime(content: string): number {
@@ -173,7 +185,11 @@ function calculateReadingTime(content: string): number {
 }
 
 async function importAuthor(wpAuthor: WpAuthor): Promise<string | null> {
-  const slug = wpAuthor['wp:author_login'].toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const login = toText(wpAuthor['wp:author_login']);
+  if (!login) return null;
+
+  const slug = login.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  if (!slug) return null;
   if (cache.authors.has(slug)) return cache.authors.get(slug)!;
 
   if (DRY_RUN) {
@@ -191,10 +207,10 @@ async function importAuthor(wpAuthor: WpAuthor): Promise<string | null> {
 
     const result = await strapiRequest('POST', '/authors', {
       data: {
-        name: wpAuthor['wp:author_display_name'],
+        name: toText(wpAuthor['wp:author_display_name']) || login,
         slug,
-        email: wpAuthor['wp:author_email'],
-        wpId: wpAuthor['wp:author_id'],
+        email: toText(wpAuthor['wp:author_email']),
+        wpId: Number(wpAuthor['wp:author_id']) || undefined,
       },
     }) as { data: { documentId: string } };
 
@@ -209,7 +225,9 @@ async function importAuthor(wpAuthor: WpAuthor): Promise<string | null> {
 }
 
 async function importCategory(nicename: string, name: string): Promise<string | null> {
-  const slug = CATEGORY_MAP[nicename] || nicename;
+  const nicenameStr = toText(nicename);
+  const nameStr = toText(name);
+  const slug = CATEGORY_MAP[nicenameStr] || nicenameStr;
   if (cache.categories.has(slug)) return cache.categories.get(slug)!;
 
   if (DRY_RUN) {
@@ -225,7 +243,7 @@ async function importCategory(nicename: string, name: string): Promise<string | 
     }
 
     const result = await strapiRequest('POST', '/categories', {
-      data: { name, slug },
+      data: { name: nameStr || slug, slug },
     }) as { data: { documentId: string } };
 
     cache.categories.set(slug, result.data.documentId);
@@ -237,26 +255,28 @@ async function importCategory(nicename: string, name: string): Promise<string | 
 }
 
 async function importTag(nicename: string, name: string): Promise<string | null> {
-  if (cache.tags.has(nicename)) return cache.tags.get(nicename)!;
+  const nicenameStr = toText(nicename);
+  const nameStr = toText(name);
+  if (cache.tags.has(nicenameStr)) return cache.tags.get(nicenameStr)!;
 
   if (DRY_RUN) {
-    cache.tags.set(nicename, 'dry-run');
+    cache.tags.set(nicenameStr, 'dry-run');
     stats.tags++;
     return 'dry-run';
   }
 
   try {
-    const existing = await strapiRequest('GET', `/tags?filters[slug][$eq]=${nicename}`) as { data: { documentId: string }[] };
+    const existing = await strapiRequest('GET', `/tags?filters[slug][$eq]=${nicenameStr}`) as { data: { documentId: string }[] };
     if (existing.data?.length) {
-      cache.tags.set(nicename, existing.data[0].documentId);
+      cache.tags.set(nicenameStr, existing.data[0].documentId);
       return existing.data[0].documentId;
     }
 
     const result = await strapiRequest('POST', '/tags', {
-      data: { name, slug: nicename },
+      data: { name: nameStr || nicenameStr, slug: nicenameStr },
     }) as { data: { documentId: string } };
 
-    cache.tags.set(nicename, result.data.documentId);
+    cache.tags.set(nicenameStr, result.data.documentId);
     stats.tags++;
     return result.data.documentId;
   } catch {
@@ -265,11 +285,11 @@ async function importTag(nicename: string, name: string): Promise<string | null>
 }
 
 async function importArticle(item: WpItem, authorMap: Map<number, string>): Promise<void> {
-  const wpId = item['wp:post_id'];
-  const slug = item['wp:post_name'];
-  const title = typeof item.title === 'string' ? item.title : '';
-  const content = item['content:encoded'] || '';
-  const excerpt = item['excerpt:encoded'] || stripHtml(content).slice(0, 300);
+  const wpId = Number(item['wp:post_id']) || 0;
+  const slug = toText(item['wp:post_name']);
+  const title = toText(item.title);
+  const content = toText(item['content:encoded']);
+  const excerpt = toText(item['excerpt:encoded']) || stripHtml(content).slice(0, 300);
 
   if (!title || !slug) {
     stats.skipped++;
@@ -282,13 +302,13 @@ async function importArticle(item: WpItem, authorMap: Map<number, string>): Prom
 
   let categoryId: string | null = null;
   for (const cat of categories) {
-    categoryId = await importCategory(cat['@_nicename'], cat['#text']);
+    categoryId = await importCategory(toText(cat['@_nicename']), toText(cat['#text']));
     if (categoryId) break;
   }
 
   const tagIds: string[] = [];
   for (const tag of tags) {
-    const id = await importTag(tag['@_nicename'], tag['#text']);
+    const id = await importTag(toText(tag['@_nicename']), toText(tag['#text']));
     if (id) tagIds.push(id);
   }
 
@@ -363,6 +383,10 @@ async function main() {
   console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'PRODUCTION'}`);
   console.log(`Fichier: ${WP_EXPORT_PATH}`);
   console.log(`Strapi: ${STRAPI_URL}`);
+  if (!STRAPI_TOKEN && !DRY_RUN) {
+    console.error('STRAPI_API_TOKEN manquant dans .env');
+    process.exit(1);
+  }
   console.log('');
 
   if (!fs.existsSync(WP_EXPORT_PATH)) {
