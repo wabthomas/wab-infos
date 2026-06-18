@@ -193,6 +193,32 @@ function isPublishedPost(item: WpItem): boolean {
   return getPostType(item) === 'post';
 }
 
+/** Strapi n'accepte que [A-Za-z0-9-_.~] — décode les slugs WordPress (%e1%b5%89 → ᵉ…) */
+function normalizeSlug(raw: string, fallbackId?: number): string {
+  let slug = toText(raw);
+
+  try {
+    if (/%[0-9A-Fa-f]{2}/.test(slug)) {
+      slug = decodeURIComponent(slug);
+    }
+  } catch {
+    // slug WordPress mal encodé — on nettoie ci-dessous
+  }
+
+  slug = slug
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9-_.~]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  if (!slug) {
+    slug = fallbackId ? `article-${fallbackId}` : 'article';
+  }
+
+  return slug.slice(0, 200);
+}
+
 async function importAuthor(wpAuthor: WpAuthor): Promise<string | null> {
   const login = toText(wpAuthor['wp:author_login']);
   if (!login) return null;
@@ -295,7 +321,7 @@ async function importTag(nicename: string, name: string): Promise<string | null>
 
 async function importArticle(item: WpItem, authorMap: Map<number, string>): Promise<void> {
   const wpId = Number(item['wp:post_id']) || 0;
-  const slug = toText(item['wp:post_name']);
+  const slug = normalizeSlug(toText(item['wp:post_name']), wpId);
   const title = toText(item.title);
   const content = toText(item['content:encoded']);
   const excerpt = toText(item['excerpt:encoded']) || stripHtml(content).slice(0, 300);
