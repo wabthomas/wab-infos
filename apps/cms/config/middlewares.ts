@@ -9,6 +9,7 @@ export default [
         'http://localhost:3000',
         'https://wab-infos.com',
         'https://www.wab-infos.com',
+        'https://cms.wab-infos.com',
       ],
       headers: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
     },

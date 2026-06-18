@@ -19,8 +19,10 @@
     "start:cms": "npm run start --prefix apps/cms",
     "import:wordpress": "npm run import --workspace=scripts/wordpress-import",
     "db:start": "powershell -ExecutionPolicy Bypass -File scripts/start-postgres.ps1",
-    "setup:cms": "powershell -ExecutionPolicy Bypass -File scripts/setup-strapi-link.ps1",
-    "postinstall": "powershell -ExecutionPolicy Bypass -File scripts/setup-strapi-link.ps1",
+    "setup:cms": "node scripts/setup-strapi-link.js",
+    "postinstall": "node scripts/setup-strapi-link.js",
+    "deploy:server": "bash scripts/deploy-server.sh",
+    "secrets": "node scripts/generate-secrets.js",
     "lint": "npm run lint --workspace=apps/web"
   },
   "devDependencies": {

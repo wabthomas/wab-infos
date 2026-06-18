@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Déploiement Wab-infos sur serveur Linux (PlanetHoster / VPS)
+# Usage: bash scripts/deploy-server.sh
+set -euo pipefail
+
+APP_DIR="${APP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+cd "$APP_DIR"
+
+echo "══════════════════════════════════════════"
+echo "  Wab-infos — Déploiement serveur"
+echo "  Répertoire: $APP_DIR"
+echo "══════════════════════════════════════════"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "❌ Node.js requis (v20+). Installez via nvm: nvm install 20"
+  exit 1
+fi
+
+NODE_MAJOR=$(node -p "process.versions.node.split('.')[0]")
+if [ "$NODE_MAJOR" -lt 20 ]; then
+  echo "❌ Node.js 20+ requis (actuel: $(node -v))"
+  exit 1
+fi
+
+if [ ! -f "$APP_DIR/.env" ]; then
+  echo "❌ Fichier .env manquant à la racine."
+  echo "   cp .env.example .env && nano .env"
+  exit 1
+fi
+
+if [ ! -f "$APP_DIR/apps/cms/.env" ]; then
+  echo "❌ Fichier apps/cms/.env manquant."
+  echo "   cp apps/cms/.env.example apps/cms/.env && nano apps/cms/.env"
+  exit 1
+fi
+
+# Sync frontend env from root .env
+if [ ! -f "$APP_DIR/apps/web/.env.local" ]; then
+  echo "→ Création apps/web/.env.local depuis .env"
+  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_)' "$APP_DIR/.env" > "$APP_DIR/apps/web/.env.local" || true
+fi
+
+echo "→ git pull"
+git pull --ff-only origin main
+
+echo "→ npm install (racine)"
+npm install
+
+echo "→ npm install (CMS)"
+npm install --prefix apps/cms
+
+echo "→ Lien Strapi monorepo"
+node scripts/setup-strapi-link.js
+
+echo "→ Build frontend"
+npm run build:web
+
+echo "→ Build CMS"
+npm run build:cms
+
+if command -v pm2 >/dev/null 2>&1; then
+  echo "→ PM2 reload"
+  pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
+  pm2 save
+  echo ""
+  pm2 status
+else
+  echo "⚠ PM2 non installé. Installez: npm install -g pm2"
+  echo "  Puis: pm2 start ecosystem.config.js && pm2 save"
+fi
+
+echo ""
+echo "✅ Déploiement terminé."
+echo "   Site: vérifier https://wab-infos.com"
+echo "   CMS:  vérifier https://cms.wab-infos.com/admin"
