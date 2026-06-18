@@ -211,6 +211,38 @@ export async function getRecommendedArticles(excludeSlug?: string): Promise<Arti
   return excludeSlug ? articles.filter((a) => a.slug !== excludeSlug) : articles;
 }
 
+/** Articles liés : même rubrique, puis récents — ne dépend pas de isRecommended */
+export async function getRelatedArticles(
+  slug: string,
+  categorySlug?: string,
+  pageSize = 4
+): Promise<Article[]> {
+  const seen = new Set<string>([slug]);
+  const result: Article[] = [];
+
+  if (categorySlug) {
+    const sameCategory = await getArticles({ category: categorySlug, pageSize: pageSize + 5 });
+    for (const article of sameCategory.articles) {
+      if (result.length >= pageSize) break;
+      if (seen.has(article.slug)) continue;
+      seen.add(article.slug);
+      result.push(article);
+    }
+  }
+
+  if (result.length < pageSize) {
+    const recent = await getArticles({ pageSize: pageSize + 10 });
+    for (const article of recent.articles) {
+      if (result.length >= pageSize) break;
+      if (seen.has(article.slug)) continue;
+      seen.add(article.slug);
+      result.push(article);
+    }
+  }
+
+  return result;
+}
+
 export async function searchArticles(query: string, page = 1): Promise<{
   articles: Article[];
   pagination: { total: number; pageCount: number };

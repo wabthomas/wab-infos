@@ -12,7 +12,7 @@ import {
   generateArticleMetadata,
   generateBreadcrumbJsonLd,
 } from '@/lib/seo';
-import { getArticleBySlug, getRecommendedArticles } from '@/lib/strapi';
+import { getArticleBySlug, getRelatedArticles } from '@/lib/strapi';
 import { formatDate, getStrapiMediaUrl } from '@/lib/utils';
 
 interface PageProps {
@@ -60,13 +60,11 @@ export default async function ArticlePage({ params }: PageProps) {
     color: article.category?.color,
   });
 
-  let recommended: Awaited<ReturnType<typeof getRecommendedArticles>> = [];
+  let related: Awaited<ReturnType<typeof getRelatedArticles>> = [];
   try {
-    recommended = await getRecommendedArticles(slug);
+    related = await getRelatedArticles(slug, article.category?.slug);
   } catch {
-    recommended = getMockArticles({ recommended: true, pageSize: 4 }).filter(
-      (a) => a.slug !== slug
-    );
+    related = getMockArticles({ pageSize: 4 }).filter((a) => a.slug !== slug);
   }
 
   const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;
@@ -162,13 +160,13 @@ export default async function ArticlePage({ params }: PageProps) {
 
           <aside className="space-y-6">
             <SidebarAd />
-            {recommended.length > 0 && (
+            {related.length > 0 && (
               <div className="rounded-lg border border-border p-4">
                 <h3 className="mb-4 text-sm font-bold uppercase tracking-wider">
                   À lire aussi
                 </h3>
                 <div className="space-y-4">
-                  {recommended.map((rec) => (
+                  {related.map((rec) => (
                     <ArticleCard key={rec.id} article={rec} variant="horizontal" />
                   ))}
                 </div>
