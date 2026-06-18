@@ -15,16 +15,34 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { XMLParser } from 'fast-xml-parser';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, '../../..');
+
+// Charger .env racine puis apps/cms/.env (token API)
+for (const envFile of [path.join(repoRoot, '.env'), path.join(repoRoot, 'apps/cms/.env')]) {
+  if (!fs.existsSync(envFile)) continue;
+  for (const line of fs.readFileSync(envFile, 'utf-8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim();
+    if (!process.env[key]) process.env[key] = value;
+  }
+}
+
 // --- Configuration ---
 const STRAPI_URL = process.env.STRAPI_URL || 'http://localhost:8090';
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN || '';
-const WP_EXPORT_PATH = process.env.WP_EXPORT_PATH || './data/wordpress-export.xml';
+const WP_EXPORT_PATH = process.env.WP_EXPORT_PATH || path.join(__dirname, '../data/wordpress-export.xml');
 const WP_BASE_URL = process.env.WP_BASE_URL || 'https://wab-infos.com';
-const WP_UPLOADS_PATH = process.env.WP_UPLOADS_PATH || './data/uploads';
+const WP_UPLOADS_PATH = process.env.WP_UPLOADS_PATH || path.join(__dirname, '../data/uploads');
 const DRY_RUN = process.argv.includes('--dry-run');
 const LIMIT = parseInt(getArg('--limit') || '0', 10);
 const OFFSET = parseInt(getArg('--offset') || '0', 10);

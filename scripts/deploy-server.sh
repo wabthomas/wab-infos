@@ -62,15 +62,14 @@ npm run build:web
 echo "→ Build CMS"
 npm run build:cms
 
-if command -v pm2 >/dev/null 2>&1; then
-  echo "→ PM2 reload"
+if command -v pm2 >/dev/null 2>&1 && [ "${USE_PM2:-}" = "1" ]; then
+  echo "→ PM2 reload (USE_PM2=1)"
   pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
   pm2 save
   echo ""
   pm2 status
 else
-  echo "⚠ PM2 non installé. Installez: npm install -g pm2"
-  echo "  Puis: pm2 start ecosystem.config.js && pm2 save"
+  echo "→ PM2 ignoré (PlanetHoster : redémarrer via N0C Langues → Node.js)"
 fi
 
 echo ""
