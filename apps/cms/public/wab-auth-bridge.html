@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Connexion — Wab-infos</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: system-ui, sans-serif;
+        background: #0c0c0f;
+        color: #fff;
+      }
+      p {
+        opacity: 0.8;
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <p>Connexion à la rédaction en cours…</p>
+    <script>
+      (function () {
+        var hash = window.location.hash.slice(1);
+        var params = new URLSearchParams(hash);
+        var token = params.get('token');
+        var remember = params.get('remember') !== '0';
+
+        if (!token) {
+          window.location.replace('/admin/auth/login');
+          return;
+        }
+
+        try {
+          if (remember) {
+            localStorage.setItem('jwtToken', JSON.stringify(token));
+          } else {
+            localStorage.removeItem('jwtToken');
+            document.cookie =
+              'jwtToken=' +
+              encodeURIComponent(token) +
+              '; path=/; SameSite=Lax' +
+              (location.protocol === 'https:' ? '; Secure' : '');
+          }
+        } catch (e) {
+          window.location.replace('/admin/auth/login');
+          return;
+        }
+
+        window.location.replace('/admin');
+      })();
+    </script>
+  </body>
+</html>

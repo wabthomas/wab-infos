@@ -131,5 +131,19 @@ export default {
     ]);
   },
 
-  bootstrap() {},
+  bootstrap() {
+    if (typeof document === 'undefined') return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      [data-strapi="auth"] {
+        background: linear-gradient(135deg, #0c0c0f 0%, #1a1a22 50%, #1d3557 100%) !important;
+      }
+      [data-strapi="auth"] form {
+        border-radius: 1rem;
+        box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.35);
+      }
+    `;
+    document.head.appendChild(style);
+  },
 };

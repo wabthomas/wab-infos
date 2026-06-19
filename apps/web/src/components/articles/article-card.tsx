@@ -40,14 +40,21 @@ export function ArticleCard({
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
           </div>
           <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
-            {article.category && (
-              <span
-                className="mb-3 inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm"
-                style={{ backgroundColor: categoryColor }}
-              >
-                {article.category.name}
-              </span>
-            )}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {article.isBreaking && (
+                <span className="inline-block rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                  Flash info
+                </span>
+              )}
+              {article.category && (
+                <span
+                  className="inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm"
+                  style={{ backgroundColor: categoryColor }}
+                >
+                  {article.category.name}
+                </span>
+              )}
+            </div>
             <h2 className="font-display text-2xl font-bold leading-tight text-white md:text-3xl lg:text-4xl">
               {article.title}
             </h2>

@@ -1,5 +1,6 @@
 import { BreakingNewsTicker } from '@/components/articles/breaking-news-ticker';
 import { ArticleCard } from '@/components/articles/article-card';
+import { HomeRecentNews, RECENT_NEWS_DISPLAY_COUNT } from '@/components/home/home-recent-news';
 import { HeaderAd, SidebarAd } from '@/components/ads/adsense';
 import { HomeBottomSections } from '@/components/home/home-bottom-sections';
 import { HomeVideoSection } from '@/components/home/home-video-section';
@@ -9,7 +10,7 @@ import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { SectionHeader } from '@/components/ui/section-header';
 import { categories } from '@/config/site';
 import { getMockArticles } from '@/lib/mock-data';
-import { getBreakingNews, getFeaturedArticles, getArticles } from '@/lib/strapi';
+import { getBreakingNews, getArticles } from '@/lib/strapi';
 import Link from 'next/link';
 
 const navCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
@@ -27,21 +28,18 @@ const bottomSectionSlugs = [
 
 async function getHomeData() {
   try {
-    const [breaking, featured, latest] = await Promise.all([
+    const [breaking, latest] = await Promise.all([
       getBreakingNews(),
-      getFeaturedArticles(),
       getArticles({ pageSize: 30 }),
     ]);
     return {
       breaking,
-      featured,
       latest: latest.articles,
     };
   } catch {
     return {
       breaking: getMockArticles({ breaking: true }),
-      featured: getMockArticles({ featured: true, pageSize: 3 }),
-      latest: getMockArticles({ pageSize: 12 }),
+      latest: getMockArticles({ pageSize: 30 }),
     };
   }
 }
@@ -49,14 +47,14 @@ async function getHomeData() {
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const { breaking, featured, latest } = await getHomeData();
-  const heroArticle = featured[0];
-  const sideFeatured = featured.slice(1, 3);
-  const gridArticles = latest.slice(0, 9);
-  const topRead = [...latest].sort((a, b) => b.viewCount - a.viewCount).slice(0, 5);
-  const liveFeed = [...latest].sort(
+  const { breaking, latest } = await getHomeData();
+
+  const recentNews = [...latest].sort(
     (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
+  const gridArticles = recentNews.slice(RECENT_NEWS_DISPLAY_COUNT, RECENT_NEWS_DISPLAY_COUNT + 9);
+  const topRead = [...latest].sort((a, b) => b.viewCount - a.viewCount).slice(0, 5);
+  const liveFeed = recentNews;
 
   const topCategories = navCategories.filter((cat) =>
     (topSectionSlugs as readonly string[]).includes(cat.slug)
@@ -72,18 +70,7 @@ export default async function HomePage() {
       <HeaderAd />
 
       <div className="container mx-auto px-4 py-8">
-        {heroArticle && (
-          <section className="mb-10 grid gap-5 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <ArticleCard article={heroArticle} variant="featured" priority />
-            </div>
-            <div className="flex flex-col gap-4">
-              {sideFeatured.map((article) => (
-                <ArticleCard key={article.id} article={article} variant="horizontal" />
-              ))}
-            </div>
-          </section>
-        )}
+        <HomeRecentNews articles={recentNews.slice(0, RECENT_NEWS_DISPLAY_COUNT)} />
 
         <div className="grid gap-10 lg:grid-cols-3">
           <div className="space-y-12 lg:col-span-2">
