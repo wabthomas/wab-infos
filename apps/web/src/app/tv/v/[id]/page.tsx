@@ -10,7 +10,7 @@ import {
   generateVideoJsonLd,
   generateVideoMetadata,
 } from '@/lib/seo';
-import { resolveVideoByYoutubeId } from '@/lib/youtube-channel';
+import { resolveVideoByYoutubeId, isValidVideoPublishedAt } from '@/lib/youtube-channel';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -77,17 +77,19 @@ export default async function VideoWatchPage({ params }: PageProps) {
                 <h1 className="font-display mt-2 text-2xl font-bold leading-tight md:text-3xl">
                   {video.title}
                 </h1>
-                <time
-                  dateTime={video.publishedAt}
-                  className="mt-3 block text-sm text-muted-foreground"
-                >
-                  Publié le{' '}
-                  {new Date(video.publishedAt).toLocaleDateString('fr-FR', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </time>
+                {isValidVideoPublishedAt(video.publishedAt) && (
+                  <time
+                    dateTime={video.publishedAt}
+                    className="mt-3 block text-sm text-muted-foreground"
+                  >
+                    Publié le{' '}
+                    {new Date(video.publishedAt).toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </time>
+                )}
               </header>
 
               {video.description && (

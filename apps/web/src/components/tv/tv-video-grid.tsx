@@ -3,6 +3,7 @@ import type { Video } from '@wab-infos/shared';
 import { getVideoPagePath } from '@/config/site';
 import { YouTubeEmbed } from '@/components/tv/youtube-embed';
 import { getYoutubeThumbnailUrl } from '@/lib/seo';
+import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
 
 interface TvVideoGridProps {
   videos: Video[];
@@ -47,17 +48,19 @@ export function TvVideoGrid({
                 itemProp="thumbnailUrl"
                 content={getYoutubeThumbnailUrl(video.youtubeId)}
               />
-              <time
-                dateTime={video.publishedAt}
-                className="mt-2 block text-xs text-muted-foreground"
-                itemProp="uploadDate"
-              >
-                {new Date(video.publishedAt).toLocaleDateString('fr-FR', {
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </time>
+              {isValidVideoPublishedAt(video.publishedAt) && (
+                <time
+                  dateTime={video.publishedAt}
+                  className="mt-2 block text-xs text-muted-foreground"
+                  itemProp="uploadDate"
+                >
+                  {new Date(video.publishedAt).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </time>
+              )}
             </div>
           </article>
         );

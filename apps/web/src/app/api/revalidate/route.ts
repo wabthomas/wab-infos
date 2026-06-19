@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
     if (type === 'video') {
       revalidatePath('/sitemap.xml');
       revalidatePath('/sitemap-videos.xml');
+      revalidatePath('/feed-tv.xml');
       revalidatePath('/tv');
       if (slug) {
         revalidatePath(`/tv/v/${slug}`);

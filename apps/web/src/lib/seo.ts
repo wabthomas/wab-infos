@@ -14,6 +14,7 @@ import {
   siteConfig,
 } from '@/config/site';
 import { getStrapiMediaUrl } from '@/lib/utils';
+import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -145,7 +146,7 @@ export function generateVideoJsonLd(video: Video): WithContext<VideoObject> {
     name: video.title,
     description: video.description || `${video.title} — Wab-infos TV`,
     thumbnailUrl: [thumbnail, getYoutubeThumbnailUrl(video.youtubeId, 'hq')],
-    uploadDate: video.publishedAt,
+    ...(isValidVideoPublishedAt(video.publishedAt) ? { uploadDate: video.publishedAt } : {}),
     contentUrl: `https://www.youtube.com/watch?v=${video.youtubeId}`,
     embedUrl: `https://www.youtube.com/embed/${video.youtubeId}`,
     mainEntityOfPage: pageUrl,

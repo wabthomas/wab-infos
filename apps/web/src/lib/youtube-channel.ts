@@ -149,6 +149,45 @@ export async function getYoutubeOembed(videoId: string): Promise<{
   }
 }
 
+export async function getYoutubeVideoFromApi(videoId: string): Promise<{
+  title: string;
+  description?: string;
+  publishedAt: string;
+} | null> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+    url.searchParams.set('part', 'snippet');
+    url.searchParams.set('id', videoId);
+    url.searchParams.set('key', apiKey);
+
+    const response = await fetch(url, { next: { revalidate: 3600 } });
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      items?: { snippet: { title: string; description?: string; publishedAt: string } }[];
+    };
+
+    const snippet = data.items?.[0]?.snippet;
+    if (!snippet?.publishedAt) return null;
+
+    return {
+      title: snippet.title,
+      description: snippet.description,
+      publishedAt: snippet.publishedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function isValidVideoPublishedAt(publishedAt: string | undefined): publishedAt is string {
+  if (!publishedAt) return false;
+  return !Number.isNaN(Date.parse(publishedAt));
+}
+
 export async function resolveVideoByYoutubeId(youtubeId: string): Promise<Video | null> {
   try {
     const fromStrapi = await getVideoByYoutubeId(youtubeId);
@@ -164,9 +203,24 @@ export async function resolveVideoByYoutubeId(youtubeId: string): Promise<Video 
     if (fromFeed) return youtubeVideoToTvVideo(fromFeed, 'replay');
   }
 
+  const fromApi = await getYoutubeVideoFromApi(youtubeId);
+  if (fromApi) {
+    return {
+      id: 0,
+      documentId: `yt-${youtubeId}`,
+      title: fromApi.title,
+      slug: youtubeId,
+      description: fromApi.description?.slice(0, 500) || `${fromApi.title} — Wab-infos TV`,
+      youtubeId,
+      type: 'replay',
+      publishedAt: fromApi.publishedAt,
+    };
+  }
+
   const oembed = await getYoutubeOembed(youtubeId);
   if (!oembed) return null;
 
+  // oEmbed ne fournit pas la date — pas de publishedAt inventée
   return {
     id: 0,
     documentId: `yt-${youtubeId}`,
@@ -175,7 +229,7 @@ export async function resolveVideoByYoutubeId(youtubeId: string): Promise<Video 
     description: `Vidéo de ${oembed.authorName} sur Wab-infos TV`,
     youtubeId,
     type: 'replay',
-    publishedAt: new Date().toISOString(),
+    publishedAt: '',
   };
 }
 

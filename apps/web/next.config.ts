@@ -47,10 +47,16 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns'],
-    // PlanetHoster / VPS peu de RAM : un seul worker de pré-rendu
+    // PlanetHoster / mutualisé : un seul worker, pas de processus Webpack séparé
     cpus: 1,
+    webpackBuildWorker: false,
     staticGenerationMaxConcurrency: 1,
     staticGenerationMinPagesPerWorker: 50,
+  },
+  webpack: (config) => {
+    // Limite le parallélisme Webpack (évite EAGAIN sur ulimit bas)
+    config.parallelism = 1;
+    return config;
   },
 };
 
