@@ -3,6 +3,8 @@ import { Book, Earth, ListPlus } from '@strapi/icons';
 import AuthLogo from './extensions/logo-auth.svg';
 import MenuLogo from './extensions/logo-menu.svg';
 import Favicon from './extensions/favicon.svg';
+import { redirectToWabAdminLogin } from './auth-redirect';
+import { AUTH_FALLBACK_CSS } from './auth-theme.css';
 
 const wabTheme = {
   light: {
@@ -38,10 +40,13 @@ const wabTheme = {
 const frTranslations = {
   'Auth.form.welcome.title': 'Bienvenue sur Wab-infos',
   'Auth.form.welcome.subtitle': 'Connectez-vous à votre espace rédaction',
-  'Auth.form.button.login': 'Connexion',
+  'Auth.form.button.login': 'Accéder au tableau de bord',
   'Auth.form.button.register': 'Créer mon compte',
   'Auth.form.email.label': 'Adresse e-mail',
+  'Auth.form.email.placeholder': 'redaction@wab-infos.com',
   'Auth.form.password.label': 'Mot de passe',
+  'Auth.form.rememberMe.label': 'Rester connecté sur cet appareil',
+  'Auth.link.forgot-password': 'Mot de passe oublié ?',
   'app.components.HomePage.welcome': 'Bienvenue dans la rédaction Wab-infos',
   'app.components.HomePage.welcome.again': 'Bon retour sur Wab-infos',
   'app.components.HomePage.button.blog': 'Voir le site',
@@ -132,18 +137,12 @@ export default {
   },
 
   bootstrap() {
+    redirectToWabAdminLogin();
+
     if (typeof document === 'undefined') return;
 
     const style = document.createElement('style');
-    style.textContent = `
-      [data-strapi="auth"] {
-        background: linear-gradient(135deg, #0c0c0f 0%, #1a1a22 50%, #1d3557 100%) !important;
-      }
-      [data-strapi="auth"] form {
-        border-radius: 1rem;
-        box-shadow: 0 24px 48px -12px rgb(0 0 0 / 0.35);
-      }
-    `;
+    style.textContent = AUTH_FALLBACK_CSS;
     document.head.appendChild(style);
   },
 };

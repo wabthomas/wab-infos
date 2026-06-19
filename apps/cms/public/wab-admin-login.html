@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Connexion rédaction — Wab-infos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary: #c41e3a;
+        --primary-dark: #a01830;
+        --bg: #fafafa;
+        --card: #ffffff;
+        --text: #111827;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --hero: linear-gradient(135deg, #c41e3a 0%, #8b1538 50%, #1d3557 100%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      .grid {
+        display: grid;
+        min-height: 100vh;
+      }
+
+      @media (min-width: 1024px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .hero {
+        display: none;
+        position: relative;
+        overflow: hidden;
+        background: #0c0c0f;
+        color: #fff;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 2.5rem 3rem;
+      }
+
+      @media (min-width: 1024px) {
+        .hero {
+          display: flex;
+        }
+      }
+
+      .hero::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: var(--hero);
+        opacity: 0.92;
+      }
+
+      .hero::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        opacity: 0.35;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      }
+
+      .hero > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .brand {
+        font-family: 'Oswald', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #fff;
+        text-decoration: none;
+      }
+
+      .hero-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.6);
+        margin: 0 0 0.75rem;
+      }
+
+      .hero-title {
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: clamp(2rem, 4vw, 2.75rem);
+        font-weight: 700;
+        line-height: 1.15;
+        margin: 0;
+        max-width: 22rem;
+      }
+
+      .hero-text {
+        margin: 1rem 0 0;
+        max-width: 24rem;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.72);
+      }
+
+      .hero-foot {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.45);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 1.5rem;
+      }
+
+      .panel {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 2.5rem 1.5rem;
+      }
+
+      @media (min-width: 640px) {
+        .panel {
+          padding: 3rem 2.5rem;
+        }
+      }
+
+      @media (min-width: 1024px) {
+        .panel {
+          padding: 3rem 4rem;
+        }
+      }
+
+      .panel-inner {
+        width: 100%;
+        max-width: 26rem;
+        margin: 0 auto;
+      }
+
+      .back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 2rem;
+        font-size: 0.875rem;
+        color: var(--muted);
+        text-decoration: none;
+      }
+
+      .back:hover {
+        color: var(--text);
+      }
+
+      @media (min-width: 1024px) {
+        .back.mobile-only {
+          display: none;
+        }
+      }
+
+      .mobile-brand {
+        display: block;
+        margin-bottom: 1.5rem;
+        font-family: 'Oswald', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+        text-decoration: none;
+      }
+
+      @media (min-width: 1024px) {
+        .mobile-brand {
+          display: none;
+        }
+      }
+
+      h1 {
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: 1.85rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        margin: 0.5rem 0 0;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      form {
+        margin-top: 2rem;
+      }
+
+      .field {
+        margin-bottom: 1.25rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.4rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+
+      input[type='email'],
+      input[type='password'] {
+        width: 100%;
+        height: 2.75rem;
+        padding: 0 0.9rem;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        font-size: 0.9rem;
+        background: var(--card);
+        color: var(--text);
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+
+      input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.15);
+      }
+
+      .password-wrap {
+        position: relative;
+      }
+
+      .password-wrap input {
+        padding-right: 2.75rem;
+      }
+
+      .toggle-pw {
+        position: absolute;
+        right: 0.65rem;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem;
+      }
+
+      .remember {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.875rem;
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .remember input {
+        width: 1rem;
+        height: 1rem;
+        accent-color: var(--primary);
+      }
+
+      .error {
+        display: none;
+        margin-bottom: 1rem;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(196, 30, 58, 0.3);
+        background: rgba(196, 30, 58, 0.08);
+        color: #b91c1c;
+        font-size: 0.875rem;
+      }
+
+      .error.visible {
+        display: block;
+      }
+
+      .submit {
+        width: 100%;
+        height: 2.75rem;
+        border: none;
+        border-radius: 0.5rem;
+        background: var(--primary);
+        color: #fff;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(196, 30, 58, 0.25);
+        transition: background 0.15s, opacity 0.15s;
+      }
+
+      .submit:hover:not(:disabled) {
+        background: var(--primary-dark);
+      }
+
+      .submit:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+
+      .footer-note {
+        margin-top: 2rem;
+        text-align: center;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+
+      .footer-note a {
+        color: var(--primary);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .footer-note a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grid">
+      <aside class="hero">
+        <a class="brand" href="#" id="site-link-hero">Wab-infos</a>
+        <div>
+          <p class="hero-label">Espace rédaction</p>
+          <h2 class="hero-title">Publiez l'actualité en toute simplicité</h2>
+          <p class="hero-text">
+            Tableau de bord éditorial pour rédiger, planifier et diffuser les articles sur Wab-infos.
+          </p>
+        </div>
+        <p class="hero-foot">Réservé aux membres de la rédaction</p>
+      </aside>
+
+      <main class="panel">
+        <div class="panel-inner">
+          <a class="back mobile-only" href="#" id="site-link-back">← Retour au site</a>
+          <a class="mobile-brand" href="#" id="site-link-mobile">Wab-infos</a>
+
+          <h1>Connexion</h1>
+          <p class="subtitle">Accédez au tableau de bord éditorial</p>
+
+          <div id="error" class="error" role="alert"></div>
+
+          <form id="login-form" novalidate>
+            <div class="field">
+              <label for="email">Adresse e-mail</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autocomplete="email"
+                required
+                placeholder="redaction@wab-infos.com"
+              />
+            </div>
+
+            <div class="field">
+              <label for="password">Mot de passe</label>
+              <div class="password-wrap">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                  placeholder="••••••••"
+                />
+                <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Afficher le mot de passe">
+                  Voir
+                </button>
+              </div>
+            </div>
+
+            <label class="remember">
+              <input type="checkbox" id="remember" name="remember" checked />
+              Rester connecté sur cet appareil
+            </label>
+
+            <button type="submit" class="submit" id="submit-btn">Accéder au tableau de bord</button>
+          </form>
+
+          <p class="footer-note">
+            Problème d'accès ?
+            <a href="#" id="site-link-contact">Contactez l'administrateur</a>
+          </p>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var redirect = params.get('redirect') || '/admin';
+        var siteUrl = params.get('site');
+
+        if (!siteUrl) {
+          var host = window.location.hostname;
+          if (host.indexOf('cms.') === 0) {
+            siteUrl = window.location.protocol + '//' + host.replace(/^cms\./, 'app.');
+          } else if (host === 'localhost' || host === '127.0.0.1') {
+            siteUrl = 'http://localhost:3000';
+          } else {
+            siteUrl = 'https://app.wab-infos.com';
+          }
+        }
+
+        function setHref(id, path) {
+          var el = document.getElementById(id);
+          if (el) el.href = siteUrl.replace(/\/$/, '') + path;
+        }
+
+        setHref('site-link-hero', '/');
+        setHref('site-link-back', '/');
+        setHref('site-link-mobile', '/');
+        setHref('site-link-contact', '/contact');
+
+        var pw = document.getElementById('password');
+        var toggle = document.getElementById('toggle-pw');
+        toggle.addEventListener('click', function () {
+          var show = pw.type === 'password';
+          pw.type = show ? 'text' : 'password';
+          toggle.textContent = show ? 'Masquer' : 'Voir';
+        });
+
+        var form = document.getElementById('login-form');
+        var errorEl = document.getElementById('error');
+        var submitBtn = document.getElementById('submit-btn');
+
+        function showError(msg) {
+          errorEl.textContent = msg;
+          errorEl.classList.add('visible');
+        }
+
+        function hideError() {
+          errorEl.classList.remove('visible');
+        }
+
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          hideError();
+
+          var email = document.getElementById('email').value.trim().toLowerCase();
+          var password = document.getElementById('password').value;
+          var remember = document.getElementById('remember').checked;
+
+          if (!email || !password) {
+            showError('Veuillez renseigner votre e-mail et votre mot de passe.');
+            return;
+          }
+
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Connexion…';
+
+          fetch('/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, password: password, rememberMe: remember }),
+          })
+            .then(function (res) {
+              return res.json().then(function (data) {
+                return { ok: res.ok, data: data };
+              });
+            })
+            .then(function (result) {
+              if (!result.ok || !result.data.data || !result.data.data.token) {
+                showError('Identifiants incorrects ou compte introuvable.');
+                return;
+              }
+
+              var token = result.data.data.token;
+
+              if (remember) {
+                localStorage.setItem('jwtToken', JSON.stringify(token));
+              } else {
+                localStorage.removeItem('jwtToken');
+                var secure = location.protocol === 'https:' ? '; Secure' : '';
+                document.cookie =
+                  'jwtToken=' + encodeURIComponent(token) + '; path=/; SameSite=Lax' + secure;
+              }
+
+              window.location.href = redirect;
+            })
+            .catch(function () {
+              showError('Service indisponible. Réessayez dans un instant.');
+            })
+            .finally(function () {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Accéder au tableau de bord';
+            });
+        });
+      })();
+    </script>
+  </body>
+</html>
