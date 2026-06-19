@@ -19,6 +19,7 @@
     "start:cms": "npm run start --prefix apps/cms",
     "import:wordpress": "npm run import --workspace=@wab-infos/wordpress-import --",
     "import:images": "npm run backfill-images --workspace=@wab-infos/wordpress-import --",
+    "import:meta": "npm run backfill-meta --workspace=@wab-infos/wordpress-import --",
     "db:start": "powershell -ExecutionPolicy Bypass -File scripts/start-postgres.ps1",
     "setup:cms": "node scripts/setup-strapi-link.js",
     "postinstall": "node scripts/setup-strapi-link.js",

@@ -11,6 +11,7 @@
  *   --dry-run    Simule l'import sans écrire dans Strapi
  *   --limit=N    Limite le nombre d'articles importés
  *   --backfill-images  Télécharge les images à la une pour les articles déjà importés
+ *   --backfill-meta    Met à jour dates de publication et compteurs de vues (articles existants)
  *   --force-images     Réimporte les images même si une image est déjà liée
  */
 
@@ -58,6 +59,7 @@ const WP_BASE_URL = process.env.WP_BASE_URL || 'https://wab-infos.com';
 const WP_UPLOADS_PATH = process.env.WP_UPLOADS_PATH || path.join(__dirname, '../data/uploads');
 const DRY_RUN = process.argv.includes('--dry-run');
 const BACKFILL_IMAGES = process.argv.includes('--backfill-images');
+const BACKFILL_META = process.argv.includes('--backfill-meta');
 const FORCE_IMAGES = process.argv.includes('--force-images');
 const LIMIT = parseInt(getArg('--limit') || '0', 10);
 const OFFSET = parseInt(getArg('--offset') || '0', 10);
@@ -71,6 +73,9 @@ interface WpItem {
   title: string;
   'wp:post_id': number;
   'wp:post_date': string;
+  'wp:post_date_gmt'?: string;
+  'wp:post_modified'?: string;
+  'wp:post_modified_gmt'?: string;
   'wp:post_name': string;
   'wp:status': string;
   'wp:post_type': string;
@@ -123,6 +128,7 @@ const stats = {
   tags: 0,
   authors: 0,
   images: 0,
+  meta: 0,
   errors: 0,
   skipped: 0,
 };
@@ -224,6 +230,62 @@ function stripHtml(html: string): string {
 function calculateReadingTime(content: string): number {
   const words = stripHtml(content).split(/\s+/).length;
   return Math.max(1, Math.ceil(words / 200));
+}
+
+/** Clés postmeta WordPress courantes pour les compteurs de vues */
+const VIEW_META_KEYS = [
+  'views',
+  'post_views_count',
+  'pvc_views',
+  '_post_views',
+  'view_count',
+  'wpb_post_views_count',
+  'jetpack_post_views',
+  'pageviews',
+] as const;
+
+function getPostMeta(item: WpItem, key: string): string {
+  const postmeta = toArray(item['wp:postmeta']);
+  const meta = postmeta.find((m) => toText(m['wp:meta_key']) === key);
+  return meta ? toText(meta['wp:meta_value']) : '';
+}
+
+function extractViewCount(item: WpItem): number {
+  for (const key of VIEW_META_KEYS) {
+    const raw = getPostMeta(item, key);
+    if (!raw) continue;
+    const value = parseInt(raw.replace(/\D/g, ''), 10);
+    if (!Number.isNaN(value) && value >= 0) return value;
+  }
+  return 0;
+}
+
+function parseWpDate(dateStr: string, gmt = false): string | null {
+  const raw = toText(dateStr);
+  if (!raw) return null;
+
+  let normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  if (gmt && !normalized.endsWith('Z') && !/[+-]\d{2}:\d{2}$/.test(normalized)) {
+    normalized = `${normalized}Z`;
+  }
+
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function getWordPressDates(item: WpItem): { publishedAt: string | null; updatedAt: string | null } {
+  const publishedAt =
+    parseWpDate(toText(item['wp:post_date_gmt']), true) ||
+    parseWpDate(toText(item['wp:post_date'])) ||
+    null;
+
+  const updatedAt =
+    parseWpDate(toText(item['wp:post_modified_gmt']), true) ||
+    parseWpDate(toText(item['wp:post_modified'])) ||
+    publishedAt;
+
+  return { publishedAt, updatedAt };
 }
 
 function getPostType(item: WpItem): string {
@@ -426,6 +488,11 @@ async function importArticle(
   const featuredImageId = await resolveFeaturedMediaId(item, title, attachmentMap);
   if (featuredImageId) stats.images++;
 
+  const { publishedAt, updatedAt } = getWordPressDates(item);
+  const viewCount = extractViewCount(item);
+  const wpStatus = toText(item['wp:status']);
+  const isPublished = wpStatus === 'publish';
+
   const oldUrl = `${WP_BASE_URL}/${categories[0]?.['@_nicename'] || 'actualites'}/${slug}`;
   const newCategory = categories[0]?.['@_nicename']
     ? CATEGORY_MAP[categories[0]['@_nicename']] || categories[0]['@_nicename']
@@ -438,35 +505,41 @@ async function importArticle(
 
   if (DRY_RUN) {
     stats.articles++;
-    console.log(`  [DRY] ${title.slice(0, 60)}...`);
+    const viewsLabel = viewCount > 0 ? ` | ${viewCount} vues` : '';
+    const dateLabel = publishedAt ? ` | ${publishedAt.slice(0, 10)}` : '';
+    console.log(`  [DRY] ${title.slice(0, 50)}...${dateLabel}${viewsLabel}`);
     return;
   }
 
   try {
-    const existing = await strapiRequest('GET', `/articles?filters[wpId][$eq]=${wpId}`) as { data: unknown[] };
+    const existing = await strapiRequest('GET', `/articles?filters[wpId][$eq]=${wpId}`) as { data: { documentId: string }[] };
     if (existing.data?.length) {
       stats.skipped++;
       return;
     }
 
-    await strapiRequest('POST', '/articles', {
-      data: {
-        title,
-        slug,
-        excerpt: stripHtml(excerpt).slice(0, 500),
-        content,
-        status: toText(item['wp:status']) === 'publish' ? 'published' : 'draft',
-        publishedAt: toText(item['wp:post_date']),
-        wpId,
-        readingTime: calculateReadingTime(content),
-        canonicalUrl: oldUrl,
-        category: categoryId,
-        tags: tagIds.length ? tagIds : undefined,
-        featuredImage: featuredImageId,
-        seoTitle: title.slice(0, 70),
-        seoDescription: stripHtml(excerpt).slice(0, 160),
-      },
-    });
+    const articleData: Record<string, unknown> = {
+      title,
+      slug,
+      excerpt: stripHtml(excerpt).slice(0, 500),
+      content,
+      status: isPublished ? 'published' : 'draft',
+      wpId,
+      readingTime: calculateReadingTime(content),
+      viewCount,
+      canonicalUrl: oldUrl,
+      category: categoryId,
+      tags: tagIds.length ? tagIds : undefined,
+      featuredImage: featuredImageId,
+      seoTitle: title.slice(0, 70),
+      seoDescription: stripHtml(excerpt).slice(0, 160),
+    };
+
+    if (publishedAt) articleData.publishedAt = publishedAt;
+    if (updatedAt) articleData.updatedAt = updatedAt;
+
+    const createEndpoint = isPublished ? '/articles?status=published' : '/articles';
+    await strapiRequest('POST', createEndpoint, { data: articleData });
 
     stats.articles++;
     if (stats.articles % 100 === 0) {
@@ -549,6 +622,66 @@ async function backfillFeaturedImages(
   }
 }
 
+async function backfillArticleMeta(items: WpItem[]): Promise<void> {
+  console.log('📅 Mise à jour des dates et compteurs de vues...');
+
+  let posts = items.filter(isPublishedPost);
+  if (OFFSET > 0) posts = posts.slice(OFFSET);
+  if (LIMIT > 0) posts = posts.slice(0, LIMIT);
+
+  console.log(`  Articles à traiter : ${posts.length}`);
+
+  for (const item of posts) {
+    const wpId = Number(item['wp:post_id']) || 0;
+    const title = toText(item.title);
+    if (!wpId) continue;
+
+    const { publishedAt, updatedAt } = getWordPressDates(item);
+    const viewCount = extractViewCount(item);
+
+    if (!publishedAt && viewCount === 0) {
+      stats.skipped++;
+      continue;
+    }
+
+    try {
+      const existing = (await strapiRequest(
+        'GET',
+        `/articles?filters[wpId][$eq]=${wpId}&pagination[pageSize]=1`
+      )) as { data: { documentId: string }[] };
+
+      const article = existing.data?.[0];
+      if (!article) {
+        stats.skipped++;
+        continue;
+      }
+
+      if (DRY_RUN) {
+        stats.meta++;
+        console.log(
+          `  [DRY] Meta → ${title.slice(0, 40)} | ${publishedAt?.slice(0, 10) ?? '—'} | ${viewCount} vues`
+        );
+        continue;
+      }
+
+      const data: Record<string, unknown> = {};
+      if (publishedAt) data.publishedAt = publishedAt;
+      if (updatedAt) data.updatedAt = updatedAt;
+      if (viewCount > 0) data.viewCount = viewCount;
+
+      await strapiRequest('PUT', `/articles/${article.documentId}?status=published`, { data });
+      stats.meta++;
+
+      if (stats.meta % 100 === 0) {
+        console.log(`  → ${stats.meta} articles mis à jour...`);
+      }
+    } catch (err) {
+      console.error(`  ✗ Meta "${title.slice(0, 40)}":`, err);
+      stats.errors++;
+    }
+  }
+}
+
 function printResults(redirectsPath?: string): void {
   console.log('');
   console.log('═══════════════════════════════════════════');
@@ -559,6 +692,7 @@ function printResults(redirectsPath?: string): void {
   console.log(`  Tags      : ${stats.tags}`);
   console.log(`  Auteurs   : ${stats.authors}`);
   console.log(`  Images    : ${stats.images}`);
+  console.log(`  Meta      : ${stats.meta}`);
   console.log(`  Ignorés   : ${stats.skipped}`);
   console.log(`  Erreurs   : ${stats.errors}`);
   if (redirectsPath) {
@@ -571,7 +705,7 @@ async function main() {
   console.log('═══════════════════════════════════════════');
   console.log('  Wab-infos — Import WordPress → Strapi');
   console.log('═══════════════════════════════════════════');
-  console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'PRODUCTION'}${BACKFILL_IMAGES ? ' (images)' : ''}`);
+  console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'PRODUCTION'}${BACKFILL_IMAGES ? ' (images)' : ''}${BACKFILL_META ? ' (meta)' : ''}`);
   console.log(`Fichier: ${WP_EXPORT_PATH}`);
   console.log(`Strapi: ${STRAPI_URL}`);
   if (!STRAPI_TOKEN && !DRY_RUN) {
@@ -622,6 +756,12 @@ async function main() {
 
   if (BACKFILL_IMAGES) {
     await backfillFeaturedImages(rawItems, attachmentMap);
+    printResults();
+    return;
+  }
+
+  if (BACKFILL_META) {
+    await backfillArticleMeta(rawItems);
     printResults();
     return;
   }

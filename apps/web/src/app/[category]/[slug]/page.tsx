@@ -1,10 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArticleCard } from '@/components/articles/article-card';
-import { ArticleImage } from '@/components/ui/article-image';
+import { ArticleHero } from '@/components/articles/article-hero';
+import { ArticleSidebar } from '@/components/articles/article-sidebar';
+import { RelatedArticles } from '@/components/articles/related-articles';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
-import { InArticleAd, SidebarAd } from '@/components/ads/adsense';
+import { InArticleAd } from '@/components/ads/adsense';
 import { siteConfig, resolveArticleCategorySlug, resolveCategoryMeta, isValidCategorySlug } from '@/config/site';
 import { getMockArticles } from '@/lib/mock-data';
 import {
@@ -12,8 +13,8 @@ import {
   generateArticleMetadata,
   generateBreadcrumbJsonLd,
 } from '@/lib/seo';
-import { getArticleBySlug, getRelatedArticles } from '@/lib/strapi';
-import { formatDate, getStrapiMediaUrl, rewriteWordPressContent } from '@/lib/utils';
+import { getArticleBySlug, getArticles, getRelatedArticles } from '@/lib/strapi';
+import { rewriteWordPressContent } from '@/lib/utils';
 
 interface PageProps {
   params: Promise<{ category: string; slug: string }>;
@@ -61,14 +62,30 @@ export default async function ArticlePage({ params }: PageProps) {
   });
 
   let related: Awaited<ReturnType<typeof getRelatedArticles>> = [];
+  let liveFeed: Awaited<ReturnType<typeof getArticles>>['articles'] = [];
+
   try {
-    related = await getRelatedArticles(slug, article.category?.slug);
+    const [relatedArticles, latest] = await Promise.all([
+      getRelatedArticles(slug, article.category?.slug, 4),
+      getArticles({ pageSize: 12 }),
+    ]);
+    related = relatedArticles;
+    liveFeed = latest.articles
+      .filter((item) => item.slug !== slug)
+      .sort(
+        (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+      );
   } catch {
-    related = getMockArticles({ pageSize: 4 }).filter((a) => a.slug !== slug);
+    const mock = getMockArticles({ pageSize: 12 });
+    related = mock.filter((a) => a.slug !== slug).slice(0, 4);
+    liveFeed = mock
+      .filter((a) => a.slug !== slug)
+      .sort(
+        (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+      );
   }
 
   const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;
-  const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const articleJsonLd = generateArticleJsonLd(article, category);
   const breadcrumbJsonLd = generateBreadcrumbJsonLd([
     { name: 'Accueil', url: siteConfig.url },
@@ -94,47 +111,13 @@ export default async function ArticlePage({ params }: PageProps) {
 
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <header className="mb-6">
-              {article.isBreaking && (
-                <span className="mb-3 inline-block rounded bg-red-600 px-2 py-0.5 text-xs font-bold uppercase text-white">
-                  Flash info
-                </span>
-              )}
-              <span
-                className="mb-2 block text-sm font-semibold uppercase"
-                style={{ color: cat.color }}
-              >
-                {cat.name}
-              </span>
-              <h1 className="text-2xl font-bold leading-tight md:text-3xl lg:text-4xl">
-                {article.title}
-              </h1>
-              <p className="mt-4 text-lg text-muted-foreground">{article.excerpt}</p>
-              <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                {article.author && (
-                  <Link
-                    href={`/auteur/${article.author.slug}`}
-                    className="font-medium text-foreground hover:underline"
-                  >
-                    {article.author.name}
-                  </Link>
-                )}
-                <time dateTime={article.publishedAt}>
-                  {formatDate(article.publishedAt)}
-                </time>
-                <span>{article.readingTime} min de lecture</span>
-              </div>
-            </header>
-
-            <div className="relative mb-8 aspect-[16/9] overflow-hidden rounded-lg bg-muted">
-              <ArticleImage
-                src={imageUrl}
-                alt={article.title}
-                className="object-cover"
-                priority
-                sizes="(max-width: 1024px) 100vw, 66vw"
-              />
-            </div>
+            <ArticleHero
+              article={article}
+              categoryName={cat.name}
+              categoryColor={cat.color}
+              categorySlug={categorySlug}
+              articleUrl={articleUrl}
+            />
 
             <div
               className="prose-article"
@@ -156,23 +139,21 @@ export default async function ArticlePage({ params }: PageProps) {
                 ))}
               </div>
             )}
+
+            <RelatedArticles
+              articles={related}
+              categoryName={cat.name}
+              categorySlug={categorySlug}
+            />
           </div>
 
-          <aside className="space-y-6">
-            <SidebarAd />
-            {related.length > 0 && (
-              <div className="rounded-lg border border-border p-4">
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-wider">
-                  À lire aussi
-                </h3>
-                <div className="space-y-4">
-                  {related.map((rec) => (
-                    <ArticleCard key={rec.id} article={rec} variant="horizontal" />
-                  ))}
-                </div>
-              </div>
-            )}
-          </aside>
+          <ArticleSidebar
+            related={related}
+            liveFeed={liveFeed}
+            categoryName={cat.name}
+            categorySlug={categorySlug}
+            categoryColor={cat.color}
+          />
         </div>
       </article>
     </>

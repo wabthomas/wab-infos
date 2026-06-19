@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google';
+import { Geist, Geist_Mono, Oswald, Playfair_Display } from 'next/font/google';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import Script from 'next/script';
 import { siteConfig } from '@/config/site';
@@ -25,6 +25,13 @@ const geistMono = Geist_Mono({
 const playfair = Playfair_Display({
   variable: '--font-playfair',
   subsets: ['latin'],
+  display: 'swap',
+});
+
+const oswald = Oswald({
+  variable: '--font-brand',
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
   display: 'swap',
 });
 
@@ -100,7 +107,7 @@ export default function RootLayout({
   const websiteJsonLd = generateWebsiteJsonLd();
 
   return (
-    <html lang="fr" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full`}>
+    <html lang="fr" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${oswald.variable} h-full`}>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />

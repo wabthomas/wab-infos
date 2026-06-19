@@ -1,31 +1,47 @@
 import { BreakingNewsTicker } from '@/components/articles/breaking-news-ticker';
 import { ArticleCard } from '@/components/articles/article-card';
 import { HeaderAd, SidebarAd } from '@/components/ads/adsense';
+import { HomeBottomSections } from '@/components/home/home-bottom-sections';
+import { HomeVideoSection } from '@/components/home/home-video-section';
+import { LiveNewsTimeline } from '@/components/home/live-news-timeline';
+import { NewsletterSignup } from '@/components/home/newsletter-signup';
+import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { SectionHeader } from '@/components/ui/section-header';
 import { categories } from '@/config/site';
 import { getMockArticles } from '@/lib/mock-data';
 import { getBreakingNews, getFeaturedArticles, getArticles } from '@/lib/strapi';
 import Link from 'next/link';
 
+const navCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
+
+const topSectionSlugs = ['actualite', 'actualites-rdc', 'politique', 'economie'] as const;
+
+const bottomSectionSlugs = [
+  'politique',
+  'sports',
+  'societe',
+  'securite',
+  'international',
+  'technologies',
+] as const;
+
 async function getHomeData() {
   try {
     const [breaking, featured, latest] = await Promise.all([
       getBreakingNews(),
       getFeaturedArticles(),
-      getArticles({ pageSize: 12 }),
+      getArticles({ pageSize: 30 }),
     ]);
     return {
       breaking,
       featured,
       latest: latest.articles,
-      useMock: false,
     };
   } catch {
     return {
       breaking: getMockArticles({ breaking: true }),
       featured: getMockArticles({ featured: true, pageSize: 3 }),
       latest: getMockArticles({ pageSize: 12 }),
-      useMock: true,
     };
   }
 }
@@ -36,8 +52,19 @@ export default async function HomePage() {
   const { breaking, featured, latest } = await getHomeData();
   const heroArticle = featured[0];
   const sideFeatured = featured.slice(1, 3);
-  const gridArticles = latest.slice(heroArticle ? 0 : 0, 9);
+  const gridArticles = latest.slice(0, 9);
   const topRead = [...latest].sort((a, b) => b.viewCount - a.viewCount).slice(0, 5);
+  const liveFeed = [...latest].sort(
+    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
+
+  const topCategories = navCategories.filter((cat) =>
+    (topSectionSlugs as readonly string[]).includes(cat.slug)
+  );
+
+  const bottomCategories = navCategories.filter((cat) =>
+    (bottomSectionSlugs as readonly string[]).includes(cat.slug)
+  );
 
   return (
     <>
@@ -59,9 +86,11 @@ export default async function HomePage() {
         )}
 
         <div className="grid gap-10 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-12">
-            {categories.slice(0, 4).map((cat) => {
-              const catArticles = latest.filter((a) => a.category?.slug === cat.slug).slice(0, 4);
+          <div className="space-y-12 lg:col-span-2">
+            {topCategories.map((cat) => {
+              const catArticles = latest
+                .filter((a) => a.category?.slug === cat.slug)
+                .slice(0, 4);
               if (!catArticles.length) return null;
 
               return (
@@ -81,7 +110,7 @@ export default async function HomePage() {
             })}
 
             <section>
-              <SectionHeader title="Dernières actualités" />
+              <SectionHeader title="Dernières actualités" href="/recherche" linkLabel="Tout voir" />
               <div className="grid gap-5 sm:grid-cols-2">
                 {gridArticles.map((article) => (
                   <ArticleCard key={article.id} article={article} />
@@ -93,16 +122,17 @@ export default async function HomePage() {
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <SidebarAd />
 
+            <LiveNewsTimeline articles={liveFeed} />
+
+            <NewsletterSignup />
+
             <div className="widget-card">
               <div className="widget-card-header">
                 <h3 className="text-xs font-bold uppercase tracking-widest">Les plus lus</h3>
               </div>
-              <div className="divide-y divide-border p-2">
+              <div className="divide-y divide-border p-1">
                 {topRead.map((article, i) => (
-                  <div key={article.id} className="flex gap-3 p-3 transition-colors hover:bg-muted/50">
-                    <span className="rank-number w-7 shrink-0 pt-0.5">{i + 1}</span>
-                    <ArticleCard article={article} variant="compact" />
-                  </div>
+                  <SidebarArticleItem key={article.id} article={article} rank={i + 1} />
                 ))}
               </div>
             </div>
@@ -112,7 +142,7 @@ export default async function HomePage() {
                 <h3 className="text-xs font-bold uppercase tracking-widest">Rubriques</h3>
               </div>
               <div className="flex flex-wrap gap-2 p-4">
-                {categories.map((cat) => (
+                {navCategories.map((cat) => (
                   <Link
                     key={cat.slug}
                     href={`/${cat.slug}`}
@@ -129,6 +159,11 @@ export default async function HomePage() {
               </div>
             </div>
           </aside>
+        </div>
+
+        <div className="mt-12 space-y-12">
+          <HomeVideoSection />
+          <HomeBottomSections categories={bottomCategories} articles={latest} />
         </div>
       </div>
     </>

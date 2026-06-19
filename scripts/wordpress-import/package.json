@@ -6,7 +6,8 @@
   "scripts": {
     "import": "tsx src/import.ts",
     "dry-run": "tsx src/import.ts --dry-run",
-    "backfill-images": "tsx src/import.ts --backfill-images"
+    "backfill-images": "tsx src/import.ts --backfill-images",
+    "backfill-meta": "tsx src/import.ts --backfill-meta"
   },
   "dependencies": {
     "fast-xml-parser": "^4.5.1",

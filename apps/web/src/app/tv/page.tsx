@@ -1,10 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Play, Radio, Podcast, Tv } from 'lucide-react';
+import { Play, Podcast, Radio, Tv } from 'lucide-react';
 import type { Video } from '@wab-infos/shared';
-import { YouTubeEmbed, YouTubeLive } from '@/components/tv/youtube-embed';
+import { TvVideoGrid } from '@/components/tv/tv-video-grid';
+import { YouTubeDirectPlayer } from '@/components/tv/youtube-direct-player';
 import { siteConfig } from '@/config/site';
-import { getVideos } from '@/lib/strapi';
+import {
+  getChannelLiveStatus,
+  getChannelRecentVideos,
+  getTvTabVideos,
+  type ChannelLiveStatus,
+} from '@/lib/youtube-channel';
 
 export const metadata: Metadata = {
   title: 'Wab-infos TV',
@@ -16,6 +22,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const revalidate = 120;
+
 const tabs = [
   { id: 'live', label: 'Direct', icon: Radio },
   { id: 'replay', label: 'Replays', icon: Play },
@@ -23,38 +31,63 @@ const tabs = [
   { id: 'podcast', label: 'Podcasts', icon: Podcast },
 ] as const;
 
-const mockVideos: Video[] = [
-  { id: 1, documentId: 'v1', title: 'Journal du soir — Édition du 17 juin', slug: 'journal-soir-17-juin', youtubeId: 'dQw4w9WgXcQ', type: 'replay' as const, publishedAt: new Date().toISOString() },
-  { id: 2, documentId: 'v2', title: 'Débat politique : l\'avenir de la RDC', slug: 'debat-politique-rdc', youtubeId: 'dQw4w9WgXcQ', type: 'emission' as const, publishedAt: new Date().toISOString() },
-  { id: 3, documentId: 'v3', title: 'Podcast — Économie africaine', slug: 'podcast-economie-africaine', youtubeId: 'dQw4w9WgXcQ', type: 'podcast' as const, publishedAt: new Date().toISOString() },
-];
+type TabId = (typeof tabs)[number]['id'];
+
+const tabEmptyMessages: Record<Exclude<TabId, 'live'>, string> = {
+  replay: 'Aucun replay pour le moment. Les dernières vidéos de la chaîne s\'afficheront ici.',
+  emission: 'Aucune émission publiée pour le moment.',
+  podcast: 'Aucun podcast publié pour le moment.',
+};
+
+function isValidTab(tab: string): tab is TabId {
+  return tabs.some((item) => item.id === tab);
+}
 
 export default async function TVPage({
   searchParams,
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const { tab = 'live' } = await searchParams;
+  const { tab: rawTab = 'live' } = await searchParams;
+  const tab: TabId = isValidTab(rawTab) ? rawTab : 'live';
+  const channelId = siteConfig.youtubeChannelId;
 
-  let videos: Video[] = mockVideos;
-  try {
-    if (tab !== 'live') {
-      videos = await getVideos({ type: tab as Video['type'], pageSize: 12 });
-    }
-  } catch {
-    videos = mockVideos.filter((v) => v.type === tab);
+  const [liveStatus, latestVideos]: [ChannelLiveStatus, Awaited<ReturnType<typeof getChannelRecentVideos>>] =
+    await Promise.all([
+      channelId ? getChannelLiveStatus(channelId) : Promise.resolve({ isLive: false } as ChannelLiveStatus),
+      channelId ? getChannelRecentVideos(channelId, 1) : Promise.resolve([]),
+    ]);
+
+  const latestVideo = latestVideos[0];
+  let videos: Video[] = [];
+
+  if (tab !== 'live') {
+    videos = await getTvTabVideos(tab as Video['type'], channelId);
   }
 
   return (
     <div className="container mx-auto px-4 py-6">
       <header className="mb-8">
-        <h1 className="flex items-center gap-3 text-3xl font-bold">
-          <Tv className="h-8 w-8 text-red-600" />
-          Wab-infos TV
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Direct, replays, émissions et podcasts
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="flex items-center gap-3 text-3xl font-bold">
+              <Tv className="h-8 w-8 text-red-600" />
+              Wab-infos TV
+            </h1>
+            <p className="mt-2 text-muted-foreground">
+              Direct, replays, émissions et podcasts
+            </p>
+          </div>
+          <a
+            href={siteConfig.youtubeChannelUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            <Radio className="h-4 w-4 text-red-600" />
+            Chaîne YouTube @wabinfostv
+          </a>
+        </div>
       </header>
 
       <nav className="mb-8 flex flex-wrap gap-2 border-b border-border pb-4">
@@ -74,38 +107,21 @@ export default async function TVPage({
         ))}
       </nav>
 
-      {tab === 'live' && siteConfig.youtubeChannelId ? (
+      {tab === 'live' ? (
         <section>
-          <div className="mb-4 flex items-center gap-2">
-            <span className="h-3 w-3 animate-pulse rounded-full bg-red-600" />
-            <h2 className="text-lg font-semibold">En direct</h2>
-          </div>
-          <YouTubeLive channelId={siteConfig.youtubeChannelId} className="max-w-4xl" />
+          <YouTubeDirectPlayer
+            isLive={liveStatus.isLive}
+            liveVideoId={liveStatus.videoId}
+            liveTitle={liveStatus.title}
+            channelId={channelId || undefined}
+            channelUrl={siteConfig.youtubeChannelUrl}
+            fallbackVideo={latestVideo}
+            className="max-w-4xl"
+          />
         </section>
-      ) : tab === 'live' ? (
-        <div className="flex aspect-video max-w-4xl items-center justify-center rounded-lg bg-muted">
-          <p className="text-muted-foreground">
-            Configurez NEXT_PUBLIC_YOUTUBE_CHANNEL_ID pour activer le direct
-          </p>
-        </div>
       ) : (
         <section>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {videos.map((video) => (
-              <div key={video.id} className="overflow-hidden rounded-lg border border-border">
-                <YouTubeEmbed videoId={video.youtubeId} title={video.title} />
-                <div className="p-4">
-                  <h3 className="font-semibold leading-snug">{video.title}</h3>
-                  <time className="mt-1 block text-xs text-muted-foreground">
-                    {new Date(video.publishedAt).toLocaleDateString('fr-FR')}
-                  </time>
-                </div>
-              </div>
-            ))}
-          </div>
-          {videos.length === 0 && (
-            <p className="text-muted-foreground">Aucune vidéo disponible dans cette section.</p>
-          )}
+          <TvVideoGrid videos={videos} emptyMessage={tabEmptyMessages[tab]} />
         </section>
       )}
     </div>

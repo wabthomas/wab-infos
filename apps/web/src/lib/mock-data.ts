@@ -1,5 +1,16 @@
-import type { Article } from '@wab-infos/shared';
+import type { Article, StrapiMedia } from '@wab-infos/shared';
 import { categories } from '@/config/site';
+
+function mockFeaturedImage(slug: string, caption: string): StrapiMedia {
+  return {
+    id: 0,
+    url: `https://picsum.photos/seed/wab-${slug}/640/480`,
+    width: 640,
+    height: 480,
+    caption,
+    alternativeText: caption,
+  };
+}
 
 export const mockArticles: Article[] = [
   {
@@ -21,6 +32,10 @@ export const mockArticles: Article[] = [
     viewCount: 15420,
     readingTime: 4,
     tags: [{ id: 1, documentId: 'tag-1', name: 'RDC', slug: 'rdc' }],
+    featuredImage: mockFeaturedImage(
+      'rdc-gouvernement-mesures-economiques',
+      'Le ministre des Finances lors de la présentation du plan de relance économique à Kinshasa.'
+    ),
   },
   {
     id: 2,
@@ -41,6 +56,10 @@ export const mockArticles: Article[] = [
     viewCount: 8930,
     readingTime: 5,
     tags: [{ id: 2, documentId: 'tag-2', name: 'Kinshasa', slug: 'kinshasa' }],
+    featuredImage: mockFeaturedImage(
+      'kinshasa-sommet-securite-afrique-centrale',
+      'Les chefs d\'État réunis au Palais du Peuple pour le sommet sur la sécurité régionale.'
+    ),
   },
   {
     id: 3,
@@ -61,6 +80,10 @@ export const mockArticles: Article[] = [
     viewCount: 22100,
     readingTime: 3,
     tags: [{ id: 3, documentId: 'tag-3', name: 'Football', slug: 'football' }],
+    featuredImage: mockFeaturedImage(
+      'leopards-victoire-qualifications-can-2025',
+      'Les Léopards célèbrent leur qualification après la victoire au Stade des Martyrs.'
+    ),
   },
   {
     id: 4,
@@ -81,6 +104,10 @@ export const mockArticles: Article[] = [
     viewCount: 5670,
     readingTime: 6,
     tags: [],
+    featuredImage: mockFeaturedImage(
+      'rdc-transformation-numerique',
+      'Salon de la transformation numérique : exposition des projets de e-gouvernement en RDC.'
+    ),
   },
   {
     id: 5,
@@ -101,6 +128,10 @@ export const mockArticles: Article[] = [
     viewCount: 3420,
     readingTime: 4,
     tags: [],
+    featuredImage: mockFeaturedImage(
+      'onu-solution-diplomatique-afrique-centrale',
+      'Le porte-parole de l\'ONU lors d\'une conférence de presse à New York.'
+    ),
   },
   {
     id: 6,
@@ -121,6 +152,10 @@ export const mockArticles: Article[] = [
     viewCount: 2890,
     readingTime: 5,
     tags: [],
+    featuredImage: mockFeaturedImage(
+      'initiative-eau-potable-goma',
+      'Des volontaires installent une nouvelle pompe à eau dans un quartier de Goma.'
+    ),
   },
 ];
 

@@ -63,6 +63,7 @@ function mapMedia(media: StrapiEntity | null | undefined): StrapiMedia | undefin
     id: media.id,
     url: thumbnailUrl || url,
     alternativeText: media.alternativeText as string | undefined,
+    caption: media.caption as string | undefined,
     width: media.width as number | undefined,
     height: media.height as number | undefined,
     formats,

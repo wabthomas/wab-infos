@@ -74,6 +74,10 @@ body {
   font-family: var(--font-playfair), Georgia, 'Times New Roman', serif;
 }
 
+.font-brand {
+  font-family: var(--font-brand), 'Arial Narrow', Arial, sans-serif;
+}
+
 /* Cards */
 .card-elevated {
   background: var(--surface-elevated);
@@ -236,6 +240,15 @@ body {
 .ad-container {
   contain: layout style;
   min-height: 90px;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 @media print {

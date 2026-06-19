@@ -14,6 +14,13 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
   }).format(new Date(date));
 }
 
+export function formatTime(date: string | Date): string {
+  return new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(date));
+}
+
 export function formatRelativeDate(date: string | Date) {
   const now = new Date();
   const target = new Date(date);

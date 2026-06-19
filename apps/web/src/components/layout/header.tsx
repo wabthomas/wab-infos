@@ -2,23 +2,86 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
-import { Menu, Search, Tv, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { LogIn, Menu, Tv, X } from 'lucide-react';
 import { categories, siteConfig } from '@/config/site';
+import { HeaderSearch } from '@/components/layout/header-search';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { cn } from '@/lib/utils';
 
+const utilityLinks = [
+  { label: 'Wab-infos TV', href: '/tv' },
+  { label: 'Newsletter', href: '/#newsletter' },
+  { label: 'Contact', href: '/contact' },
+];
+
+const mainNavCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
+
+const serviceLinks = [
+  { label: 'Wab-infos TV', href: '/tv', description: 'Direct & replays' },
+  { label: 'Recherche avancée', href: '/recherche', description: 'Tous les articles' },
+  { label: 'Flux RSS', href: '/feed.xml', description: 'Suivre l\'actualité' },
+];
+
+const infoLinks = [
+  { label: 'À propos', href: '/a-propos' },
+  { label: 'Contact', href: '/contact' },
+  { label: 'Mentions légales', href: '/mentions-legales' },
+];
+
 export function Header() {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [barHeight, setBarHeight] = useState(72);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const mainBarRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
 
-  const isActive = (slug: string) => pathname === `/${slug}` || pathname.startsWith(`/${slug}/`);
+  const isActive = (slug: string) =>
+    pathname === `/${slug}` || pathname.startsWith(`/${slug}/`);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsPinned(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const bar = mainBarRef.current;
+    if (!bar) return;
+
+    const updateHeight = () => setBarHeight(bar.offsetHeight);
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/80 bg-background/90 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
-      <div className="bg-[var(--gradient-hero)]">
-        <div className="container mx-auto flex items-center justify-between px-4 py-1.5 text-xs text-white/90">
-          <span className="font-medium">
+    <>
+      {/* Barre utilitaire — défile avec la page */}
+      <div className="hidden border-b border-border/80 bg-[#111111] text-white md:block dark:bg-[#0a0a0a]">
+        <div className="container mx-auto flex h-9 items-center justify-between px-4 text-[11px] font-medium tracking-wide">
+          <span className="text-white/70">
             {new Date().toLocaleDateString('fr-FR', {
               weekday: 'long',
               day: 'numeric',
@@ -26,121 +89,256 @@ export function Header() {
               year: 'numeric',
             })}
           </span>
-          <div className="hidden items-center gap-5 md:flex">
-            <Link href="/tv" className="flex items-center gap-1.5 transition-opacity hover:opacity-80">
-              <Tv className="h-3.5 w-3.5" />
-              Wab-infos TV
-            </Link>
-            <Link href="/recherche" className="transition-opacity hover:opacity-80">
-              Recherche
-            </Link>
-          </div>
+          <nav className="flex items-center gap-5">
+            {utilityLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-white/80 transition-colors hover:text-white"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </div>
 
-      <div className="container mx-auto px-4">
-        <div className="flex h-[4.25rem] items-center justify-between">
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-primary shadow-md transition-transform group-hover:scale-105">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
-              <span className="relative font-display text-xl font-bold text-primary-foreground">W</span>
-            </div>
-            <div className="hidden sm:block">
-              <span className="font-display text-2xl font-bold tracking-tight">{siteConfig.name}</span>
-              <span className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                L&apos;info en continu
-              </span>
-            </div>
+      <div ref={sentinelRef} className="h-px w-full" aria-hidden />
+
+      {/* Barre principale — fixée en haut une fois la zone supérieure défilée */}
+      <header
+        ref={mainBarRef}
+        className={cn(
+          'z-50 w-full border-b border-border bg-background transition-shadow duration-200 supports-[backdrop-filter]:bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm',
+          isPinned
+            ? 'fixed top-0 left-0 right-0 shadow-md'
+            : 'relative shadow-[0_1px_0_0_rgba(0,0,0,0.04)]'
+        )}
+      >
+        <div className="container relative mx-auto flex h-[4.5rem] items-center justify-between gap-4 px-4 md:h-[5.25rem]">
+          {/* Gauche : menu + recherche */}
+          <div className="z-10 flex min-w-0 flex-1 items-center justify-start gap-1 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className="inline-flex shrink-0 items-center gap-2 rounded-md px-2 py-2 text-sm font-semibold uppercase tracking-wider text-foreground transition-colors hover:bg-muted sm:px-3"
+              aria-expanded={menuOpen}
+              aria-label="Ouvrir le menu"
+            >
+              <Menu className="h-5 w-5" />
+              <span className="hidden sm:inline">Menu</span>
+            </button>
+
+            <HeaderSearch className="min-w-0" />
+          </div>
+
+          {/* Centre : logo (position absolue pour ne pas pousser les côtés) */}
+          <Link
+            href="/"
+            className="group absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
+            aria-label={`${siteConfig.name} — Accueil`}
+          >
+            <span className="font-brand whitespace-nowrap text-[1.65rem] font-bold leading-none tracking-tight text-foreground transition-colors group-hover:text-primary md:text-[2.15rem]">
+              {siteConfig.name}
+            </span>
           </Link>
 
-          <nav className="hidden items-center gap-0.5 lg:flex">
-            {categories.slice(0, 7).map((cat) => (
+          {/* Droite : thème + connexion + TV */}
+          <div className="z-10 flex flex-1 items-center justify-end gap-1.5 sm:gap-2">
+            <ThemeToggle className="hidden sm:inline-flex" />
+            <Link
+              href="/connexion"
+              className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted sm:inline-flex"
+            >
+              <LogIn className="h-4 w-4" />
+              Se connecter
+            </Link>
+            <Link
+              href="/tv"
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 sm:px-4 sm:text-sm"
+            >
+              <Tv className="h-4 w-4" />
+              Wab-infos TV
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {isPinned && <div aria-hidden style={{ height: barHeight }} />}
+
+      {/* Rubriques — défilent avec la page */}
+      <nav
+        className="hidden border-b border-border bg-background lg:block"
+        aria-label="Rubriques"
+      >
+        <div className="container mx-auto px-4">
+          <div className="flex items-center gap-0 overflow-x-auto scrollbar-none">
+            <Link
+              href="/"
+              className={cn(
+                'shrink-0 border-b-2 px-4 py-3.5 text-sm font-semibold transition-colors',
+                pathname === '/'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-foreground/80 hover:border-foreground/20 hover:text-foreground'
+              )}
+            >
+              À la une
+            </Link>
+            {mainNavCategories.map((cat) => (
               <Link
                 key={cat.slug}
                 href={`/${cat.slug}`}
                 className={cn(
-                  'relative rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+                  'shrink-0 border-b-2 px-4 py-3.5 text-sm font-semibold transition-colors',
                   isActive(cat.slug)
-                    ? 'text-primary'
-                    : 'text-foreground/75 hover:bg-muted hover:text-foreground'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-foreground/80 hover:border-foreground/20 hover:text-foreground'
                 )}
               >
                 {cat.name}
-                {isActive(cat.slug) && (
-                  <span
-                    className="absolute bottom-0 left-2.5 right-2.5 h-0.5 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                )}
               </Link>
             ))}
-            <Link
-              href="/tv"
-              className={cn(
-                'ml-1 flex items-center gap-1 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors',
-                pathname === '/tv'
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-primary hover:bg-primary/5'
-              )}
-            >
-              <Tv className="h-3.5 w-3.5" />
-              TV
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href="/recherche"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground/80 shadow-sm transition-colors hover:border-primary/30 hover:bg-muted hover:text-primary"
-              aria-label="Rechercher"
-            >
-              <Search className="h-4 w-4" />
-            </Link>
-            <ThemeToggle />
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted lg:hidden"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              aria-label="Menu"
-              aria-expanded={mobileOpen}
-            >
-              {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-            </button>
           </div>
         </div>
-      </div>
+      </nav>
 
-      <div
-        className={cn(
-          'border-t border-border bg-card/95 backdrop-blur-sm lg:hidden',
-          mobileOpen ? 'block' : 'hidden'
-        )}
-      >
-        <nav className="container mx-auto grid gap-0.5 px-4 py-3">
-          {categories.map((cat) => (
-            <Link
-              key={cat.slug}
-              href={`/${cat.slug}`}
-              className={cn(
-                'flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive(cat.slug) ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
-              )}
-              onClick={() => setMobileOpen(false)}
-            >
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cat.color }} />
-              {cat.name}
-            </Link>
-          ))}
-          <Link
-            href="/tv"
-            className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
-            onClick={() => setMobileOpen(false)}
+      {/* Menu latéral */}
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[60] bg-black/50"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Fermer le menu"
+          />
+          <aside
+            className="fixed inset-y-0 left-0 z-[70] flex w-full max-w-sm flex-col bg-card shadow-2xl sm:max-w-md"
+            aria-label="Navigation principale"
           >
-            <Tv className="h-4 w-4" />
-            Wab-infos TV
-          </Link>
-        </nav>
-      </div>
-    </header>
+            <div className="flex items-center justify-between border-b border-border px-4 py-4">
+              <span className="text-sm font-bold uppercase tracking-widest text-foreground">Menu</span>
+              <button
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Fermer le menu"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="border-b border-border px-4 py-4">
+              <HeaderSearch compact onSubmit={() => setMenuOpen(false)} />
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-5">
+              <section className="mb-8">
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Rubriques
+                </h2>
+                <ul className="grid grid-cols-1 gap-0.5 sm:grid-cols-2">
+                  <li className="sm:col-span-2">
+                    <Link
+                      href="/"
+                      className={cn(
+                        'flex items-center rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
+                        pathname === '/' ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
+                      )}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      À la une
+                    </Link>
+                  </li>
+                  {mainNavCategories.map((cat) => (
+                    <li key={cat.slug}>
+                      <Link
+                        href={`/${cat.slug}`}
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                          isActive(cat.slug) ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
+                        )}
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                        {cat.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className="mb-8">
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Services
+                </h2>
+                <ul className="space-y-1">
+                  {serviceLinks.map((link) => (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-muted"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <span className="text-sm font-medium">{link.label}</span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          {link.description}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section>
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Wab-infos
+                </h2>
+                <ul className="space-y-1">
+                  {infoLinks.map((link) => (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+
+            <div className="border-t border-border px-4 py-4">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Link
+                  href="/connexion"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <LogIn className="h-4 w-4" />
+                  Se connecter
+                </Link>
+                <Link
+                  href="/tv"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-primary-foreground transition-colors hover:bg-primary/90"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <Tv className="h-4 w-4" />
+                  Wab-infos TV
+                </Link>
+              </div>
+              <div className="mt-3 flex items-center justify-between sm:hidden">
+                <span className="text-sm text-muted-foreground">Thème</span>
+                <ThemeToggle />
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
+    </>
   );
 }

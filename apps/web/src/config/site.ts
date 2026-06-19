@@ -13,7 +13,12 @@ export const siteConfig = {
   publisher: 'Wab-infos',
   googleNewsPublication: process.env.NEXT_PUBLIC_GOOGLE_NEWS_PUBLICATION || 'wab-infos',
   adsenseClient: process.env.NEXT_PUBLIC_ADSENSE_CLIENT || '',
-  youtubeChannelId: process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || '',
+  youtubeChannelUrl:
+    process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_URL || 'https://youtube.com/@wabinfostv',
+  youtubeChannelHandle:
+    process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_HANDLE || 'wabinfostv',
+  youtubeChannelId:
+    process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || 'UCjAepna3JBGPfzUBJRoKbCw',
   gaId: process.env.NEXT_PUBLIC_GA_ID || '',
 } as const;
 

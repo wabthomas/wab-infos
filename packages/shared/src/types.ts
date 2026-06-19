@@ -4,6 +4,7 @@ export interface StrapiMedia {
   id: number;
   url: string;
   alternativeText?: string;
+  caption?: string;
   width?: number;
   height?: number;
   formats?: {
