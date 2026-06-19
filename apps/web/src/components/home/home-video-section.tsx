@@ -62,7 +62,6 @@ export async function HomeVideoSection() {
   if (!videos.length) return null;
 
   const featured = videos[0];
-  const playlist = videos.slice(1, 5);
   const isShowingLive = Boolean(liveStatus.isLive && liveStatus.videoId);
   const featuredId = isShowingLive ? liveStatus.videoId! : featured.videoId;
   const featuredTitle =
@@ -73,6 +72,7 @@ export async function HomeVideoSection() {
   const featuredPublishedAt = isShowingLive
     ? liveStatus.publishedAt ?? liveVideoFromFeed?.publishedAt
     : featured.publishedAt;
+  const playlist = videos.filter((video) => video.videoId !== featuredId).slice(0, 4);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-[#1a1a1a] via-[#111] to-black text-white shadow-xl">
