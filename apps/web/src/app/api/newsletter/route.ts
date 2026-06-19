@@ -15,7 +15,6 @@ export async function POST(request: Request) {
     }
 
     // TODO: brancher Mailchimp, Brevo ou collection Strapi « subscribers »
-    console.info('[newsletter] Nouvelle inscription:', email);
 
     return NextResponse.json({
       message: 'Merci ! Vous recevrez bientôt notre newsletter.',

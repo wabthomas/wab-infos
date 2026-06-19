@@ -63,9 +63,16 @@ export async function HomeVideoSection() {
 
   const featured = videos[0];
   const playlist = videos.slice(1, 5);
-  const featuredId = liveStatus.isLive && liveStatus.videoId ? liveStatus.videoId : featured.videoId;
+  const isShowingLive = Boolean(liveStatus.isLive && liveStatus.videoId);
+  const featuredId = isShowingLive ? liveStatus.videoId! : featured.videoId;
   const featuredTitle =
-    liveStatus.isLive && liveStatus.title ? liveStatus.title : featured.title;
+    isShowingLive && liveStatus.title ? liveStatus.title : featured.title;
+  const liveVideoFromFeed = isShowingLive
+    ? videos.find((video) => video.videoId === liveStatus.videoId)
+    : undefined;
+  const featuredPublishedAt = isShowingLive
+    ? liveStatus.publishedAt ?? liveVideoFromFeed?.publishedAt
+    : featured.publishedAt;
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-[#1a1a1a] via-[#111] to-black text-white shadow-xl">
@@ -120,9 +127,17 @@ export async function HomeVideoSection() {
           <p className="mt-3 line-clamp-2 text-sm font-medium text-white/90 md:text-base">
             {featuredTitle}
           </p>
-          <time dateTime={featured.publishedAt} className="mt-1 block text-xs text-white/50">
-            {formatRelativeDate(featured.publishedAt)}
-          </time>
+          {isShowingLive && !featuredPublishedAt ? (
+            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-red-400">
+              En direct
+            </p>
+          ) : featuredPublishedAt ? (
+            <time dateTime={featuredPublishedAt} className="mt-1 block text-xs text-white/50">
+              {isShowingLive
+                ? `En direct — ${formatRelativeDate(featuredPublishedAt)}`
+                : formatRelativeDate(featuredPublishedAt)}
+            </time>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-2 lg:col-span-2">

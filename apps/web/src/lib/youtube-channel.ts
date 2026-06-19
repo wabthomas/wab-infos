@@ -12,6 +12,7 @@ export interface ChannelLiveStatus {
   isLive: boolean;
   videoId?: string;
   title?: string;
+  publishedAt?: string;
 }
 
 function decodeXml(text: string): string {
@@ -80,7 +81,10 @@ export async function getChannelLiveStatus(channelId: string): Promise<ChannelLi
     if (!response.ok) return { isLive: false };
 
     const data = (await response.json()) as {
-      items?: { id: { videoId: string }; snippet: { title: string } }[];
+      items?: {
+        id: { videoId: string };
+        snippet: { title: string; publishedAt?: string };
+      }[];
     };
 
     const live = data.items?.[0];
@@ -90,6 +94,7 @@ export async function getChannelLiveStatus(channelId: string): Promise<ChannelLi
       isLive: true,
       videoId: live.id.videoId,
       title: live.snippet.title,
+      publishedAt: live.snippet.publishedAt,
     };
   } catch {
     return { isLive: false };
