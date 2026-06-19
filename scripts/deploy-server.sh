@@ -56,9 +56,10 @@ npm install --workspace=apps/web --include=optional
 echo "→ Lien Strapi monorepo"
 node scripts/setup-strapi-link.js
 
-echo "→ Build frontend"
-export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
+echo "→ Build frontend (Webpack — évite le panic Turbopack sur hébergement mutualisé)"
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2048}"
 export NEXT_CPU_COUNT="${NEXT_CPU_COUNT:-1}"
+export UV_THREADPOOL_SIZE="${UV_THREADPOOL_SIZE:-2}"
 npm run build:web
 
 echo "→ Build CMS"
