@@ -358,6 +358,68 @@ export async function incrementArticleViews(documentId: string): Promise<void> {
   await fetchAPI(`/articles/${documentId}/views`, {}, { method: 'POST' });
 }
 
+export async function getAllArticlePaths(): Promise<
+  { slug: string; categorySlug: string; updatedAt: string }[]
+> {
+  const paths: { slug: string; categorySlug: string; updatedAt: string }[] = [];
+  let page = 1;
+  let pageCount = 1;
+
+  while (page <= pageCount) {
+    const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
+      fields: ['slug', 'updatedAt', 'publishedAt'],
+      populate: { category: { fields: ['slug'] } },
+      pagination: { page, pageSize: 100 },
+      status: 'published',
+    });
+
+    for (const entity of response.data) {
+      const category = entity.category as StrapiEntity | undefined;
+      paths.push({
+        slug: entity.slug as string,
+        categorySlug: (category?.slug as string) ?? 'actualite',
+        updatedAt: (entity.updatedAt as string) ?? (entity.publishedAt as string),
+      });
+    }
+
+    pageCount = response.meta?.pagination?.pageCount ?? 1;
+    page++;
+  }
+
+  return paths;
+}
+
+export async function getVideoByYoutubeId(youtubeId: string): Promise<Video | null> {
+  const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/videos', {
+    filters: { youtubeId: { $eq: youtubeId } },
+    populate: { thumbnail: true, show: { populate: { thumbnail: true } } },
+    pagination: { pageSize: 1 },
+    status: 'published',
+  });
+
+  if (!response.data.length) return null;
+  return mapVideo(response.data[0]);
+}
+
+export async function getAllVideosForSitemap(): Promise<Video[]> {
+  const videos: Video[] = [];
+  let page = 1;
+  let pageCount = 1;
+
+  while (page <= pageCount) {
+    const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/videos', {
+      pagination: { page, pageSize: 100 },
+      status: 'published',
+    });
+
+    videos.push(...response.data.map(mapVideo));
+    pageCount = response.meta?.pagination?.pageCount ?? 1;
+    page++;
+  }
+
+  return videos;
+}
+
 export async function getAllArticleSlugs(): Promise<string[]> {
   const slugs: string[] = [];
   let page = 1;
@@ -381,8 +443,8 @@ export async function getRecentArticlesForNewsSitemap(hours = 48): Promise<Artic
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
     filters: { publishedAt: { $gte: since } },
-    fields: ['title', 'slug', 'publishedAt', 'updatedAt'],
-    populate: { category: true },
+    fields: ['title', 'slug', 'publishedAt', 'updatedAt', 'seoTitle'],
+    populate: { category: true, tags: true },
     sort: ['publishedAt:desc'],
     pagination: { pageSize: 1000 },
     status: 'published',

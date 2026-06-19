@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
-import { categories, siteConfig } from '@/config/site';
-import { getAllArticleSlugs } from '@/lib/strapi';
+import { categories, getVideoPagePath, siteConfig } from '@/config/site';
+import { getAllArticlePaths, getAllVideosForSitemap } from '@/lib/strapi';
+import { getChannelRecentVideos } from '@/lib/youtube-channel';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
@@ -18,10 +19,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let articlePages: MetadataRoute.Sitemap = [];
   try {
-    const slugs = await getAllArticleSlugs();
-    articlePages = slugs.map((slug) => ({
-      url: `${siteConfig.url}/actualites/${slug}`,
-      lastModified: new Date(),
+    const paths = await getAllArticlePaths();
+    articlePages = paths.map(({ slug, categorySlug, updatedAt }) => ({
+      url: `${siteConfig.url}/${categorySlug}/${slug}`,
+      lastModified: new Date(updatedAt),
       changeFrequency: 'weekly' as const,
       priority: 0.7,
     }));
@@ -29,5 +30,43 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Strapi not available during build
   }
 
-  return [...staticPages, ...categoryPages, ...articlePages];
+  let videoPages: MetadataRoute.Sitemap = [];
+  const seenVideoIds = new Set<string>();
+
+  try {
+    const strapiVideos = await getAllVideosForSitemap();
+    for (const video of strapiVideos) {
+      if (!video.youtubeId || seenVideoIds.has(video.youtubeId)) continue;
+      seenVideoIds.add(video.youtubeId);
+      videoPages.push({
+        url: `${siteConfig.url}${getVideoPagePath(video.youtubeId)}`,
+        lastModified: new Date(video.publishedAt),
+        changeFrequency: 'weekly' as const,
+        priority: 0.6,
+      });
+    }
+  } catch {
+    // Strapi not available
+  }
+
+  try {
+    const channelId = siteConfig.youtubeChannelId;
+    if (channelId) {
+      const recent = await getChannelRecentVideos(channelId, 50);
+      for (const entry of recent) {
+        if (seenVideoIds.has(entry.videoId)) continue;
+        seenVideoIds.add(entry.videoId);
+        videoPages.push({
+          url: `${siteConfig.url}${getVideoPagePath(entry.videoId)}`,
+          lastModified: new Date(entry.publishedAt),
+          changeFrequency: 'weekly' as const,
+          priority: 0.6,
+        });
+      }
+    }
+  } catch {
+    // YouTube feed unavailable
+  }
+
+  return [...staticPages, ...categoryPages, ...articlePages, ...videoPages];
 }

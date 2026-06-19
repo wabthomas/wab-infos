@@ -5,6 +5,7 @@ import type { Video } from '@wab-infos/shared';
 import { TvVideoGrid } from '@/components/tv/tv-video-grid';
 import { YouTubeDirectPlayer } from '@/components/tv/youtube-direct-player';
 import { siteConfig } from '@/config/site';
+import { generateBroadcastEventJsonLd, generateTvPageMetadata } from '@/lib/seo';
 import {
   getChannelLiveStatus,
   getChannelRecentVideos,
@@ -12,15 +13,7 @@ import {
   type ChannelLiveStatus,
 } from '@/lib/youtube-channel';
 
-export const metadata: Metadata = {
-  title: 'Wab-infos TV',
-  description: 'Direct, replays, émissions et podcasts — Wab-infos TV',
-  openGraph: {
-    title: 'Wab-infos TV',
-    description: 'Direct, replays, émissions et podcasts',
-    url: `${siteConfig.url}/tv`,
-  },
-};
+export const metadata: Metadata = generateTvPageMetadata();
 
 export const revalidate = 120;
 
@@ -65,7 +58,24 @@ export default async function TVPage({
     videos = await getTvTabVideos(tab as Video['type'], channelId);
   }
 
+  const liveJsonLd =
+    liveStatus.isLive && liveStatus.videoId && liveStatus.title
+      ? generateBroadcastEventJsonLd({
+          videoId: liveStatus.videoId,
+          title: liveStatus.title,
+          publishedAt: liveStatus.publishedAt,
+          isLive: true,
+        })
+      : null;
+
   return (
+    <>
+      {liveJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(liveJsonLd) }}
+        />
+      )}
     <div className="container mx-auto px-4 py-6">
       <header className="mb-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -125,5 +135,6 @@ export default async function TVPage({
         </section>
       )}
     </div>
+    </>
   );
 }

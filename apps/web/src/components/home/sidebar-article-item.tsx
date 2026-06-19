@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Article } from '@wab-infos/shared';
+import { getArticlePath } from '@/config/site';
 import { ArticleImage } from '@/components/ui/article-image';
 import { cn, formatRelativeDate, getStrapiMediaUrl } from '@/lib/utils';
 
@@ -10,7 +11,7 @@ interface SidebarArticleItemProps {
 }
 
 export function SidebarArticleItem({ article, rank, className }: SidebarArticleItemProps) {
-  const href = `/${article.category?.slug ?? 'actualites'}/${article.slug}`;
+  const href = getArticlePath(article);
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const categoryColor = article.category?.color ?? '#E63946';
 

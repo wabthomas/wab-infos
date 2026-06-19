@@ -28,6 +28,17 @@ export async function POST(request: NextRequest) {
 
     if (type === 'article') {
       revalidatePath('/sitemap.xml');
+      revalidatePath('/sitemap-news.xml');
+      revalidatePath('/feed.xml');
+    }
+
+    if (type === 'video') {
+      revalidatePath('/sitemap.xml');
+      revalidatePath('/sitemap-videos.xml');
+      revalidatePath('/tv');
+      if (slug) {
+        revalidatePath(`/tv/v/${slug}`);
+      }
     }
 
     return NextResponse.json({ revalidated: true, now: Date.now() });

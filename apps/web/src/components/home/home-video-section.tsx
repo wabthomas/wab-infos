@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Play, Radio, Tv } from 'lucide-react';
 import { YouTubeEmbed } from '@/components/tv/youtube-embed';
-import { siteConfig } from '@/config/site';
+import { getVideoPagePath, siteConfig } from '@/config/site';
 import {
   getChannelLiveStatus,
   getChannelRecentVideos,
@@ -15,16 +15,14 @@ function VideoListItem({ video, index }: { video: YoutubeChannelVideo; index: nu
   const thumb = `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`;
 
   return (
-    <a
-      href={video.link}
-      target="_blank"
-      rel="noopener noreferrer"
+    <Link
+      href={getVideoPagePath(video.videoId)}
       className="group flex gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5 transition-colors hover:border-white/20 hover:bg-white/10"
     >
       <div className="relative h-[4.5rem] w-20 shrink-0 overflow-hidden rounded-lg bg-black/40">
         <Image
           src={thumb}
-          alt=""
+          alt={video.title}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="80px"
@@ -47,7 +45,7 @@ function VideoListItem({ video, index }: { video: YoutubeChannelVideo; index: nu
           {formatRelativeDate(video.publishedAt)}
         </time>
       </div>
-    </a>
+    </Link>
   );
 }
 
@@ -118,15 +116,20 @@ export async function HomeVideoSection() {
       <div className="grid gap-5 p-5 md:p-6 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <div className="overflow-hidden rounded-xl ring-1 ring-white/10">
-            <YouTubeEmbed
-              videoId={featuredId}
-              title={featuredTitle}
-              autoplay={liveStatus.isLive}
-            />
+            <Link href={getVideoPagePath(featuredId)}>
+              <YouTubeEmbed
+                videoId={featuredId}
+                title={featuredTitle}
+                autoplay={liveStatus.isLive}
+              />
+            </Link>
           </div>
-          <p className="mt-3 line-clamp-2 text-sm font-medium text-white/90 md:text-base">
+          <Link
+            href={getVideoPagePath(featuredId)}
+            className="mt-3 block line-clamp-2 text-sm font-medium text-white/90 transition-colors hover:text-red-200 md:text-base"
+          >
             {featuredTitle}
-          </p>
+          </Link>
           {isShowingLive && !featuredPublishedAt ? (
             <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-red-400">
               En direct

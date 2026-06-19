@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { siteConfig } from '@/config/site';
+import { getArticlePath, siteConfig } from '@/config/site';
 import { getRecentArticlesForNewsSitemap } from '@/lib/strapi';
 
 export async function GET() {
@@ -11,18 +11,25 @@ export async function GET() {
     // Fallback empty sitemap
   }
 
+  const publicationName = siteConfig.googleNewsPublication || siteConfig.name;
+
   const urls = articles
     .map((article) => {
-      const loc = `${siteConfig.url}/${article.category?.slug ?? 'actualites'}/${article.slug}`;
+      const loc = `${siteConfig.url}${getArticlePath(article)}`;
+      const keywords = article.tags?.map((tag) => tag.name).join(', ');
+      const keywordsXml = keywords
+        ? `\n      <news:keywords>${escapeXml(keywords)}</news:keywords>`
+        : '';
+
       return `  <url>
-    <loc>${loc}</loc>
+    <loc>${escapeXml(loc)}</loc>
     <news:news>
       <news:publication>
-        <news:name>${siteConfig.name}</news:name>
+        <news:name>${escapeXml(publicationName)}</news:name>
         <news:language>fr</news:language>
       </news:publication>
       <news:publication_date>${article.publishedAt}</news:publication_date>
-      <news:title>${escapeXml(article.title)}</news:title>
+      <news:title>${escapeXml(article.seoTitle || article.title)}</news:title>${keywordsXml}
     </news:news>
   </url>`;
     })
@@ -37,7 +44,7 @@ ${urls}
   return new NextResponse(xml, {
     headers: {
       'Content-Type': 'application/xml',
-      'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+      'Cache-Control': 'public, max-age=1800, s-maxage=1800',
     },
   });
 }

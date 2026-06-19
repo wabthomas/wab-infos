@@ -47,12 +47,25 @@ export function getCategoryBySlug(slug: string) {
   return categories.find((c) => c.slug === slug);
 }
 
+/** URL relative d'un article */
+export function getArticlePath(
+  article: { slug: string; category?: { slug?: string } },
+  urlCategory?: string
+): string {
+  return `/${resolveArticleCategorySlug(article, urlCategory)}/${article.slug}`;
+}
+
 /** Slug de rubrique pour les URLs article (données Strapi > segment URL > défaut) */
 export function resolveArticleCategorySlug(
   article: { category?: { slug?: string } },
   urlCategory?: string
 ): string {
   return article.category?.slug ?? urlCategory ?? 'actualite';
+}
+
+/** URL absolue d'une page vidéo sur le site */
+export function getVideoPagePath(youtubeId: string): string {
+  return `/tv/v/${youtubeId}`;
 }
 
 /** Rubrique connue ou repli depuis les données Strapi / l'URL (pages article uniquement) */

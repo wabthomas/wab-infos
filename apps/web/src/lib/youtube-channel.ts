@@ -1,11 +1,13 @@
 import type { Video } from '@wab-infos/shared';
-import { getVideos } from '@/lib/strapi';
+import { siteConfig } from '@/config/site';
+import { getVideoByYoutubeId, getVideos } from '@/lib/strapi';
 
 export interface YoutubeChannelVideo {
   videoId: string;
   title: string;
   publishedAt: string;
   link: string;
+  description?: string;
 }
 
 export interface ChannelLiveStatus {
@@ -44,6 +46,7 @@ export async function getChannelRecentVideos(
       const videoId = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1];
       const titleMatch = entry.match(/<title>([^<]+)<\/title>/);
       const published = entry.match(/<published>([^<]+)<\/published>/)?.[1];
+      const descriptionMatch = entry.match(/<media:description>([^<]*)<\/media:description>/);
       const link =
         entry.match(/<link rel="alternate" href="([^"]+)"/)?.[1] ??
         (videoId ? `https://www.youtube.com/watch?v=${videoId}` : undefined);
@@ -54,6 +57,7 @@ export async function getChannelRecentVideos(
           title: decodeXml(titleMatch[1]),
           publishedAt: published,
           link: link ?? `https://www.youtube.com/watch?v=${videoId}`,
+          description: descriptionMatch?.[1] ? decodeXml(descriptionMatch[1]) : undefined,
         });
       }
     }
@@ -112,7 +116,66 @@ export function youtubeVideoToTvVideo(
     slug: entry.videoId,
     youtubeId: entry.videoId,
     type,
+    description: entry.description,
     publishedAt: entry.publishedAt,
+  };
+}
+
+export async function getYoutubeOembed(videoId: string): Promise<{
+  title: string;
+  authorName: string;
+  thumbnailUrl: string;
+} | null> {
+  try {
+    const response = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+      { next: { revalidate: 3600 } }
+    );
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      title: string;
+      author_name: string;
+      thumbnail_url: string;
+    };
+
+    return {
+      title: data.title,
+      authorName: data.author_name,
+      thumbnailUrl: data.thumbnail_url,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveVideoByYoutubeId(youtubeId: string): Promise<Video | null> {
+  try {
+    const fromStrapi = await getVideoByYoutubeId(youtubeId);
+    if (fromStrapi) return fromStrapi;
+  } catch {
+    // Strapi indisponible
+  }
+
+  const channelId = siteConfig.youtubeChannelId;
+  if (channelId) {
+    const recent = await getChannelRecentVideos(channelId, 50);
+    const fromFeed = recent.find((entry) => entry.videoId === youtubeId);
+    if (fromFeed) return youtubeVideoToTvVideo(fromFeed, 'replay');
+  }
+
+  const oembed = await getYoutubeOembed(youtubeId);
+  if (!oembed) return null;
+
+  return {
+    id: 0,
+    documentId: `yt-${youtubeId}`,
+    title: oembed.title,
+    slug: youtubeId,
+    description: `Vidéo de ${oembed.authorName} sur Wab-infos TV`,
+    youtubeId,
+    type: 'replay',
+    publishedAt: new Date().toISOString(),
   };
 }
 

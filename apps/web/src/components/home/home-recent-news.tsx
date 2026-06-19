@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Clock } from 'lucide-react';
 import type { Article } from '@wab-infos/shared';
+import { getArticlePath } from '@/config/site';
 import { ArticleCard } from '@/components/articles/article-card';
 import { ArticleImage } from '@/components/ui/article-image';
 import { formatRelativeDate, getStrapiMediaUrl } from '@/lib/utils';
@@ -10,7 +11,7 @@ interface HomeRecentNewsProps {
 }
 
 function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
-  const href = `/${article.category?.slug ?? 'actualites'}/${article.slug}`;
+  const href = getArticlePath(article);
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const categoryColor = article.category?.color ?? '#E63946';
 
@@ -69,7 +70,7 @@ function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
 }
 
 function RecentCompactCard({ article }: { article: Article }) {
-  const href = `/${article.category?.slug ?? 'actualites'}/${article.slug}`;
+  const href = getArticlePath(article);
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const categoryColor = article.category?.color ?? '#E63946';
 

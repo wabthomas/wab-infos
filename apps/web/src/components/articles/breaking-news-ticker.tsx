@@ -1,4 +1,5 @@
 import type { Article } from '@wab-infos/shared';
+import { getArticlePath } from '@/config/site';
 import Link from 'next/link';
 import { Zap } from 'lucide-react';
 
@@ -25,7 +26,7 @@ export function BreakingNewsTicker({ articles }: BreakingNewsTickerProps) {
             {[...articles, ...articles].map((article, i) => (
               <Link
                 key={`${article.id}-${i}`}
-                href={`/${article.category?.slug ?? 'actualites'}/${article.slug}`}
+                href={getArticlePath(article)}
                 className="text-sm font-medium transition-opacity hover:opacity-80 hover:underline"
               >
                 {article.title}
