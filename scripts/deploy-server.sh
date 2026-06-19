@@ -57,6 +57,8 @@ echo "→ Lien Strapi monorepo"
 node scripts/setup-strapi-link.js
 
 echo "→ Build frontend"
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
+export NEXT_CPU_COUNT="${NEXT_CPU_COUNT:-1}"
 npm run build:web
 
 echo "→ Build CMS"

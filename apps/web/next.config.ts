@@ -47,6 +47,10 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns'],
+    // PlanetHoster / VPS peu de RAM : un seul worker de pré-rendu
+    cpus: 1,
+    staticGenerationMaxConcurrency: 1,
+    staticGenerationMinPagesPerWorker: 50,
   },
 };
 
