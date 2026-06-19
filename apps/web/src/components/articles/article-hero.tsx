@@ -47,7 +47,7 @@ export function ArticleHero({
             priority
             sizes="(max-width: 1024px) 100vw, 66vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
 
           <div className="absolute inset-x-0 bottom-0 p-5 md:p-8">
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -65,15 +65,11 @@ export function ArticleHero({
               </Link>
             </div>
 
-            <h1 className="font-display text-2xl font-bold leading-tight text-white md:text-3xl lg:text-4xl">
+            <h1 className="font-display text-2xl font-bold leading-tight text-white drop-shadow-sm md:text-3xl lg:text-4xl">
               {article.title}
             </h1>
 
-            <p className="mt-3 line-clamp-2 max-w-3xl text-sm leading-relaxed text-white/85 md:text-base">
-              {article.excerpt}
-            </p>
-
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/75 md:text-sm">
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80 md:text-sm">
               {article.author && (
                 <Link
                   href={`/auteur/${article.author.slug}`}

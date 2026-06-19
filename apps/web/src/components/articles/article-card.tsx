@@ -37,7 +37,7 @@ export function ArticleCard({
               priority={priority}
               sizes="(max-width: 768px) 100vw, 66vw"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
           </div>
           <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -55,13 +55,10 @@ export function ArticleCard({
                 </span>
               )}
             </div>
-            <h2 className="font-display text-2xl font-bold leading-tight text-white md:text-3xl lg:text-4xl">
+            <h2 className="font-display text-2xl font-bold leading-tight text-white drop-shadow-sm md:text-3xl lg:text-4xl">
               {article.title}
             </h2>
-            <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-white/85 md:text-base">
-              {article.excerpt}
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/70">
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80">
               {article.author && <span className="font-medium text-white/90">{article.author.name}</span>}
               <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
               <span aria-hidden>·</span>

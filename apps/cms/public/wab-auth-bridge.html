@@ -37,6 +37,7 @@
 
         try {
           if (remember) {
+            // Strapi lit jwtToken via JSON.parse() — même format que « Rester connecté » natif
             localStorage.setItem('jwtToken', JSON.stringify(token));
           } else {
             localStorage.removeItem('jwtToken');

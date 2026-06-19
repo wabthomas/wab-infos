@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       remember?: boolean;
     };
 
-    const email = body.email?.trim().toLowerCase();
+    const email = body.email?.trim()?.toLowerCase() ?? '';
     const password = body.password ?? '';
 
     if (!email || !EMAIL_PATTERN.test(email) || !password) {
