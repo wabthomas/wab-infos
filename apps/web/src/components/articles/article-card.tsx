@@ -24,45 +24,85 @@ export function ArticleCard({
     return (
       <article
         className={cn(
-          'group relative overflow-hidden rounded-2xl shadow-lg ring-1 ring-black/5 dark:ring-white/10',
+          'group overflow-hidden rounded-2xl bg-card shadow-lg ring-1 ring-black/5 dark:ring-white/10',
           className
         )}
       >
         <Link href={href} className="block">
-          <div className="relative aspect-[16/9] overflow-hidden bg-muted">
-            <ArticleImage
-              src={imageUrl}
-              alt={article.title}
-              className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-              priority={priority}
-              sizes="(max-width: 768px) 100vw, 66vw"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+          {/* Mobile : image pleine + texte en dessous */}
+          <div className="md:hidden">
+            <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+              <ArticleImage
+                src={imageUrl}
+                alt={article.title}
+                className="object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+                priority={priority}
+                sizes="100vw"
+              />
               {article.isBreaking && (
-                <span className="inline-block rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                <span className="absolute left-3 top-3 rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                   Flash info
                 </span>
               )}
+            </div>
+            <div className="p-4">
               {article.category && (
                 <span
-                  className="inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm"
+                  className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
                   style={{ backgroundColor: categoryColor }}
                 >
                   {article.category.name}
                 </span>
               )}
+              <h2 className="font-display text-xl font-bold leading-snug transition-colors group-hover:text-primary">
+                {article.title}
+              </h2>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                {article.author && <span className="font-medium text-foreground/80">{article.author.name}</span>}
+                <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
+                <span aria-hidden>·</span>
+                <span>{article.readingTime} min</span>
+              </div>
             </div>
-            <h2 className="font-display text-2xl font-bold leading-tight text-white drop-shadow-sm md:text-3xl lg:text-4xl">
-              {article.title}
-            </h2>
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80">
-              {article.author && <span className="font-medium text-white/90">{article.author.name}</span>}
-              <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
-              <span aria-hidden>·</span>
-              <span>{article.readingTime} min de lecture</span>
+          </div>
+
+          {/* Desktop : overlay sur l'image */}
+          <div className="relative hidden md:block">
+            <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+              <ArticleImage
+                src={imageUrl}
+                alt={article.title}
+                className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                priority={priority}
+                sizes="(max-width: 1024px) 100vw, 66vw"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 p-5 md:p-8">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                {article.isBreaking && (
+                  <span className="inline-block rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+                    Flash info
+                  </span>
+                )}
+                {article.category && (
+                  <span
+                    className="inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm"
+                    style={{ backgroundColor: categoryColor }}
+                  >
+                    {article.category.name}
+                  </span>
+                )}
+              </div>
+              <h2 className="font-display text-2xl font-bold leading-tight text-white drop-shadow-sm md:text-3xl lg:text-4xl">
+                {article.title}
+              </h2>
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80">
+                {article.author && <span className="font-medium text-white/90">{article.author.name}</span>}
+                <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
+                <span aria-hidden>·</span>
+                <span>{article.readingTime} min de lecture</span>
+              </div>
             </div>
           </div>
         </Link>

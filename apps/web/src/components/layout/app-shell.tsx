@@ -1,11 +1,33 @@
 'use client';
 
+import { Suspense, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
-import { StickyMobileAd } from '@/components/ads/adsense';
+import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 
 const AUTH_ONLY_PATHS = ['/connexion'];
+
+export function SiteLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <>
+      <Header menuOpen={menuOpen} onMenuOpenChange={setMenuOpen} />
+      <main className="flex-1 pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:pb-0">
+        {children}
+      </main>
+      <Footer />
+      <Suspense fallback={null}>
+        <MobileBottomNav
+          onOpenMenu={() => setMenuOpen((open) => !open)}
+          menuOpen={menuOpen}
+        />
+      </Suspense>
+    </>
+  );
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,12 +37,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <main className="min-h-screen">{children}</main>;
   }
 
-  return (
-    <>
-      <Header />
-      <main className="flex-1">{children}</main>
-      <Footer />
-      <StickyMobileAd />
-    </>
-  );
+  return <SiteLayout>{children}</SiteLayout>;
 }

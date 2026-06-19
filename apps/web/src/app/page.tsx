@@ -69,11 +69,11 @@ export default async function HomePage() {
       <BreakingNewsTicker articles={breaking} />
       <HeaderAd />
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 py-5 sm:px-4 sm:py-8">
         <HomeRecentNews articles={recentNews.slice(0, RECENT_NEWS_DISPLAY_COUNT)} />
 
-        <div className="grid gap-10 lg:grid-cols-3">
-          <div className="space-y-12 lg:col-span-2">
+        <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
+          <div className="space-y-10 lg:col-span-2 lg:space-y-12">
             {topCategories.map((cat) => {
               const catArticles = latest
                 .filter((a) => a.category?.slug === cat.slug)

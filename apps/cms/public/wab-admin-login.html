@@ -29,21 +29,34 @@
 
       body {
         margin: 0;
-        min-height: 100vh;
+        min-height: 100dvh;
         font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
         color: var(--text);
         background: var(--bg);
       }
 
-      .grid {
-        display: grid;
-        min-height: 100vh;
+      .layout {
+        display: flex;
+        flex-direction: column;
+        min-height: 100dvh;
       }
 
       @media (min-width: 1024px) {
-        .grid {
-          grid-template-columns: 1fr 1fr;
+        .layout {
+          flex-direction: row;
         }
+
+        .hero,
+        .content-col {
+          flex: 1;
+          width: 50%;
+        }
+      }
+
+      .content-col {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
       }
 
       .hero {
@@ -126,11 +139,53 @@
         padding-top: 1.5rem;
       }
 
+      .mobile-hero {
+        position: relative;
+        overflow: hidden;
+        padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem 2rem;
+        color: #fff;
+        background: #0c0c0f;
+      }
+
+      .mobile-hero::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: var(--hero);
+        opacity: 0.95;
+      }
+
+      .mobile-hero > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .mobile-hero .brand {
+        font-size: 1.5rem;
+        color: #fff;
+      }
+
+      .mobile-hero .hero-label {
+        margin-top: 1rem;
+      }
+
+      .mobile-hero .hero-title {
+        font-size: 1.35rem;
+        max-width: none;
+      }
+
+      @media (min-width: 1024px) {
+        .mobile-hero {
+          display: none;
+        }
+      }
+
       .panel {
         display: flex;
+        flex: 1;
         flex-direction: column;
         justify-content: center;
-        padding: 2.5rem 1.5rem;
+        padding: 1.75rem 1.25rem max(1.5rem, env(safe-area-inset-bottom));
       }
 
       @media (min-width: 640px) {
@@ -155,7 +210,8 @@
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
-        margin-bottom: 2rem;
+        min-height: 2.75rem;
+        margin-bottom: 1.25rem;
         font-size: 0.875rem;
         color: var(--muted);
         text-decoration: none;
@@ -172,19 +228,7 @@
       }
 
       .mobile-brand {
-        display: block;
-        margin-bottom: 1.5rem;
-        font-family: 'Oswald', sans-serif;
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--primary);
-        text-decoration: none;
-      }
-
-      @media (min-width: 1024px) {
-        .mobile-brand {
-          display: none;
-        }
+        display: none;
       }
 
       h1 {
@@ -219,15 +263,24 @@
       input[type='email'],
       input[type='password'] {
         width: 100%;
-        height: 2.75rem;
+        height: 3rem;
         padding: 0 0.9rem;
         border: 1px solid var(--border);
         border-radius: 0.5rem;
-        font-size: 0.9rem;
+        font-size: 1rem;
         background: var(--card);
         color: var(--text);
         outline: none;
         transition: border-color 0.15s, box-shadow 0.15s;
+        -webkit-appearance: none;
+      }
+
+      @media (min-width: 640px) {
+        input[type='email'],
+        input[type='password'] {
+          height: 2.75rem;
+          font-size: 0.9rem;
+        }
       }
 
       input:focus {
@@ -245,7 +298,7 @@
 
       .toggle-pw {
         position: absolute;
-        right: 0.65rem;
+        right: 0.25rem;
         top: 50%;
         transform: translateY(-50%);
         border: none;
@@ -254,6 +307,8 @@
         cursor: pointer;
         font-size: 0.75rem;
         font-weight: 600;
+        min-width: 2.75rem;
+        min-height: 2.75rem;
         padding: 0.25rem;
       }
 
@@ -261,6 +316,7 @@
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        min-height: 2.75rem;
         margin-bottom: 1.25rem;
         font-size: 0.875rem;
         color: var(--muted);
@@ -268,8 +324,8 @@
       }
 
       .remember input {
-        width: 1rem;
-        height: 1rem;
+        width: 1.25rem;
+        height: 1.25rem;
         accent-color: var(--primary);
       }
 
@@ -290,16 +346,23 @@
 
       .submit {
         width: 100%;
-        height: 2.75rem;
+        height: 3rem;
         border: none;
         border-radius: 0.5rem;
         background: var(--primary);
         color: #fff;
-        font-size: 0.9rem;
+        font-size: 1rem;
         font-weight: 600;
         cursor: pointer;
         box-shadow: 0 4px 14px rgba(196, 30, 58, 0.25);
         transition: background 0.15s, opacity 0.15s;
+      }
+
+      @media (min-width: 640px) {
+        .submit {
+          height: 2.75rem;
+          font-size: 0.9rem;
+        }
       }
 
       .submit:hover:not(:disabled) {
@@ -330,7 +393,7 @@
     </style>
   </head>
   <body>
-    <div class="grid">
+    <div class="layout">
       <aside class="hero">
         <a class="brand" href="#" id="site-link-hero">Wab-infos</a>
         <div>
@@ -343,10 +406,16 @@
         <p class="hero-foot">Réservé aux membres de la rédaction</p>
       </aside>
 
+      <div class="content-col">
+      <div class="mobile-hero">
+        <a class="brand" href="#" id="site-link-mobile">Wab-infos</a>
+        <p class="hero-label">Espace rédaction</p>
+        <h2 class="hero-title">Connectez-vous à la rédaction</h2>
+      </div>
+
       <main class="panel">
         <div class="panel-inner">
           <a class="back mobile-only" href="#" id="site-link-back">← Retour au site</a>
-          <a class="mobile-brand" href="#" id="site-link-mobile">Wab-infos</a>
 
           <h1>Connexion</h1>
           <p class="subtitle">Accédez au tableau de bord éditorial</p>
@@ -397,6 +466,7 @@
           </p>
         </div>
       </main>
+      </div>
     </div>
 
     <script>

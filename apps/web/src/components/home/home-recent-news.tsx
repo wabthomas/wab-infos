@@ -114,8 +114,8 @@ export function HomeRecentNews({ articles }: HomeRecentNewsProps) {
   const compactRow = articles.slice(4, 8);
 
   return (
-    <section className="mb-12" aria-labelledby="recent-news-heading">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
+    <section className="mb-8 md:mb-12" aria-labelledby="recent-news-heading">
+      <div className="mb-5 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2" aria-hidden>
@@ -155,7 +155,7 @@ export function HomeRecentNews({ articles }: HomeRecentNewsProps) {
       </div>
 
       {compactRow.length > 0 && (
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:mt-5 sm:gap-4 lg:grid-cols-4">
           {compactRow.map((article) => (
             <RecentCompactCard key={article.id} article={article} />
           ))}

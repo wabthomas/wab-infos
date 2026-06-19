@@ -105,7 +105,7 @@ export function InArticleAd() {
 
 export function StickyMobileAd() {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-2 md:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
       <AdSense slot="sticky-mobile-ad" format="horizontal" lazy={false} />
     </div>
   );

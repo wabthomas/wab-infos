@@ -29,20 +29,28 @@ const infoLinks = [
   { label: 'Mentions légales', href: '/mentions-legales' },
 ];
 
-export function Header() {
-  const [menuOpen, setMenuOpen] = useState(false);
+interface HeaderProps {
+  menuOpen?: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
+}
+
+export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps = {}) {
+  const [menuOpenInternal, setMenuOpenInternal] = useState(false);
+  const menuOpen = menuOpenProp ?? menuOpenInternal;
+  const setMenuOpen = onMenuOpenChange ?? setMenuOpenInternal;
   const [isPinned, setIsPinned] = useState(false);
   const [barHeight, setBarHeight] = useState(72);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const mainBarRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
+  const rubricsScrollRef = useRef<HTMLDivElement>(null);
 
   const isActive = (slug: string) =>
     pathname === `/${slug}` || pathname.startsWith(`/${slug}/`);
 
   useEffect(() => {
     setMenuOpen(false);
-  }, [pathname]);
+  }, [pathname, setMenuOpen]);
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : '';
@@ -75,6 +83,14 @@ export function Header() {
     observer.observe(bar);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const scrollEl = rubricsScrollRef.current;
+    if (!scrollEl) return;
+
+    const activeLink = scrollEl.querySelector<HTMLElement>('[data-rubric-active="true"]');
+    activeLink?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [pathname]);
 
   return (
     <>
@@ -115,13 +131,13 @@ export function Header() {
             : 'relative shadow-[0_1px_0_0_rgba(0,0,0,0.04)]'
         )}
       >
-        <div className="container relative mx-auto flex h-[4.5rem] items-center justify-between gap-4 px-4 md:h-[5.25rem]">
+        <div className="container relative mx-auto flex h-14 items-center justify-between gap-2 px-3 sm:h-[4.5rem] sm:gap-4 sm:px-4 md:h-[5.25rem]">
           {/* Gauche : menu + recherche */}
-          <div className="z-10 flex min-w-0 flex-1 items-center justify-start gap-1 sm:gap-2">
+          <div className="z-10 flex min-w-0 flex-1 items-center justify-start gap-0.5 sm:gap-2">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="inline-flex shrink-0 items-center gap-2 rounded-md px-2 py-2 text-sm font-semibold uppercase tracking-wider text-foreground transition-colors hover:bg-muted sm:px-3"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted sm:h-auto sm:w-auto sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-semibold sm:uppercase sm:tracking-wider"
               aria-expanded={menuOpen}
               aria-label="Ouvrir le menu"
             >
@@ -138,7 +154,7 @@ export function Header() {
             className="group absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
             aria-label={`${siteConfig.name} — Accueil`}
           >
-            <span className="font-brand whitespace-nowrap text-[1.65rem] font-bold leading-none tracking-tight text-foreground transition-colors group-hover:text-primary md:text-[2.15rem]">
+            <span className="font-brand whitespace-nowrap text-[1.35rem] font-bold leading-none tracking-tight text-foreground transition-colors group-hover:text-primary sm:text-[1.65rem] md:text-[2.15rem]">
               {siteConfig.name}
             </span>
           </Link>
@@ -155,10 +171,13 @@ export function Header() {
             </Link>
             <Link
               href="/tv"
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 sm:px-4 sm:text-sm"
+              className="inline-flex h-10 items-center gap-1.5 rounded-md bg-primary px-2.5 text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 sm:h-auto sm:px-4 sm:py-2 sm:text-sm sm:font-bold sm:uppercase sm:tracking-wider"
+              aria-label="Wab-infos TV"
             >
-              <Tv className="h-4 w-4" />
-              Wab-infos TV
+              <Tv className="h-4 w-4 shrink-0" />
+              <span className="hidden text-xs font-bold uppercase tracking-wider min-[400px]:inline sm:text-sm">
+                Wab-infos TV
+              </span>
             </Link>
           </div>
         </div>
@@ -166,7 +185,51 @@ export function Header() {
 
       {isPinned && <div aria-hidden style={{ height: barHeight }} />}
 
-      {/* Rubriques — défilent avec la page */}
+      {/* Rubriques — défilement horizontal sur mobile / tablette */}
+      <nav
+        className="border-b border-border bg-background lg:hidden"
+        aria-label="Rubriques"
+      >
+        <div
+          ref={rubricsScrollRef}
+          className="flex flex-nowrap items-center gap-1.5 overflow-x-auto overflow-y-hidden px-3 py-2.5 scrollbar-none touch-pan-x overscroll-x-contain [-webkit-overflow-scrolling:touch] sm:px-4"
+        >
+          <Link
+            href="/"
+            data-rubric-active={pathname === '/' ? 'true' : undefined}
+            className={cn(
+              'shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold transition-colors',
+              pathname === '/'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-foreground/80'
+            )}
+          >
+            À la une
+          </Link>
+          {mainNavCategories.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={`/${cat.slug}`}
+              data-rubric-active={isActive(cat.slug) ? 'true' : undefined}
+              className={cn(
+                'shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold transition-colors',
+                isActive(cat.slug)
+                  ? 'text-white'
+                  : 'bg-muted text-foreground/80'
+              )}
+              style={
+                isActive(cat.slug)
+                  ? { backgroundColor: cat.color }
+                  : undefined
+              }
+            >
+              {cat.name}
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      {/* Rubriques — barre desktop */}
       <nav
         className="hidden border-b border-border bg-background lg:block"
         aria-label="Rubriques"
@@ -212,7 +275,7 @@ export function Header() {
             aria-label="Fermer le menu"
           />
           <aside
-            className="fixed inset-y-0 left-0 z-[70] flex w-full max-w-sm flex-col bg-card shadow-2xl sm:max-w-md"
+            className="fixed inset-y-0 left-0 z-[70] flex w-full max-w-sm flex-col bg-card shadow-2xl pt-[env(safe-area-inset-top)] sm:max-w-md"
             aria-label="Navigation principale"
           >
             <div className="flex items-center justify-between border-b border-border px-4 py-4">
@@ -236,38 +299,49 @@ export function Header() {
                 <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   Rubriques
                 </h2>
-                <ul className="grid grid-cols-1 gap-0.5 sm:grid-cols-2">
-                  <li className="sm:col-span-2">
-                    <Link
-                      href="/"
-                      className={cn(
-                        'flex items-center rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
-                        pathname === '/' ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
-                      )}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      À la une
-                    </Link>
-                  </li>
-                  {mainNavCategories.map((cat) => (
-                    <li key={cat.slug}>
+                <div className="-mx-4 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x overscroll-x-contain [-webkit-overflow-scrolling:touch] sm:mx-0 sm:px-0 sm:overflow-visible">
+                  <ul className="flex w-max flex-nowrap gap-2 sm:grid sm:w-full sm:grid-cols-2 sm:gap-0.5">
+                    <li className="shrink-0 sm:col-span-2 sm:shrink">
                       <Link
-                        href={`/${cat.slug}`}
+                        href="/"
                         className={cn(
-                          'flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                          isActive(cat.slug) ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
+                          'flex items-center whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold transition-colors sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-sm',
+                          pathname === '/'
+                            ? 'bg-primary text-primary-foreground sm:bg-primary/10 sm:text-primary'
+                            : 'bg-muted text-foreground/80 sm:bg-transparent sm:hover:bg-muted'
                         )}
                         onClick={() => setMenuOpen(false)}
                       >
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: cat.color }}
-                        />
-                        {cat.name}
+                        À la une
                       </Link>
                     </li>
-                  ))}
-                </ul>
+                    {mainNavCategories.map((cat) => (
+                      <li key={cat.slug} className="shrink-0 sm:shrink">
+                        <Link
+                          href={`/${cat.slug}`}
+                          className={cn(
+                            'flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold transition-colors sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-sm sm:font-medium',
+                            isActive(cat.slug)
+                              ? 'text-white sm:!bg-primary/10 sm:text-primary'
+                              : 'bg-muted text-foreground/80 sm:bg-transparent sm:hover:bg-muted'
+                          )}
+                          style={
+                            isActive(cat.slug)
+                              ? { backgroundColor: cat.color }
+                              : undefined
+                          }
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <span
+                            className="hidden h-2 w-2 shrink-0 rounded-full sm:inline-block"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                          {cat.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </section>
 
               <section className="mb-8">
