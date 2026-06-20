@@ -174,6 +174,7 @@ function mapVideo(entity: StrapiEntity): Video {
 }
 
 const ARTICLE_SORT = ['wpPublishedAt:desc', 'publishedAt:desc'] as const;
+const VIDEO_SORT = ['publishedAt:desc'] as const;
 
 const articlePopulate = {
   populate: {
@@ -333,7 +334,7 @@ export async function getVideos(options?: { type?: Video['type']; pageSize?: num
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/videos', {
     filters,
     populate: { thumbnail: true, show: { populate: { thumbnail: true } } },
-    sort: [...ARTICLE_SORT],
+    sort: [...VIDEO_SORT],
     pagination: { pageSize: options?.pageSize ?? 12 },
     status: 'published',
   });
