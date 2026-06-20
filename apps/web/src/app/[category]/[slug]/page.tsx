@@ -13,7 +13,8 @@ import {
   generateArticleMetadata,
   generateBreadcrumbJsonLd,
 } from '@/lib/seo';
-import { getArticleBySlug, getArticles, getRelatedArticles, getApprovedComments } from '@/lib/strapi';
+import { getArticleBySlug, getRelatedArticles, getApprovedComments } from '@/lib/strapi';
+import { getLiveFeed } from '@/lib/sidebar-data';
 import { compareArticlesByDateDesc, rewriteWordPressContent } from '@/lib/utils';
 import { ArticleCommentForm } from '@/components/comments/article-comment-form';
 import { ArticleCommentsList } from '@/components/comments/article-comments-list';
@@ -65,24 +66,33 @@ export default async function ArticlePage({ params }: PageProps) {
   });
 
   let related: Awaited<ReturnType<typeof getRelatedArticles>> = [];
-  let liveFeed: Awaited<ReturnType<typeof getArticles>>['articles'] = [];
+  let liveFeed: Awaited<ReturnType<typeof getLiveFeed>> = [];
   let comments: Awaited<ReturnType<typeof getApprovedComments>> = [];
 
-  try {
-    const [relatedArticles, latest, approvedComments] = await Promise.all([
-      getRelatedArticles(slug, article.category?.slug, 4),
-      getArticles({ pageSize: 12 }),
-      getApprovedComments(article.documentId),
-    ]);
-    related = relatedArticles;
-    liveFeed = latest.articles
-      .filter((item) => item.slug !== slug)
+  const [relatedResult, liveResult, commentsResult] = await Promise.allSettled([
+    getRelatedArticles(slug, article.category?.slug, 4),
+    getLiveFeed(12),
+    getApprovedComments(article.documentId),
+  ]);
+
+  if (relatedResult.status === 'fulfilled') {
+    related = relatedResult.value;
+  } else {
+    related = getMockArticlesIfEnabled({ pageSize: 12 })
+      .filter((a) => a.slug !== slug)
+      .slice(0, 4);
+  }
+
+  if (liveResult.status === 'fulfilled') {
+    liveFeed = liveResult.value.filter((item) => item.slug !== slug);
+  } else {
+    liveFeed = getMockArticlesIfEnabled({ pageSize: 12 })
+      .filter((a) => a.slug !== slug)
       .sort(compareArticlesByDateDesc);
-    comments = approvedComments;
-  } catch {
-    const mock = getMockArticlesIfEnabled({ pageSize: 12 });
-    related = mock.filter((a) => a.slug !== slug).slice(0, 4);
-    liveFeed = mock.filter((a) => a.slug !== slug).sort(compareArticlesByDateDesc);
+  }
+
+  if (commentsResult.status === 'fulfilled') {
+    comments = commentsResult.value;
   }
 
   const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;

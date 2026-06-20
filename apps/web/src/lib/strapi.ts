@@ -377,21 +377,25 @@ export interface ArticleComment {
 }
 
 export async function getApprovedComments(articleDocumentId: string): Promise<ArticleComment[]> {
-  const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/comments', {
-    filters: {
-      status: { $eq: 'approved' },
-      article: { documentId: { $eq: articleDocumentId } },
-    },
-    sort: ['createdAt:asc'],
-    pagination: { pageSize: 50 },
-  });
+  try {
+    const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/comments', {
+      filters: {
+        status: { $eq: 'approved' },
+        article: { documentId: { $eq: articleDocumentId } },
+      },
+      sort: ['createdAt:asc'],
+      pagination: { pageSize: 50 },
+    });
 
-  return response.data.map((entity) => ({
-    documentId: entity.documentId,
-    content: entity.content as string,
-    authorName: entity.authorName as string,
-    createdAt: entity.createdAt as string,
-  }));
+    return response.data.map((entity) => ({
+      documentId: entity.documentId,
+      content: entity.content as string,
+      authorName: entity.authorName as string,
+      createdAt: entity.createdAt as string,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getAllArticlePaths(): Promise<

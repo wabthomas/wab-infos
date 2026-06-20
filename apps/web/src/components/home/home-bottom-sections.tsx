@@ -16,14 +16,15 @@ type LayoutVariant =
   | 'bento'
   | 'magazine-sidebar'
   | 'stack-list'
+  | 'three-up'
   | 'carousel';
 
 const layoutBySlug: Record<string, LayoutVariant> = {
   politique: 'featured-sidebar',
   sports: 'bento',
   societe: 'magazine-sidebar',
-  securite: 'stack-list',
-  international: 'featured-sidebar',
+  securite: 'three-up',
+  international: 'three-up',
   technologies: 'carousel',
 };
 
@@ -104,7 +105,7 @@ function FeaturedSidebarSection({
 }
 
 function BentoSection({ category, articles }: { category: CategoryMeta; articles: Article[] }) {
-  const [hero, second, third, fourth] = articles;
+  const [hero, second, third] = articles;
 
   return (
     <section className="relative overflow-hidden rounded-2xl bg-muted/40 p-5 md:p-6">
@@ -128,11 +129,6 @@ function BentoSection({ category, articles }: { category: CategoryMeta; articles
         {third && (
           <div className="md:col-span-1">
             <ArticleCard article={third} />
-          </div>
-        )}
-        {fourth && (
-          <div className="md:col-span-2">
-            <ArticleCard article={fourth} variant="horizontal" />
           </div>
         )}
       </div>
@@ -207,6 +203,24 @@ function StackListSection({ category, articles }: { category: CategoryMeta; arti
   );
 }
 
+function ThreeUpSection({ category, articles }: { category: CategoryMeta; articles: Article[] }) {
+  const rowArticles = articles.slice(0, 3);
+
+  return (
+    <section
+      className="rounded-2xl border border-border bg-card px-5 py-5 md:px-6 md:py-6"
+      style={{ borderTopWidth: 4, borderTopColor: category.color }}
+    >
+      <SectionHeader title={category.name} color={category.color} href={`/${category.slug}`} />
+      <div className="grid gap-5 md:grid-cols-3">
+        {rowArticles.map((article) => (
+          <ArticleCard key={article.id} article={article} className="h-full" />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CarouselSection({ category, articles }: { category: CategoryMeta; articles: Article[] }) {
   return (
     <section>
@@ -253,6 +267,8 @@ function renderSection(variant: LayoutVariant, category: CategoryMeta, articles:
       return <MagazineSidebarSection category={category} articles={articles} />;
     case 'stack-list':
       return <StackListSection category={category} articles={articles} />;
+    case 'three-up':
+      return <ThreeUpSection category={category} articles={articles} />;
     case 'carousel':
       return <CarouselSection category={category} articles={articles} />;
     default:

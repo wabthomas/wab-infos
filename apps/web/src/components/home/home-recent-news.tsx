@@ -1,13 +1,23 @@
 import Link from 'next/link';
-import { ArrowRight, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import type { Article } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleCard } from '@/components/articles/article-card';
 import { ArticleImage } from '@/components/ui/article-image';
-import { formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
+import { formatArticleDate, formatTime, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 
 interface HomeRecentNewsProps {
   articles: Article[];
+  popularArticles?: Article[];
+}
+
+function formatEditorialTimeline(date: string | Date): string {
+  const value = new Date(date);
+  const weekday = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(value);
+  const day = String(value.getDate()).padStart(2, '0');
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const year = value.getFullYear();
+  return `${weekday}, ${day}-${month}-${year} à ${formatTime(value)}`;
 }
 
 function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
@@ -18,10 +28,10 @@ function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
   const displayDate = getArticleDisplayDate(article);
 
   return (
-    <article className="group relative flex gap-3.5 overflow-hidden rounded-xl border border-border/70 bg-card p-3 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md sm:gap-4 sm:p-3.5">
+    <article className="group relative flex gap-3 overflow-hidden rounded-xl border border-border/70 bg-card p-2.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md sm:gap-3 sm:p-3">
       <Link
         href={href}
-        className="relative h-[5.5rem] w-[6.75rem] shrink-0 overflow-hidden rounded-lg bg-muted sm:h-28 sm:w-32"
+        className="relative h-20 w-24 shrink-0 overflow-hidden rounded-lg bg-muted sm:h-[5.25rem] sm:w-[6.5rem]"
         tabIndex={-1}
         aria-hidden
       >
@@ -45,7 +55,7 @@ function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
         {article.category && (
           <Link
             href={`/${article.category.slug}`}
-            className="mb-1.5 inline-flex w-fit items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider hover:underline"
+            className="mb-1 inline-flex w-fit items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider hover:underline"
             style={{ color: categoryColor }}
           >
             <span
@@ -57,11 +67,11 @@ function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
           </Link>
         )}
         <Link href={href}>
-          <h3 className="font-display line-clamp-3 text-sm font-semibold leading-snug transition-colors group-hover:text-primary sm:text-[0.95rem]">
+          <h3 className="font-display line-clamp-2 text-[0.9rem] font-semibold leading-snug transition-colors group-hover:text-primary sm:text-[0.95rem]">
             {article.title}
           </h3>
         </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
           <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
           <span aria-hidden>·</span>
           <span>{article.readingTime} min</span>
@@ -111,7 +121,57 @@ function RecentCompactCard({ article }: { article: Article }) {
   );
 }
 
-export function HomeRecentNews({ articles }: HomeRecentNewsProps) {
+function PopularArticleRow({ article }: { article: Article }) {
+  const href = getArticlePath(article);
+  const displayDate = getArticleDisplayDate(article);
+  const categoryColor = article.category?.color ?? '#E63946';
+
+  return (
+    <article className="border-b border-white/10 py-5 first:pt-0 last:border-b-0 last:pb-0">
+      <Link href={href} className="group block">
+        <h3 className="font-display text-[1.05rem] font-bold leading-tight text-white transition-colors group-hover:text-primary">
+          {article.title}
+        </h3>
+      </Link>
+
+      {article.category && (
+        <Link
+          href={`/${article.category.slug}`}
+          className="mt-3 inline-block text-xs font-bold uppercase tracking-wide"
+          style={{ color: categoryColor }}
+        >
+          {article.category.name}
+        </Link>
+      )}
+
+      <time dateTime={displayDate} className="mt-2 block text-sm text-white/70">
+        {formatEditorialTimeline(displayDate)}
+      </time>
+    </article>
+  );
+}
+
+function PopularPanel({ articles }: { articles: Article[] }) {
+  if (!articles.length) return null;
+
+  return (
+    <aside className="bg-[#0b0b12] px-5 py-6 text-white">
+      <div className="border-b-2 border-primary pb-3">
+        <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-primary">
+          Populaires
+        </h2>
+      </div>
+
+      <div className="mt-4">
+        {articles.map((article) => (
+          <PopularArticleRow key={article.id} article={article} />
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+export function HomeRecentNews({ articles, popularArticles = [] }: HomeRecentNewsProps) {
   if (!articles.length) return null;
 
   const hero = articles[0];
@@ -119,58 +179,37 @@ export function HomeRecentNews({ articles }: HomeRecentNewsProps) {
   const compactRow = articles.slice(4, 8);
 
   return (
-    <section className="mb-8 md:mb-12" aria-labelledby="recent-news-heading">
-      <div className="mb-5 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2" aria-hidden>
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/40" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-            </span>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-              En continu
-            </p>
+    <section className="mb-8 md:mb-12" aria-label="Actualités récentes">
+      <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
+        <PopularPanel articles={popularArticles} />
+
+        <div>
+          <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
+            <div className="lg:col-span-7 xl:col-span-8">
+              <ArticleCard article={hero} variant="featured" priority />
+            </div>
+
+            <div className="flex flex-col gap-2.5 lg:col-span-5 xl:col-span-4">
+              {sideArticles.map((article, index) => (
+                <RecentSideCard key={article.id} article={article} rank={index + 2} />
+              ))}
+            </div>
           </div>
-          <h2
-            id="recent-news-heading"
-            className="font-display text-2xl font-bold tracking-tight md:text-3xl"
-          >
-            Actualités récentes
-          </h2>
-        </div>
-        <Link
-          href="/recherche"
-          className="group inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-primary"
-        >
-          Toutes les actualités
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </Link>
-      </div>
 
-      <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
-        <div className="lg:col-span-7 xl:col-span-8">
-          <ArticleCard article={hero} variant="featured" priority />
-        </div>
+          {compactRow.length > 0 && (
+            <div className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:mt-5 sm:gap-4 lg:grid-cols-4">
+              {compactRow.map((article) => (
+                <RecentCompactCard key={article.id} article={article} />
+              ))}
+            </div>
+          )}
 
-        <div className="flex flex-col gap-3 lg:col-span-5 xl:col-span-4">
-          {sideArticles.map((article, index) => (
-            <RecentSideCard key={article.id} article={article} rank={index + 2} />
-          ))}
+          <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="h-3.5 w-3.5 shrink-0" />
+            Dernière mise à jour {formatArticleDate(getArticleDisplayDate(hero)).toLowerCase()}
+          </p>
         </div>
       </div>
-
-      {compactRow.length > 0 && (
-        <div className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:mt-5 sm:gap-4 lg:grid-cols-4">
-          {compactRow.map((article) => (
-            <RecentCompactCard key={article.id} article={article} />
-          ))}
-        </div>
-      )}
-
-      <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Clock className="h-3.5 w-3.5 shrink-0" />
-        Dernière mise à jour {formatArticleDate(getArticleDisplayDate(hero)).toLowerCase()}
-      </p>
     </section>
   );
 }

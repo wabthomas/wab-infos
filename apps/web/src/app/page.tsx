@@ -53,6 +53,7 @@ export default async function HomePage() {
   const recentNews = [...latest].sort(compareArticlesByDateDesc);
   const gridArticles = recentNews.slice(RECENT_NEWS_DISPLAY_COUNT, RECENT_NEWS_DISPLAY_COUNT + 9);
   const topRead = [...latest].sort((a, b) => b.viewCount - a.viewCount).slice(0, 5);
+  const topReadPanel = topRead.slice(0, 4);
   const liveFeed = recentNews;
 
   const topCategories = navCategories.filter((cat) =>
@@ -69,7 +70,10 @@ export default async function HomePage() {
       <HeaderAd />
 
       <div className="container mx-auto px-3 py-5 sm:px-4 sm:py-8">
-        <HomeRecentNews articles={recentNews.slice(0, RECENT_NEWS_DISPLAY_COUNT)} />
+        <HomeRecentNews
+          articles={recentNews.slice(0, RECENT_NEWS_DISPLAY_COUNT)}
+          popularArticles={topReadPanel}
+        />
 
         <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
           <div className="space-y-10 lg:col-span-2 lg:space-y-12">
