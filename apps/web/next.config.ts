@@ -5,6 +5,7 @@ const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  productionBrowserSourceMaps: false,
   turbopack: {
     root: path.join(__dirname, '../..'),
   },
@@ -60,9 +61,11 @@ const nextConfig: NextConfig = {
     staticGenerationMaxConcurrency: 1,
     staticGenerationMinPagesPerWorker: 50,
   },
-  webpack: (config) => {
-    // Limite le parallélisme Webpack (évite EAGAIN sur ulimit bas)
+  webpack: (config, { dev }) => {
     config.parallelism = 1;
+    if (!dev) {
+      config.devtool = false;
+    }
     return config;
   },
 };

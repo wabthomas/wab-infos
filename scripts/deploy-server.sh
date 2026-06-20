@@ -57,10 +57,12 @@ echo "→ Lien Strapi monorepo"
 node scripts/setup-strapi-link.js
 
 echo "→ Build frontend (Webpack, threads limités pour mutualisé)"
-export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2048}"
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
+export BUILD_HEAP_MB="${BUILD_HEAP_MB:-1536}"
 export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"
 export UV_THREADPOOL_SIZE="${UV_THREADPOOL_SIZE:-1}"
 export NEXT_CPU_COUNT="${NEXT_CPU_COUNT:-1}"
+export NEXT_TELEMETRY_DISABLED=1
 npm run build:web
 
 echo "→ Build CMS"

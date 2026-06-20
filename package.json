@@ -14,6 +14,7 @@
     "dev:cms": "cd apps/cms && npm run develop",
     "build": "npm run build --workspace=apps/web",
     "build:web": "npm run build --workspace=apps/web",
+    "build:web:low-mem": "npm run build:low-mem --workspace=apps/web",
     "build:cms": "npm run build --prefix apps/cms",
     "start:web": "npm run start --workspace=apps/web",
     "start:cms": "npm run start --prefix apps/cms",
