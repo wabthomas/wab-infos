@@ -1,0 +1,45 @@
+import { NextResponse } from 'next/server';
+import {
+  getEditorArticle,
+  RedactionAuthError,
+  requireRedactionUser,
+  updateEditorArticle,
+} from '@/lib/redaction/strapi-editor';
+import type { ArticleEditorPayload } from '@/lib/redaction/types';
+
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
+export async function GET(_request: Request, context: RouteContext) {
+  try {
+    const user = await requireRedactionUser();
+    const { id } = await context.params;
+    const article = await getEditorArticle(user, id);
+    if (!article) {
+      return NextResponse.json({ error: 'Article introuvable' }, { status: 404 });
+    }
+    return NextResponse.json({ article });
+  } catch (err) {
+    if (err instanceof RedactionAuthError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    }
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: Request, context: RouteContext) {
+  try {
+    const user = await requireRedactionUser();
+    const { id } = await context.params;
+    const body = (await request.json()) as Partial<ArticleEditorPayload>;
+    const article = await updateEditorArticle(user, id, body);
+    return NextResponse.json({ article });
+  } catch (err) {
+    if (err instanceof RedactionAuthError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    }
+    const message = err instanceof Error ? err.message : 'Mise à jour impossible';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

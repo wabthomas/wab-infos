@@ -6,7 +6,7 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 
-const AUTH_ONLY_PATHS = ['/connexion'];
+const AUTH_ONLY_PREFIXES = ['/connexion', '/redaction'];
 
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -31,7 +31,9 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAuthPage = AUTH_ONLY_PATHS.includes(pathname);
+  const isAuthPage = AUTH_ONLY_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 
   if (isAuthPage) {
     return <main className="min-h-screen">{children}</main>;

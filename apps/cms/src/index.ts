@@ -118,5 +118,8 @@ export default {
     strapi.log.info(
       'Wab-infos CMS pret. Activez les permissions Public dans Admin > Settings > Users & Permissions > Roles > Public'
     );
+    strapi.log.info(
+      'App redaction : Public > Auth > callback (local) ; Authenticated > User > me ; creer des Users pour les journalistes'
+    );
   },
 };
