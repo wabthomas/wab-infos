@@ -35,22 +35,25 @@ async function fetchAPI<T>(path: string, params?: Record<string, unknown>, optio
   const url = `${STRAPI_URL}/api${path}${query}`;
 
   const controller = new AbortController();
-  let abortReason: 'timeout' | 'external' | null = null;
+  let timedOut = false;
+  let externallyAborted = false;
 
   const timeoutId = setTimeout(() => {
-    abortReason = abortReason ?? 'timeout';
+    if (!externallyAborted) {
+      timedOut = true;
+    }
     controller.abort();
   }, STRAPI_FETCH_TIMEOUT_MS);
 
   if (options?.signal) {
     if (options.signal.aborted) {
-      abortReason = 'external';
+      externallyAborted = true;
       controller.abort();
     } else {
       options.signal.addEventListener(
         'abort',
         () => {
-          abortReason = abortReason ?? 'external';
+          externallyAborted = true;
           controller.abort();
         },
         { once: true }
@@ -73,10 +76,10 @@ async function fetchAPI<T>(path: string, params?: Record<string, unknown>, optio
     return res.json() as Promise<T>;
   } catch (error) {
     if (controller.signal.aborted) {
-      if (abortReason === 'timeout') {
+      if (timedOut) {
         throw new Error(`Strapi API timeout after ${STRAPI_FETCH_TIMEOUT_MS}ms — ${path}`);
       }
-      if (abortReason === 'external') {
+      if (externallyAborted) {
         throw new Error(`Strapi API request aborted — ${path}`);
       }
     }
