@@ -4,8 +4,9 @@ const UID = 'api::article.article';
 
 export default factories.createCoreController(UID, ({ strapi }) => ({
   /**
-   * Force les dates WordPress sur toutes les versions d'un document.
-   * Strapi 5 ignore publishedAt/updatedAt dans le body REST — contournement via Query Engine.
+   * Force les dates WordPress sur un document (contournement Query Engine).
+   * publishedAt et updatedAt sont appliqués aux mêmes cibles :
+   * versions publiées si présentes, sinon toutes les lignes (repli import).
    */
   async setWordPressDates(ctx) {
     const { id: documentId } = ctx.params;
@@ -27,15 +28,23 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       return ctx.notFound('Article not found');
     }
 
+    const parsedPublishedAt = publishedAt ? new Date(publishedAt) : null;
+    const parsedUpdatedAt = updatedAt ? new Date(updatedAt) : null;
+
+    const publishedRows = entries.filter((entry) => entry.publishedAt != null);
+    // Version publiée connue, ou repli import (document publié sans publishedAt encore posé)
+    const patchTargets =
+      parsedPublishedAt && publishedRows.length > 0 ? publishedRows : entries;
+
     let patched = 0;
-    for (const entry of entries) {
+    for (const entry of patchTargets) {
       const data: Record<string, Date> = {};
 
-      if (publishedAt && entry.publishedAt) {
-        data.publishedAt = new Date(publishedAt);
+      if (parsedPublishedAt) {
+        data.publishedAt = parsedPublishedAt;
       }
-      if (updatedAt) {
-        data.updatedAt = new Date(updatedAt);
+      if (parsedUpdatedAt) {
+        data.updatedAt = parsedUpdatedAt;
       }
 
       if (!Object.keys(data).length) continue;
