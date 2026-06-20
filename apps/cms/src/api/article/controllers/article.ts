@@ -82,7 +82,7 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       .update({
         view_count: knex.raw('COALESCE(view_count, 0) + 1'),
       })
-      .returning('view_count');
+      .returning(['view_count']);
 
     if (rows.length === 0) {
       rows = await knex('articles')
@@ -90,14 +90,18 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
         .update({
           view_count: knex.raw('COALESCE(view_count, 0) + 1'),
         })
-        .returning('view_count');
+        .returning(['view_count']);
     }
 
     if (rows.length === 0) {
       return ctx.notFound('Article not found');
     }
 
-    const viewCount = Number(rows[0].view_count ?? 0);
+    const first = rows[0] as { view_count?: number } | number;
+    const viewCount =
+      typeof first === 'object' && first !== null
+        ? Number(first.view_count ?? 0)
+        : Number(first ?? 0);
     return { data: { viewCount } };
   },
 }));
