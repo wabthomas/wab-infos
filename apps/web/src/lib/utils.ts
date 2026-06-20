@@ -38,10 +38,13 @@ export function formatRelativeDate(date: string | Date) {
 
 /** Date de publication effective (WordPress ou Strapi), quelle que soit l'année. */
 export function getArticleDisplayDate(article: {
-  publishedAt: string;
+  publishedAt?: string;
   wpPublishedAt?: string;
+  scheduledAt?: string;
+  updatedAt?: string;
 }): string {
-  return article.wpPublishedAt || article.publishedAt;
+  if (article.scheduledAt) return article.scheduledAt;
+  return article.wpPublishedAt || article.publishedAt || article.updatedAt || new Date().toISOString();
 }
 
 export function getArticleTimestamp(article: {

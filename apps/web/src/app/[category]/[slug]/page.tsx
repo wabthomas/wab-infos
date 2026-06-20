@@ -13,8 +13,10 @@ import {
   generateArticleMetadata,
   generateBreadcrumbJsonLd,
 } from '@/lib/seo';
-import { getArticleBySlug, getArticles, getRelatedArticles } from '@/lib/strapi';
+import { getArticleBySlug, getArticles, getRelatedArticles, getApprovedComments } from '@/lib/strapi';
 import { compareArticlesByDateDesc, rewriteWordPressContent } from '@/lib/utils';
+import { ArticleCommentForm } from '@/components/comments/article-comment-form';
+import { ArticleCommentsList } from '@/components/comments/article-comments-list';
 
 interface PageProps {
   params: Promise<{ category: string; slug: string }>;
@@ -63,16 +65,19 @@ export default async function ArticlePage({ params }: PageProps) {
 
   let related: Awaited<ReturnType<typeof getRelatedArticles>> = [];
   let liveFeed: Awaited<ReturnType<typeof getArticles>>['articles'] = [];
+  let comments: Awaited<ReturnType<typeof getApprovedComments>> = [];
 
   try {
-    const [relatedArticles, latest] = await Promise.all([
+    const [relatedArticles, latest, approvedComments] = await Promise.all([
       getRelatedArticles(slug, article.category?.slug, 4),
       getArticles({ pageSize: 12 }),
+      getApprovedComments(article.documentId),
     ]);
     related = relatedArticles;
     liveFeed = latest.articles
       .filter((item) => item.slug !== slug)
       .sort(compareArticlesByDateDesc);
+    comments = approvedComments;
   } catch {
     const mock = getMockArticles({ pageSize: 12 });
     related = mock.filter((a) => a.slug !== slug).slice(0, 4);
@@ -141,6 +146,9 @@ export default async function ArticlePage({ params }: PageProps) {
               categoryName={cat.name}
               categorySlug={categorySlug}
             />
+
+            <ArticleCommentsList comments={comments} />
+            <ArticleCommentForm articleDocumentId={article.documentId} />
           </div>
 
           <ArticleSidebar

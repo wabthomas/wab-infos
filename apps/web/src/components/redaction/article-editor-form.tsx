@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Camera, Loader2, Zap } from 'lucide-react';
+import { Camera, CalendarClock, Loader2, Zap } from 'lucide-react';
 import type { RedactionCategory } from '@/lib/redaction/types';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
 
@@ -15,6 +15,15 @@ export interface ArticleEditorValues {
   featuredImageId?: number | null;
   featuredImageUrl?: string;
   isBreaking: boolean;
+  scheduledAt?: string;
+}
+
+function toDatetimeLocal(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 interface ArticleEditorFormProps {
@@ -35,8 +44,9 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     isBreaking: initial?.isBreaking ?? false,
   });
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState<'draft' | 'publish' | null>(null);
+  const [saving, setSaving] = useState<'draft' | 'publish' | 'schedule' | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState(toDatetimeLocal(initial?.scheduledAt));
 
   useEffect(() => {
     fetch('/api/redaction/categories')
@@ -87,9 +97,9 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     }
   }
 
-  async function save(publish: boolean) {
+  async function save(mode: 'draft' | 'publish' | 'schedule') {
     setError('');
-    setSaving(publish ? 'publish' : 'draft');
+    setSaving(mode);
 
     const payload = {
       title: values.title,
@@ -98,7 +108,11 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       categoryDocumentId: values.categoryDocumentId,
       featuredImageId: values.featuredImageId ?? null,
       isBreaking: values.isBreaking,
-      publish,
+      publish: mode === 'publish',
+      scheduledAt:
+        mode === 'schedule' && scheduledAt
+          ? new Date(scheduledAt).toISOString()
+          : null,
     };
 
     try {
@@ -224,19 +238,50 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         {values.isBreaking ? 'Flash info activé' : 'Marquer en flash info'}
       </button>
 
-      <div className="grid grid-cols-2 gap-3 pt-2">
+      <label className="block space-y-1.5">
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          <CalendarClock className="h-4 w-4" />
+          Publication planifiée (optionnel)
+        </span>
+        <input
+          type="datetime-local"
+          value={scheduledAt}
+          onChange={(e) => setScheduledAt(e.target.value)}
+          min={toDatetimeLocal(new Date().toISOString())}
+          className="h-12 w-full rounded-lg border border-border bg-card px-4 text-base outline-none focus:border-primary"
+        />
+        <p className="text-xs text-muted-foreground">
+          Laissez vide pour publier manuellement, ou choisissez une date puis « Planifier ».
+        </p>
+      </label>
+
+      <div className={cn('grid gap-3 pt-2', scheduledAt ? 'grid-cols-3' : 'grid-cols-2')}>
         <button
           type="button"
           disabled={!!saving}
-          onClick={() => save(false)}
+          onClick={() => save('draft')}
           className="h-12 rounded-lg border border-border bg-card font-semibold disabled:opacity-60"
         >
           {saving === 'draft' ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'Brouillon'}
         </button>
+        {scheduledAt && (
+          <button
+            type="button"
+            disabled={!!saving}
+            onClick={() => save('schedule')}
+            className="h-12 rounded-lg border border-primary bg-primary/10 font-semibold text-primary disabled:opacity-60"
+          >
+            {saving === 'schedule' ? (
+              <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+            ) : (
+              'Planifier'
+            )}
+          </button>
+        )}
         <button
           type="button"
           disabled={!!saving}
-          onClick={() => save(true)}
+          onClick={() => save('publish')}
           className="h-12 rounded-lg bg-primary font-semibold text-primary-foreground disabled:opacity-60"
         >
           {saving === 'publish' ? (

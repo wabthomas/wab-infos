@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { PenLine, FileText, Eye, Zap } from 'lucide-react';
+import { PenLine, FileText, Eye, Zap, CalendarClock } from 'lucide-react';
 import { getEditorProfile, getEditorStats, listEditorArticles, requireRedactionUser } from '@/lib/redaction/strapi-editor';
-import { formatArticleDate, getArticleDisplayDate } from '@/lib/utils';
+import { formatArticleDate, getArticleDisplayDate, cn } from '@/lib/utils';
 
 export default async function RedactionDashboardPage() {
   const user = await requireRedactionUser();
@@ -23,8 +23,9 @@ export default async function RedactionDashboardPage() {
       <div className="grid grid-cols-2 gap-3">
         <StatCard icon={FileText} label="Publiés" value={stats.publishedCount} />
         <StatCard icon={PenLine} label="Brouillons" value={stats.draftCount} />
+        <StatCard icon={CalendarClock} label="Planifiés" value={stats.scheduledCount} />
         <StatCard icon={Eye} label="Vues totales" value={stats.totalViews.toLocaleString('fr-FR')} />
-        <StatCard icon={Zap} label="Flash actifs" value={stats.breakingCount} />
+        <StatCard icon={Zap} label="Flash actifs" value={stats.breakingCount} className="col-span-2" />
       </div>
 
       <Link
@@ -63,7 +64,11 @@ export default async function RedactionDashboardPage() {
                   )}
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {article.status === 'published' ? 'Publié' : 'Brouillon'}
+                  {article.status === 'published'
+                    ? 'Publié'
+                    : article.status === 'scheduled'
+                      ? 'Planifié'
+                      : 'Brouillon'}
                   {' · '}
                   {formatArticleDate(getArticleDisplayDate(article))}
                   {article.viewCount > 0 && ` · ${article.viewCount} vues`}
@@ -81,13 +86,15 @@ function StatCard({
   icon: Icon,
   label,
   value,
+  className,
 }: {
   icon: typeof FileText;
   label: string;
   value: string | number;
+  className?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className={cn('rounded-xl border border-border bg-card p-4', className)}>
       <Icon className="h-4 w-4 text-primary" />
       <p className="mt-2 font-display text-2xl font-bold">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>

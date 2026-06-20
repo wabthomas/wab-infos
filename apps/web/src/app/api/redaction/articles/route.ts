@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   try {
     const user = await requireRedactionUser();
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') as 'draft' | 'published' | 'all' | null;
+    const status = searchParams.get('status') as 'draft' | 'published' | 'scheduled' | 'all' | null;
     const articles = await listEditorArticles(user, status ?? 'all');
     return NextResponse.json({ articles });
   } catch (err) {

@@ -24,6 +24,7 @@ export default async function RedactionEditArticlePage({ params }: PageProps) {
         featuredImageId: article.featuredImage?.id,
         featuredImageUrl: article.featuredImage?.url,
         isBreaking: article.isBreaking,
+        scheduledAt: article.scheduledAt,
       }}
     />
   );

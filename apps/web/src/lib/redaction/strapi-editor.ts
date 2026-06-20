@@ -3,9 +3,11 @@ import qs from 'qs';
 import { getStrapiUrl, REDACTION_COOKIE } from '@/lib/redaction/config';
 import type {
   ArticleEditorPayload,
+  PushSubscriptionPayload,
   RedactionArticle,
   RedactionAuthor,
   RedactionCategory,
+  RedactionComment,
   RedactionStats,
   RedactionUser,
 } from '@/lib/redaction/types';
@@ -101,6 +103,7 @@ function mapArticle(entity: StrapiEntity): RedactionArticle {
     readingTime: (entity.readingTime as number) ?? 3,
     publishedAt: entity.publishedAt as string | undefined,
     wpPublishedAt: entity.wpPublishedAt as string | undefined,
+    scheduledAt: entity.scheduledAt as string | undefined,
     updatedAt: entity.updatedAt as string,
     category: category
       ? {
@@ -166,7 +169,7 @@ export async function getEditorProfile(user: RedactionUser): Promise<{
 
 export async function listEditorArticles(
   user: RedactionUser,
-  status?: 'draft' | 'published' | 'all'
+  status?: 'draft' | 'published' | 'scheduled' | 'all'
 ): Promise<RedactionArticle[]> {
   const author = await resolveAuthorForUser(user);
 
@@ -178,6 +181,8 @@ export async function listEditorArticles(
     filters.status = { $eq: 'draft' };
   } else if (status === 'published') {
     filters.status = { $eq: 'published' };
+  } else if (status === 'scheduled') {
+    filters.status = { $eq: 'scheduled' };
   }
 
   const response = await strapiFetch<{ data: StrapiEntity[] }>('/articles', {
@@ -208,6 +213,8 @@ export async function listEditorArticles(
     articles = articles.filter((a) => a.status === 'draft');
   } else if (status === 'published') {
     articles = articles.filter((a) => a.status === 'published');
+  } else if (status === 'scheduled') {
+    articles = articles.filter((a) => a.status === 'scheduled');
   }
 
   return articles.sort(
@@ -263,34 +270,83 @@ function contentToHtml(text: string): string {
     .join('');
 }
 
+function resolveArticleSaveMode(payload: Partial<ArticleEditorPayload>): {
+  strapiStatus: 'draft' | 'published';
+  customStatus: RedactionArticle['status'];
+  scheduledAt: string | null;
+} | null {
+  if (payload.publish === undefined && payload.scheduledAt === undefined) {
+    return null;
+  }
+
+  const scheduledAt = payload.scheduledAt?.trim() || null;
+  const scheduleFuture =
+    scheduledAt && payload.publish !== true && new Date(scheduledAt).getTime() > Date.now();
+
+  if (scheduleFuture) {
+    return { strapiStatus: 'draft', customStatus: 'scheduled', scheduledAt };
+  }
+
+  if (payload.publish) {
+    return { strapiStatus: 'published', customStatus: 'published', scheduledAt: null };
+  }
+
+  return { strapiStatus: 'draft', customStatus: 'draft', scheduledAt: null };
+}
+
+function buildArticleData(
+  payload: Partial<ArticleEditorPayload>,
+  author: RedactionAuthor,
+  slug?: string,
+  saveMode?: ReturnType<typeof resolveArticleSaveMode>
+): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+
+  if (saveMode) {
+    data.status = saveMode.customStatus;
+    data.scheduledAt = saveMode.scheduledAt;
+  }
+
+  if (slug) data.slug = slug;
+  if (payload.title !== undefined) {
+    data.title = payload.title.trim();
+    data.seoTitle = payload.title.trim().slice(0, 70);
+  }
+  if (payload.excerpt !== undefined) {
+    data.excerpt = payload.excerpt.trim().slice(0, 500);
+    data.seoDescription = payload.excerpt.trim().slice(0, 160);
+  }
+  if (payload.content !== undefined) {
+    const content = contentToHtml(payload.content);
+    data.content = content;
+    data.readingTime = calculateReadingTime(content);
+  }
+  if (payload.categoryDocumentId) data.category = payload.categoryDocumentId;
+  if (payload.featuredImageId !== undefined) data.featuredImage = payload.featuredImageId;
+  if (payload.isBreaking !== undefined) data.isBreaking = payload.isBreaking;
+  if (author.documentId) data.author = author.documentId;
+
+  return data;
+}
+
 export async function createEditorArticle(
   user: RedactionUser,
   payload: ArticleEditorPayload
 ): Promise<RedactionArticle> {
   const author = await resolveAuthorForUser(user);
   const slug = `${slugifyTitle(payload.title)}-${Date.now().toString(36)}`;
-  const content = contentToHtml(payload.content);
-  const status = payload.publish ? 'published' : 'draft';
-
-  const endpoint = payload.publish ? '/articles?status=published' : '/articles';
+  const saveMode = resolveArticleSaveMode(payload) ?? {
+    strapiStatus: 'draft' as const,
+    customStatus: 'draft' as const,
+    scheduledAt: null,
+  };
+  const endpoint =
+    saveMode.strapiStatus === 'published' ? '/articles?status=published' : '/articles';
 
   const response = await strapiFetch<{ data: StrapiEntity }>(endpoint, undefined, {
     method: 'POST',
     body: JSON.stringify({
-      data: {
-        title: payload.title.trim(),
-        slug,
-        excerpt: payload.excerpt.trim().slice(0, 500),
-        content,
-        status,
-        author: author.documentId,
-        category: payload.categoryDocumentId,
-        featuredImage: payload.featuredImageId ?? undefined,
-        isBreaking: payload.isBreaking ?? false,
-        readingTime: calculateReadingTime(content),
-        seoTitle: payload.title.trim().slice(0, 70),
-        seoDescription: payload.excerpt.trim().slice(0, 160),
-      },
+      data: buildArticleData(payload, author, slug, saveMode),
     }),
   });
 
@@ -302,38 +358,57 @@ export async function updateEditorArticle(
   documentId: string,
   payload: Partial<ArticleEditorPayload>
 ): Promise<RedactionArticle> {
-  await getEditorArticle(user, documentId);
+  const existing = await getEditorArticle(user, documentId);
+  if (!existing) throw new RedactionAuthError('Article introuvable');
 
-  const data: Record<string, unknown> = {};
-
-  if (payload.title !== undefined) data.title = payload.title.trim();
-  if (payload.excerpt !== undefined) data.excerpt = payload.excerpt.trim().slice(0, 500);
-  if (payload.content !== undefined) {
-    const content = contentToHtml(payload.content);
-    data.content = content;
-    data.readingTime = calculateReadingTime(content);
-  }
-  if (payload.categoryDocumentId) data.category = payload.categoryDocumentId;
-  if (payload.featuredImageId !== undefined) {
-    data.featuredImage = payload.featuredImageId;
-  }
-  if (payload.isBreaking !== undefined) data.isBreaking = payload.isBreaking;
-  if (payload.publish !== undefined) {
-    data.status = payload.publish ? 'published' : 'draft';
-  }
-
-  const statusParam = payload.publish ? 'published' : 'draft';
+  const author = await resolveAuthorForUser(user);
+  const saveMode = resolveArticleSaveMode(payload);
+  const statusParam =
+    saveMode?.strapiStatus ?? (existing?.status === 'published' ? 'published' : 'draft');
 
   const response = await strapiFetch<{ data: StrapiEntity }>(
     `/articles/${documentId}?status=${statusParam}`,
     undefined,
     {
       method: 'PUT',
-      body: JSON.stringify({ data }),
+      body: JSON.stringify({ data: buildArticleData(payload, author, undefined, saveMode) }),
     }
   );
 
   return mapArticle(response.data);
+}
+
+export async function publishDueScheduledArticles(): Promise<{
+  published: number;
+  documentIds: string[];
+}> {
+  const now = new Date().toISOString();
+  const response = await strapiFetch<{ data: StrapiEntity[] }>('/articles', {
+    filters: {
+      status: { $eq: 'scheduled' },
+      scheduledAt: { $lte: now },
+    },
+    populate: { category: true },
+    pagination: { pageSize: 50 },
+    status: 'draft',
+  });
+
+  const documentIds: string[] = [];
+
+  for (const article of response.data) {
+    await strapiFetch(`/articles/${article.documentId}?status=published`, undefined, {
+      method: 'PUT',
+      body: JSON.stringify({
+        data: {
+          status: 'published',
+          scheduledAt: null,
+        },
+      }),
+    });
+    documentIds.push(article.documentId);
+  }
+
+  return { published: documentIds.length, documentIds };
 }
 
 export async function getEditorStats(user: RedactionUser): Promise<RedactionStats> {
@@ -343,6 +418,7 @@ export async function getEditorStats(user: RedactionUser): Promise<RedactionStat
     totalArticles: articles.length,
     publishedCount: articles.filter((a) => a.status === 'published').length,
     draftCount: articles.filter((a) => a.status === 'draft').length,
+    scheduledCount: articles.filter((a) => a.status === 'scheduled').length,
     totalViews: articles.reduce((sum, a) => sum + (a.viewCount ?? 0), 0),
     breakingCount: articles.filter((a) => a.isBreaking && a.status === 'published').length,
   };
@@ -423,3 +499,85 @@ export async function loginRedactionUser(
     },
   };
 }
+
+function mapComment(entity: StrapiEntity): RedactionComment {
+  const article = entity.article as StrapiEntity | null | undefined;
+  const category = article?.category as StrapiEntity | null | undefined;
+
+  return {
+    documentId: entity.documentId,
+    content: entity.content as string,
+    authorName: entity.authorName as string,
+    authorEmail: entity.authorEmail as string,
+    status: entity.status as RedactionComment['status'],
+    createdAt: entity.createdAt as string,
+    article: article
+      ? {
+          documentId: article.documentId,
+          title: article.title as string,
+          slug: article.slug as string,
+          category: category ? { slug: category.slug as string } : undefined,
+        }
+      : undefined,
+  };
+}
+
+export async function listEditorComments(
+  status: 'pending' | 'approved' | 'rejected' | 'all' = 'pending'
+): Promise<RedactionComment[]> {
+  const filters: Record<string, unknown> = {};
+  if (status !== 'all') {
+    filters.status = { $eq: status };
+  }
+
+  const response = await strapiFetch<{ data: StrapiEntity[] }>('/comments', {
+    filters,
+    populate: { article: { populate: { category: true } } },
+    sort: ['createdAt:desc'],
+    pagination: { pageSize: 100 },
+  });
+
+  return response.data.map(mapComment);
+}
+
+export async function countPendingComments(): Promise<number> {
+  const response = await strapiFetch<{ meta: { pagination: { total: number } } }>('/comments', {
+    filters: { status: { $eq: 'pending' } },
+    pagination: { pageSize: 1 },
+  });
+  return response.meta.pagination.total;
+}
+
+export async function moderateEditorComment(
+  documentId: string,
+  status: 'approved' | 'rejected'
+): Promise<RedactionComment> {
+  const response = await strapiFetch<{ data: StrapiEntity }>(`/comments/${documentId}`, undefined, {
+    method: 'PUT',
+    body: JSON.stringify({ data: { status } }),
+  });
+  return mapComment(response.data);
+}
+
+export async function createPublicComment(payload: {
+  content: string;
+  authorName: string;
+  authorEmail: string;
+  articleDocumentId: string;
+}): Promise<RedactionComment> {
+  const response = await strapiFetch<{ data: StrapiEntity }>('/comments', undefined, {
+    method: 'POST',
+    body: JSON.stringify({
+      data: {
+        content: payload.content.trim().slice(0, 2000),
+        authorName: payload.authorName.trim().slice(0, 100),
+        authorEmail: payload.authorEmail.trim().toLowerCase(),
+        status: 'pending',
+        article: payload.articleDocumentId,
+      },
+    }),
+  });
+  return mapComment(response.data);
+}
+
+export type { PushSubscriptionPayload };

@@ -6,7 +6,13 @@ import type { RedactionArticle } from '@/lib/redaction/types';
 import { formatArticleDate, getArticleDisplayDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-type Filter = 'all' | 'published' | 'draft';
+type Filter = 'all' | 'published' | 'draft' | 'scheduled';
+
+function statusLabel(status: RedactionArticle['status']): string {
+  if (status === 'published') return 'Publié';
+  if (status === 'scheduled') return 'Planifié';
+  return 'Brouillon';
+}
 
 export default function RedactionArticlesPage() {
   const [filter, setFilter] = useState<Filter>('all');
@@ -26,7 +32,7 @@ export default function RedactionArticlesPage() {
       <h1 className="font-display text-2xl font-bold">Mes articles</h1>
 
       <div className="flex gap-2">
-        {(['all', 'published', 'draft'] as const).map((f) => (
+        {(['all', 'published', 'scheduled', 'draft'] as const).map((f) => (
           <button
             key={f}
             type="button"
@@ -38,7 +44,13 @@ export default function RedactionArticlesPage() {
                 : 'bg-muted text-muted-foreground'
             )}
           >
-            {f === 'all' ? 'Tous' : f === 'published' ? 'Publiés' : 'Brouillons'}
+            {f === 'all'
+              ? 'Tous'
+              : f === 'published'
+                ? 'Publiés'
+                : f === 'scheduled'
+                  ? 'Planifiés'
+                  : 'Brouillons'}
           </button>
         ))}
       </div>
@@ -61,7 +73,7 @@ export default function RedactionArticlesPage() {
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   {article.category?.name ?? 'Sans rubrique'}
                   {' · '}
-                  {article.status === 'published' ? 'Publié' : 'Brouillon'}
+                  {statusLabel(article.status)}
                   {' · '}
                   {formatArticleDate(getArticleDisplayDate(article))}
                 </p>

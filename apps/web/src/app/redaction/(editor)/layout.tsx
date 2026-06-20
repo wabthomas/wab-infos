@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { RedactionShell } from '@/components/redaction/redaction-shell';
+import { RedactionPushSetup } from '@/components/redaction/redaction-push-setup';
 import { getEditorProfile, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 
 export default async function RedactionEditorLayout({
@@ -11,7 +12,12 @@ export default async function RedactionEditorLayout({
     const user = await requireRedactionUser();
     const { author } = await getEditorProfile(user);
 
-    return <RedactionShell authorName={author.name}>{children}</RedactionShell>;
+    return (
+      <>
+        <RedactionPushSetup />
+        <RedactionShell authorName={author.name}>{children}</RedactionShell>
+      </>
+    );
   } catch {
     redirect('/redaction/login');
   }
