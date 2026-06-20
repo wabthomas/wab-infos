@@ -113,6 +113,44 @@ npm run build:cms
 # PM2 ou redémarrage Node.js via N0C
 ```
 
+### Build admin CMS (Strapi / Vite)
+
+Le panel admin (`strapi build`) utilise Vite + esbuild et consomme **1,5–4 Go** de RAM avec des processus fils. Sur PlanetHoster (CloudLinux), l’erreur typique est :
+
+```
+[vite:define] The service was stopped
+```
+
+**Solution recommandée** — builder l’admin en local, déployer l’artefact :
+
+```bash
+# En local (Windows)
+npm run build:cms
+npm run pack:cms-build
+
+# Uploader cms-build.tar.gz vers ~/wab-infos/ sur le serveur, puis :
+bash scripts/deploy-server.sh
+```
+
+Le script détecte `cms-build.tar.gz` et extrait `apps/cms/build` sans relancer Vite.
+
+Si l’admin n’a pas changé depuis le dernier déploiement :
+
+```bash
+SKIP_CMS_BUILD=1 bash scripts/deploy-server.sh
+```
+
+**Workflow complet local → serveur** (si les deux builds échouent en ligne) :
+
+```powershell
+npm run build:web:low-mem
+npm run build:cms
+npm run pack:web-build
+npm run pack:cms-build
+# Uploader web-next-build.tar.gz + cms-build.tar.gz
+bash scripts/deploy-server.sh
+```
+
 ### 5. Configuration Nginx (reverse proxy)
 
 Utilisez le fichier prêt à l'emploi :

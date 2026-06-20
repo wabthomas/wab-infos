@@ -15,7 +15,8 @@
     "build": "npm run build --workspace=apps/web",
     "build:web": "npm run build --workspace=apps/web",
     "build:web:low-mem": "npm run build:low-mem --workspace=apps/web",
-    "build:cms": "npm run build --prefix apps/cms",
+    "build:cms": "node scripts/build-cms-production.mjs",
+    "build:cms:direct": "npm run build --prefix apps/cms",
     "start:web": "npm run start --workspace=apps/web",
     "start:cms": "npm run start --prefix apps/cms",
     "import:wordpress": "npm run import --workspace=@wab-infos/wordpress-import --",
@@ -26,6 +27,7 @@
     "postinstall": "node scripts/setup-strapi-link.js",
     "deploy:server": "bash scripts/deploy-server.sh",
     "pack:web-build": "node scripts/pack-web-build.mjs",
+    "pack:cms-build": "node scripts/pack-cms-build.mjs",
     "secrets": "node scripts/generate-secrets.js",
     "lint": "npm run lint --workspace=apps/web"
   },

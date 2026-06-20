@@ -56,17 +56,46 @@ npm install --workspace=apps/web --include=optional
 echo "→ Lien Strapi monorepo"
 node scripts/setup-strapi-link.js
 
-echo "→ Build frontend (Webpack, mode faible mémoire)"
-export LOW_MEM_BUILD="${LOW_MEM_BUILD:-1}"
-export BUILD_HEAP_MB="${BUILD_HEAP_MB:-768}"
-export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"
-export UV_THREADPOOL_SIZE="${UV_THREADPOOL_SIZE:-1}"
-export NEXT_CPU_COUNT="${NEXT_CPU_COUNT:-1}"
-export NEXT_TELEMETRY_DISABLED=1
-npm run build:web:low-mem
+# ── CMS admin (Vite/esbuild) — en premier tant que le quota LVE est frais ──
+if [ -f "$APP_DIR/cms-build.tar.gz" ]; then
+  echo "→ Extraction CMS depuis cms-build.tar.gz (build local)"
+  rm -rf apps/cms/dist
+  tar -xzf cms-build.tar.gz -C apps/cms
+elif [ -f "$APP_DIR/apps/cms/dist/build/index.html" ] && [ "${FORCE_CMS_BUILD:-0}" != "1" ]; then
+  echo "→ CMS déjà compilé (apps/cms/dist) — skip"
+  echo "   FORCE_CMS_BUILD=1 pour reconstruire sur le serveur"
+elif [ "${SKIP_CMS_BUILD:-0}" = "1" ]; then
+  echo "→ Build CMS ignoré (SKIP_CMS_BUILD=1)"
+else
+  echo "→ Build CMS admin (Vite/esbuild, ~1,5 Go heap)"
+  export CMS_BUILD_HEAP_MB="${CMS_BUILD_HEAP_MB:-1536}"
+  export UV_THREADPOOL_SIZE="${UV_THREADPOOL_SIZE:-1}"
+  export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"
+  if ! node scripts/build-cms-production.mjs; then
+    echo ""
+    echo "❌ Build admin CMS impossible sur ce serveur (CloudLinux / esbuild)."
+    echo "   En local : npm run build:cms && npm run pack:cms-build"
+    echo "   Uploadez cms-build.tar.gz dans $APP_DIR puis relancez ce script."
+    echo "   Ou si l'admin n'a pas changé : SKIP_CMS_BUILD=1 bash scripts/deploy-server.sh"
+    exit 1
+  fi
+fi
 
-echo "→ Build CMS"
-npm run build:cms
+# ── Frontend Next.js ──
+if [ -f "$APP_DIR/web-next-build.tar.gz" ]; then
+  echo "→ Extraction frontend depuis web-next-build.tar.gz (build local)"
+  rm -rf apps/web/.next
+  tar -xzf web-next-build.tar.gz -C apps/web
+else
+  echo "→ Build frontend (Webpack, mode faible mémoire)"
+  export LOW_MEM_BUILD="${LOW_MEM_BUILD:-1}"
+  export BUILD_HEAP_MB="${BUILD_HEAP_MB:-768}"
+  export UV_THREADPOOL_SIZE="${UV_THREADPOOL_SIZE:-1}"
+  export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"
+  export NEXT_CPU_COUNT="${NEXT_CPU_COUNT:-1}"
+  export NEXT_TELEMETRY_DISABLED=1
+  npm run build:web:low-mem
+fi
 
 if command -v pm2 >/dev/null 2>&1 && [ "${USE_PM2:-}" = "1" ]; then
   echo "→ PM2 reload (USE_PM2=1)"

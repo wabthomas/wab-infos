@@ -41,5 +41,9 @@ npm-debug.log*
 # PM2
 .pm2/
 
+# Build artefacts (upload manuel serveur)
+web-next-build.tar.gz
+cms-build.tar.gz
+
 # WordPress import
 scripts/wordpress-import/data/
