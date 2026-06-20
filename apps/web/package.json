@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/build-production.mjs",
-    "build:low-mem": "BUILD_HEAP_MB=1024 node scripts/build-production.mjs",
+    "build:low-mem": "LOW_MEM_BUILD=1 BUILD_HEAP_MB=768 node scripts/build-production.mjs",
     "build:direct": "next build --webpack",
     "build:turbo": "next build",
     "start": "next start",

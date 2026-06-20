@@ -4,24 +4,18 @@ import { ArticleCard } from '@/components/articles/article-card';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { ContentSidebar } from '@/components/layout/content-sidebar';
 import {
-  categories,
   getCategoryBySlug,
   isValidCategorySlug,
   siteConfig,
 } from '@/config/site';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
+import { isLowMemBuild } from '@/lib/build-phase';
 import { generateCategoryMetadata } from '@/lib/seo';
 import { getLiveFeed } from '@/lib/sidebar-data';
 import { getArticles } from '@/lib/strapi';
 
 interface PageProps {
   params: Promise<{ category: string }>;
-}
-
-const categorySlugs = categories.map((c) => c.slug);
-
-export async function generateStaticParams() {
-  return categorySlugs.map((category) => ({ category }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -49,16 +43,17 @@ export default async function CategoryPage({ params }: PageProps) {
   }
 
   const cat = getCategoryBySlug(category)!;
+  const pageSize = isLowMemBuild() ? 12 : 20;
 
   const [categoryResult, liveResult] = await Promise.allSettled([
-    getArticles({ category, pageSize: 20 }),
+    getArticles({ category, pageSize }),
     getLiveFeed(4),
   ]);
 
   let articles =
     categoryResult.status === 'fulfilled'
       ? categoryResult.value.articles
-      : getMockArticlesIfEnabled({ category, pageSize: 20 });
+      : getMockArticlesIfEnabled({ category, pageSize });
 
   let liveFeed =
     liveResult.status === 'fulfilled'

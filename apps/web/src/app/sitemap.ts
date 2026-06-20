@@ -1,7 +1,10 @@
 import type { MetadataRoute } from 'next';
 import { categories, getVideoPagePath, siteConfig } from '@/config/site';
+import { isLowMemBuild } from '@/lib/build-phase';
 import { getAllArticlePaths, getAllVideosForSitemap } from '@/lib/strapi';
 import { getChannelRecentVideos } from '@/lib/youtube-channel';
+
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
@@ -16,6 +19,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: 'hourly' as const,
     priority: 0.9,
   }));
+
+  // Mutualisé : ne pas charger des milliers d'articles en mémoire pendant `next build`
+  if (isLowMemBuild()) {
+    return [...staticPages, ...categoryPages];
+  }
 
   let articlePages: MetadataRoute.Sitemap = [];
   try {

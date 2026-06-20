@@ -10,6 +10,7 @@ import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { SectionHeader } from '@/components/ui/section-header';
 import { categories } from '@/config/site';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
+import { isLowMemBuild } from '@/lib/build-phase';
 import { getBreakingNews, getArticles } from '@/lib/strapi';
 import { compareArticlesByDateDesc } from '@/lib/utils';
 import Link from 'next/link';
@@ -28,10 +29,12 @@ const bottomSectionSlugs = [
 ] as const;
 
 async function getHomeData() {
+  const pageSize = isLowMemBuild() ? 12 : 30;
+
   try {
     const [breaking, latest] = await Promise.all([
       getBreakingNews(),
-      getArticles({ pageSize: 30 }),
+      getArticles({ pageSize }),
     ]);
     return {
       breaking,
@@ -40,7 +43,7 @@ async function getHomeData() {
   } catch {
     return {
       breaking: getMockArticlesIfEnabled({ breaking: true }),
-      latest: getMockArticlesIfEnabled({ pageSize: 30 }),
+      latest: getMockArticlesIfEnabled({ pageSize }),
     };
   }
 }

@@ -19,7 +19,9 @@ process.env.NEXT_TELEMETRY_DISABLED = '1';
 process.env.GENERATE_SOURCEMAP = 'false';
 
 // 2048 Mo peut provoquer un kill OOM sur mutualisé — défaut 1536, surcharge via BUILD_HEAP_MB
-const heapMb = process.env.BUILD_HEAP_MB || '1536';
+const heapMb =
+  process.env.BUILD_HEAP_MB ||
+  (process.env.LOW_MEM_BUILD === '1' ? '768' : '1536');
 if (!process.env.NODE_OPTIONS?.includes('max-old-space-size')) {
   process.env.NODE_OPTIONS = [process.env.NODE_OPTIONS, `--max-old-space-size=${heapMb}`]
     .filter(Boolean)
@@ -31,7 +33,8 @@ const nextPkg = require.resolve('next/package.json');
 const nextBin = path.join(path.dirname(nextPkg), 'dist/bin/next');
 
 console.info(
-  `[build] heap=${heapMb}MB RAYON_NUM_THREADS=${process.env.RAYON_NUM_THREADS} ` +
+  `[build] heap=${heapMb}MB LOW_MEM_BUILD=${process.env.LOW_MEM_BUILD ?? '0'} ` +
+    `RAYON_NUM_THREADS=${process.env.RAYON_NUM_THREADS} ` +
     `UV_THREADPOOL_SIZE=${process.env.UV_THREADPOOL_SIZE} NEXT_CPU_COUNT=${process.env.NEXT_CPU_COUNT}`
 );
 
@@ -44,7 +47,8 @@ const result = spawnSync(process.execPath, [nextBin, 'build', '--webpack'], {
 if (result.signal) {
   console.error(
     `\n[build] Processus tué (${result.signal}). Souvent : mémoire insuffisante sur mutualisé.\n` +
-      `  → BUILD_HEAP_MB=1024 npm run build:web\n` +
+      `  → npm run build:web:low-mem\n` +
+      `  → LOW_MEM_BUILD=1 BUILD_HEAP_MB=768 npm run build:web\n` +
       `  → npm install --workspace=apps/web --include=optional\n` +
       `  → bash scripts/deploy-server.sh\n`
   );
