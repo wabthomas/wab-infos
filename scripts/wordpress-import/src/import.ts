@@ -11,7 +11,7 @@
  *   --dry-run    Simule l'import sans écrire dans Strapi
  *   --limit=N    Limite le nombre d'articles importés
  *   --backfill-images  Télécharge les images à la une pour les articles déjà importés
- *   --backfill-meta    Met à jour dates de publication et compteurs de vues (articles existants)
+ *   --backfill-meta    Met à jour dates WordPress (publication/modification) et compteurs de vues
  *   --force-images     Réimporte les images même si une image est déjà liée
  */
 
@@ -138,6 +138,21 @@ const cache = {
   tags: new Map<string, string>(),
   authors: new Map<string, string>(),
 };
+
+/** Applique les dates WordPress (publication + modification) via endpoint CMS dédié. */
+async function applyWordPressDates(
+  documentId: string,
+  publishedAt: string | null,
+  updatedAt: string | null
+): Promise<void> {
+  if (!publishedAt && !updatedAt) return;
+
+  const data: Record<string, string> = {};
+  if (publishedAt) data.publishedAt = publishedAt;
+  if (updatedAt) data.updatedAt = updatedAt;
+
+  await strapiRequest('PUT', `/articles/${documentId}/wordpress-dates`, { data });
+}
 
 async function strapiRequest(
   method: string,
@@ -488,7 +503,7 @@ async function importArticle(
   const featuredImageId = await resolveFeaturedMediaId(item, title, attachmentMap);
   if (featuredImageId) stats.images++;
 
-  const { publishedAt } = getWordPressDates(item);
+  const { publishedAt, updatedAt } = getWordPressDates(item);
   const viewCount = extractViewCount(item);
   const wpStatus = toText(item['wp:status']);
   const isPublished = wpStatus === 'publish';
@@ -535,11 +550,14 @@ async function importArticle(
       seoDescription: stripHtml(excerpt).slice(0, 160),
     };
 
-    if (publishedAt) articleData.publishedAt = publishedAt;
-    // updatedAt : géré par Strapi (non modifiable via l'API REST v5)
-
     const createEndpoint = isPublished ? '/articles?status=published' : '/articles';
-    await strapiRequest('POST', createEndpoint, { data: articleData });
+    const created = (await strapiRequest('POST', createEndpoint, { data: articleData })) as {
+      data: { documentId: string };
+    };
+
+    if (created.data?.documentId && (publishedAt || updatedAt)) {
+      await applyWordPressDates(created.data.documentId, publishedAt, updatedAt);
+    }
 
     stats.articles++;
     if (stats.articles % 100 === 0) {
@@ -636,10 +654,10 @@ async function backfillArticleMeta(items: WpItem[]): Promise<void> {
     const title = toText(item.title);
     if (!wpId) continue;
 
-    const { publishedAt } = getWordPressDates(item);
+    const { publishedAt, updatedAt } = getWordPressDates(item);
     const viewCount = extractViewCount(item);
 
-    if (!publishedAt && viewCount === 0) {
+    if (!publishedAt && !updatedAt && viewCount === 0) {
       stats.skipped++;
       continue;
     }
@@ -664,11 +682,16 @@ async function backfillArticleMeta(items: WpItem[]): Promise<void> {
         continue;
       }
 
-      const data: Record<string, unknown> = {};
-      if (publishedAt) data.publishedAt = publishedAt;
-      if (viewCount > 0) data.viewCount = viewCount;
+      if (publishedAt || updatedAt) {
+        await applyWordPressDates(article.documentId, publishedAt, updatedAt);
+      }
 
-      await strapiRequest('PUT', `/articles/${article.documentId}?status=published`, { data });
+      if (viewCount > 0) {
+        await strapiRequest('PUT', `/articles/${article.documentId}?status=published`, {
+          data: { viewCount },
+        });
+      }
+
       stats.meta++;
 
       if (stats.meta % 100 === 0) {

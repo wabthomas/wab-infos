@@ -6,5 +6,10 @@ export default {
       handler: 'api::article.article.incrementViews',
       config: { auth: false },
     },
+    {
+      method: 'PUT',
+      path: '/articles/:id/wordpress-dates',
+      handler: 'api::article.article.setWordPressDates',
+    },
   ],
 };
