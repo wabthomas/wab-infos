@@ -49,10 +49,14 @@ L’app lie automatiquement le compte à un profil **Auteur** (par e-mail) ou en
 
 ## Installation PWA (mobile)
 
-1. Ouvrir `https://app.wab-infos.com/redaction/login` dans Chrome/Safari
-2. **Ajouter à l’écran d’accueil**
-3. L’app s’ouvre en plein écran
-4. Accepter les notifications push à la première connexion (modération commentaires)
+1. Ouvrir **`https://app.wab-infos.com/redaction/login`** (Chrome Android ou Safari iOS)
+2. **Android / Chrome** : bouton **« Installer »** sur la page de connexion, ou icône ⊕ dans la barre d’adresse
+3. **iPhone** : Safari → **Partager** → **Sur l’écran d’accueil** (bandeau d’aide affiché sur la page login)
+4. Se connecter — accepter les **notifications push** pour la modération commentaires
+
+Critères techniques : manifest dédié `/redaction/manifest.webmanifest`, service worker `sw-redaction.js` (scope `/redaction/`), icônes PNG 192×512.
+
+Générer les icônes PNG après clone : `npm run pwa:icons --workspace=apps/web`
 
 ## Fonctionnalités
 

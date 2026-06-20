@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import { siteConfig } from '@/config/site';
+import { RedactionInstallBanner } from '@/components/redaction/redaction-install-banner';
 
 export function RedactionLoginForm() {
   const router = useRouter();
@@ -62,6 +63,7 @@ export function RedactionLoginForm() {
         </Link>
 
         <form onSubmit={handleSubmit} className="mx-auto w-full max-w-md space-y-5">
+          <RedactionInstallBanner />
           {error && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
               {error}

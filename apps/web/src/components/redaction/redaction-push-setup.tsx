@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
+import {
+  registerRedactionServiceWorker,
+  REDACTION_SW_SCOPE,
+} from '@/lib/redaction/register-service-worker';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -20,9 +24,11 @@ export function RedactionPushSetup() {
         const permission = await Notification.requestPermission();
         if (permission !== 'granted' || cancelled) return;
 
-        const registration = await navigator.serviceWorker.register('/sw-redaction.js', {
-          scope: '/redaction/',
-        });
+        const registration =
+          (await navigator.serviceWorker.getRegistration(REDACTION_SW_SCOPE)) ||
+          (await registerRedactionServiceWorker());
+        if (!registration || cancelled) return;
+
         await navigator.serviceWorker.ready;
 
         const keyRes = await fetch('/api/redaction/push/vapid-key');

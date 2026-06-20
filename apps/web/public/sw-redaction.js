@@ -1,3 +1,8 @@
+// Fetch handler requis par Chrome pour l'installabilité PWA
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener('push', (event) => {
   let data = { title: 'Wab-infos', body: '', url: '/redaction' };
   try {
@@ -9,8 +14,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/icons/icon-192.svg',
-      badge: '/icons/icon-192.svg',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       data: { url: data.url },
       tag: 'redaction-notification',
     })
