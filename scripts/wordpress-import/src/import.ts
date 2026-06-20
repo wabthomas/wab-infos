@@ -568,13 +568,18 @@ async function importArticle(
       data: { documentId: string };
     };
 
-    if (created.data?.documentId && (publishedAt || updatedAt)) {
-      await applyWordPressDates(created.data.documentId, publishedAt, updatedAt);
-    }
-
     stats.articles++;
     if (stats.articles % 100 === 0) {
       console.log(`  → ${stats.articles} articles importés...`);
+    }
+
+    if (created.data?.documentId && (publishedAt || updatedAt)) {
+      try {
+        await applyWordPressDates(created.data.documentId, publishedAt, updatedAt);
+      } catch (err) {
+        console.error(`  ✗ Dates "${title.slice(0, 40)}":`, err);
+        stats.errors++;
+      }
     }
   } catch (err) {
     console.error(`  ✗ Article "${title.slice(0, 40)}":`, err);
