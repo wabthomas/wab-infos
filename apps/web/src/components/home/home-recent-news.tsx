@@ -4,20 +4,11 @@ import type { Article } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleCard } from '@/components/articles/article-card';
 import { ArticleImage } from '@/components/ui/article-image';
-import { formatArticleDate, formatTime, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
+import { formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 
 interface HomeRecentNewsProps {
   articles: Article[];
   popularArticles?: Article[];
-}
-
-function formatEditorialTimeline(date: string | Date): string {
-  const value = new Date(date);
-  const weekday = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(value);
-  const day = String(value.getDate()).padStart(2, '0');
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const year = value.getFullYear();
-  return `${weekday}, ${day}-${month}-${year} à ${formatTime(value)}`;
 }
 
 function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
@@ -127,25 +118,28 @@ function PopularArticleRow({ article }: { article: Article }) {
   const categoryColor = article.category?.color ?? '#E63946';
 
   return (
-    <article className="border-b border-white/10 py-5 first:pt-0 last:border-b-0 last:pb-0">
-      <Link href={href} className="group block">
-        <h3 className="font-display text-[1.05rem] font-bold leading-tight text-white transition-colors group-hover:text-primary">
-          {article.title}
-        </h3>
-      </Link>
-
+    <article className="border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0">
       {article.category && (
         <Link
           href={`/${article.category.slug}`}
-          className="mt-3 inline-block text-xs font-bold uppercase tracking-wide"
+          className="mb-1 inline-flex w-fit items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider hover:underline"
           style={{ color: categoryColor }}
         >
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: categoryColor }}
+            aria-hidden
+          />
           {article.category.name}
         </Link>
       )}
-
-      <time dateTime={displayDate} className="mt-2 block text-sm text-white/70">
-        {formatEditorialTimeline(displayDate)}
+      <Link href={href} className="group block">
+        <h3 className="font-display line-clamp-2 text-[0.9rem] font-semibold leading-snug transition-colors group-hover:text-primary sm:text-[0.95rem]">
+          {article.title}
+        </h3>
+      </Link>
+      <time dateTime={displayDate} className="mt-1.5 block text-[11px] text-muted-foreground">
+        {formatArticleDate(displayDate)}
       </time>
     </article>
   );
@@ -155,14 +149,12 @@ function PopularPanel({ articles }: { articles: Article[] }) {
   if (!articles.length) return null;
 
   return (
-    <aside className="bg-[#0b0b12] px-5 py-6 text-white">
-      <div className="border-b-2 border-primary pb-3">
-        <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-primary">
-          Populaires
-        </h2>
+    <aside className="flex h-full flex-col rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
+      <div className="border-b border-border pb-2.5">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Populaires</h2>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3 flex flex-1 flex-col">
         {articles.map((article) => (
           <PopularArticleRow key={article.id} article={article} />
         ))}
@@ -180,7 +172,7 @@ export function HomeRecentNews({ articles, popularArticles = [] }: HomeRecentNew
 
   return (
     <section className="mb-8 md:mb-12" aria-label="Actualités récentes">
-      <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)] xl:items-start">
+      <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)] xl:items-stretch">
         <PopularPanel articles={popularArticles} />
 
         <div>
