@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { categories, getVideoPagePath, siteConfig } from '@/config/site';
-import { isLowMemBuild } from '@/lib/build-phase';
+import { isProductionBuild } from '@/lib/build-phase';
 import { getAllArticlePaths, getAllVideosForSitemap } from '@/lib/strapi';
 import { getChannelRecentVideos } from '@/lib/youtube-channel';
 
@@ -20,8 +20,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
-  // Mutualisé : ne pas charger des milliers d'articles en mémoire pendant `next build`
-  if (isLowMemBuild()) {
+  // Pendant `next build` : ne pas charger des milliers d'articles en mémoire (OOM mutualisé)
+  if (isProductionBuild()) {
     return [...staticPages, ...categoryPages];
   }
 
