@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { truncateVideoDescription } from '@/lib/youtube-channel';
 
 interface VideoDescriptionProps {
   text: string;
@@ -7,7 +8,7 @@ interface VideoDescriptionProps {
 
 /** Affiche une description YouTube / texte brut avec paragraphes et retours à la ligne. */
 export function VideoDescription({ text, className }: VideoDescriptionProps) {
-  const paragraphs = text
+  const paragraphs = truncateVideoDescription(text)
     .trim()
     .split(/\n{2,}/)
     .map((block) => block.trim())

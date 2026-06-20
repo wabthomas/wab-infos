@@ -17,6 +17,22 @@ export interface ChannelLiveStatus {
   publishedAt?: string;
 }
 
+/** Limite d'affichage page vidéo (descriptions YouTube jusqu'à 5000 car.) */
+export const VIDEO_DESCRIPTION_MAX_LENGTH = 500;
+
+export function truncateVideoDescription(
+  text: string,
+  maxLength = VIDEO_DESCRIPTION_MAX_LENGTH
+): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+
+  const slice = trimmed.slice(0, maxLength);
+  const lastBreak = Math.max(slice.lastIndexOf('\n'), slice.lastIndexOf(' '));
+  const cut = lastBreak > maxLength * 0.75 ? slice.slice(0, lastBreak) : slice;
+  return `${cut.trimEnd()}…`;
+}
+
 function decodeXml(text: string): string {
   return text
     .replace(/&amp;/g, '&')
@@ -116,7 +132,9 @@ export function youtubeVideoToTvVideo(
     slug: entry.videoId,
     youtubeId: entry.videoId,
     type,
-    description: entry.description,
+    description: entry.description
+      ? truncateVideoDescription(entry.description)
+      : undefined,
     publishedAt: entry.publishedAt,
   };
 }
@@ -175,7 +193,9 @@ export async function getYoutubeVideoFromApi(videoId: string): Promise<{
 
     return {
       title: snippet.title,
-      description: snippet.description,
+      description: snippet.description
+        ? truncateVideoDescription(snippet.description)
+        : undefined,
       publishedAt: snippet.publishedAt,
     };
   } catch {
@@ -203,7 +223,9 @@ export async function resolveVideoByYoutubeId(youtubeId: string): Promise<Video 
       documentId: `yt-${youtubeId}`,
       title: fromApi.title,
       slug: youtubeId,
-      description: fromApi.description || `${fromApi.title} — Wab-infos TV`,
+      description: truncateVideoDescription(
+        fromApi.description || `${fromApi.title} — Wab-infos TV`
+      ),
       youtubeId,
       type: 'replay',
       publishedAt: fromApi.publishedAt,
