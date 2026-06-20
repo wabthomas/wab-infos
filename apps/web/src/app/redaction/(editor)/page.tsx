@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { PenLine, FileText, Eye, Zap, CalendarClock } from 'lucide-react';
 import { getEditorProfile, getEditorStats, listEditorArticles, requireRedactionUser } from '@/lib/redaction/strapi-editor';
+import { getRedactionArticleStatusLabel } from '@/lib/redaction/status-label';
 import { formatArticleDate, getArticleDisplayDate, cn } from '@/lib/utils';
 
 export default async function RedactionDashboardPage() {
@@ -64,11 +65,7 @@ export default async function RedactionDashboardPage() {
                   )}
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {article.status === 'published'
-                    ? 'Publié'
-                    : article.status === 'scheduled'
-                      ? 'Planifié'
-                      : 'Brouillon'}
+                  {getRedactionArticleStatusLabel(article.status)}
                   {' · '}
                   {formatArticleDate(getArticleDisplayDate(article))}
                   {article.viewCount > 0 && ` · ${article.viewCount} vues`}

@@ -3,16 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { RedactionArticle } from '@/lib/redaction/types';
+import { getRedactionArticleStatusLabel } from '@/lib/redaction/status-label';
 import { formatArticleDate, getArticleDisplayDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 type Filter = 'all' | 'published' | 'draft' | 'scheduled';
-
-function statusLabel(status: RedactionArticle['status']): string {
-  if (status === 'published') return 'Publié';
-  if (status === 'scheduled') return 'Planifié';
-  return 'Brouillon';
-}
 
 export default function RedactionArticlesPage() {
   const [filter, setFilter] = useState<Filter>('all');
@@ -73,7 +68,7 @@ export default function RedactionArticlesPage() {
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   {article.category?.name ?? 'Sans rubrique'}
                   {' · '}
-                  {statusLabel(article.status)}
+                  {getRedactionArticleStatusLabel(article.status)}
                   {' · '}
                   {formatArticleDate(getArticleDisplayDate(article))}
                 </p>
