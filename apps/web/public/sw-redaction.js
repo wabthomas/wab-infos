@@ -1,3 +1,6 @@
+const OFFLINE_CACHE = 'redaction-offline-v1';
+const OFFLINE_URL = '/redaction-offline.html';
+
 const OFFLINE_HTML = `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -18,14 +21,36 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(OFFLINE_CACHE).then((cache) => cache.add(OFFLINE_URL))
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys
+          .filter((key) => key.startsWith('redaction-offline-') && key !== OFFLINE_CACHE)
+          .map((key) => caches.delete(key))
+      )
+    )
+  );
+});
+
+/** Page hors ligne pré-mise en cache (200 légitime). Sinon 503 = indisponibilité réelle. */
 function offlineNavigationResponse() {
-  return new Response(OFFLINE_HTML, {
-    status: 200,
-    statusText: 'OK',
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store',
-    },
+  return caches.match(OFFLINE_URL).then((cached) => {
+    if (cached) return cached;
+    return new Response(OFFLINE_HTML, {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    });
   });
 }
 
