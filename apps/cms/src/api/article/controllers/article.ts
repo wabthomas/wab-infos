@@ -73,18 +73,35 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
   },
 
   async incrementViews(ctx) {
-    const { id } = ctx.params;
-    const article = await strapi.documents('api::article.article').findOne({ documentId: id });
+    const { id: documentId } = ctx.params;
+    const knex = strapi.db.connection;
 
-    if (!article) {
+    let patched = await knex('articles')
+      .where('document_id', documentId)
+      .whereNotNull('published_at')
+      .update({
+        view_count: knex.raw('COALESCE(view_count, 0) + 1'),
+      });
+
+    if (patched === 0) {
+      patched = await knex('articles')
+        .where('document_id', documentId)
+        .update({
+          view_count: knex.raw('COALESCE(view_count, 0) + 1'),
+        });
+    }
+
+    if (patched === 0) {
       return ctx.notFound('Article not found');
     }
 
-    const updated = await strapi.documents('api::article.article').update({
-      documentId: id,
-      data: { viewCount: ((article.viewCount as number) || 0) + 1 },
-    });
+    const row = await knex('articles')
+      .where('document_id', documentId)
+      .whereNotNull('published_at')
+      .select('view_count')
+      .first();
 
-    return { data: { viewCount: updated?.viewCount ?? 0 } };
+    const viewCount = Number(row?.view_count ?? 0);
+    return { data: { viewCount } };
   },
 }));

@@ -358,8 +358,15 @@ export async function getShows(): Promise<Show[]> {
   }));
 }
 
-export async function incrementArticleViews(documentId: string): Promise<void> {
-  await fetchAPI(`/articles/${documentId}/views`, {}, { method: 'POST' });
+export async function incrementArticleViews(
+  documentId: string
+): Promise<{ viewCount: number }> {
+  const response = await fetchAPI<{ data: { viewCount: number } }>(
+    `/articles/${documentId}/views`,
+    undefined,
+    { method: 'POST', cache: 'no-store' }
+  );
+  return response.data;
 }
 
 export interface ArticleComment {
