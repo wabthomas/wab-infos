@@ -527,9 +527,22 @@ async function importArticle(
   }
 
   try {
-    const existing = await strapiRequest('GET', `/articles?filters[wpId][$eq]=${wpId}`) as { data: { documentId: string }[] };
+    const existing = await strapiRequest('GET', `/articles?filters[wpId][$eq]=${wpId}`) as {
+      data: { documentId: string }[];
+    };
     if (existing.data?.length) {
-      stats.skipped++;
+      const documentId = existing.data[0].documentId;
+      if (publishedAt || updatedAt) {
+        try {
+          await applyWordPressDates(documentId, publishedAt, updatedAt);
+          stats.meta++;
+        } catch (err) {
+          console.error(`  ✗ Dates "${title.slice(0, 40)}":`, err);
+          stats.errors++;
+        }
+      } else {
+        stats.skipped++;
+      }
       return;
     }
 

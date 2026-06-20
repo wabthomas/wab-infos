@@ -508,6 +508,7 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
       'api::article.article'
     > &
       Schema.Attribute.Private;
+    newsletterSentAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
     readingTime: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<3>;
     scheduledAt: Schema.Attribute.DateTime;
@@ -675,6 +676,44 @@ export interface ApiShowShow extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     videos: Schema.Attribute.Relation<'oneToMany', 'api::video.video'>;
+  };
+}
+
+export interface ApiSubscriberSubscriber extends Struct.CollectionTypeSchema {
+  collectionName: 'subscribers';
+  info: {
+    displayName: 'Abonn\u00E9 newsletter';
+    pluralName: 'subscribers';
+    singularName: 'subscriber';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    email: Schema.Attribute.Email &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::subscriber.subscriber'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    source: Schema.Attribute.String & Schema.Attribute.DefaultTo<'web'>;
+    status: Schema.Attribute.Enumeration<['active', 'unsubscribed']> &
+      Schema.Attribute.DefaultTo<'active'>;
+    subscribedAt: Schema.Attribute.DateTime;
+    unsubscribeToken: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    unsubscribedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1109,6 +1148,7 @@ declare module '@strapi/strapi' {
       'api::category.category': ApiCategoryCategory;
       'api::comment.comment': ApiCommentComment;
       'api::show.show': ApiShowShow;
+      'api::subscriber.subscriber': ApiSubscriberSubscriber;
       'api::tag.tag': ApiTagTag;
       'api::video.video': ApiVideoVideo;
       'plugin::content-releases.release': PluginContentReleasesRelease;
