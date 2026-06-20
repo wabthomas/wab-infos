@@ -488,7 +488,7 @@ async function importArticle(
   const featuredImageId = await resolveFeaturedMediaId(item, title, attachmentMap);
   if (featuredImageId) stats.images++;
 
-  const { publishedAt, updatedAt } = getWordPressDates(item);
+  const { publishedAt } = getWordPressDates(item);
   const viewCount = extractViewCount(item);
   const wpStatus = toText(item['wp:status']);
   const isPublished = wpStatus === 'publish';
@@ -536,7 +536,7 @@ async function importArticle(
     };
 
     if (publishedAt) articleData.publishedAt = publishedAt;
-    if (updatedAt) articleData.updatedAt = updatedAt;
+    // updatedAt : géré par Strapi (non modifiable via l'API REST v5)
 
     const createEndpoint = isPublished ? '/articles?status=published' : '/articles';
     await strapiRequest('POST', createEndpoint, { data: articleData });
@@ -636,7 +636,7 @@ async function backfillArticleMeta(items: WpItem[]): Promise<void> {
     const title = toText(item.title);
     if (!wpId) continue;
 
-    const { publishedAt, updatedAt } = getWordPressDates(item);
+    const { publishedAt } = getWordPressDates(item);
     const viewCount = extractViewCount(item);
 
     if (!publishedAt && viewCount === 0) {
@@ -666,7 +666,6 @@ async function backfillArticleMeta(items: WpItem[]): Promise<void> {
 
       const data: Record<string, unknown> = {};
       if (publishedAt) data.publishedAt = publishedAt;
-      if (updatedAt) data.updatedAt = updatedAt;
       if (viewCount > 0) data.viewCount = viewCount;
 
       await strapiRequest('PUT', `/articles/${article.documentId}?status=published`, { data });
