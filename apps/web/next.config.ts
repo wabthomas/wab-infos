@@ -6,6 +6,8 @@ const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
 const nextConfig: NextConfig = {
   output: 'standalone',
   productionBrowserSourceMaps: false,
+  // Mutualisé : Strapi lent ou indisponible pendant le build
+  staticPageGenerationTimeout: Number(process.env.STATIC_PAGE_TIMEOUT_SEC || 180),
   turbopack: {
     root: path.join(__dirname, '../..'),
   },

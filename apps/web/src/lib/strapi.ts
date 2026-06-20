@@ -28,21 +28,44 @@ function getHeaders(): HeadersInit {
   return headers;
 }
 
+const STRAPI_FETCH_TIMEOUT_MS = Number(process.env.STRAPI_FETCH_TIMEOUT_MS || 15_000);
+
 async function fetchAPI<T>(path: string, params?: Record<string, unknown>, options?: RequestInit): Promise<T> {
   const query = params ? `?${qs.stringify(params, { encodeValuesOnly: true })}` : '';
   const url = `${STRAPI_URL}/api${path}${query}`;
 
-  const res = await fetch(url, {
-    headers: getHeaders(),
-    next: { revalidate: 60 },
-    ...options,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), STRAPI_FETCH_TIMEOUT_MS);
 
-  if (!res.ok) {
-    throw new Error(`Strapi API error: ${res.status} ${res.statusText} — ${path}`);
+  if (options?.signal) {
+    if (options.signal.aborted) {
+      controller.abort();
+    } else {
+      options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
   }
 
-  return res.json() as Promise<T>;
+  try {
+    const res = await fetch(url, {
+      headers: getHeaders(),
+      next: { revalidate: 60 },
+      ...options,
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Strapi API error: ${res.status} ${res.statusText} — ${path}`);
+    }
+
+    return res.json() as Promise<T>;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Strapi API timeout after ${STRAPI_FETCH_TIMEOUT_MS}ms — ${path}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function mapMedia(media: StrapiEntity | null | undefined): StrapiMedia | undefined {

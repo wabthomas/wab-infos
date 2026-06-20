@@ -50,19 +50,20 @@ export default async function CategoryPage({ params }: PageProps) {
 
   const cat = getCategoryBySlug(category)!;
 
-  let articles;
-  let liveFeed;
-  try {
-    const [categoryResult, feed] = await Promise.all([
-      getArticles({ category, pageSize: 20 }),
-      getLiveFeed(4),
-    ]);
-    articles = categoryResult.articles;
-    liveFeed = feed;
-  } catch {
-    articles = getMockArticlesIfEnabled({ category, pageSize: 20 });
-    liveFeed = getMockArticlesIfEnabled({ pageSize: 4 });
-  }
+  const [categoryResult, liveResult] = await Promise.allSettled([
+    getArticles({ category, pageSize: 20 }),
+    getLiveFeed(4),
+  ]);
+
+  let articles =
+    categoryResult.status === 'fulfilled'
+      ? categoryResult.value.articles
+      : getMockArticlesIfEnabled({ category, pageSize: 20 });
+
+  let liveFeed =
+    liveResult.status === 'fulfilled'
+      ? liveResult.value
+      : getMockArticlesIfEnabled({ pageSize: 4 });
 
   return (
     <div className="container mx-auto px-4 py-8">
