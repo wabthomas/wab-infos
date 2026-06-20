@@ -62,8 +62,6 @@ const nextConfig: NextConfig = {
     webpackBuildWorker: false,
     staticGenerationMaxConcurrency: 1,
     staticGenerationMinPagesPerWorker: 50,
-    // Réduit le cache ISR en mémoire pendant le build (mutualisé)
-    isrMemoryCacheSize: 0,
   },
   webpack: (config, { dev }) => {
     config.parallelism = 1;
