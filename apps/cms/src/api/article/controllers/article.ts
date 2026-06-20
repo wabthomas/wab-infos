@@ -2,13 +2,6 @@ import { factories } from '@strapi/strapi';
 
 const UID = 'api::article.article';
 
-function readReturnedViewCount(rows: unknown[]): number {
-  const first = rows[0] as { view_count?: number } | number | undefined;
-  if (first == null) return 0;
-  if (typeof first === 'object') return Number(first.view_count ?? 0);
-  return Number(first);
-}
-
 export default factories.createCoreController(UID, ({ strapi }) => ({
   /**
    * Force les dates WordPress (contournement Query Engine + champ wpPublishedAt).
@@ -83,27 +76,33 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     const { id: documentId } = ctx.params;
     const knex = strapi.db.connection;
 
-    let rows = await knex('articles')
+    let patched = await knex('articles')
       .where('document_id', documentId)
       .whereNotNull('published_at')
       .update({
         view_count: knex.raw('COALESCE(view_count, 0) + 1'),
-      })
-      .returning(['view_count']);
+      });
 
-    if (rows.length === 0) {
-      rows = await knex('articles')
+    if (patched === 0) {
+      patched = await knex('articles')
         .where('document_id', documentId)
         .update({
           view_count: knex.raw('COALESCE(view_count, 0) + 1'),
-        })
-        .returning(['view_count']);
+        });
     }
 
-    if (rows.length === 0) {
+    if (patched === 0) {
       return ctx.notFound('Article not found');
     }
 
-    return { data: { viewCount: readReturnedViewCount(rows) } };
+    // Réponse publique : toujours le compteur de la version publiée (0 si brouillon seul)
+    const row = await knex('articles')
+      .where('document_id', documentId)
+      .whereNotNull('published_at')
+      .select('view_count')
+      .first();
+
+    const viewCount = Number(row?.view_count ?? 0);
+    return { data: { viewCount } };
   },
 }));
