@@ -45,6 +45,24 @@ if (process.env.LOW_MEM_BUILD === '1' && Number(heapMb) < 768) {
   );
 }
 
+if (process.env.LOW_MEM_BUILD === '1') {
+  console.info('[build] Compilation Tailwind (processus séparé, évite EAGAIN CloudLinux)…');
+  const cssResult = spawnSync(process.execPath, [path.join(__dirname, 'compile-css.mjs')], {
+    cwd: appDir,
+    env: process.env,
+    stdio: 'inherit',
+  });
+  if (cssResult.status !== 0) {
+    console.error(
+      '[build] Échec compile-css. Limite de processus CloudLinux (EAGAIN) ?\n' +
+        '  → Contacter PlanetHoster pour augmenter maxEntryProcs / nproc\n' +
+        '  → Ou builder en local puis déployer le dossier .next'
+    );
+    process.exit(cssResult.status ?? 1);
+  }
+  process.env.PRECOMPILED_CSS = '1';
+}
+
 const result = spawnSync(process.execPath, [nextBin, 'build', '--webpack'], {
   cwd: appDir,
   env: process.env,
@@ -59,6 +77,15 @@ if (result.signal) {
       `  → Éviter BUILD_HEAP_MB=512 (trop bas, SIGABRT fréquent)\n` +
       `  → Ajouter du swap Linux si possible (1–2 Go)\n` +
       `  → npm install --workspace=apps/web --include=optional\n`
+  );
+}
+
+if (result.status !== 0 && !result.signal) {
+  console.error(
+    `\n[build] Erreur EAGAIN / spawn ? Limite de processus CloudLinux (pas la RAM).\n` +
+      `  → Contacter PlanetHoster : augmenter maxEntryProcs / PMEM pour votre compte\n` +
+      `  → LOW_MEM_BUILD=1 BUILD_HEAP_MB=768 npm run build:web\n` +
+      `  → Builder en local : npm run build:web puis uploader apps/web/.next\n`
   );
 }
 

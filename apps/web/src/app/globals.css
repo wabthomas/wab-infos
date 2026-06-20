@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 :root {
+  --font-geist-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-playfair: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-brand: 'Oswald', 'Arial Narrow', Arial, sans-serif;
   --background: #fafafa;
   --foreground: #111827;
   --primary: #c41e3a;

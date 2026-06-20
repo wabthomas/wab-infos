@@ -68,11 +68,21 @@ const nextConfig: NextConfig = {
     webpackBuildWorker: false,
     staticGenerationMaxConcurrency: 1,
     staticGenerationMinPagesPerWorker: 50,
+    // CloudLinux : évite les worker threads jest-worker (EAGAIN)
+    workerThreads: false,
   },
-  webpack: (config, { dev }) => {
+  webpack: (config, { dev, webpack }) => {
     config.parallelism = 1;
     if (!dev) {
       config.devtool = false;
+    }
+    if (!dev && process.env.PRECOMPILED_CSS === '1') {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(
+          /[/\\]globals\.css$/,
+          path.join(__dirname, 'src/app/globals.compiled.css')
+        )
+      );
     }
     return config;
   },

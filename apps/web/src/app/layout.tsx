@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono, Oswald, Playfair_Display } from 'next/font/google';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import Script from 'next/script';
 import { siteConfig } from '@/config/site';
@@ -8,30 +7,13 @@ import { AppShell } from '@/components/layout/app-shell';
 import { generateWebsiteJsonLd } from '@/lib/seo';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-  display: 'swap',
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-  display: 'swap',
-});
-
-const playfair = Playfair_Display({
-  variable: '--font-playfair',
-  subsets: ['latin'],
-  display: 'swap',
-});
-
-const oswald = Oswald({
-  variable: '--font-brand',
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  display: 'swap',
-});
+const googleFontsUrl =
+  'https://fonts.googleapis.com/css2?' +
+  'family=Inter:wght@400;500;600;700&' +
+  'family=JetBrains+Mono:wght@400;500&' +
+  'family=Oswald:wght@500;600;700&' +
+  'family=Playfair+Display:wght@400;600;700&' +
+  'display=swap';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -105,8 +87,11 @@ export default function RootLayout({
   const websiteJsonLd = generateWebsiteJsonLd();
 
   return (
-    <html lang="fr" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${oswald.variable} h-full`}>
+    <html lang="fr" suppressHydrationWarning className="h-full">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href={googleFontsUrl} rel="stylesheet" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         <script
