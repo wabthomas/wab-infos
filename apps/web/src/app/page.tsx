@@ -9,7 +9,7 @@ import { NewsletterSignup } from '@/components/home/newsletter-signup';
 import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { SectionHeader } from '@/components/ui/section-header';
 import { categories } from '@/config/site';
-import { getMockArticles } from '@/lib/mock-data';
+import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { getBreakingNews, getArticles } from '@/lib/strapi';
 import { compareArticlesByDateDesc } from '@/lib/utils';
 import Link from 'next/link';
@@ -39,8 +39,8 @@ async function getHomeData() {
     };
   } catch {
     return {
-      breaking: getMockArticles({ breaking: true }),
-      latest: getMockArticles({ pageSize: 30 }),
+      breaking: getMockArticlesIfEnabled({ breaking: true }),
+      latest: getMockArticlesIfEnabled({ pageSize: 30 }),
     };
   }
 }

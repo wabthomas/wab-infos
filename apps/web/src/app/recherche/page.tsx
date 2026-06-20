@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import { ArticleCard } from '@/components/articles/article-card';
 import { SearchPageClient } from '@/components/search/search-form';
 import { siteConfig } from '@/config/site';
-import { getMockArticles } from '@/lib/mock-data';
+import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { searchArticles } from '@/lib/strapi';
 
 export const metadata: Metadata = {
@@ -30,7 +30,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
       articles = result.articles;
       total = result.pagination.total;
     } catch {
-      const mock = getMockArticles().filter(
+      const mock = getMockArticlesIfEnabled().filter(
         (a) =>
           a.title.toLowerCase().includes(query.toLowerCase()) ||
           a.excerpt.toLowerCase().includes(query.toLowerCase())

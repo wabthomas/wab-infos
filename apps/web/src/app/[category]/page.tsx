@@ -9,7 +9,7 @@ import {
   isValidCategorySlug,
   siteConfig,
 } from '@/config/site';
-import { getMockArticles } from '@/lib/mock-data';
+import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { generateCategoryMetadata } from '@/lib/seo';
 import { getLiveFeed } from '@/lib/sidebar-data';
 import { getArticles } from '@/lib/strapi';
@@ -60,8 +60,8 @@ export default async function CategoryPage({ params }: PageProps) {
     articles = categoryResult.articles;
     liveFeed = feed;
   } catch {
-    articles = getMockArticles({ category, pageSize: 20 });
-    liveFeed = getMockArticles({ pageSize: 4 });
+    articles = getMockArticlesIfEnabled({ category, pageSize: 20 });
+    liveFeed = getMockArticlesIfEnabled({ pageSize: 4 });
   }
 
   return (

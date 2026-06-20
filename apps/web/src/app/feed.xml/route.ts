@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getArticlePath, siteConfig } from '@/config/site';
 import { getArticles } from '@/lib/strapi';
-import { getMockArticles } from '@/lib/mock-data';
+import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 
 export async function GET() {
@@ -10,7 +10,7 @@ export async function GET() {
     const result = await getArticles({ pageSize: 50 });
     articles = result.articles;
   } catch {
-    articles = getMockArticles({ pageSize: 50 });
+    articles = getMockArticlesIfEnabled({ pageSize: 50 });
   }
 
   const items = articles

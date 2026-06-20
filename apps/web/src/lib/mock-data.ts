@@ -1,5 +1,6 @@
 import type { Article, StrapiMedia } from '@wab-infos/shared';
 import { categories } from '@/config/site';
+import { useMockData } from '@/lib/use-mock-data';
 
 function mockFeaturedImage(slug: string, caption: string): StrapiMedia {
   return {
@@ -185,6 +186,19 @@ export function getMockArticles(options?: {
   }
 
   return result;
+}
+
+/** Retourne les mocks uniquement si autorisé (dev local). Sinon tableau vide. */
+export function getMockArticlesIfEnabled(
+  options?: Parameters<typeof getMockArticles>[0]
+): Article[] {
+  if (!useMockData()) return [];
+  return getMockArticles(options);
+}
+
+export function findMockArticleBySlug(slug: string): Article | null {
+  if (!useMockData()) return null;
+  return getMockArticles().find((a) => a.slug === slug) ?? null;
 }
 
 export { categories as mockCategories };

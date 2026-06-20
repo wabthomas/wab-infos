@@ -20,8 +20,8 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 
 function offlineNavigationResponse() {
   return new Response(OFFLINE_HTML, {
-    status: 503,
-    statusText: 'Service Unavailable',
+    status: 200,
+    statusText: 'OK',
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store',

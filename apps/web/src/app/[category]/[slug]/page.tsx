@@ -7,7 +7,7 @@ import { RelatedArticles } from '@/components/articles/related-articles';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { InArticleAd } from '@/components/ads/adsense';
 import { siteConfig, resolveArticleCategorySlug, resolveCategoryMeta, isValidCategorySlug } from '@/config/site';
-import { getMockArticles } from '@/lib/mock-data';
+import { findMockArticleBySlug, getMockArticlesIfEnabled } from '@/lib/mock-data';
 import {
   generateArticleJsonLd,
   generateArticleMetadata,
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const article = await getArticleBySlug(slug);
     if (article) return generateArticleMetadata(article, category);
   } catch {
-    const mock = getMockArticles().find((a) => a.slug === slug);
+    const mock = findMockArticleBySlug(slug);
     if (mock) return generateArticleMetadata(mock, category);
   }
   return { title: 'Article non trouvé' };
@@ -43,7 +43,7 @@ export default async function ArticlePage({ params }: PageProps) {
   try {
     article = await getArticleBySlug(slug);
   } catch {
-    article = getMockArticles().find((a) => a.slug === slug) ?? null;
+    article = findMockArticleBySlug(slug);
   }
 
   if (!article) notFound();
@@ -79,11 +79,9 @@ export default async function ArticlePage({ params }: PageProps) {
       .sort(compareArticlesByDateDesc);
     comments = approvedComments;
   } catch {
-    const mock = getMockArticles({ pageSize: 12 });
+    const mock = getMockArticlesIfEnabled({ pageSize: 12 });
     related = mock.filter((a) => a.slug !== slug).slice(0, 4);
-    liveFeed = mock
-      .filter((a) => a.slug !== slug)
-      .sort(compareArticlesByDateDesc);
+    liveFeed = mock.filter((a) => a.slug !== slug).sort(compareArticlesByDateDesc);
   }
 
   const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;

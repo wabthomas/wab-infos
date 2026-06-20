@@ -1,4 +1,4 @@
-import { getMockArticles } from '@/lib/mock-data';
+import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { searchArticles } from '@/lib/strapi';
 
 export interface SearchSuggestion {
@@ -53,7 +53,7 @@ function scoreMockMatch(
 }
 
 function searchMockSuggestions(query: string, limit: number): SearchSuggestion[] {
-  return getMockArticles()
+  return getMockArticlesIfEnabled()
     .map((article) => ({ article, score: scoreMockMatch(article, query) }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score)
