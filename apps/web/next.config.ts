@@ -79,7 +79,7 @@ const nextConfig: NextConfig = {
     if (!dev && process.env.PRECOMPILED_CSS === '1') {
       config.plugins.push(
         new webpack.NormalModuleReplacementPlugin(
-          /[/\\]globals\.css$/,
+          /globals\.css$/,
           path.join(__dirname, 'src/app/globals.compiled.css')
         )
       );

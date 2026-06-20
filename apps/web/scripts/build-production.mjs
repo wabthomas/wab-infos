@@ -12,6 +12,11 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.join(__dirname, '..');
 
+if (process.argv.includes('--low-mem')) {
+  process.env.LOW_MEM_BUILD = '1';
+  if (!process.env.BUILD_HEAP_MB) process.env.BUILD_HEAP_MB = '768';
+}
+
 if (!process.env.RAYON_NUM_THREADS) process.env.RAYON_NUM_THREADS = '1';
 if (!process.env.UV_THREADPOOL_SIZE) process.env.UV_THREADPOOL_SIZE = '1';
 if (!process.env.NEXT_CPU_COUNT) process.env.NEXT_CPU_COUNT = '1';
