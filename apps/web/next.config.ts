@@ -2,12 +2,18 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
+const isLowMemBuild = process.env.LOW_MEM_BUILD === '1';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
   productionBrowserSourceMaps: false,
   // Mutualisé : Strapi lent ou indisponible pendant le build
   staticPageGenerationTimeout: Number(process.env.STATIC_PAGE_TIMEOUT_SEC || 180),
+  // Mutualisé : saute tsc pendant next build (économise ~500 Mo–1 Go de RAM)
+  // Vérifier les types en local / CI : npm run typecheck --workspace=apps/web
+  typescript: {
+    ignoreBuildErrors: isLowMemBuild,
+  },
   turbopack: {
     root: path.join(__dirname, '../..'),
   },

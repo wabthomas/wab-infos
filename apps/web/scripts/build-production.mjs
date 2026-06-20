@@ -34,9 +34,16 @@ const nextBin = path.join(path.dirname(nextPkg), 'dist/bin/next');
 
 console.info(
   `[build] heap=${heapMb}MB LOW_MEM_BUILD=${process.env.LOW_MEM_BUILD ?? '0'} ` +
+    `(typescript=${process.env.LOW_MEM_BUILD === '1' ? 'skip' : 'check'}) ` +
     `RAYON_NUM_THREADS=${process.env.RAYON_NUM_THREADS} ` +
     `UV_THREADPOOL_SIZE=${process.env.UV_THREADPOOL_SIZE} NEXT_CPU_COUNT=${process.env.NEXT_CPU_COUNT}`
 );
+
+if (process.env.LOW_MEM_BUILD === '1' && Number(heapMb) < 768) {
+  console.warn(
+    `[build] BUILD_HEAP_MB=${heapMb} est bas pour mutualisé — préférez 768 (512 provoque souvent SIGABRT).`
+  );
+}
 
 const result = spawnSync(process.execPath, [nextBin, 'build', '--webpack'], {
   cwd: appDir,
@@ -47,10 +54,11 @@ const result = spawnSync(process.execPath, [nextBin, 'build', '--webpack'], {
 if (result.signal) {
   console.error(
     `\n[build] Processus tué (${result.signal}). Souvent : mémoire insuffisante sur mutualisé.\n` +
+      `  → git pull && LOW_MEM_BUILD=1 BUILD_HEAP_MB=768 npm run build:web\n` +
       `  → npm run build:web:low-mem\n` +
-      `  → LOW_MEM_BUILD=1 BUILD_HEAP_MB=768 npm run build:web\n` +
-      `  → npm install --workspace=apps/web --include=optional\n` +
-      `  → bash scripts/deploy-server.sh\n`
+      `  → Éviter BUILD_HEAP_MB=512 (trop bas, SIGABRT fréquent)\n` +
+      `  → Ajouter du swap Linux si possible (1–2 Go)\n` +
+      `  → npm install --workspace=apps/web --include=optional\n`
   );
 }
 
