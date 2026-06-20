@@ -16,6 +16,7 @@ apps/web/.env.local
 # Strapi
 apps/cms/.tmp/
 apps/cms/.strapi/
+apps/cms/.strapi-updater.json
 apps/cms/dist/
 apps/cms/public/uploads/*
 !apps/cms/public/uploads/.gitkeep
