@@ -196,13 +196,6 @@ export async function resolveVideoByYoutubeId(youtubeId: string): Promise<Video 
     // Strapi indisponible
   }
 
-  const channelId = siteConfig.youtubeChannelId;
-  if (channelId) {
-    const recent = await getChannelRecentVideos(channelId, 50);
-    const fromFeed = recent.find((entry) => entry.videoId === youtubeId);
-    if (fromFeed) return youtubeVideoToTvVideo(fromFeed, 'replay');
-  }
-
   const fromApi = await getYoutubeVideoFromApi(youtubeId);
   if (fromApi) {
     return {
@@ -210,11 +203,18 @@ export async function resolveVideoByYoutubeId(youtubeId: string): Promise<Video 
       documentId: `yt-${youtubeId}`,
       title: fromApi.title,
       slug: youtubeId,
-      description: fromApi.description?.slice(0, 500) || `${fromApi.title} — Wab-infos TV`,
+      description: fromApi.description || `${fromApi.title} — Wab-infos TV`,
       youtubeId,
       type: 'replay',
       publishedAt: fromApi.publishedAt,
     };
+  }
+
+  const channelId = siteConfig.youtubeChannelId;
+  if (channelId) {
+    const recent = await getChannelRecentVideos(channelId, 50);
+    const fromFeed = recent.find((entry) => entry.videoId === youtubeId);
+    if (fromFeed) return youtubeVideoToTvVideo(fromFeed, 'replay');
   }
 
   const oembed = await getYoutubeOembed(youtubeId);

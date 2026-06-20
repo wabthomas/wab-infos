@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArticleCard } from '@/components/articles/article-card';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
-import { SidebarAd } from '@/components/ads/adsense';
+import { ContentSidebar } from '@/components/layout/content-sidebar';
 import {
   categories,
   getCategoryBySlug,
@@ -11,6 +11,7 @@ import {
 } from '@/config/site';
 import { getMockArticles } from '@/lib/mock-data';
 import { generateCategoryMetadata } from '@/lib/seo';
+import { getLiveFeed } from '@/lib/sidebar-data';
 import { getArticles } from '@/lib/strapi';
 
 interface PageProps {
@@ -50,11 +51,17 @@ export default async function CategoryPage({ params }: PageProps) {
   const cat = getCategoryBySlug(category)!;
 
   let articles;
+  let liveFeed;
   try {
-    const result = await getArticles({ category, pageSize: 20 });
-    articles = result.articles;
+    const [categoryResult, feed] = await Promise.all([
+      getArticles({ category, pageSize: 20 }),
+      getLiveFeed(4),
+    ]);
+    articles = categoryResult.articles;
+    liveFeed = feed;
   } catch {
     articles = getMockArticles({ category, pageSize: 20 });
+    liveFeed = getMockArticles({ pageSize: 4 });
   }
 
   return (
@@ -94,9 +101,17 @@ export default async function CategoryPage({ params }: PageProps) {
             </p>
           )}
         </div>
-        <aside>
-          <SidebarAd />
-        </aside>
+        <ContentSidebar
+          liveFeed={liveFeed}
+          articles={articles.length > 4 ? articles.slice(4, 12) : articles}
+          articlesTitle={articles.length > 4 ? 'Suite de la rubrique' : `Dans ${cat.name}`}
+          articlesLink={{ href: `/${cat.slug}`, label: 'Tout voir' }}
+          categoryName={cat.name}
+          categorySlug={cat.slug}
+          categoryColor={cat.color}
+          currentCategorySlug={cat.slug}
+          showCategories
+        />
       </div>
     </div>
   );

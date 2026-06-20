@@ -153,6 +153,7 @@ export default async function ArticlePage({ params }: PageProps) {
             categoryName={cat.name}
             categorySlug={categorySlug}
             categoryColor={cat.color}
+            excludeArticleSlugs={[slug]}
           />
         </div>
       </article>
