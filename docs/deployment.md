@@ -66,15 +66,51 @@ Variables critiques :
 
 ### 4. Build et démarrage
 
-```bash
-npm install
-npm run build:web
-npm run build:cms
+**Important (PlanetHoster / CloudLinux)** : en local Windows, `npm run build:web` utilise ~1,5 Go de heap et compile Tailwind dans Webpack. Sur le serveur, les limites de **processus** (EAGAIN) bloquent ce mode — pas la RAM.
 
-# Démarrer avec PM2
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup
+Sur le **serveur Linux** :
+
+```bash
+git pull
+npm install
+npm install --workspace=apps/web --include=optional   # binaires Tailwind Linux
+npm run build:web:low-mem
+# ou (depuis une version récente) :
+npm run build:web   # active LOW_MEM_BUILD=1 automatiquement sur Linux
+```
+
+Vous devez voir dans les logs :
+
+```
+[build] Linux détecté → LOW_MEM_BUILD=1 automatique …
+[build] Compilation Tailwind (processus séparé …)
+[build] CSS compilé → src/app/globals.compiled.css
+```
+
+**Script complet** (recommandé) :
+
+```bash
+bash scripts/deploy-server.sh
+```
+
+**Si le build échoue encore (EAGAIN)** — builder en local, uploader `.next` :
+
+```bash
+# En local (Windows)
+npm run build:web:low-mem
+npm run pack:web-build
+
+# Copier web-next-build.tar.gz sur le serveur, puis :
+cd ~/wab-infos
+rm -rf apps/web/.next
+tar -xzf web-next-build.tar.gz -C apps/web
+```
+
+Puis build CMS et redémarrage :
+
+```bash
+npm run build:cms
+# PM2 ou redémarrage Node.js via N0C
 ```
 
 ### 5. Configuration Nginx (reverse proxy)

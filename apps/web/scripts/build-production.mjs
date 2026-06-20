@@ -17,6 +17,21 @@ if (process.argv.includes('--low-mem')) {
   if (!process.env.BUILD_HEAP_MB) process.env.BUILD_HEAP_MB = '768';
 }
 
+// PlanetHoster / CloudLinux : même commande `npm run build:web` qu'en local, mais le serveur
+// a des limites de processus (EAGAIN). Sur Linux, activer low-mem sauf si LOW_MEM_BUILD=0.
+if (
+  process.env.LOW_MEM_BUILD === undefined &&
+  process.platform === 'linux' &&
+  process.env.CI !== 'true'
+) {
+  process.env.LOW_MEM_BUILD = '1';
+  if (!process.env.BUILD_HEAP_MB) process.env.BUILD_HEAP_MB = '768';
+  console.info(
+    '[build] Linux détecté → LOW_MEM_BUILD=1 automatique (serveur mutualisé). ' +
+      'Build complet en local : LOW_MEM_BUILD=0 npm run build:web'
+  );
+}
+
 if (!process.env.RAYON_NUM_THREADS) process.env.RAYON_NUM_THREADS = '1';
 if (!process.env.UV_THREADPOOL_SIZE) process.env.UV_THREADPOOL_SIZE = '1';
 if (!process.env.NEXT_CPU_COUNT) process.env.NEXT_CPU_COUNT = '1';

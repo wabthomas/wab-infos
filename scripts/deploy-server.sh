@@ -59,12 +59,11 @@ node scripts/setup-strapi-link.js
 echo "→ Build frontend (Webpack, mode faible mémoire)"
 export LOW_MEM_BUILD="${LOW_MEM_BUILD:-1}"
 export BUILD_HEAP_MB="${BUILD_HEAP_MB:-768}"
-export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=768}"
 export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"
 export UV_THREADPOOL_SIZE="${UV_THREADPOOL_SIZE:-1}"
 export NEXT_CPU_COUNT="${NEXT_CPU_COUNT:-1}"
 export NEXT_TELEMETRY_DISABLED=1
-npm run build:web
+npm run build:web:low-mem
 
 echo "→ Build CMS"
 npm run build:cms
