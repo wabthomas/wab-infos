@@ -31,9 +31,51 @@ export function formatRelativeDate(date: string | Date) {
 
   if (diffMinutes < 1) return "À l'instant";
   if (diffMinutes < 60) return `Il y a ${diffMinutes} min`;
-  if (diffHours < 24) return `Il y a ${diffHours}h`;
-  if (diffDays < 7) return `Il y a ${diffDays}j`;
+  if (diffHours < 24) return `Il y a ${diffHours} h`;
+  if (diffDays < 7) return `Il y a ${diffDays} j`;
   return formatDate(date);
+}
+
+/** Date de publication effective (WordPress ou Strapi), quelle que soit l'année. */
+export function getArticleDisplayDate(article: {
+  publishedAt: string;
+  wpPublishedAt?: string;
+}): string {
+  return article.wpPublishedAt || article.publishedAt;
+}
+
+export function getArticleTimestamp(article: {
+  publishedAt: string;
+  wpPublishedAt?: string;
+}): number {
+  return new Date(getArticleDisplayDate(article)).getTime();
+}
+
+export function compareArticlesByDateDesc(
+  a: { publishedAt: string; wpPublishedAt?: string },
+  b: { publishedAt: string; wpPublishedAt?: string }
+): number {
+  return getArticleTimestamp(b) - getArticleTimestamp(a);
+}
+
+/**
+ * Date lisible pour l'affichage :
+ * - publication récente (< 48 h) → forme relative (« Il y a 2 h »)
+ * - plus ancienne (2020, 2023, 2024, etc.) → date complète avec année
+ */
+export function formatArticleDate(date: string | Date): string {
+  const target = new Date(date);
+  const diffHours = (Date.now() - target.getTime()) / (1000 * 60 * 60);
+
+  if (diffHours < 48) {
+    return formatRelativeDate(date);
+  }
+
+  return formatDate(date, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 export function calculateReadingTime(content: string): number {

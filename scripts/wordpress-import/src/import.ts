@@ -84,6 +84,8 @@ interface WpItem {
   category?: WpCategory | WpCategory[];
   'wp:postmeta'?: WpPostMeta | WpPostMeta[];
   'wp:attachment_url'?: string;
+  'dc:creator'?: string;
+  'wp:post_author'?: number | string;
 }
 
 interface WpCategory {
@@ -303,6 +305,78 @@ function getWordPressDates(item: WpItem): { publishedAt: string | null; updatedA
   return { publishedAt, updatedAt };
 }
 
+function authorLoginToSlug(login: string): string {
+  return login.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+}
+
+async function ensureAuthorFromCreator(creator: string): Promise<string | null> {
+  const login = toText(creator);
+  if (!login) return null;
+
+  const slug = authorLoginToSlug(login);
+  if (!slug) return null;
+  if (cache.authors.has(slug)) return cache.authors.get(slug)!;
+
+  if (DRY_RUN) {
+    cache.authors.set(slug, 'dry-run');
+    stats.authors++;
+    return 'dry-run';
+  }
+
+  try {
+    const existing = (await strapiRequest(
+      'GET',
+      `/authors?filters[slug][$eq]=${slug}`
+    )) as { data: { documentId: string }[] };
+    if (existing.data?.length) {
+      cache.authors.set(slug, existing.data[0].documentId);
+      return existing.data[0].documentId;
+    }
+
+    const result = (await strapiRequest('POST', '/authors', {
+      data: { name: login, slug },
+    })) as { data: { documentId: string } };
+
+    cache.authors.set(slug, result.data.documentId);
+    stats.authors++;
+    return result.data.documentId;
+  } catch (err) {
+    console.error(`  ✗ Auteur ${slug}:`, err);
+    stats.errors++;
+    return null;
+  }
+}
+
+async function resolveAuthorDocumentId(
+  item: WpItem,
+  authorMap: Map<number, string>
+): Promise<string | null> {
+  const raw = item as Record<string, unknown>;
+  const wpPostAuthor = Number(raw['wp:post_author'] ?? item['wp:post_author']);
+  if (wpPostAuthor && authorMap.has(wpPostAuthor)) {
+    return authorMap.get(wpPostAuthor)!;
+  }
+
+  const creator = toText(item['dc:creator'] ?? raw['dc:creator']);
+  if (creator) {
+    const slug = authorLoginToSlug(creator);
+    if (cache.authors.has(slug)) return cache.authors.get(slug)!;
+    return ensureAuthorFromCreator(creator);
+  }
+
+  return null;
+}
+
+function buildArticleMetaPayload(
+  publishedAt: string | null,
+  authorId: string | null
+): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+  if (publishedAt) data.wpPublishedAt = publishedAt;
+  if (authorId) data.author = authorId;
+  return data;
+}
+
 function getPostType(item: WpItem): string {
   const raw = item as Record<string, unknown>;
   return toText(item['wp:post_type'] ?? raw.post_type).toLowerCase();
@@ -505,6 +579,7 @@ async function importArticle(
 
   const { publishedAt, updatedAt } = getWordPressDates(item);
   const viewCount = extractViewCount(item);
+  const authorId = await resolveAuthorDocumentId(item, authorMap);
   const wpStatus = toText(item['wp:status']);
   const isPublished = wpStatus === 'publish';
 
@@ -532,17 +607,31 @@ async function importArticle(
     };
     if (existing.data?.length) {
       const documentId = existing.data[0].documentId;
+      const metaPayload = buildArticleMetaPayload(publishedAt, authorId);
+      let updated = false;
+
+      if (Object.keys(metaPayload).length) {
+        try {
+          await strapiRequest('PUT', `/articles/${documentId}?status=published`, { data: metaPayload });
+          updated = true;
+        } catch (err) {
+          console.error(`  ✗ Meta "${title.slice(0, 40)}":`, err);
+          stats.errors++;
+        }
+      }
+
       if (publishedAt || updatedAt) {
         try {
           await applyWordPressDates(documentId, publishedAt, updatedAt);
-          stats.meta++;
+          updated = true;
         } catch (err) {
           console.error(`  ✗ Dates "${title.slice(0, 40)}":`, err);
           stats.errors++;
         }
-      } else {
-        stats.skipped++;
       }
+
+      if (updated) stats.meta++;
+      else stats.skipped++;
       return;
     }
 
@@ -561,6 +650,8 @@ async function importArticle(
       featuredImage: featuredImageId,
       seoTitle: title.slice(0, 70),
       seoDescription: stripHtml(excerpt).slice(0, 160),
+      author: authorId ?? undefined,
+      wpPublishedAt: publishedAt ?? undefined,
     };
 
     const createEndpoint = isPublished ? '/articles?status=published' : '/articles';
@@ -659,13 +750,15 @@ async function backfillFeaturedImages(
 }
 
 async function backfillArticleMeta(items: WpItem[]): Promise<void> {
-  console.log('📅 Mise à jour des dates et compteurs de vues...');
+  console.log('📅 Mise à jour des dates, auteurs et compteurs de vues...');
 
   let posts = items.filter(isPublishedPost);
   if (OFFSET > 0) posts = posts.slice(OFFSET);
   if (LIMIT > 0) posts = posts.slice(0, LIMIT);
 
   console.log(`  Articles à traiter : ${posts.length}`);
+
+  const authorMap = new Map<number, string>();
 
   for (const item of posts) {
     const wpId = Number(item['wp:post_id']) || 0;
@@ -674,8 +767,9 @@ async function backfillArticleMeta(items: WpItem[]): Promise<void> {
 
     const { publishedAt, updatedAt } = getWordPressDates(item);
     const viewCount = extractViewCount(item);
+    const authorId = await resolveAuthorDocumentId(item, authorMap);
 
-    if (!publishedAt && !updatedAt && viewCount === 0) {
+    if (!publishedAt && !updatedAt && viewCount === 0 && !authorId) {
       stats.skipped++;
       continue;
     }
@@ -700,14 +794,17 @@ async function backfillArticleMeta(items: WpItem[]): Promise<void> {
         continue;
       }
 
-      if (publishedAt || updatedAt) {
-        await applyWordPressDates(article.documentId, publishedAt, updatedAt);
+      const metaPayload = buildArticleMetaPayload(publishedAt, authorId);
+      if (viewCount > 0) metaPayload.viewCount = viewCount;
+
+      if (Object.keys(metaPayload).length) {
+        await strapiRequest('PUT', `/articles/${article.documentId}?status=published`, {
+          data: metaPayload,
+        });
       }
 
-      if (viewCount > 0) {
-        await strapiRequest('PUT', `/articles/${article.documentId}?status=published`, {
-          data: { viewCount },
-        });
+      if (publishedAt || updatedAt) {
+        await applyWordPressDates(article.documentId, publishedAt, updatedAt);
       }
 
       stats.meta++;

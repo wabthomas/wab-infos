@@ -131,6 +131,7 @@ function mapArticle(entity: StrapiEntity): Article {
     publishedAt: entity.publishedAt as string,
     updatedAt: entity.updatedAt as string,
     createdAt: entity.createdAt as string,
+    wpPublishedAt: entity.wpPublishedAt as string | undefined,
     featuredImage,
     author: entity.author ? mapAuthor(entity.author as StrapiEntity) : undefined,
     category: entity.category ? mapCategory(entity.category as StrapiEntity) : undefined,
@@ -172,6 +173,8 @@ function mapVideo(entity: StrapiEntity): Video {
   };
 }
 
+const ARTICLE_SORT = ['wpPublishedAt:desc', 'publishedAt:desc'] as const;
+
 const articlePopulate = {
   populate: {
     featuredImage: true,
@@ -199,7 +202,7 @@ export async function getArticles(options?: {
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
     filters,
     ...articlePopulate,
-    sort: ['publishedAt:desc'],
+    sort: [...ARTICLE_SORT],
     pagination: { page: options?.page ?? 1, pageSize: options?.pageSize ?? 12 },
     status: 'published',
   });
@@ -284,7 +287,7 @@ export async function searchArticles(query: string, page = 1): Promise<{
       ],
     },
     ...articlePopulate,
-    sort: ['publishedAt:desc'],
+    sort: [...ARTICLE_SORT],
     pagination: { page, pageSize: 12 },
     status: 'published',
   });
@@ -330,7 +333,7 @@ export async function getVideos(options?: { type?: Video['type']; pageSize?: num
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/videos', {
     filters,
     populate: { thumbnail: true, show: { populate: { thumbnail: true } } },
-    sort: ['publishedAt:desc'],
+    sort: [...ARTICLE_SORT],
     pagination: { pageSize: options?.pageSize ?? 12 },
     status: 'published',
   });
@@ -442,10 +445,15 @@ export async function getAllArticleSlugs(): Promise<string[]> {
 export async function getRecentArticlesForNewsSitemap(hours = 48): Promise<Article[]> {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-    filters: { publishedAt: { $gte: since } },
-    fields: ['title', 'slug', 'publishedAt', 'updatedAt', 'seoTitle'],
+    filters: {
+      $or: [
+        { wpPublishedAt: { $gte: since } },
+        { publishedAt: { $gte: since }, wpPublishedAt: { $null: true } },
+      ],
+    },
+    fields: ['title', 'slug', 'publishedAt', 'wpPublishedAt', 'updatedAt', 'seoTitle'],
     populate: { category: true, tags: true },
-    sort: ['publishedAt:desc'],
+    sort: [...ARTICLE_SORT],
     pagination: { pageSize: 1000 },
     status: 'published',
   });

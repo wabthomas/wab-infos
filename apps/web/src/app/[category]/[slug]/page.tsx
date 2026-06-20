@@ -14,7 +14,7 @@ import {
   generateBreadcrumbJsonLd,
 } from '@/lib/seo';
 import { getArticleBySlug, getArticles, getRelatedArticles } from '@/lib/strapi';
-import { rewriteWordPressContent } from '@/lib/utils';
+import { compareArticlesByDateDesc, rewriteWordPressContent } from '@/lib/utils';
 
 interface PageProps {
   params: Promise<{ category: string; slug: string }>;
@@ -72,17 +72,13 @@ export default async function ArticlePage({ params }: PageProps) {
     related = relatedArticles;
     liveFeed = latest.articles
       .filter((item) => item.slug !== slug)
-      .sort(
-        (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-      );
+      .sort(compareArticlesByDateDesc);
   } catch {
     const mock = getMockArticles({ pageSize: 12 });
     related = mock.filter((a) => a.slug !== slug).slice(0, 4);
     liveFeed = mock
       .filter((a) => a.slug !== slug)
-      .sort(
-        (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-      );
+      .sort(compareArticlesByDateDesc);
   }
 
   const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;

@@ -536,6 +536,7 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     viewCount: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     wpId: Schema.Attribute.Integer & Schema.Attribute.Unique;
+    wpPublishedAt: Schema.Attribute.DateTime;
   };
 }
 

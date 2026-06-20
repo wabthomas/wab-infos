@@ -3,7 +3,7 @@ import type { Article } from '@wab-infos/shared';
 import { ArticleShareButtons } from '@/components/articles/article-share-buttons';
 import { getFeaturedImageCaption } from '@/components/articles/article-featured-image';
 import { ArticleImage } from '@/components/ui/article-image';
-import { formatDate, formatRelativeDate, getStrapiMediaUrl, cn } from '@/lib/utils';
+import { formatArticleDate, formatDate, getArticleDisplayDate, getStrapiMediaUrl, cn } from '@/lib/utils';
 import { Eye } from 'lucide-react';
 
 interface ArticleHeroProps {
@@ -36,30 +36,40 @@ export function ArticleHero({
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const caption = getFeaturedImageCaption(article.featuredImage);
 
+  const displayDate = getArticleDisplayDate(article);
+
   const metaRow = (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground md:text-sm">
-      {article.author && (
+    <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1">
+      {article.author ? (
         <Link
           href={`/auteur/${article.author.slug}`}
-          className="font-semibold text-foreground transition-opacity hover:opacity-80 md:text-white md:hover:opacity-80"
+          className="text-sm font-semibold text-foreground transition-opacity hover:opacity-80 md:text-white"
         >
-          {article.author.name}
+          Par {article.author.name}
         </Link>
+      ) : (
+        <span className="text-sm font-medium text-muted-foreground md:text-white/70">Rédaction Wab-infos</span>
       )}
-      <time dateTime={article.publishedAt} title={formatDate(article.publishedAt)}>
-        {formatRelativeDate(article.publishedAt)}
-      </time>
-      <span aria-hidden>·</span>
-      <span>{article.readingTime} min de lecture</span>
-      {article.viewCount > 0 && (
-        <>
-          <span aria-hidden>·</span>
-          <span className="inline-flex items-center gap-1">
-            <Eye className="h-3.5 w-3.5" aria-hidden />
-            {formatViewCount(article.viewCount)}
-          </span>
-        </>
-      )}
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground md:text-white/85">
+        <time dateTime={displayDate} title={formatDate(displayDate)}>
+          {formatArticleDate(displayDate)}
+        </time>
+        <span aria-hidden className="text-muted-foreground/40 md:text-white/40">
+          |
+        </span>
+        <span>{article.readingTime} min de lecture</span>
+        {article.viewCount > 0 && (
+          <>
+            <span aria-hidden className="text-muted-foreground/40 md:text-white/40">
+              |
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Eye className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
+              {formatViewCount(article.viewCount)}
+            </span>
+          </>
+        )}
+      </div>
     </div>
   );
 

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Article } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleImage } from '@/components/ui/article-image';
-import { cn, formatRelativeDate, getStrapiMediaUrl } from '@/lib/utils';
+import { cn, formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 
 interface ArticleCardProps {
   article: Article;
@@ -20,6 +20,7 @@ export function ArticleCard({
   const href = getArticlePath(article);
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const categoryColor = article.category?.color ?? '#E63946';
+  const displayDate = getArticleDisplayDate(article);
 
   if (variant === 'featured') {
     return (
@@ -60,7 +61,7 @@ export function ArticleCard({
               </h2>
               <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                 {article.author && <span className="font-medium text-foreground/80">{article.author.name}</span>}
-                <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
+                <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
                 <span aria-hidden>·</span>
                 <span>{article.readingTime} min</span>
               </div>
@@ -100,7 +101,7 @@ export function ArticleCard({
               </h2>
               <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80">
                 {article.author && <span className="font-medium text-white/90">{article.author.name}</span>}
-                <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
+                <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
                 <span aria-hidden>·</span>
                 <span>{article.readingTime} min de lecture</span>
               </div>
@@ -145,8 +146,8 @@ export function ArticleCard({
               {article.title}
             </h3>
           </Link>
-          <time dateTime={article.publishedAt} className="mt-2 text-xs text-muted-foreground">
-            {formatRelativeDate(article.publishedAt)}
+          <time dateTime={displayDate} className="mt-2 text-xs text-muted-foreground">
+            {formatArticleDate(displayDate)}
           </time>
         </div>
       </article>
@@ -160,8 +161,8 @@ export function ArticleCard({
           <h3 className="line-clamp-3 text-sm font-medium leading-snug transition-colors group-hover:text-primary">
             {article.title}
           </h3>
-          <time dateTime={article.publishedAt} className="mt-1.5 block text-xs text-muted-foreground">
-            {formatRelativeDate(article.publishedAt)}
+          <time dateTime={displayDate} className="mt-1.5 block text-xs text-muted-foreground">
+            {formatArticleDate(displayDate)}
           </time>
         </Link>
       </article>
@@ -199,7 +200,7 @@ export function ArticleCard({
             {article.excerpt}
           </p>
           <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
-            <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
+            <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
             <span aria-hidden>·</span>
             <span>{article.readingTime} min</span>
           </div>

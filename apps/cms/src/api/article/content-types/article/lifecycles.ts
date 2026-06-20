@@ -5,6 +5,7 @@ export default {
       status?: string;
       newsletterSentAt?: string | null;
       publishedAt?: string;
+      wpPublishedAt?: string | null;
       documentId?: string;
     };
   }) {
@@ -17,6 +18,7 @@ export default {
       status?: string;
       newsletterSentAt?: string | null;
       publishedAt?: string;
+      wpPublishedAt?: string | null;
       documentId?: string;
     };
   }) {
@@ -60,13 +62,15 @@ async function triggerNewsletter(result: {
   status?: string;
   newsletterSentAt?: string | null;
   publishedAt?: string;
+  wpPublishedAt?: string | null;
 }) {
   if (process.env.NEWSLETTER_SEND_ON_PUBLISH !== 'true') return;
   if (!result.slug || result.status !== 'published' || result.newsletterSentAt) return;
 
-  // Évite l'envoi massif lors d'imports d'anciens articles
-  if (result.publishedAt) {
-    const publishedMs = new Date(result.publishedAt).getTime();
+  // Évite l'envoi massif lors d'imports d'anciens articles (toute année)
+  const effectiveDate = result.wpPublishedAt || result.publishedAt;
+  if (effectiveDate) {
+    const publishedMs = new Date(effectiveDate).getTime();
     const maxAgeMs = 48 * 60 * 60 * 1000;
     if (Date.now() - publishedMs > maxAgeMs) return;
   }

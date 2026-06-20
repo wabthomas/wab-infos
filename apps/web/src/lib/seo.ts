@@ -13,7 +13,7 @@ import {
   resolveArticleCategorySlug,
   siteConfig,
 } from '@/config/site';
-import { getStrapiMediaUrl } from '@/lib/utils';
+import { getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
 
 function stripHtml(html: string): string {
@@ -57,14 +57,16 @@ export function generateArticleJsonLd(
   const articleUrl = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
   const plainBody = stripHtml(article.content);
 
+  const displayDate = getArticleDisplayDate(article);
+
   return {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
     headline: article.seoTitle || article.title,
     description: article.seoDescription || article.excerpt,
     image: images,
-    datePublished: article.publishedAt,
-    dateModified: article.updatedAt || article.publishedAt,
+    datePublished: displayDate,
+    dateModified: article.updatedAt || displayDate,
     author: article.author
       ? {
           '@type': 'Person',
@@ -210,6 +212,7 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
   const imageUrl = images[0];
   const imageAlt = getFeaturedImageAlt(article);
   const url = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
+  const displayDate = getArticleDisplayDate(article);
 
   return {
     title: article.seoTitle || article.title,
@@ -230,8 +233,8 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
         height: 630,
         alt: imageAlt,
       })),
-      publishedTime: article.publishedAt,
-      modifiedTime: article.updatedAt,
+      publishedTime: displayDate,
+      modifiedTime: article.updatedAt || displayDate,
       authors: article.author ? [article.author.name] : [siteConfig.publisher],
       section: article.category?.name,
       tags: article.tags?.map((t) => t.name),

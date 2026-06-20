@@ -4,7 +4,7 @@ import type { Article } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleCard } from '@/components/articles/article-card';
 import { ArticleImage } from '@/components/ui/article-image';
-import { formatRelativeDate, getStrapiMediaUrl } from '@/lib/utils';
+import { formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 
 interface HomeRecentNewsProps {
   articles: Article[];
@@ -14,6 +14,8 @@ function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
   const href = getArticlePath(article);
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const categoryColor = article.category?.color ?? '#E63946';
+
+  const displayDate = getArticleDisplayDate(article);
 
   return (
     <article className="group relative flex gap-3.5 overflow-hidden rounded-xl border border-border/70 bg-card p-3 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md sm:gap-4 sm:p-3.5">
@@ -60,7 +62,7 @@ function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
           </h3>
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-          <time dateTime={article.publishedAt}>{formatRelativeDate(article.publishedAt)}</time>
+          <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
           <span aria-hidden>·</span>
           <span>{article.readingTime} min</span>
         </div>
@@ -73,6 +75,8 @@ function RecentCompactCard({ article }: { article: Article }) {
   const href = getArticlePath(article);
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const categoryColor = article.category?.color ?? '#E63946';
+
+  const displayDate = getArticleDisplayDate(article);
 
   return (
     <article className="group overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm transition-all hover:border-primary/20 hover:shadow-md">
@@ -98,8 +102,8 @@ function RecentCompactCard({ article }: { article: Article }) {
           <h3 className="font-display line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-primary">
             {article.title}
           </h3>
-          <time dateTime={article.publishedAt} className="mt-1.5 block text-[11px] text-muted-foreground">
-            {formatRelativeDate(article.publishedAt)}
+          <time dateTime={displayDate} className="mt-1.5 block text-[11px] text-muted-foreground">
+            {formatArticleDate(displayDate)}
           </time>
         </div>
       </Link>
@@ -165,7 +169,7 @@ export function HomeRecentNews({ articles }: HomeRecentNewsProps) {
 
       <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Clock className="h-3.5 w-3.5 shrink-0" />
-        Dernière mise à jour {formatRelativeDate(hero.publishedAt).toLowerCase()}
+        Dernière mise à jour {formatArticleDate(getArticleDisplayDate(hero)).toLowerCase()}
       </p>
     </section>
   );

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getArticleDisplayDate } from '@/lib/utils';
 import { getArticlePath, siteConfig } from '@/config/site';
 import { getRecentArticlesForNewsSitemap } from '@/lib/strapi';
 
@@ -28,7 +29,7 @@ export async function GET() {
         <news:name>${escapeXml(publicationName)}</news:name>
         <news:language>fr</news:language>
       </news:publication>
-      <news:publication_date>${article.publishedAt}</news:publication_date>
+      <news:publication_date>${getArticleDisplayDate(article)}</news:publication_date>
       <news:title>${escapeXml(article.seoTitle || article.title)}</news:title>${keywordsXml}
     </news:news>
   </url>`;

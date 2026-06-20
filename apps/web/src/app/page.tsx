@@ -11,6 +11,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { categories } from '@/config/site';
 import { getMockArticles } from '@/lib/mock-data';
 import { getBreakingNews, getArticles } from '@/lib/strapi';
+import { compareArticlesByDateDesc } from '@/lib/utils';
 import Link from 'next/link';
 
 const navCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
@@ -49,9 +50,7 @@ export const revalidate = 60;
 export default async function HomePage() {
   const { breaking, latest } = await getHomeData();
 
-  const recentNews = [...latest].sort(
-    (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-  );
+  const recentNews = [...latest].sort(compareArticlesByDateDesc);
   const gridArticles = recentNews.slice(RECENT_NEWS_DISPLAY_COUNT, RECENT_NEWS_DISPLAY_COUNT + 9);
   const topRead = [...latest].sort((a, b) => b.viewCount - a.viewCount).slice(0, 5);
   const liveFeed = recentNews;

@@ -3,7 +3,7 @@ import type { Article } from '@wab-infos/shared';
 import { ArrowRight } from 'lucide-react';
 import { getArticlePath } from '@/config/site';
 import { ArticleImage } from '@/components/ui/article-image';
-import { cn, formatRelativeDate, formatTime, getStrapiMediaUrl } from '@/lib/utils';
+import { cn, formatArticleDate, formatTime, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 
 interface LiveNewsTimelineProps {
   articles: Article[];
@@ -53,6 +53,8 @@ export function LiveNewsTimeline({
             const categoryColor = article.category?.color ?? '#E63946';
             const isLatest = index === 0;
 
+            const displayDate = getArticleDisplayDate(article);
+
             return (
               <li key={article.id}>
                 <Link
@@ -75,10 +77,10 @@ export function LiveNewsTimeline({
                       aria-hidden
                     />
                     <time
-                      dateTime={article.publishedAt}
+                      dateTime={displayDate}
                       className="mt-1 text-center text-[9px] font-bold tabular-nums leading-none text-muted-foreground"
                     >
-                      {formatTime(article.publishedAt)}
+                      {formatTime(displayDate)}
                     </time>
                   </div>
 
@@ -108,7 +110,7 @@ export function LiveNewsTimeline({
                       )}
                       {isLatest && (
                         <span className="text-[9px] font-semibold text-primary">
-                          {formatRelativeDate(article.publishedAt)}
+                          {formatArticleDate(displayDate)}
                         </span>
                       )}
                     </div>

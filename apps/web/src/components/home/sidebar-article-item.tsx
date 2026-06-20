@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Article } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleImage } from '@/components/ui/article-image';
-import { cn, formatRelativeDate, getStrapiMediaUrl } from '@/lib/utils';
+import { cn, formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 
 interface SidebarArticleItemProps {
   article: Article;
@@ -14,6 +14,8 @@ export function SidebarArticleItem({ article, rank, className }: SidebarArticleI
   const href = getArticlePath(article);
   const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const categoryColor = article.category?.color ?? '#E63946';
+
+  const displayDate = getArticleDisplayDate(article);
 
   return (
     <article
@@ -55,8 +57,8 @@ export function SidebarArticleItem({ article, rank, className }: SidebarArticleI
             {article.title}
           </h3>
         </Link>
-        <time dateTime={article.publishedAt} className="mt-1 text-[11px] text-muted-foreground">
-          {formatRelativeDate(article.publishedAt)}
+        <time dateTime={displayDate} className="mt-1 text-[11px] text-muted-foreground">
+          {formatArticleDate(displayDate)}
         </time>
       </div>
     </article>

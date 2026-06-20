@@ -10,6 +10,7 @@ export default {
       method: 'PUT',
       path: '/articles/:id/wordpress-dates',
       handler: 'api::article.article.setWordPressDates',
+      config: { auth: false },
     },
   ],
 };

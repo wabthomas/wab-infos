@@ -95,6 +95,9 @@
       "type": "integer",
       "unique": true
     },
+    "wpPublishedAt": {
+      "type": "datetime"
+    },
     "scheduledAt": {
       "type": "datetime"
     },

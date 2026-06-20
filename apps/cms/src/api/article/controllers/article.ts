@@ -4,9 +4,7 @@ const UID = 'api::article.article';
 
 export default factories.createCoreController(UID, ({ strapi }) => ({
   /**
-   * Force les dates WordPress sur un document (contournement Query Engine).
-   * publishedAt et updatedAt sont appliqués aux mêmes cibles :
-   * versions publiées si présentes, sinon toutes les lignes (repli import).
+   * Force les dates WordPress (contournement Query Engine + champ wpPublishedAt).
    */
   async setWordPressDates(ctx) {
     const { id: documentId } = ctx.params;
@@ -19,6 +17,9 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       return ctx.badRequest('Provide publishedAt and/or updatedAt');
     }
 
+    const parsedPublishedAt = publishedAt ? new Date(publishedAt) : null;
+    const parsedUpdatedAt = updatedAt ? new Date(updatedAt) : null;
+
     const entries = await strapi.db.query(UID).findMany({
       where: { documentId },
       select: ['id', 'publishedAt'],
@@ -28,32 +29,44 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       return ctx.notFound('Article not found');
     }
 
-    const parsedPublishedAt = publishedAt ? new Date(publishedAt) : null;
-    const parsedUpdatedAt = updatedAt ? new Date(updatedAt) : null;
-
-    const publishedRows = entries.filter((entry) => entry.publishedAt != null);
-    // Version publiée connue, ou repli import (document publié sans publishedAt encore posé)
-    const patchTargets =
-      parsedPublishedAt && publishedRows.length > 0 ? publishedRows : entries;
-
+    const knex = strapi.db.connection;
     let patched = 0;
-    for (const entry of patchTargets) {
-      const data: Record<string, Date> = {};
 
-      if (parsedPublishedAt) {
-        data.publishedAt = parsedPublishedAt;
+    if (parsedPublishedAt) {
+      patched += await knex('articles')
+        .where('document_id', documentId)
+        .whereNotNull('published_at')
+        .update({
+          published_at: parsedPublishedAt,
+          updated_at: parsedUpdatedAt ?? parsedPublishedAt,
+          wp_published_at: parsedPublishedAt,
+        });
+
+      if (patched === 0) {
+        patched += await knex('articles')
+          .where('document_id', documentId)
+          .update({
+            published_at: parsedPublishedAt,
+            updated_at: parsedUpdatedAt ?? parsedPublishedAt,
+            wp_published_at: parsedPublishedAt,
+          });
       }
-      if (parsedUpdatedAt) {
-        data.updatedAt = parsedUpdatedAt;
+    } else if (parsedUpdatedAt) {
+      patched += await knex('articles')
+        .where('document_id', documentId)
+        .update({ updated_at: parsedUpdatedAt });
+    }
+
+    if (parsedPublishedAt) {
+      try {
+        await strapi.documents(UID).update({
+          documentId,
+          status: 'published',
+          data: { wpPublishedAt: parsedPublishedAt },
+        });
+      } catch {
+        // Le champ custom peut déjà être à jour via SQL
       }
-
-      if (!Object.keys(data).length) continue;
-
-      await strapi.db.query(UID).update({
-        where: { id: entry.id },
-        data,
-      });
-      patched++;
     }
 
     return { data: { documentId, patched } };

@@ -67,6 +67,7 @@ export interface Article {
   seoDescription?: string;
   canonicalUrl?: string;
   wpId?: number;
+  wpPublishedAt?: string;
 }
 
 export interface Video {

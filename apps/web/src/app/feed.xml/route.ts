@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getArticlePath, siteConfig } from '@/config/site';
 import { getArticles } from '@/lib/strapi';
 import { getMockArticles } from '@/lib/mock-data';
-import { getStrapiMediaUrl } from '@/lib/utils';
+import { getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 
 export async function GET() {
   let articles;
@@ -24,12 +24,14 @@ export async function GET() {
       const category = article.category?.name;
       const encodedContent = article.content || `<p>${article.excerpt}</p>`;
 
+      const displayDate = getArticleDisplayDate(article);
+
       return `    <item>
       <title>${escapeXml(article.seoTitle || article.title)}</title>
       <link>${escapeXml(url)}</link>
       <guid isPermaLink="true">${escapeXml(url)}</guid>
       <description>${escapeXml(article.seoDescription || article.excerpt)}</description>
-      <pubDate>${new Date(article.publishedAt).toUTCString()}</pubDate>
+      <pubDate>${new Date(displayDate).toUTCString()}</pubDate>
       ${article.author ? `<author>${escapeXml(article.author.email ?? article.author.name)}</author>` : ''}
       ${category ? `<category>${escapeXml(category)}</category>` : ''}
       <media:content url="${escapeXml(imageUrl)}" medium="image" type="image/jpeg">
