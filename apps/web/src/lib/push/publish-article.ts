@@ -11,6 +11,7 @@ export interface PublishArticlePushResult {
   reason?: string;
   sent?: number;
   failed?: number;
+  markFailed?: boolean;
 }
 
 interface PushArticle {
@@ -51,9 +52,9 @@ async function getArticleForPush(slug: string): Promise<(PushArticle & { article
   return { ...article, articleUrl };
 }
 
-async function markPushSent(documentId: string): Promise<void> {
+async function markPushSent(documentId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const maxAttempts = 3;
-  let lastError: unknown;
+  let lastError = 'markPushSent failed';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -63,16 +64,16 @@ async function markPushSent(documentId: string): Promise<void> {
           data: { pushSentAt: new Date().toISOString() },
         }),
       });
-      return;
+      return { ok: true };
     } catch (error) {
-      lastError = error;
+      lastError = error instanceof Error ? error.message : 'markPushSent failed';
       if (attempt < maxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, attempt * 250));
       }
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('markPushSent failed');
+  return { ok: false, error: lastError };
 }
 
 export async function publishArticlePush(slug: string): Promise<PublishArticlePushResult> {
@@ -117,7 +118,23 @@ export async function publishArticlePush(slug: string): Promise<PublishArticlePu
   });
 
   if (sent > 0) {
-    await markPushSent(article.documentId);
+    const marked = await markPushSent(article.documentId);
+    if (!marked.ok) {
+      console.error('[push] markPushSent failed after send:', {
+        slug,
+        documentId: article.documentId,
+        sent,
+        failed,
+        error: marked.error,
+      });
+      return {
+        ok: false,
+        reason: 'mark_failed',
+        markFailed: true,
+        sent,
+        failed,
+      };
+    }
   }
 
   return { ok: failed === 0, sent, failed };
