@@ -49,12 +49,18 @@ L’app lie automatiquement le compte à un profil **Auteur** (par e-mail) ou en
 
 ## Installation PWA (mobile)
 
-1. Ouvrir **`https://app.wab-infos.com/redaction/login`** (Chrome Android ou Safari iOS)
-2. **Android / Chrome** : bouton **« Installer »** sur la page de connexion, ou icône ⊕ dans la barre d’adresse
-3. **iPhone** : Safari → **Partager** → **Sur l’écran d’accueil** (bandeau d’aide affiché sur la page login)
-4. Se connecter — accepter les **notifications push** pour la modération commentaires
+**Une seule application** Wab-infos pour tous (lecteurs et rédaction), installable depuis n’importe quelle page du site.
 
-Critères techniques : manifest dédié `/redaction/manifest.webmanifest`, service worker `sw-redaction.js` (scope `/redaction/`), icônes PNG 192×512.
+| Contexte | Comportement |
+|----------|--------------|
+| **Site public** (accueil, articles…) | Bandeau « Installer Wab-infos » en bas d’écran ; splash au lancement : **Wab-infos** |
+| **`/redaction/login`** | Bandeau « Installer l’app rédaction » ; si installé depuis cette page, splash au lancement : **Rédaction** |
+
+1. **Lecteurs** : ouvrir `https://app.wab-infos.com` → bandeau d’installation ou Chrome ⊕ / Safari Partager
+2. **Journalistes** : ouvrir `https://app.wab-infos.com/redaction/login` → même procédure (variante rédaction mémorisée)
+3. Se connecter — accepter les **notifications push** pour la modération commentaires
+
+Technique : manifest unique `/manifest.webmanifest`, service worker `sw.js` (scope `/`), icônes PNG 192×512.
 
 Générer les icônes PNG après clone : `npm run pwa:icons --workspace=apps/web`
 

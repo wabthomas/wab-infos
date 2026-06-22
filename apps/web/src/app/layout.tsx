@@ -4,6 +4,8 @@ import Script from 'next/script';
 import { siteConfig } from '@/config/site';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AppShell } from '@/components/layout/app-shell';
+import { PwaSetup } from '@/components/pwa/pwa-setup';
+import { PwaSplash } from '@/components/pwa/pwa-splash';
 import { generateWebsiteJsonLd } from '@/lib/seo';
 import './globals.css';
 
@@ -93,7 +95,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href={googleFontsUrl} rel="stylesheet" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
@@ -108,6 +110,8 @@ export default function RootLayout({
         )}
       </head>
       <body className="min-h-full flex flex-col antialiased">
+        <PwaSplash />
+        <PwaSetup />
         <ThemeProvider>
           <AppShell>{children}</AppShell>
         </ThemeProvider>

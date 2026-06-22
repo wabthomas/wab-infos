@@ -263,3 +263,52 @@ body {
     display: none !important;
   }
 }
+
+/* App PWA — écran de lancement */
+@keyframes pwa-splash-logo-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pwa-splash-tagline-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pwa-splash-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.pwa-splash-logo-wrap {
+  animation: pwa-splash-logo-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pwa-splash-tagline {
+  animation: pwa-splash-tagline-in 0.6s ease-out 0.35s both;
+}
+
+.pwa-splash--out {
+  animation: pwa-splash-fade-out 0.35s ease-out forwards;
+  pointer-events: none;
+}

@@ -1,3 +1,8 @@
+export {
+  isStandalonePwa as isRedactionStandalone,
+  isStandalonePwa,
+} from '@/lib/pwa/detect';
+
 export const REDACTION_SW_URL = '/sw-redaction.js';
 export const REDACTION_SW_SCOPE = '/redaction/';
 
@@ -16,12 +21,4 @@ export async function registerRedactionServiceWorker(): Promise<ServiceWorkerReg
   } catch {
     return null;
   }
-}
-
-export function isRedactionStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
 }

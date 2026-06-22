@@ -3,6 +3,7 @@ import { siteConfig } from '@/config/site';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: '/',
     name: siteConfig.name,
     short_name: 'Wab-infos',
     description: siteConfig.description,
@@ -14,16 +15,20 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: 'fr',
     categories: ['news', 'magazines'],
     icons: [
-      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      {
+        src: '/icons/icon-192-maskable.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
       {
         src: '/icons/icon-512-maskable.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
       },
-      { src: '/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
-      { src: '/icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' },
     ],
     screenshots: [
       { src: '/screenshots/mobile.png', sizes: '390x844', type: 'image/png', form_factor: 'narrow' },

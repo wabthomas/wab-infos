@@ -5,11 +5,15 @@ import { usePathname } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
+import { PwaInstallBanner } from '@/components/pwa/pwa-install-banner';
 
 const AUTH_ONLY_PREFIXES = ['/connexion', '/redaction'];
 
+function isRedactionLoginPath(pathname: string): boolean {
+  return pathname === '/redaction/login' || pathname.startsWith('/redaction/login/');
+}
+
 export function SiteLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -34,10 +38,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage = AUTH_ONLY_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
+  const showSiteInstallBanner = !isRedactionLoginPath(pathname);
 
-  if (isAuthPage) {
-    return <main className="min-h-screen">{children}</main>;
-  }
-
-  return <SiteLayout>{children}</SiteLayout>;
+  return (
+    <>
+      {showSiteInstallBanner && (
+        <PwaInstallBanner variant="site" placement="fixed" />
+      )}
+      {isAuthPage ? (
+        <main className="min-h-screen">{children}</main>
+      ) : (
+        <SiteLayout>{children}</SiteLayout>
+      )}
+    </>
+  );
 }

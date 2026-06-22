@@ -20,27 +20,28 @@ if (!fs.existsSync(source)) {
 fs.mkdirSync(iconsDir, { recursive: true });
 
 const BRAND = '#c41e3a';
+const WHITE = { r: 255, g: 255, b: 255, alpha: 255 };
 
+/** Logo plus grand + fond blanc (remplit le masque circulaire iOS / Android). */
 async function squareIcon(size, { maskable = false } = {}) {
-  const inner = maskable ? Math.round(size * 0.8) : size;
-  const pad = maskable ? Math.round((size - inner) / 2) : 0;
+  const fillRatio = maskable ? 0.9 : 0.92;
+  const inner = Math.round(size * fillRatio);
+  const pad = Math.round((size - inner) / 2);
 
-  let pipeline = sharp(source).resize(inner, inner, {
-    fit: 'contain',
-    background: { r: 0, g: 0, b: 0, alpha: 0 },
-  });
-
-  if (maskable) {
-    pipeline = pipeline.extend({
+  return sharp(source)
+    .resize(inner, inner, {
+      fit: 'contain',
+      background: WHITE,
+    })
+    .extend({
       top: pad,
       bottom: size - inner - pad,
       left: pad,
       right: size - inner - pad,
-      background: { r: 12, g: 12, b: 15, alpha: 255 },
-    });
-  }
-
-  return pipeline.png().toBuffer();
+      background: WHITE,
+    })
+    .png()
+    .toBuffer();
 }
 
 async function writePng(target, buffer) {
