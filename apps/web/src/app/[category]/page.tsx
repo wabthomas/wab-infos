@@ -22,11 +22,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { category } = await params;
   if (!isValidCategorySlug(category)) {
-    const legacyPath = await resolveLegacyArticlePath(category);
-    if (legacyPath) {
-      redirect(legacyPath);
-    }
-    return { title: 'Rubrique non trouvée' };
+    return { title: 'Rubrique non trouvée', robots: { index: false, follow: false } };
   }
   const cat = getCategoryBySlug(category)!;
   return generateCategoryMetadata({
