@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ExternalLink, Mail, Radio, Rss, Tv } from 'lucide-react';
 import { categories, siteConfig } from '@/config/site';
+import { SiteLogo } from '@/components/brand/site-logo';
 
 const socialLinks = [
   {
@@ -81,10 +82,8 @@ export function Footer() {
 
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-4">
-            <Link href="/" className="group inline-flex items-center gap-2">
-              <span className="font-brand text-2xl font-bold tracking-tight text-white transition-colors group-hover:text-primary">
-                {siteConfig.name}
-              </span>
+            <Link href="/" className="group inline-flex items-center">
+              <SiteLogo variant="mono" className="h-14 sm:h-16 transition-opacity group-hover:opacity-90" />
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/60">
               {siteConfig.description}

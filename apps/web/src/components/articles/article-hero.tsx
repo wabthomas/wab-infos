@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import type { Article } from '@wab-infos/shared';
 import { ArticleShareButtons } from '@/components/articles/article-share-buttons';
+import { ArticleViewCounter } from '@/components/articles/article-view-counter';
 import { getFeaturedImageCaption } from '@/components/articles/article-featured-image';
 import { ArticleImage } from '@/components/ui/article-image';
 import { formatArticleDate, formatDate, getArticleDisplayDate, getStrapiMediaUrl, cn } from '@/lib/utils';
-import { Eye } from 'lucide-react';
 
 interface ArticleHeroProps {
   article: Article;
@@ -13,16 +13,6 @@ interface ArticleHeroProps {
   categorySlug: string;
   articleUrl: string;
   className?: string;
-}
-
-function formatViewCount(count: number): string {
-  if (count >= 1_000_000) {
-    return `${(count / 1_000_000).toFixed(1).replace('.0', '')} M vues`;
-  }
-  if (count >= 1_000) {
-    return `${(count / 1_000).toFixed(1).replace('.0', '')} k vues`;
-  }
-  return `${count} vues`;
 }
 
 export function ArticleHero({
@@ -58,17 +48,12 @@ export function ArticleHero({
           |
         </span>
         <span>{article.readingTime} min de lecture</span>
-        {article.viewCount > 0 && (
-          <>
-            <span aria-hidden className="text-muted-foreground/40 md:text-white/40">
-              |
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Eye className="h-4 w-4 shrink-0 opacity-70" aria-hidden />
-              {formatViewCount(article.viewCount)}
-            </span>
-          </>
-        )}
+        <ArticleViewCounter
+          documentId={article.documentId}
+          slug={article.slug}
+          categorySlug={categorySlug}
+          initialCount={article.viewCount}
+        />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import { siteConfig } from '@/config/site';
+import { SiteLogo } from '@/components/brand/site-logo';
 import { RedactionInstallBanner } from '@/components/redaction/redaction-install-banner';
 
 export function RedactionLoginForm() {
@@ -44,8 +45,8 @@ export function RedactionLoginForm() {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <div className="bg-[#0c0c0f] px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))] text-white">
-        <Link href="/" className="font-brand text-2xl font-bold">
-          {siteConfig.name}
+        <Link href="/" className="inline-block">
+          <SiteLogo variant="mono" className="h-14" />
         </Link>
         <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-white/60">
           App rédaction

@@ -61,10 +61,13 @@ async function fetchAPI<T>(path: string, params?: Record<string, unknown>, optio
     }
   }
 
+  const isMutation =
+    options?.method != null && String(options.method).toUpperCase() !== 'GET';
+
   try {
     const res = await fetch(url, {
       headers: getHeaders(),
-      next: { revalidate: 60 },
+      ...(isMutation ? { cache: 'no-store' as RequestCache } : { next: { revalidate: 60 } }),
       ...options,
       signal: controller.signal,
     });

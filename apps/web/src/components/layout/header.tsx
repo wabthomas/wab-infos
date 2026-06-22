@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { LogIn, Menu, Tv, X } from 'lucide-react';
 import { categories, siteConfig } from '@/config/site';
+import { SiteLogo } from '@/components/brand/site-logo';
 import { HeaderSearch } from '@/components/layout/header-search';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { cn } from '@/lib/utils';
@@ -131,7 +132,7 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
             : 'relative shadow-[0_1px_0_0_rgba(0,0,0,0.04)]'
         )}
       >
-        <div className="container relative mx-auto flex h-14 items-center justify-between gap-2 px-3 sm:h-[4.5rem] sm:gap-4 sm:px-4 md:h-[5.25rem]">
+        <div className="container relative mx-auto flex h-16 items-center justify-between gap-2 px-3 sm:h-[5.25rem] sm:gap-4 sm:px-4 md:h-24">
           {/* Gauche : menu + recherche */}
           <div className="z-10 flex min-w-0 flex-1 items-center justify-start gap-0.5 sm:gap-2">
             <button
@@ -154,9 +155,7 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
             className="group absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
             aria-label={`${siteConfig.name} — Accueil`}
           >
-            <span className="font-brand whitespace-nowrap text-[1.35rem] font-bold leading-none tracking-tight text-foreground transition-colors group-hover:text-primary sm:text-[1.65rem] md:text-[2.15rem]">
-              {siteConfig.name}
-            </span>
+            <SiteLogo priority className="transition-opacity group-hover:opacity-90" />
           </Link>
 
           {/* Droite : thème + connexion + TV */}

@@ -8,8 +8,11 @@ const next = require('next');
 process.chdir(__dirname);
 process.env.NODE_ENV = 'production';
 
-const hostname = process.env.HOSTNAME || '0.0.0.0';
-const port = parseInt(process.env.PORT, 10) || 3000;
+const hostname = process.env.HOSTNAME || '127.0.0.1';
+// PlanetHoster / Passenger : port = 'passenger' (pas 3000 en dur)
+const port = process.env.PORT === 'passenger' || process.env.PASSENGER_APP_ENV
+  ? 'passenger'
+  : parseInt(process.env.PORT, 10) || 3000;
 
 const app = next({ dev: false, dir: __dirname });
 const handle = app.getRequestHandler();
@@ -27,6 +30,7 @@ app.prepare().then(() => {
       }
     })
     .listen(port, hostname, () => {
-      console.log(`Next.js ready on http://${hostname}:${port}`);
+      const label = port === 'passenger' ? 'passenger' : `http://${hostname}:${port}`;
+      console.log(`Next.js ready on ${label}`);
     });
 });

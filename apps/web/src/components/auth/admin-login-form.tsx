@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import { siteConfig } from '@/config/site';
+import { SiteLogo } from '@/components/brand/site-logo';
 
 export function AdminLoginForm() {
   const [email, setEmail] = useState('');
@@ -50,8 +51,8 @@ export function AdminLoginForm() {
           aria-hidden
         />
         <div className="relative z-10 p-10 xl:p-14">
-          <Link href="/" className="font-brand text-3xl font-bold tracking-tight text-white">
-            {siteConfig.name}
+          <Link href="/" className="inline-block">
+            <SiteLogo variant="mono" className="h-14" />
           </Link>
         </div>
         <div className="relative z-10 p-10 xl:p-14">
@@ -83,8 +84,8 @@ export function AdminLoginForm() {
             aria-hidden
           />
           <div className="relative z-10">
-            <Link href="/" className="font-brand text-2xl font-bold tracking-tight text-white">
-              {siteConfig.name}
+            <Link href="/" className="inline-block">
+              <SiteLogo variant="mono" className="h-14" />
             </Link>
             <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.18em] text-white/60">
               Espace rédaction

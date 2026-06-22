@@ -74,35 +74,34 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
 
   async incrementViews(ctx) {
     const { id: documentId } = ctx.params;
-    const knex = strapi.db.connection;
 
-    let patched = await knex('articles')
-      .where('document_id', documentId)
-      .whereNotNull('published_at')
-      .update({
-        view_count: knex.raw('COALESCE(view_count, 0) + 1'),
-      });
-
-    if (patched === 0) {
-      patched = await knex('articles')
-        .where('document_id', documentId)
-        .update({
-          view_count: knex.raw('COALESCE(view_count, 0) + 1'),
-        });
+    if (!documentId) {
+      return ctx.badRequest('Missing documentId');
     }
 
-    if (patched === 0) {
+    const rows = await strapi.db.query(UID).findMany({
+      where: { documentId },
+      select: ['id', 'viewCount', 'publishedAt'],
+    });
+
+    if (!rows.length) {
       return ctx.notFound('Article not found');
     }
 
-    // Réponse publique : toujours le compteur de la version publiée (0 si brouillon seul)
-    const row = await knex('articles')
-      .where('document_id', documentId)
-      .whereNotNull('published_at')
-      .select('view_count')
-      .first();
+    const published = rows.find((row) => row.publishedAt != null);
+    const base = published ?? rows[0];
+    const viewCount = Number(base.viewCount ?? 0) + 1;
 
-    const viewCount = Number(row?.view_count ?? 0);
+    // Synchronise toutes les entrées (brouillon + publié) pour un compteur cohérent
+    await Promise.all(
+      rows.map((row) =>
+        strapi.db.query(UID).update({
+          where: { id: row.id },
+          data: { viewCount },
+        })
+      )
+    );
+
     return { data: { viewCount } };
   },
 }));

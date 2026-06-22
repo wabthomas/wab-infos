@@ -18,7 +18,6 @@ import { getLiveFeed } from '@/lib/sidebar-data';
 import { compareArticlesByDateDesc, rewriteWordPressContent } from '@/lib/utils';
 import { ArticleCommentForm } from '@/components/comments/article-comment-form';
 import { ArticleCommentsList } from '@/components/comments/article-comments-list';
-import { ArticleViewTracker } from '@/components/articles/article-view-tracker';
 
 interface PageProps {
   params: Promise<{ category: string; slug: string }>;
@@ -105,7 +104,6 @@ export default async function ArticlePage({ params }: PageProps) {
 
   return (
     <>
-      <ArticleViewTracker documentId={article.documentId} slug={slug} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
