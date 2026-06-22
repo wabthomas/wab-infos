@@ -79,28 +79,33 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       return ctx.badRequest('Missing documentId');
     }
 
-    const rows = await strapi.db.query(UID).findMany({
-      where: { documentId },
-      select: ['id', 'viewCount', 'publishedAt'],
-    });
+    const knex = strapi.db.connection;
 
-    if (!rows.length) {
+    // Incrément atomique — uniquement la version publiée (pas les brouillons)
+    const patched = await knex('articles')
+      .where('document_id', documentId)
+      .whereNotNull('published_at')
+      .update({
+        view_count: knex.raw('COALESCE(view_count, 0) + 1'),
+      });
+
+    if (patched === 0) {
       return ctx.notFound('Article not found');
     }
 
-    const published = rows.find((row) => row.publishedAt != null);
-    const base = published ?? rows[0];
-    const viewCount = Number(base.viewCount ?? 0) + 1;
+    const row = await knex('articles')
+      .where('document_id', documentId)
+      .whereNotNull('published_at')
+      .select('view_count')
+      .first();
 
-    // Synchronise toutes les entrées (brouillon + publié) pour un compteur cohérent
-    await Promise.all(
-      rows.map((row) =>
-        strapi.db.query(UID).update({
-          where: { id: row.id },
-          data: { viewCount },
-        })
-      )
-    );
+    const viewCount = Number(row?.view_count ?? 0);
+
+    // Aligner les brouillons sur le compteur publié (admin) — après l'incrément atomique
+    await knex('articles')
+      .where('document_id', documentId)
+      .whereNull('published_at')
+      .update({ view_count: viewCount });
 
     return { data: { viewCount } };
   },
