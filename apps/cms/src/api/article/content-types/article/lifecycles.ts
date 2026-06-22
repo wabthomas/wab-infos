@@ -12,6 +12,7 @@ export default {
       newsletterSentAt?: string | null;
       facebookPostedAt?: string | null;
       xPostedAt?: string | null;
+      pushSentAt?: string | null;
       publishedAt?: string;
       wpPublishedAt?: string | null;
       documentId?: string;
@@ -20,6 +21,7 @@ export default {
     await triggerRevalidation('article', event.result);
     await triggerNewsletter(event.result);
     await triggerSocialPublish(event.result);
+    await triggerPushPublish(event.result);
   },
   async afterUpdate(event: {
     result: {
@@ -28,6 +30,7 @@ export default {
       newsletterSentAt?: string | null;
       facebookPostedAt?: string | null;
       xPostedAt?: string | null;
+      pushSentAt?: string | null;
       publishedAt?: string;
       wpPublishedAt?: string | null;
       documentId?: string;
@@ -36,6 +39,7 @@ export default {
     await triggerRevalidation('article', event.result);
     await triggerNewsletter(event.result);
     await triggerSocialPublish(event.result);
+    await triggerPushPublish(event.result);
   },
   async afterDelete() {
     await triggerRevalidation('article');
@@ -171,5 +175,44 @@ async function triggerSocialPublish(result: {
     }
   } catch (err) {
     console.error('[social] trigger failed:', err);
+  }
+}
+
+async function triggerPushPublish(result: {
+  slug?: string;
+  status?: string;
+  pushSentAt?: string | null;
+  publishedAt?: string;
+  wpPublishedAt?: string | null;
+}) {
+  if (process.env.PUSH_SEND_ON_PUBLISH !== 'true') return;
+  if (!result.slug || result.status !== 'published' || result.pushSentAt) return;
+
+  const effectiveDate = result.wpPublishedAt || result.publishedAt;
+  if (effectiveDate) {
+    const publishedMs = new Date(effectiveDate).getTime();
+    const maxAgeMs = 48 * 60 * 60 * 1000;
+    if (Date.now() - publishedMs > maxAgeMs) return;
+  }
+
+  const secret = process.env.PUSH_SECRET || process.env.REVALIDATION_SECRET;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  if (!secret) return;
+
+  try {
+    const response = await fetch(`${siteUrl}/api/push/publish-article`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-push-secret': secret,
+      },
+      body: JSON.stringify({ slug: result.slug }),
+    });
+
+    if (!response.ok) {
+      console.error('[push] publish-article failed:', response.status, await response.text());
+    }
+  } catch (err) {
+    console.error('[push] trigger failed:', err);
   }
 }

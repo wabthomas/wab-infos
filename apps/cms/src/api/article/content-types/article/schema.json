@@ -109,6 +109,9 @@
     },
     "xPostedAt": {
       "type": "datetime"
+    },
+    "pushSentAt": {
+      "type": "datetime"
     }
   }
 }

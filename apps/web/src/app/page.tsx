@@ -6,6 +6,7 @@ import { HomeBottomSections } from '@/components/home/home-bottom-sections';
 import { HomeVideoSection } from '@/components/home/home-video-section';
 import { LiveNewsTimeline } from '@/components/home/live-news-timeline';
 import { NewsletterSignup } from '@/components/home/newsletter-signup';
+import { PushAlertsSignup } from '@/components/home/push-alerts-signup';
 import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { SectionHeader } from '@/components/ui/section-header';
 import { categories } from '@/config/site';
@@ -124,6 +125,8 @@ export default async function HomePage() {
             <LiveNewsTimeline articles={liveFeed} />
 
             <NewsletterSignup />
+
+            <PushAlertsSignup />
 
             <div className="widget-card">
               <div className="widget-card-header">

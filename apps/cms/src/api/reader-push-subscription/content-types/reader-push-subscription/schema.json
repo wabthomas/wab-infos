@@ -1,0 +1,30 @@
+{
+  "kind": "collectionType",
+  "collectionName": "reader_push_subscriptions",
+  "info": {
+    "singularName": "reader-push-subscription",
+    "pluralName": "reader-push-subscriptions",
+    "displayName": "Abonnement push lecteurs"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "endpoint": {
+      "type": "text",
+      "required": true,
+      "unique": true
+    },
+    "p256dh": {
+      "type": "string",
+      "required": true
+    },
+    "auth": {
+      "type": "string",
+      "required": true
+    },
+    "userAgent": {
+      "type": "string"
+    }
+  }
+}

@@ -5,6 +5,7 @@ import { ArrowRight, Play, Radio, Tv } from 'lucide-react';
 import { categories, getVideoPagePath, siteConfig } from '@/config/site';
 import { LiveNewsTimeline } from '@/components/home/live-news-timeline';
 import { NewsletterSignup } from '@/components/home/newsletter-signup';
+import { PushAlertsSignup } from '@/components/home/push-alerts-signup';
 import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { SidebarAd } from '@/components/ads/adsense';
 import { getYoutubeThumbnailUrl } from '@/lib/seo';
@@ -280,6 +281,8 @@ export function ContentSidebar({
       )}
 
       <NewsletterSignup variant="compact" />
+
+      <PushAlertsSignup variant="compact" />
     </aside>
   );
 }
