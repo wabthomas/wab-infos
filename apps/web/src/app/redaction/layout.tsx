@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   description: 'Application mobile de rédaction Wab-infos',
   robots: { index: false, follow: false },
   manifest: '/redaction/manifest.webmanifest',
+  icons: {
+    apple: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+  },
   appleWebApp: {
     capable: true,
     title: 'Wab Rédaction',

@@ -15,7 +15,7 @@ import {
 } from '@/lib/seo';
 import { getArticleBySlug, getRelatedArticles, getApprovedComments } from '@/lib/strapi';
 import { getLiveFeed } from '@/lib/sidebar-data';
-import { compareArticlesByDateDesc, rewriteWordPressContent } from '@/lib/utils';
+import { compareArticlesByDateDesc, formatArticleContent } from '@/lib/utils';
 import { ArticleCommentForm } from '@/components/comments/article-comment-form';
 import { ArticleCommentsList } from '@/components/comments/article-comments-list';
 
@@ -130,7 +130,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
             <div
               className="prose-article"
-              dangerouslySetInnerHTML={{ __html: rewriteWordPressContent(article.content) }}
+              dangerouslySetInnerHTML={{ __html: formatArticleContent(article.content) }}
             />
 
             <InArticleAd />

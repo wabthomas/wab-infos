@@ -11,7 +11,7 @@ import type {
   RedactionStats,
   RedactionUser,
 } from '@/lib/redaction/types';
-import { calculateReadingTime } from '@/lib/utils';
+import { calculateReadingTime, slugify } from '@/lib/utils';
 
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
 
@@ -250,24 +250,95 @@ export async function getEditorArticle(
   return null;
 }
 
-function slugifyTitle(title: string): string {
-  return title
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-    .slice(0, 80);
+function isGenericSlug(slug: string | undefined): boolean {
+  if (!slug?.trim()) return true;
+  return ['article', 'articles', 'post', 'nouveau', 'brouillon'].includes(slug.trim().toLowerCase());
 }
 
-function contentToHtml(text: string): string {
+function generateArticleSlug(title: string, uniqueSuffix?: string): string {
+  const base = slugify(title).slice(0, 80);
+  const suffix = uniqueSuffix ?? Date.now().toString(36);
+  if (!base) return `article-${suffix}`;
+  return `${base}-${suffix}`.slice(0, 120);
+}
+
+const TAG_STOP_WORDS = new Set([
+  'le', 'la', 'les', 'de', 'du', 'des', 'et', 'en', 'un', 'une', 'pour', 'dans', 'sur', 'par',
+  'au', 'aux', 'ce', 'cette', 'son', 'sa', 'ses', 'leur', 'leurs', 'qui', 'que', 'est', 'sont',
+  'avec', 'entre', 'plus', 'moins', 'pas', 'se', 'il', 'elle', 'ils', 'elles', 'the', 'and',
+  'une', 'ont', 'été', 'ete', 'être', 'etre', 'aux', 'ces', 'cette', 'comme', 'mais', 'ou',
+]);
+
+function extractTagCandidates(title: string, excerpt?: string): string[] {
+  const text = `${title} ${excerpt ?? ''}`;
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+
+  for (const match of text.matchAll(/\b[A-Z]{2,}\b/g)) {
+    const name = match[0];
+    const key = name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      candidates.push(name);
+    }
+  }
+
+  for (const word of text.replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/)) {
+    const cleaned = word.trim();
+    if (cleaned.length < 3) continue;
+    const key = cleaned.toLowerCase();
+    if (TAG_STOP_WORDS.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    candidates.push(cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase());
+    if (candidates.length >= 6) break;
+  }
+
+  return candidates.slice(0, 5);
+}
+
+async function findOrCreateTag(name: string): Promise<string | null> {
+  const slug = slugify(name);
+  if (!slug) return null;
+
+  const existing = await strapiFetch<{ data: StrapiEntity[] }>('/tags', {
+    filters: { slug: { $eq: slug } },
+    pagination: { pageSize: 1 },
+  });
+  if (existing.data[0]) return existing.data[0].documentId;
+
+  try {
+    const created = await strapiFetch<{ data: StrapiEntity }>('/tags', undefined, {
+      method: 'POST',
+      body: JSON.stringify({ data: { name, slug } }),
+    });
+    return created.data.documentId;
+  } catch {
+    return null;
+  }
+}
+
+async function syncArticleTags(title: string, excerpt?: string): Promise<string[]> {
+  const candidates = extractTagCandidates(title, excerpt);
+  const tagIds: string[] = [];
+  for (const name of candidates) {
+    const id = await findOrCreateTag(name);
+    if (id) tagIds.push(id);
+  }
+  return tagIds;
+}
+
+function normalizeEditorContent(text: string): string {
   const trimmed = text.trim();
-  if (!trimmed) return '<p></p>';
-  if (trimmed.includes('<p>') || trimmed.includes('<br')) return trimmed;
-  return trimmed
-    .split(/\n{2,}/)
-    .map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`)
-    .join('');
+  if (!trimmed) return '';
+  if (/<(?:p|div|h[1-6]|ul|ol|blockquote)\b/i.test(trimmed)) {
+    return trimmed
+      .replace(/<\/p>\s*<p>/gi, '\n\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\r\n/g, '\n')
+      .trim();
+  }
+  return trimmed.replace(/\r\n/g, '\n');
 }
 
 function resolveArticleSaveMode(payload: Partial<ArticleEditorPayload>): {
@@ -298,7 +369,8 @@ function buildArticleData(
   payload: Partial<ArticleEditorPayload>,
   author: RedactionAuthor,
   slug?: string,
-  saveMode?: ReturnType<typeof resolveArticleSaveMode>
+  saveMode?: ReturnType<typeof resolveArticleSaveMode>,
+  tagIds?: string[]
 ): Record<string, unknown> {
   const data: Record<string, unknown> = {};
 
@@ -317,7 +389,7 @@ function buildArticleData(
     data.seoDescription = payload.excerpt.trim().slice(0, 160);
   }
   if (payload.content !== undefined) {
-    const content = contentToHtml(payload.content);
+    const content = normalizeEditorContent(payload.content);
     data.content = content;
     data.readingTime = calculateReadingTime(content);
   }
@@ -325,6 +397,7 @@ function buildArticleData(
   if (payload.featuredImageId !== undefined) data.featuredImage = payload.featuredImageId;
   if (payload.isBreaking !== undefined) data.isBreaking = payload.isBreaking;
   if (author.documentId) data.author = author.documentId;
+  if (tagIds?.length) data.tags = tagIds;
 
   return data;
 }
@@ -334,19 +407,23 @@ export async function createEditorArticle(
   payload: ArticleEditorPayload
 ): Promise<RedactionArticle> {
   const author = await resolveAuthorForUser(user);
-  const slug = `${slugifyTitle(payload.title)}-${Date.now().toString(36)}`;
+  const slug = generateArticleSlug(payload.title);
   const saveMode = resolveArticleSaveMode(payload) ?? {
     strapiStatus: 'draft' as const,
     customStatus: 'draft' as const,
     scheduledAt: null,
   };
+  const tagIds =
+    saveMode.strapiStatus === 'published'
+      ? await syncArticleTags(payload.title, payload.excerpt)
+      : undefined;
   const endpoint =
     saveMode.strapiStatus === 'published' ? '/articles?status=published' : '/articles';
 
   const response = await strapiFetch<{ data: StrapiEntity }>(endpoint, undefined, {
     method: 'POST',
     body: JSON.stringify({
-      data: buildArticleData(payload, author, slug, saveMode),
+      data: buildArticleData(payload, author, slug, saveMode, tagIds),
     }),
   });
 
@@ -366,12 +443,23 @@ export async function updateEditorArticle(
   const statusParam =
     saveMode?.strapiStatus ?? (existing?.status === 'published' ? 'published' : 'draft');
 
+  const title = payload.title?.trim() || existing.title;
+  const excerpt = payload.excerpt?.trim() || existing.excerpt;
+  const slug = isGenericSlug(existing.slug)
+    ? generateArticleSlug(title, documentId.slice(-8))
+    : existing.slug;
+
+  const publishing = saveMode?.strapiStatus === 'published';
+  const tagIds = publishing ? await syncArticleTags(title, excerpt) : undefined;
+
   const response = await strapiFetch<{ data: StrapiEntity }>(
     `/articles/${documentId}?status=${statusParam}`,
     undefined,
     {
       method: 'PUT',
-      body: JSON.stringify({ data: buildArticleData(payload, author, undefined, saveMode) }),
+      body: JSON.stringify({
+        data: buildArticleData(payload, author, slug, saveMode, tagIds),
+      }),
     }
   );
 

@@ -95,6 +95,22 @@ export function rewriteWordPressContent(html: string): string {
   );
 }
 
+/** Convertit le texte brut (retours à la ligne) en HTML pour l'affichage article. */
+export function formatArticleContent(content: string): string {
+  const rewritten = rewriteWordPressContent(content);
+  if (!rewritten.trim()) return '';
+
+  if (/<(?:p|div|h[1-6]|ul|ol|blockquote|figure)\b/i.test(rewritten)) {
+    return rewritten;
+  }
+
+  return rewritten
+    .split(/\n{2,}/)
+    .map((p) => `<p>${p.replace(/\n/g, '<br>').trim()}</p>`)
+    .filter((p) => p !== '<p></p>')
+    .join('');
+}
+
 export function getStrapiMediaUrl(url?: string): string | null {
   if (!url) return null;
   if (url.startsWith('http')) return url;

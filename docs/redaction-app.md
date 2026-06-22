@@ -88,6 +88,33 @@ Exemple crontab PlanetHoster :
 
 Les articles avec `status=scheduled` et `scheduledAt <= now` passent en publié automatiquement.
 
+## Publication réseaux sociaux (Facebook & X)
+
+À chaque publication d’un article récent (≤ 48 h), Strapi appelle `POST /api/social/publish-article` sur le site Next.js.
+
+**Guide détaillé pas à pas** : [social-publish-setup.md](./social-publish-setup.md) (obtention des tokens Facebook & X, tests, dépannage).
+
+### Configuration (`apps/web/.env`)
+
+```env
+SOCIAL_PUBLISH_ENABLED=true
+SOCIAL_SEND_ON_PUBLISH=true
+
+# Facebook — Page Wab-infos
+FACEBOOK_PAGE_ID=votre-page-id
+FACEBOOK_PAGE_ACCESS_TOKEN=token-longue-duree-avec-pages_manage_posts
+
+# X (Twitter) — OAuth 1.0a (Developer Portal → Keys and tokens)
+X_API_KEY=...
+X_API_SECRET=...
+X_ACCESS_TOKEN=...
+X_ACCESS_TOKEN_SECRET=...
+```
+
+Côté CMS (`apps/cms/.env`) : `SOCIAL_SEND_ON_PUBLISH=true` et `NEXT_PUBLIC_SITE_URL` identiques à la prod.
+
+Chaque plateforme enregistre `facebookPostedAt` / `xPostedAt` sur l’article pour éviter les doublons.
+
 ## Notifications push (VAPID)
 
 Générer une paire de clés :

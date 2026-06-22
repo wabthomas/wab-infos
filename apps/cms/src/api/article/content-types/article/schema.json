@@ -103,6 +103,12 @@
     },
     "newsletterSentAt": {
       "type": "datetime"
+    },
+    "facebookPostedAt": {
+      "type": "datetime"
+    },
+    "xPostedAt": {
+      "type": "datetime"
     }
   }
 }

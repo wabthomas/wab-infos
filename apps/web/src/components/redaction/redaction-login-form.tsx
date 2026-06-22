@@ -52,6 +52,10 @@ export function RedactionLoginForm() {
           App rédaction
         </p>
         <h1 className="font-display mt-2 text-2xl font-bold">Publiez depuis votre mobile</h1>
+
+        <div className="mt-5">
+          <RedactionInstallBanner />
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col px-5 py-8">
@@ -64,7 +68,6 @@ export function RedactionLoginForm() {
         </Link>
 
         <form onSubmit={handleSubmit} className="mx-auto w-full max-w-md space-y-5">
-          <RedactionInstallBanner />
           {error && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
               {error}

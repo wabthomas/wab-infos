@@ -1,9 +1,17 @@
 export default {
+  async beforeCreate(event: { params: { data: Record<string, unknown> } }) {
+    ensureArticleSlug(event.params.data);
+  },
+  async beforeUpdate(event: { params: { data: Record<string, unknown> } }) {
+    ensureArticleSlug(event.params.data);
+  },
   async afterCreate(event: {
     result: {
       slug?: string;
       status?: string;
       newsletterSentAt?: string | null;
+      facebookPostedAt?: string | null;
+      xPostedAt?: string | null;
       publishedAt?: string;
       wpPublishedAt?: string | null;
       documentId?: string;
@@ -11,12 +19,15 @@ export default {
   }) {
     await triggerRevalidation('article', event.result);
     await triggerNewsletter(event.result);
+    await triggerSocialPublish(event.result);
   },
   async afterUpdate(event: {
     result: {
       slug?: string;
       status?: string;
       newsletterSentAt?: string | null;
+      facebookPostedAt?: string | null;
+      xPostedAt?: string | null;
       publishedAt?: string;
       wpPublishedAt?: string | null;
       documentId?: string;
@@ -24,11 +35,36 @@ export default {
   }) {
     await triggerRevalidation('article', event.result);
     await triggerNewsletter(event.result);
+    await triggerSocialPublish(event.result);
   },
   async afterDelete() {
     await triggerRevalidation('article');
   },
 };
+
+function slugifyTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 80);
+}
+
+const GENERIC_SLUGS = new Set(['article', 'articles', 'post', 'nouveau', 'brouillon']);
+
+function ensureArticleSlug(data: Record<string, unknown>) {
+  const title = typeof data.title === 'string' ? data.title.trim() : '';
+  const slug = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
+  if (!title) return;
+  if (slug && !GENERIC_SLUGS.has(slug)) return;
+
+  const base = slugifyTitle(title);
+  data.slug = base
+    ? `${base}-${Date.now().toString(36)}`
+    : `article-${Date.now().toString(36)}`;
+}
 
 async function triggerRevalidation(
   type: string,
@@ -94,5 +130,46 @@ async function triggerNewsletter(result: {
     }
   } catch (err) {
     console.error('[newsletter] trigger failed:', err);
+  }
+}
+
+async function triggerSocialPublish(result: {
+  slug?: string;
+  status?: string;
+  facebookPostedAt?: string | null;
+  xPostedAt?: string | null;
+  publishedAt?: string;
+  wpPublishedAt?: string | null;
+}) {
+  if (process.env.SOCIAL_SEND_ON_PUBLISH !== 'true') return;
+  if (!result.slug || result.status !== 'published') return;
+  if (result.facebookPostedAt && result.xPostedAt) return;
+
+  const effectiveDate = result.wpPublishedAt || result.publishedAt;
+  if (effectiveDate) {
+    const publishedMs = new Date(effectiveDate).getTime();
+    const maxAgeMs = 48 * 60 * 60 * 1000;
+    if (Date.now() - publishedMs > maxAgeMs) return;
+  }
+
+  const secret = process.env.SOCIAL_SECRET || process.env.REVALIDATION_SECRET;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  if (!secret) return;
+
+  try {
+    const response = await fetch(`${siteUrl}/api/social/publish-article`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-social-secret': secret,
+      },
+      body: JSON.stringify({ slug: result.slug }),
+    });
+
+    if (!response.ok) {
+      console.error('[social] publish-article failed:', response.status, await response.text());
+    }
+  } catch (err) {
+    console.error('[social] trigger failed:', err);
   }
 }
