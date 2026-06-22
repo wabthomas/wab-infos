@@ -3,16 +3,32 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, FileText, Home, LogOut, MessageSquare, PenLine, BarChart3 } from 'lucide-react';
+import {
+  ArrowLeft,
+  BarChart3,
+  FileText,
+  Home,
+  LogOut,
+  MessageSquare,
+  PenLine,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const NAV = [
+const NAV_SIDE = [
   { href: '/redaction', label: 'Accueil', icon: Home, exact: true },
   { href: '/redaction/articles', label: 'Articles', icon: FileText },
-  { href: '/redaction/nouveau', label: 'Écrire', icon: PenLine },
-  { href: '/redaction/comments', label: 'Comms', icon: MessageSquare, badge: true },
+] as const;
+
+const NAV_SIDE_RIGHT = [
+  { href: '/redaction/comments', label: 'Commentaires', icon: MessageSquare, badge: true },
   { href: '/redaction/stats', label: 'Stats', icon: BarChart3 },
 ] as const;
+
+const NAV_WRITE = {
+  href: '/redaction/nouveau',
+  label: 'Écrire',
+  icon: PenLine,
+} as const;
 
 function isWritingPage(pathname: string): boolean {
   return pathname === '/redaction/nouveau' || /\/redaction\/articles\/[^/]+\/edit$/.test(pathname);
@@ -24,9 +40,61 @@ function writingPageTitle(pathname: string): string {
   return 'Rédaction';
 }
 
+function isNavActive(pathname: string, href: string, exact?: boolean): boolean {
+  if (exact) return pathname === href;
+  if (href === '/redaction/nouveau') {
+    return pathname === href || /\/redaction\/articles\/[^/]+\/edit$/.test(pathname);
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 interface RedactionShellProps {
   children: React.ReactNode;
   authorName?: string;
+}
+
+function NavItem({
+  href,
+  label,
+  icon: Icon,
+  active,
+  badge,
+  pendingComments,
+  prominent,
+}: {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  active: boolean;
+  badge?: boolean;
+  pendingComments?: number;
+  prominent?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        'relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors',
+        prominent
+          ? active
+            ? '-mt-3 rounded-2xl bg-primary px-3 py-2.5 text-primary-foreground shadow-lg shadow-primary/25'
+            : '-mt-3 rounded-2xl bg-primary px-3 py-2.5 text-primary-foreground shadow-md shadow-primary/20'
+          : active
+            ? 'bg-primary/10 text-primary'
+            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+      )}
+    >
+      <Icon className={cn('shrink-0', prominent ? 'h-6 w-6' : 'h-5 w-5')} />
+      <span className={cn('max-w-full truncate text-center font-semibold leading-none', prominent ? 'text-[10px]' : 'text-[10px]')}>
+        {label}
+      </span>
+      {badge && (pendingComments ?? 0) > 0 && (
+        <span className="absolute right-0 top-0 flex h-4 min-w-4 -translate-y-0.5 translate-x-0.5 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
+          {(pendingComments ?? 0) > 9 ? '9+' : pendingComments}
+        </span>
+      )}
+    </Link>
+  );
 }
 
 export function RedactionShell({ children, authorName }: RedactionShellProps) {
@@ -87,40 +155,44 @@ export function RedactionShell({ children, authorName }: RedactionShellProps) {
       <main
         className={cn(
           'mx-auto w-full max-w-lg flex-1 px-4 py-4',
-          writing ? 'pb-6' : 'pb-28'
+          writing ? 'pb-6' : 'pb-[calc(4.5rem+env(safe-area-inset-bottom))]'
         )}
       >
         {children}
       </main>
 
       {!writing && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          <div className="mx-auto grid max-w-lg grid-cols-5 gap-0.5 px-1 py-2">
-            {NAV.map(({ href, label, icon: Icon, ...rest }) => {
-              const exact = 'exact' in rest && rest.exact;
-              const showBadge = 'badge' in rest && rest.badge;
-              const active = exact ? pathname === href : pathname.startsWith(href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={cn(
-                    'relative flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[9px] font-semibold transition-colors',
-                    active
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {label}
-                  {showBadge && pendingComments > 0 && (
-                    <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
-                      {pendingComments > 9 ? '9+' : pendingComments}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
+            {NAV_SIDE.map(({ href, label, icon, ...rest }) => (
+              <NavItem
+                key={href}
+                href={href}
+                label={label}
+                icon={icon}
+                active={isNavActive(pathname, href, 'exact' in rest && rest.exact)}
+              />
+            ))}
+
+            <NavItem
+              href={NAV_WRITE.href}
+              label={NAV_WRITE.label}
+              icon={NAV_WRITE.icon}
+              active={isNavActive(pathname, NAV_WRITE.href)}
+              prominent
+            />
+
+            {NAV_SIDE_RIGHT.map(({ href, label, icon, ...rest }) => (
+              <NavItem
+                key={href}
+                href={href}
+                label={label}
+                icon={icon}
+                active={isNavActive(pathname, href)}
+                badge={'badge' in rest && rest.badge}
+                pendingComments={pendingComments}
+              />
+            ))}
           </div>
         </nav>
       )}
