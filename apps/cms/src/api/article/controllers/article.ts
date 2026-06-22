@@ -81,31 +81,41 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
 
     const knex = strapi.db.connection;
 
-    // Incrément atomique — uniquement la version publiée (pas les brouillons)
-    const patched = await knex('articles')
-      .where('document_id', documentId)
-      .whereNotNull('published_at')
-      .update({
-        view_count: knex.raw('COALESCE(view_count, 0) + 1'),
-      });
+    const viewCount = await knex.transaction(async (trx) => {
+      const patched = await trx('articles')
+        .where('document_id', documentId)
+        .whereNotNull('published_at')
+        .update({
+          view_count: trx.raw('COALESCE(view_count, 0) + 1'),
+        });
 
-    if (patched === 0) {
+      if (patched === 0) {
+        return null;
+      }
+
+      // Sous-requête : lit le compteur publié au moment de l'UPDATE (pas une valeur figée)
+      await trx('articles')
+        .where('document_id', documentId)
+        .whereNull('published_at')
+        .update({
+          view_count: trx.raw(
+            `(SELECT view_count FROM articles AS pub WHERE pub.document_id = ? AND pub.published_at IS NOT NULL LIMIT 1)`,
+            [documentId]
+          ),
+        });
+
+      const row = await trx('articles')
+        .where('document_id', documentId)
+        .whereNotNull('published_at')
+        .select('view_count')
+        .first();
+
+      return Number(row?.view_count ?? 0);
+    });
+
+    if (viewCount === null) {
       return ctx.notFound('Article not found');
     }
-
-    const row = await knex('articles')
-      .where('document_id', documentId)
-      .whereNotNull('published_at')
-      .select('view_count')
-      .first();
-
-    const viewCount = Number(row?.view_count ?? 0);
-
-    // Aligner les brouillons sur le compteur publié (admin) — après l'incrément atomique
-    await knex('articles')
-      .where('document_id', documentId)
-      .whereNull('published_at')
-      .update({ view_count: viewCount });
 
     return { data: { viewCount } };
   },
