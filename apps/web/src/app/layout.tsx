@@ -69,6 +69,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: siteConfig.name,
   },
+  ...(siteConfig.googleSiteVerification
+    ? { verification: { google: siteConfig.googleSiteVerification } }
+    : {}),
 };
 
 export const viewport: Viewport = {

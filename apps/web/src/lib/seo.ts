@@ -257,18 +257,127 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
 }
 
 export function generateCategoryMetadata(category: Category) {
+  const title = `${category.name} — ${siteConfig.name}`;
+  const description =
+    category.description || `Toute l'actualité ${category.name} sur ${siteConfig.name}`;
+  const url = `${siteConfig.url}/${category.slug}`;
+
   return {
-    title: `${category.name} — ${siteConfig.name}`,
-    description: category.description || `Toute l'actualité ${category.name} sur ${siteConfig.name}`,
-    alternates: {
-      canonical: `${siteConfig.url}/${category.slug}`,
-    },
+    title,
+    description,
+    alternates: { canonical: url },
     openGraph: {
-      title: `${category.name} — ${siteConfig.name}`,
-      description: category.description,
-      url: `${siteConfig.url}/${category.slug}`,
+      type: 'website' as const,
+      title,
+      description,
+      url,
       siteName: siteConfig.name,
       locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title,
+      description,
+      images: [siteConfig.ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large' as const,
+      'max-snippet': -1,
+    },
+  };
+}
+
+export function generateAuthorMetadata(author: { name: string; slug: string; bio?: string }) {
+  const title = author.name;
+  const description = author.bio ?? `Articles de ${author.name} sur ${siteConfig.name}`;
+  const url = `${siteConfig.url}/auteur/${author.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'profile' as const,
+      title: `${title} — ${siteConfig.name}`,
+      description,
+      url,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: `${title} — ${siteConfig.name}`,
+      description,
+      images: [siteConfig.ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large' as const,
+    },
+  };
+}
+
+export function generateStaticPageMetadata(options: {
+  title: string;
+  description: string;
+  path: string;
+}) {
+  const url = `${siteConfig.url}${options.path}`;
+
+  return {
+    title: options.title,
+    description: options.description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website' as const,
+      title: `${options.title} — ${siteConfig.name}`,
+      description: options.description,
+      url,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: options.title }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: `${options.title} — ${siteConfig.name}`,
+      description: options.description,
+      images: [siteConfig.ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
+
+export function generateHomeMetadata() {
+  return {
+    title: `${siteConfig.name} — Actualités RDC et International`,
+    description: siteConfig.description,
+    alternates: { canonical: siteConfig.url },
+    openGraph: {
+      type: 'website' as const,
+      title: `${siteConfig.name} — Actualités RDC et International`,
+      description: siteConfig.description,
+      url: siteConfig.url,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: siteConfig.name }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: `${siteConfig.name} — Actualités RDC et International`,
+      description: siteConfig.description,
+      images: [siteConfig.ogImage],
     },
   };
 }

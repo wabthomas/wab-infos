@@ -6,10 +6,10 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_SITE_DESCRIPTION ||
     'Actualités RDC, politique, économie, sports et international. Wab-infos, votre source d\'information fiable.',
   url: SITE_URL,
-  ogImage: `${SITE_URL}/og-default.jpg`,
+  ogImage: `${SITE_URL}/opengraph-image`,
   locale: 'fr_FR',
   language: 'fr',
-  twitter: '@wabinfos',
+  twitter: process.env.NEXT_PUBLIC_TWITTER_HANDLE || '@wabinfos',
   publisher: 'Wab-infos',
   googleNewsPublication: process.env.NEXT_PUBLIC_GOOGLE_NEWS_PUBLICATION || 'wab-infos',
   adsenseClient: process.env.NEXT_PUBLIC_ADSENSE_CLIENT || '',
@@ -20,6 +20,17 @@ export const siteConfig = {
   youtubeChannelId:
     process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || 'UCjAepna3JBGPfzUBJRoKbCw',
   gaId: process.env.NEXT_PUBLIC_GA_ID || '',
+  googleSiteVerification: process.env.GOOGLE_SITE_VERIFICATION || '',
+} as const;
+
+/** Informations éditoriales (Google News Publisher Center, pages légales) */
+export const editorialConfig = {
+  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contact@wab-infos.com',
+  redactionEmail: process.env.NEXT_PUBLIC_REDACTION_EMAIL || 'redaction@wab-infos.com',
+  phone: process.env.NEXT_PUBLIC_CONTACT_PHONE || '',
+  address: process.env.NEXT_PUBLIC_CONTACT_ADDRESS || 'Kinshasa',
+  country: process.env.NEXT_PUBLIC_CONTACT_COUNTRY || 'République Démocratique du Congo',
+  foundedYear: process.env.NEXT_PUBLIC_FOUNDED_YEAR || '2010',
 } as const;
 
 export const categories = [

@@ -1,7 +1,9 @@
 import { getArticlePath } from '@/config/site';
 import { pushConfig } from '@/lib/push/config';
 import { sendPushToReaders } from '@/lib/push/send';
+import { listReaderPushSubscriptions } from '@/lib/push/subscriptions';
 import { strapiAdminFetch } from '@/lib/push/strapi-admin';
+import { ensureWebPushConfigured } from '@/lib/push/vapid';
 
 export interface PublishArticlePushResult {
   ok: boolean;
@@ -84,15 +86,23 @@ export async function publishArticlePush(slug: string): Promise<PublishArticlePu
     article.excerpt?.replace(/<[^>]+>/g, '').trim().slice(0, 140) ||
     'Nouvel article sur Wab-infos';
 
+  const subscriptions = await listReaderPushSubscriptions();
+  if (!subscriptions.length) {
+    return { ok: true, skipped: true, reason: 'no_subscribers' };
+  }
+
+  if (!ensureWebPushConfigured()) {
+    return { ok: false, skipped: true, reason: 'vapid_not_configured' };
+  }
+
+  // Marquer avant l'envoi pour éviter les doublons si Strapi échoue après envoi
+  await markPushSent(article.documentId);
+
   const { sent, failed } = await sendPushToReaders({
     title: article.title,
     body,
     url: article.articleUrl,
   });
-
-  if (sent > 0 || failed === 0) {
-    await markPushSent(article.documentId);
-  }
 
   return { ok: failed === 0, sent, failed };
 }

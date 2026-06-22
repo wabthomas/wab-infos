@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { BreakingNewsTicker } from '@/components/articles/breaking-news-ticker';
 import { ArticleCard } from '@/components/articles/article-card';
 import { HomeRecentNews, RECENT_NEWS_DISPLAY_COUNT } from '@/components/home/home-recent-news';
@@ -15,7 +16,10 @@ import { isLowMemBuild } from '@/lib/build-phase';
 import { getTopReadArticles } from '@/lib/sidebar-data';
 import { getBreakingNews, getArticles } from '@/lib/strapi';
 import { compareArticlesByDateDesc } from '@/lib/utils';
+import { generateHomeMetadata } from '@/lib/seo';
 import Link from 'next/link';
+
+export const metadata: Metadata = generateHomeMetadata();
 
 const navCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
 

@@ -3,8 +3,8 @@ import type { Metadata } from 'next';
 import { ArticleCard } from '@/components/articles/article-card';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { SidebarAd } from '@/components/ads/adsense';
-import { siteConfig } from '@/config/site';
 import { getAuthorBySlug, getArticles } from '@/lib/strapi';
+import { generateAuthorMetadata } from '@/lib/seo';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -15,10 +15,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const author = await getAuthorBySlug(slug);
     if (author) {
-      return {
-        title: author.name,
-        description: author.bio ?? `Articles de ${author.name} sur ${siteConfig.name}`,
-      };
+      return generateAuthorMetadata(author);
     }
   } catch {
     // fallback
