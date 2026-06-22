@@ -265,6 +265,38 @@ body {
 }
 
 /* App PWA — écran de lancement */
+.pwa-splash-bootstrap {
+  display: none;
+}
+
+html.pwa-launching {
+  color-scheme: light;
+}
+
+html.pwa-launching .pwa-splash-bootstrap {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+}
+
+html.pwa-launching:not(.pwa-splash-done) #app-root {
+  visibility: hidden;
+}
+
+html.pwa-launching body {
+  overflow: hidden;
+}
+
+.pwa-splash,
+.pwa-splash-bootstrap {
+  color-scheme: light;
+}
+
 @keyframes pwa-splash-logo-in {
   0% {
     opacity: 0;

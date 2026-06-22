@@ -166,6 +166,9 @@ function mapArticle(entity: StrapiEntity): Article {
     }
   }
 
+  const rawViews = entity.viewCount ?? entity.view_count;
+  const viewCount = typeof rawViews === 'number' && Number.isFinite(rawViews) ? rawViews : 0;
+
   return {
     id: entity.id,
     documentId: entity.documentId,
@@ -187,7 +190,7 @@ function mapArticle(entity: StrapiEntity): Article {
     isFeatured: (entity.isFeatured as boolean) ?? false,
     isBreaking: (entity.isBreaking as boolean) ?? false,
     isRecommended: (entity.isRecommended as boolean) ?? false,
-    viewCount: (entity.viewCount as number) ?? 0,
+    viewCount,
     readingTime: (entity.readingTime as number) ?? 3,
     seoTitle: entity.seoTitle as string | undefined,
     seoDescription: entity.seoDescription as string | undefined,
@@ -220,6 +223,7 @@ function mapVideo(entity: StrapiEntity): Video {
 }
 
 const ARTICLE_SORT = ['wpPublishedAt:desc', 'publishedAt:desc'] as const;
+const TOP_READ_SORT = ['viewCount:desc', ...ARTICLE_SORT] as const;
 const VIDEO_SORT = ['publishedAt:desc'] as const;
 
 const articlePopulate = {
@@ -277,6 +281,25 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
 export async function getBreakingNews(): Promise<Article[]> {
   const { articles } = await getArticles({ breaking: true, pageSize: 5 });
   return articles;
+}
+
+/** Articles les plus lus — tri côté Strapi par nombre de vues. */
+export async function getTopReadArticles(
+  limit = 5,
+  options?: { category?: string }
+): Promise<Article[]> {
+  const filters: Record<string, unknown> = {};
+  if (options?.category) filters.category = { slug: { $eq: options.category } };
+
+  const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
+    filters,
+    ...articlePopulate,
+    sort: [...TOP_READ_SORT],
+    pagination: { page: 1, pageSize: limit },
+    status: 'published',
+  });
+
+  return response.data.map(mapArticle);
 }
 
 export async function getFeaturedArticles(): Promise<Article[]> {

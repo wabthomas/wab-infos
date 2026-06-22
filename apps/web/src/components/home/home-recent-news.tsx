@@ -149,7 +149,7 @@ function PopularPanel({ articles }: { articles: Article[] }) {
   if (!articles.length) return null;
 
   return (
-    <aside className="flex h-full flex-col rounded-xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
+    <aside className="hidden h-full flex-col rounded-xl border border-border/70 bg-card p-4 shadow-sm md:flex sm:p-5">
       <div className="border-b border-border pb-2.5">
         <h2 className="text-xs font-bold uppercase tracking-widest text-primary">Populaires</h2>
       </div>

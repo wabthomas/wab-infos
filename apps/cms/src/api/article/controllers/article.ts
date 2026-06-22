@@ -117,6 +117,16 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       return ctx.notFound('Article not found');
     }
 
+    try {
+      await strapi.documents(UID).update({
+        documentId,
+        status: 'published',
+        data: { viewCount },
+      });
+    } catch {
+      // La colonne SQL est déjà à jour
+    }
+
     return { data: { viewCount } };
   },
 }));

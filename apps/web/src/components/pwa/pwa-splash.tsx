@@ -1,26 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import Image from 'next/image';
 import { siteConfig } from '@/config/site';
 import { getPwaVariant, isStandalonePwa, persistPwaVariantFromPath } from '@/lib/pwa/detect';
 
 const SPLASH_MS = 1400;
 
+function finishPwaLaunch() {
+  document.documentElement.classList.remove('pwa-launching');
+  document.documentElement.classList.add('pwa-splash-done');
+  document.getElementById('pwa-splash-bootstrap')?.remove();
+}
+
 export function PwaSplash() {
   const [phase, setPhase] = useState<'hidden' | 'in' | 'out'>('hidden');
   const [tagline, setTagline] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isStandalonePwa()) return;
+  useLayoutEffect(() => {
+    if (!isStandalonePwa()) {
+      finishPwaLaunch();
+      return;
+    }
+
+    document.getElementById('pwa-splash-bootstrap')?.remove();
 
     persistPwaVariantFromPath(window.location.pathname);
     const variant = getPwaVariant();
     setTagline(variant === 'redaction' ? 'Rédaction' : siteConfig.name);
-
     setPhase('in');
+
     const fadeOut = window.setTimeout(() => setPhase('out'), SPLASH_MS - 350);
-    const hide = window.setTimeout(() => setPhase('hidden'), SPLASH_MS);
+    const hide = window.setTimeout(() => {
+      setPhase('hidden');
+      finishPwaLaunch();
+    }, SPLASH_MS);
 
     return () => {
       window.clearTimeout(fadeOut);
@@ -42,7 +56,7 @@ export function PwaSplash() {
           src="/logo.png"
           alt={siteConfig.name}
           width={338}
-          height={338}
+          height={259}
           className="pwa-splash-logo h-28 w-auto sm:h-32"
           priority
         />

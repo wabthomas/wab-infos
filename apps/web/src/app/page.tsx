@@ -11,6 +11,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { categories } from '@/config/site';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { isLowMemBuild } from '@/lib/build-phase';
+import { getTopReadArticles } from '@/lib/sidebar-data';
 import { getBreakingNews, getArticles } from '@/lib/strapi';
 import { compareArticlesByDateDesc } from '@/lib/utils';
 import Link from 'next/link';
@@ -32,18 +33,24 @@ async function getHomeData() {
   const pageSize = isLowMemBuild() ? 12 : 30;
 
   try {
-    const [breaking, latest] = await Promise.all([
+    const [breaking, latest, topRead] = await Promise.all([
       getBreakingNews(),
       getArticles({ pageSize }),
+      getTopReadArticles(5),
     ]);
     return {
       breaking,
       latest: latest.articles,
+      topRead,
     };
   } catch {
+    const mockLatest = getMockArticlesIfEnabled({ pageSize });
     return {
       breaking: getMockArticlesIfEnabled({ breaking: true }),
-      latest: getMockArticlesIfEnabled({ pageSize }),
+      latest: mockLatest,
+      topRead: [...mockLatest]
+        .sort((a, b) => b.viewCount - a.viewCount)
+        .slice(0, 5),
     };
   }
 }
@@ -51,11 +58,10 @@ async function getHomeData() {
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const { breaking, latest } = await getHomeData();
+  const { breaking, latest, topRead } = await getHomeData();
 
   const recentNews = [...latest].sort(compareArticlesByDateDesc);
   const gridArticles = recentNews.slice(RECENT_NEWS_DISPLAY_COUNT, RECENT_NEWS_DISPLAY_COUNT + 9);
-  const topRead = [...latest].sort((a, b) => b.viewCount - a.viewCount).slice(0, 5);
   const topReadPanel = topRead.slice(0, 4);
   const liveFeed = recentNews;
 

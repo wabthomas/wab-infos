@@ -73,6 +73,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
+    { media: '(display-mode: standalone)', color: '#ffffff' },
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)', color: '#0f0f14' },
   ],
@@ -97,6 +98,11 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
         <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;if(s){document.documentElement.classList.add('pwa-launching');}}catch(e){}})();`,
+          }}
+        />
+        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
@@ -110,12 +116,27 @@ export default function RootLayout({
         )}
       </head>
       <body className="min-h-full flex flex-col antialiased">
+        <div id="pwa-splash-bootstrap" className="pwa-splash-bootstrap" aria-hidden suppressHydrationWarning>
+          <div className="pwa-splash-logo-wrap">
+            {/* img natif : affichage immédiat avant hydratation React */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt=""
+              width={338}
+              height={259}
+              className="pwa-splash-logo h-28 w-auto sm:h-32"
+            />
+          </div>
+        </div>
         <PwaSplash />
-        <PwaSetup />
-        <ThemeProvider>
-          <AppShell>{children}</AppShell>
-        </ThemeProvider>
-        {siteConfig.gaId && <GoogleAnalytics gaId={siteConfig.gaId} />}
+        <div id="app-root" className="flex min-h-full flex-1 flex-col">
+          <PwaSetup />
+          <ThemeProvider>
+            <AppShell>{children}</AppShell>
+          </ThemeProvider>
+          {siteConfig.gaId && <GoogleAnalytics gaId={siteConfig.gaId} />}
+        </div>
       </body>
     </html>
   );
