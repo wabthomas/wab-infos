@@ -269,6 +269,10 @@ body {
   display: none;
 }
 
+.pwa-splash-bootstrap--done {
+  display: none !important;
+}
+
 html.pwa-launching {
   color-scheme: light;
 }

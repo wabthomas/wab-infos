@@ -7,10 +7,14 @@ import { getPwaVariant, isStandalonePwa, persistPwaVariantFromPath } from '@/lib
 
 const SPLASH_MS = 1400;
 
+function hideBootstrapSplash() {
+  document.getElementById('pwa-splash-bootstrap')?.classList.add('pwa-splash-bootstrap--done');
+}
+
 function finishPwaLaunch() {
   document.documentElement.classList.remove('pwa-launching');
   document.documentElement.classList.add('pwa-splash-done');
-  document.getElementById('pwa-splash-bootstrap')?.remove();
+  hideBootstrapSplash();
 }
 
 export function PwaSplash() {
@@ -23,7 +27,7 @@ export function PwaSplash() {
       return;
     }
 
-    document.getElementById('pwa-splash-bootstrap')?.remove();
+    hideBootstrapSplash();
 
     persistPwaVariantFromPath(window.location.pathname);
     const variant = getPwaVariant();

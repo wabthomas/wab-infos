@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname, '../..'),
   },
   images: {
+    qualities: [75, 90],
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '8090', pathname: '/uploads/**' },
       { protocol: 'https', hostname: 'wab-infos.com', pathname: '/wp-content/uploads/**' },
