@@ -52,12 +52,27 @@ async function getArticleForPush(slug: string): Promise<(PushArticle & { article
 }
 
 async function markPushSent(documentId: string): Promise<void> {
-  await strapiAdminFetch(`/articles/${documentId}?status=published`, undefined, {
-    method: 'PUT',
-    body: JSON.stringify({
-      data: { pushSentAt: new Date().toISOString() },
-    }),
-  });
+  const maxAttempts = 3;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await strapiAdminFetch(`/articles/${documentId}?status=published`, undefined, {
+        method: 'PUT',
+        body: JSON.stringify({
+          data: { pushSentAt: new Date().toISOString() },
+        }),
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 250));
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('markPushSent failed');
 }
 
 export async function publishArticlePush(slug: string): Promise<PublishArticlePushResult> {
@@ -95,14 +110,15 @@ export async function publishArticlePush(slug: string): Promise<PublishArticlePu
     return { ok: false, skipped: true, reason: 'vapid_not_configured' };
   }
 
-  // Marquer avant l'envoi pour éviter les doublons si Strapi échoue après envoi
-  await markPushSent(article.documentId);
-
   const { sent, failed } = await sendPushToReaders({
     title: article.title,
     body,
     url: article.articleUrl,
   });
+
+  if (sent > 0) {
+    await markPushSent(article.documentId);
+  }
 
   return { ok: failed === 0, sent, failed };
 }
