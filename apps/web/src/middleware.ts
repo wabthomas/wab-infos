@@ -13,8 +13,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(WP_REDIRECTS[pathname], request.url), 301);
   }
 
-  // Ancien format WordPress : /?p=123 → géré par le script d'import via canonicalUrl
-  // Ancien format : /category/article-slug/ (trailing slash)
+  // Ancien format WordPress : /{slug}/ (permaliens à la racine, sans rubrique)
   if (pathname.endsWith('/') && pathname.length > 1) {
     return NextResponse.redirect(
       new URL(pathname.slice(0, -1), request.url),

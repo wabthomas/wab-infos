@@ -7,6 +7,8 @@ export default [
     config: {
       origin: [
         'http://localhost:3000',
+        'https://wab-infos.com',
+        'https://www.wab-infos.com',
         'https://app.wab-infos.com',
         'https://cms.app.wab-infos.com',
       ],

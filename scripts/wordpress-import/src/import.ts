@@ -583,13 +583,17 @@ async function importArticle(
   const wpStatus = toText(item['wp:status']);
   const isPublished = wpStatus === 'publish';
 
-  const oldUrl = `${WP_BASE_URL}/${categories[0]?.['@_nicename'] || 'actualites'}/${slug}`;
+  const oldUrl = `${WP_BASE_URL}/${slug}`;
   const newCategory = categories[0]?.['@_nicename']
     ? CATEGORY_MAP[categories[0]['@_nicename']] || categories[0]['@_nicename']
     : 'actualites-rdc';
   const newUrl = `/${newCategory}/${slug}`;
 
-  if (oldUrl !== newUrl) {
+  // WordPress : permaliens à la racine /{slug}/
+  redirects[`/${slug}`] = newUrl;
+  redirects[`/${slug}/`] = newUrl;
+
+  if (oldUrl !== `${WP_BASE_URL}${newUrl}`) {
     redirects[oldUrl.replace(WP_BASE_URL, '')] = newUrl;
   }
 
@@ -644,7 +648,7 @@ async function importArticle(
       wpId,
       readingTime: calculateReadingTime(content),
       viewCount,
-      canonicalUrl: oldUrl,
+      canonicalUrl: `${WP_BASE_URL}/${slug}`,
       category: categoryId,
       tags: tagIds.length ? tagIds : undefined,
       featuredImage: featuredImageId,

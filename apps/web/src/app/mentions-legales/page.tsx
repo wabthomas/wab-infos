@@ -33,7 +33,7 @@ export default function LegalNoticePage() {
       <h2>Hébergement</h2>
       <p>
         Le site {siteConfig.name} est hébergé par le prestataire d&apos;hébergement du domaine{' '}
-        <strong>app.wab-infos.com</strong>. Pour toute question technique relative à
+        <strong>wab-infos.com</strong>. Pour toute question technique relative à
         l&apos;hébergement, contactez{' '}
         <a href={`mailto:${editorialConfig.contactEmail}`}>{editorialConfig.contactEmail}</a>.
       </p>

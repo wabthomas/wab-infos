@@ -84,7 +84,7 @@ export function generateArticleJsonLd(
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': article.canonicalUrl || articleUrl,
+      '@id': articleUrl,
     },
     articleSection: article.category?.name,
     keywords: article.tags?.map((t) => t.name).join(', '),
@@ -218,13 +218,13 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
     title: article.seoTitle || article.title,
     description: article.seoDescription || article.excerpt,
     alternates: {
-      canonical: article.canonicalUrl || url,
+      canonical: url,
     },
     openGraph: {
       type: 'article' as const,
       title: article.seoTitle || article.title,
       description: article.seoDescription || article.excerpt,
-      url: article.canonicalUrl || url,
+      url,
       siteName: siteConfig.name,
       locale: siteConfig.locale,
       images: images.map((img) => ({

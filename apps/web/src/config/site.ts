@@ -1,4 +1,4 @@
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://app.wab-infos.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com';
 
 export const siteConfig = {
   name: process.env.NEXT_PUBLIC_SITE_NAME || 'Wab-infos',

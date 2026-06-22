@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArticleCard } from '@/components/articles/article-card';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
@@ -10,6 +10,7 @@ import {
 } from '@/config/site';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { isLowMemBuild } from '@/lib/build-phase';
+import { resolveLegacyArticlePath } from '@/lib/legacy-url';
 import { generateCategoryMetadata } from '@/lib/seo';
 import { getLiveFeed } from '@/lib/sidebar-data';
 import { getArticles } from '@/lib/strapi';
@@ -21,6 +22,10 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { category } = await params;
   if (!isValidCategorySlug(category)) {
+    const legacyPath = await resolveLegacyArticlePath(category);
+    if (legacyPath) {
+      redirect(legacyPath);
+    }
     return { title: 'Rubrique non trouvée' };
   }
   const cat = getCategoryBySlug(category)!;
@@ -39,6 +44,10 @@ export default async function CategoryPage({ params }: PageProps) {
   const { category } = await params;
 
   if (!isValidCategorySlug(category)) {
+    const legacyPath = await resolveLegacyArticlePath(category);
+    if (legacyPath) {
+      redirect(legacyPath);
+    }
     notFound();
   }
 
