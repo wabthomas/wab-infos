@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Article } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleImage } from '@/components/ui/article-image';
-import { cn, formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
+import { cn, formatArticleDate, getArticleDisplayDate, resolveArticleImageUrl } from '@/lib/utils';
 
 interface ArticleCardProps {
   article: Article;
@@ -18,7 +18,7 @@ export function ArticleCard({
   priority = false,
 }: ArticleCardProps) {
   const href = getArticlePath(article);
-  const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
+  const imageUrl = resolveArticleImageUrl(article.featuredImage, 'card');
   const categoryColor = article.category?.color ?? '#E63946';
   const displayDate = getArticleDisplayDate(article);
 

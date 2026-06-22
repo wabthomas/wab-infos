@@ -4,7 +4,7 @@ import { ArticleShareButtons } from '@/components/articles/article-share-buttons
 import { ArticleViewCounter } from '@/components/articles/article-view-counter';
 import { getFeaturedImageCaption } from '@/components/articles/article-featured-image';
 import { ArticleImage } from '@/components/ui/article-image';
-import { formatArticleDate, formatDate, getArticleDisplayDate, getStrapiMediaUrl, cn } from '@/lib/utils';
+import { formatArticleDate, formatDate, getArticleDisplayDate, resolveArticleImageUrl, cn } from '@/lib/utils';
 
 interface ArticleHeroProps {
   article: Article;
@@ -23,7 +23,7 @@ export function ArticleHero({
   articleUrl,
   className,
 }: ArticleHeroProps) {
-  const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
+  const imageUrl = resolveArticleImageUrl(article.featuredImage, 'hero');
   const caption = getFeaturedImageCaption(article.featuredImage);
 
   const displayDate = getArticleDisplayDate(article);

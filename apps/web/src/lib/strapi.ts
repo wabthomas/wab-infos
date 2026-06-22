@@ -104,11 +104,10 @@ function mapMedia(media: StrapiEntity | null | undefined): StrapiMedia | undefin
   if (!url) return undefined;
 
   const formats = media.formats as StrapiMedia['formats'];
-  const thumbnailUrl = formats?.thumbnail?.url;
 
   return {
     id: media.id,
-    url: thumbnailUrl || url,
+    url,
     alternativeText: media.alternativeText as string | undefined,
     caption: media.caption as string | undefined,
     width: media.width as number | undefined,

@@ -41,6 +41,7 @@ export function ArticleImage({
       className={className}
       priority={priority}
       sizes={sizes}
+      quality={90}
     />
   );
 }

@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import type { StrapiMedia } from '@wab-infos/shared';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -116,6 +117,25 @@ export function getStrapiMediaUrl(url?: string): string | null {
   if (url.startsWith('http')) return url;
   // Proxy Next.js : app.wab-infos.com/uploads → Strapi
   return url.startsWith('/') ? url : `/${url}`;
+}
+
+/** URL nette pour l’affichage (évite les miniatures Strapi ~150px). */
+export function resolveArticleImageUrl(
+  image?: StrapiMedia | null,
+  size: 'hero' | 'card' = 'card'
+): string | null {
+  if (!image?.url) return null;
+
+  const { formats, url } = image;
+  let src = url;
+
+  if (size === 'hero') {
+    src = formats?.large?.url || url;
+  } else {
+    src = formats?.medium?.url || formats?.large?.url || url;
+  }
+
+  return getStrapiMediaUrl(src);
 }
 
 export function truncate(text: string, length: number): string {

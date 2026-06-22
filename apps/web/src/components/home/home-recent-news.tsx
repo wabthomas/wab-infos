@@ -4,7 +4,7 @@ import type { Article } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleCard } from '@/components/articles/article-card';
 import { ArticleImage } from '@/components/ui/article-image';
-import { formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
+import { formatArticleDate, getArticleDisplayDate, resolveArticleImageUrl } from '@/lib/utils';
 
 interface HomeRecentNewsProps {
   articles: Article[];
@@ -13,7 +13,7 @@ interface HomeRecentNewsProps {
 
 function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
   const href = getArticlePath(article);
-  const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
+  const imageUrl = resolveArticleImageUrl(article.featuredImage, 'card');
   const categoryColor = article.category?.color ?? '#E63946';
 
   const displayDate = getArticleDisplayDate(article);
@@ -74,7 +74,7 @@ function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
 
 function RecentCompactCard({ article }: { article: Article }) {
   const href = getArticlePath(article);
-  const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
+  const imageUrl = resolveArticleImageUrl(article.featuredImage, 'card');
   const categoryColor = article.category?.color ?? '#E63946';
 
   const displayDate = getArticleDisplayDate(article);

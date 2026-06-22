@@ -15,9 +15,9 @@ type SiteLogoProps = {
 
 const LOGO = {
   /** Mode clair — logo couleur */
-  color: { src: '/logo.png', width: 338, height: 338 },
+  color: { src: '/logo.png', width: 338, height: 259 },
   /** Mode sombre — logo blanc (nb) */
-  mono: { src: '/logo-dark.png', width: 338, height: 338 },
+  mono: { src: '/logo-dark.png', width: 268, height: 253 },
 } as const;
 
 export function SiteLogo({ className, variant = 'auto', priority }: SiteLogoProps) {
