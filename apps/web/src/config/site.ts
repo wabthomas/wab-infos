@@ -21,6 +21,8 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || 'UCjAepna3JBGPfzUBJRoKbCw',
   gaId: process.env.NEXT_PUBLIC_GA_ID || '',
   googleSiteVerification: process.env.GOOGLE_SITE_VERIFICATION || '',
+  /** Reader Revenue Manager / Subscribe with Google (CMS Sync) */
+  swgProductId: process.env.NEXT_PUBLIC_GOOGLE_SWG_PRODUCT_ID || '',
 } as const;
 
 /** Informations éditoriales (Google News Publisher Center, pages légales) */

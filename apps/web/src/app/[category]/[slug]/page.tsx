@@ -18,6 +18,7 @@ import { getLiveFeed } from '@/lib/sidebar-data';
 import { compareArticlesByDateDesc, formatArticleContent } from '@/lib/utils';
 import { ArticleCommentForm } from '@/components/comments/article-comment-form';
 import { ArticleCommentsList } from '@/components/comments/article-comments-list';
+import { GoogleSwgBasicScripts } from '@/components/google/swg-basic-scripts';
 
 interface PageProps {
   params: Promise<{ category: string; slug: string }>;
@@ -104,6 +105,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
   return (
     <>
+      <GoogleSwgBasicScripts />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
