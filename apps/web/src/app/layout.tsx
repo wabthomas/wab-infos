@@ -104,15 +104,14 @@ export default function RootLayout({
           />
         )}
         <GoogleTagManagerHead />
-        {/* GA direct uniquement si GTM absent — sinon configurer GA4 dans le conteneur GTM */}
-        {!siteConfig.gtmId && siteConfig.gaId && (
+        {siteConfig.gaId && (
           <>
             <Script
               async
               src={`https://www.googletagmanager.com/gtag/js?id=${siteConfig.gaId}`}
-              strategy="afterInteractive"
+              strategy="beforeInteractive"
             />
-            <Script id="google-analytics" strategy="afterInteractive">
+            <Script id="google-analytics" strategy="beforeInteractive">
               {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${siteConfig.gaId}');`}
             </Script>
           </>
