@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { GoogleAnalytics } from '@next/third-parties/google';
 import Script from 'next/script';
 import { siteConfig } from '@/config/site';
 import { ThemeProvider } from '@/components/providers/theme-provider';
@@ -69,9 +68,6 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: siteConfig.name,
   },
-  ...(siteConfig.googleSiteVerification
-    ? { verification: { google: siteConfig.googleSiteVerification } }
-    : {}),
 };
 
 export const viewport: Viewport = {
@@ -100,6 +96,24 @@ export default function RootLayout({
         <link href={googleFontsUrl} rel="stylesheet" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
+        {siteConfig.googleSiteVerification && (
+          <meta
+            name="google-site-verification"
+            content={siteConfig.googleSiteVerification}
+          />
+        )}
+        {siteConfig.gaId && (
+          <>
+            <Script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${siteConfig.gaId}`}
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${siteConfig.gaId}');`}
+            </Script>
+          </>
+        )}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;if(s){document.documentElement.classList.add('pwa-launching');}}catch(e){}})();`,
@@ -138,7 +152,6 @@ export default function RootLayout({
           <ThemeProvider>
             <AppShell>{children}</AppShell>
           </ThemeProvider>
-          {siteConfig.gaId && <GoogleAnalytics gaId={siteConfig.gaId} />}
         </div>
       </body>
     </html>

@@ -5,7 +5,12 @@ import { ArticleHero } from '@/components/articles/article-hero';
 import { ArticleSidebar } from '@/components/articles/article-sidebar';
 import { RelatedArticles } from '@/components/articles/related-articles';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
-import { InArticleAd } from '@/components/ads/adsense';
+import {
+  ArticleBottomAd,
+  ArticleTopAd,
+  StickyMobileAd,
+} from '@/components/ads/adsense';
+import { ArticleBodyWithAds } from '@/components/articles/article-body-with-ads';
 import { siteConfig, resolveArticleCategorySlug, resolveCategoryMeta, isValidCategorySlug } from '@/config/site';
 import { findMockArticleBySlug, getMockArticlesIfEnabled } from '@/lib/mock-data';
 import {
@@ -130,12 +135,11 @@ export default async function ArticlePage({ params }: PageProps) {
               articleUrl={articleUrl}
             />
 
-            <div
-              className="prose-article"
-              dangerouslySetInnerHTML={{ __html: formatArticleContent(article.content) }}
-            />
+            <ArticleTopAd />
 
-            <InArticleAd />
+            <ArticleBodyWithAds html={formatArticleContent(article.content)} />
+
+            <ArticleBottomAd />
 
             {article.tags && article.tags.length > 0 && (
               <div className="mt-8 flex flex-wrap gap-2 border-t border-border pt-6">
@@ -171,6 +175,8 @@ export default async function ArticlePage({ params }: PageProps) {
           />
         </div>
       </article>
+
+      <StickyMobileAd />
     </>
   );
 }
