@@ -17,7 +17,7 @@ Les articles sont déjà importés : les URLs publiques restent `https://wab-inf
 ### Phase 1 — Préparer WordPress sur `app.`
 
 1. **Sauvegarde complète** : fichiers `public_html` + base MySQL WordPress.
-2. Dans **cPanel → Sous-domaines**, créer `app.wab-infos.com` (ex. dossier `public_html/app` ou `app.wab-infos.com`).
+2. Dans **cPanel → Sous-domaines**, créer `app.wab-infos.com` avec racine **`public_html/wp`** (WordPress — ne pas utiliser `public_html/app`, réservé à Node.js).
 3. **Copier** le contenu WordPress de `public_html` vers ce dossier (pas déplacer tout de suite).
 4. Mettre à jour WordPress **dans la copie** (WP-CLI ou base de données) :
 

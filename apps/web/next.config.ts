@@ -3,7 +3,7 @@ import path from 'path';
 
 const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
 const wpUploadsOrigin =
-  process.env.WP_UPLOADS_ORIGIN || process.env.WP_BASE_URL || 'https://app.wab-infos.com';
+  process.env.WP_UPLOADS_ORIGIN || process.env.WP_BASE_URL || 'https://wp.wab-infos.com';
 const isLowMemBuild = process.env.LOW_MEM_BUILD === '1';
 
 const nextConfig: NextConfig = {
@@ -23,6 +23,7 @@ const nextConfig: NextConfig = {
     qualities: [75, 90],
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '8090', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: 'wp.wab-infos.com', pathname: '/wp-content/uploads/**' },
       { protocol: 'https', hostname: 'app.wab-infos.com', pathname: '/wp-content/uploads/**' },
       { protocol: 'https', hostname: 'wab-infos.com', pathname: '/wp-content/uploads/**' },
       { protocol: 'https', hostname: '**.wab-infos.com', pathname: '/**' },

@@ -1,0 +1,24 @@
+# Proxy public_html → Next.js (port 3000)
+# À placer dans public_html/.htaccess sur PlanetHoster / N0C
+# Prérequis : mod_proxy activé — sinon utiliser le panneau « Application Node.js »
+# pour attacher wab-infos.com directement à l'app (recommandé).
+
+DirectoryIndex disabled
+Options -Indexes
+
+RewriteEngine On
+RewriteBase /
+
+# Ne pas proxy les fichiers statiques éventuels à la racine
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Tout le reste → Next.js
+RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+
+# Headers utiles derrière proxy
+<IfModule mod_headers.c>
+  RequestHeader set X-Forwarded-Proto "https"
+  RequestHeader set X-Forwarded-Host "wab-infos.com"
+</IfModule>
