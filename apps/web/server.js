@@ -33,4 +33,7 @@ app.prepare().then(() => {
       const label = port === 'passenger' ? 'passenger' : `http://${hostname}:${port}`;
       console.log(`Next.js ready on ${label}`);
     });
+}).catch((error) => {
+  console.error('[server.js] Next.js prepare() failed:', error);
+  process.exit(1);
 });
