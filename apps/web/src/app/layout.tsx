@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AppShell } from '@/components/layout/app-shell';
 import { PwaSetup } from '@/components/pwa/pwa-setup';
 import { PwaSplash } from '@/components/pwa/pwa-splash';
+import { GoogleTagManagerBody, GoogleTagManagerHead } from '@/components/google/google-tag-manager';
 import { generateWebsiteJsonLd } from '@/lib/seo';
 import './globals.css';
 
@@ -102,7 +103,9 @@ export default function RootLayout({
             content={siteConfig.googleSiteVerification}
           />
         )}
-        {siteConfig.gaId && (
+        <GoogleTagManagerHead />
+        {/* GA direct uniquement si GTM absent — sinon configurer GA4 dans le conteneur GTM */}
+        {!siteConfig.gtmId && siteConfig.gaId && (
           <>
             <Script
               async
@@ -133,6 +136,7 @@ export default function RootLayout({
         )}
       </head>
       <body className="min-h-full flex flex-col antialiased">
+        <GoogleTagManagerBody />
         <div id="pwa-splash-bootstrap" className="pwa-splash-bootstrap" aria-hidden suppressHydrationWarning>
           <div className="pwa-splash-logo-wrap">
             {/* img natif : affichage immédiat avant hydratation React */}
