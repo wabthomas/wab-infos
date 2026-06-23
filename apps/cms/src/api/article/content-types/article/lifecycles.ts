@@ -13,7 +13,7 @@ export default {
       facebookPostedAt?: string | null;
       xPostedAt?: string | null;
       pushSentAt?: string | null;
-      publishedAt?: string;
+      publishedAt?: string | null;
       wpPublishedAt?: string | null;
       documentId?: string;
     };
@@ -31,7 +31,7 @@ export default {
       facebookPostedAt?: string | null;
       xPostedAt?: string | null;
       pushSentAt?: string | null;
-      publishedAt?: string;
+      publishedAt?: string | null;
       wpPublishedAt?: string | null;
       documentId?: string;
     };
@@ -99,15 +99,24 @@ async function triggerRevalidation(
   }
 }
 
+function isPublishedArticle(result: {
+  status?: string;
+  publishedAt?: string | null;
+}): boolean {
+  if (result.status === 'archived') return false;
+  if (result.status === 'published') return true;
+  return Boolean(result.publishedAt);
+}
+
 async function triggerNewsletter(result: {
   slug?: string;
   status?: string;
   newsletterSentAt?: string | null;
-  publishedAt?: string;
+  publishedAt?: string | null;
   wpPublishedAt?: string | null;
 }) {
   if (process.env.NEWSLETTER_SEND_ON_PUBLISH !== 'true') return;
-  if (!result.slug || result.status !== 'published' || result.newsletterSentAt) return;
+  if (!result.slug || !isPublishedArticle(result) || result.newsletterSentAt) return;
 
   // Évite l'envoi massif lors d'imports d'anciens articles (toute année)
   const effectiveDate = result.wpPublishedAt || result.publishedAt;
@@ -184,11 +193,11 @@ async function triggerPushPublish(result: {
   slug?: string;
   status?: string;
   pushSentAt?: string | null;
-  publishedAt?: string;
+  publishedAt?: string | null;
   wpPublishedAt?: string | null;
 }) {
   if (process.env.PUSH_SEND_ON_PUBLISH !== 'true') return;
-  if (!result.slug || result.status !== 'published' || result.pushSentAt) return;
+  if (!result.slug || !isPublishedArticle(result) || result.pushSentAt) return;
 
   const effectiveDate = result.wpPublishedAt || result.publishedAt;
   if (effectiveDate) {

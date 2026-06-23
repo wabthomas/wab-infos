@@ -1,13 +1,15 @@
 import type { Article } from '@wab-infos/shared';
 import { getArticlePath, resolveArticleCategorySlug } from '@/config/site';
 import { getStrapiMediaUrl } from '@/lib/utils';
-import { sendBatchEmails } from '@/lib/newsletter/brevo';
+import { isArticlePublished } from '@/lib/article-publish';
 import {
   buildArticleNewsletterSubject,
   renderArticleNewsletterHtml,
+  renderArticleNewsletterText,
   type ArticleNewsletterData,
 } from '@/lib/newsletter/article-template';
 import { isNewsletterConfigured, newsletterConfig } from '@/lib/newsletter/config';
+import { sendBatchEmails } from '@/lib/newsletter/transport';
 import {
   buildUnsubscribeUrl,
   getActiveSubscribers,
@@ -73,21 +75,32 @@ export function mapArticleToNewsletterPreview(article: Article, unsubscribeUrl: 
   };
 }
 
+async function fetchArticleForNewsletter(
+  slug: string
+): Promise<Awaited<ReturnType<typeof getArticleForNewsletter>> | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const article = await getArticleForNewsletter(slug);
+    if (article) return article;
+    await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+  }
+  return null;
+}
+
 export async function sendArticleNewsletter(slug: string): Promise<SendArticleNewsletterResult> {
   if (!newsletterConfig.enabled) {
     return { ok: true, skipped: true, reason: 'newsletter_disabled' };
   }
 
   if (!isNewsletterConfigured()) {
-    return { ok: false, skipped: true, reason: 'brevo_not_configured' };
+    return { ok: false, skipped: true, reason: 'mail_not_configured' };
   }
 
-  const article = await getArticleForNewsletter(slug);
+  const article = await fetchArticleForNewsletter(slug);
   if (!article) {
     return { ok: false, skipped: true, reason: 'article_not_found' };
   }
 
-  if (article.status !== 'published') {
+  if (!isArticlePublished(article)) {
     return { ok: true, skipped: true, reason: 'not_published' };
   }
 
@@ -110,6 +123,9 @@ export async function sendArticleNewsletter(slug: string): Promise<SendArticleNe
       to: subscriber.email,
       subject: buildArticleNewsletterSubject(payload),
       html: renderArticleNewsletterHtml(payload),
+      text: renderArticleNewsletterText(payload),
+      unsubscribeUrl: buildUnsubscribeUrl(subscriber.unsubscribeToken),
+      replyTo: newsletterConfig.replyTo,
     };
   });
 

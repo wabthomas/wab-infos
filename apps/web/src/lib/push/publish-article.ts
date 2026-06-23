@@ -1,4 +1,5 @@
 import { getArticlePath } from '@/config/site';
+import { isArticlePublished, isRecentPublication } from '@/lib/article-publish';
 import { pushConfig } from '@/lib/push/config';
 import { sendPushToReaders } from '@/lib/push/send';
 import { listReaderPushSubscriptions } from '@/lib/push/subscriptions';
@@ -26,13 +27,6 @@ interface PushArticle {
   category?: { slug?: string };
 }
 
-function isRecentPublication(publishedAt?: string, wpPublishedAt?: string | null): boolean {
-  const effectiveDate = wpPublishedAt || publishedAt;
-  if (!effectiveDate) return true;
-  const maxAgeMs = 48 * 60 * 60 * 1000;
-  return Date.now() - new Date(effectiveDate).getTime() <= maxAgeMs;
-}
-
 async function getArticleForPush(slug: string): Promise<(PushArticle & { articleUrl: string }) | null> {
   const result = await strapiAdminFetch<{ data: PushArticle[] }>('/articles', {
     filters: { slug: { $eq: slug } },
@@ -50,6 +44,15 @@ async function getArticleForPush(slug: string): Promise<(PushArticle & { article
   )}`;
 
   return { ...article, articleUrl };
+}
+
+async function fetchArticleForPush(slug: string): Promise<(PushArticle & { articleUrl: string }) | null> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const article = await getArticleForPush(slug);
+    if (article) return article;
+    await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+  }
+  return null;
 }
 
 async function markPushSent(documentId: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -81,12 +84,12 @@ export async function publishArticlePush(slug: string): Promise<PublishArticlePu
     return { ok: true, skipped: true, reason: 'push_disabled' };
   }
 
-  const article = await getArticleForPush(slug);
+  const article = await fetchArticleForPush(slug);
   if (!article) {
     return { ok: false, skipped: true, reason: 'article_not_found' };
   }
 
-  if (article.status !== 'published') {
+  if (!isArticlePublished(article)) {
     return { ok: true, skipped: true, reason: 'not_published' };
   }
 

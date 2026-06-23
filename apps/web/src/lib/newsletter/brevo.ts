@@ -1,13 +1,7 @@
 import { newsletterConfig } from '@/lib/newsletter/config';
+import type { SendEmailOptions } from '@/lib/newsletter/types';
 
-export interface SendEmailOptions {
-  to: string;
-  subject: string;
-  html: string;
-  replyTo?: string;
-}
-
-export async function sendTransactionalEmail(options: SendEmailOptions): Promise<void> {
+export async function sendViaBrevo(options: SendEmailOptions): Promise<void> {
   const { brevoApiKey, senderEmail, senderName } = newsletterConfig;
 
   if (!brevoApiKey) {
@@ -25,7 +19,16 @@ export async function sendTransactionalEmail(options: SendEmailOptions): Promise
       to: [{ email: options.to }],
       subject: options.subject,
       htmlContent: options.html,
-      replyTo: options.replyTo ? { email: options.replyTo } : undefined,
+      textContent: options.text,
+      replyTo: options.replyTo
+        ? { email: options.replyTo }
+        : { email: newsletterConfig.replyTo },
+      headers: options.unsubscribeUrl
+        ? {
+            'List-Unsubscribe': `<${options.unsubscribeUrl}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          }
+        : undefined,
     }),
   });
 
@@ -33,24 +36,4 @@ export async function sendTransactionalEmail(options: SendEmailOptions): Promise
     const body = await response.text().catch(() => '');
     throw new Error(`Brevo API ${response.status}: ${body}`);
   }
-}
-
-export async function sendBatchEmails(
-  emails: SendEmailOptions[],
-  concurrency = 5
-): Promise<{ sent: number; failed: number }> {
-  let sent = 0;
-  let failed = 0;
-
-  for (let i = 0; i < emails.length; i += concurrency) {
-    const batch = emails.slice(i, i + concurrency);
-    const results = await Promise.allSettled(batch.map((item) => sendTransactionalEmail(item)));
-
-    for (const result of results) {
-      if (result.status === 'fulfilled') sent += 1;
-      else failed += 1;
-    }
-  }
-
-  return { sent, failed };
 }

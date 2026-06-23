@@ -122,7 +122,7 @@ export async function getActiveSubscribers(): Promise<
 }
 
 export async function markArticleNewsletterSent(documentId: string): Promise<void> {
-  await strapiFetch(`/articles/${documentId}`, {
+  await strapiFetch(`/articles/${documentId}?status=published`, {
     method: 'PUT',
     body: JSON.stringify({
       data: { newsletterSentAt: new Date().toISOString() },
