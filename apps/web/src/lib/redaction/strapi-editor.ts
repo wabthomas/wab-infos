@@ -255,11 +255,9 @@ function isGenericSlug(slug: string | undefined): boolean {
   return ['article', 'articles', 'post', 'nouveau', 'brouillon'].includes(slug.trim().toLowerCase());
 }
 
-function generateArticleSlug(title: string, uniqueSuffix?: string): string {
-  const base = slugify(title).slice(0, 80);
-  const suffix = uniqueSuffix ?? Date.now().toString(36);
-  if (!base) return `article-${suffix}`;
-  return `${base}-${suffix}`.slice(0, 120);
+function generateArticleSlug(title: string): string {
+  const base = slugify(title).slice(0, 100);
+  return base || `article-${Date.now().toString(36)}`;
 }
 
 const TAG_STOP_WORDS = new Set([
@@ -445,9 +443,7 @@ export async function updateEditorArticle(
 
   const title = payload.title?.trim() || existing.title;
   const excerpt = payload.excerpt?.trim() || existing.excerpt;
-  const slug = isGenericSlug(existing.slug)
-    ? generateArticleSlug(title, documentId.slice(-8))
-    : existing.slug;
+  const slug = isGenericSlug(existing.slug) ? generateArticleSlug(title) : existing.slug;
 
   const publishing = saveMode?.strapiStatus === 'published';
   const tagIds = publishing ? await syncArticleTags(title, excerpt) : undefined;

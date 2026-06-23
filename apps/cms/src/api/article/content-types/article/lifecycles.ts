@@ -1,9 +1,9 @@
 export default {
   async beforeCreate(event: { params: { data: Record<string, unknown> } }) {
-    ensureArticleSlug(event.params.data);
+    ensureArticleSlug(event.params.data, false);
   },
   async beforeUpdate(event: { params: { data: Record<string, unknown> } }) {
-    ensureArticleSlug(event.params.data);
+    ensureArticleSlug(event.params.data, true);
   },
   async afterCreate(event: {
     result: {
@@ -58,16 +58,18 @@ function slugifyTitle(title: string): string {
 
 const GENERIC_SLUGS = new Set(['article', 'articles', 'post', 'nouveau', 'brouillon']);
 
-function ensureArticleSlug(data: Record<string, unknown>) {
+function ensureArticleSlug(data: Record<string, unknown>, isUpdate: boolean) {
   const title = typeof data.title === 'string' ? data.title.trim() : '';
-  const slug = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
   if (!title) return;
+
+  // Mise à jour partielle (ex. publication) : ne pas régénérer le slug existant
+  if (isUpdate && !('slug' in data)) return;
+
+  const slug = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
   if (slug && !GENERIC_SLUGS.has(slug)) return;
 
   const base = slugifyTitle(title);
-  data.slug = base
-    ? `${base}-${Date.now().toString(36)}`
-    : `article-${Date.now().toString(36)}`;
+  data.slug = base || `article-${Date.now().toString(36)}`;
 }
 
 async function triggerRevalidation(
