@@ -74,6 +74,8 @@ export function AdSense({
   }, [client, lazy, resolvedSlot]);
 
   if (!client || !resolvedSlot) {
+    // Pas de cadre vide en production (évite « Pub — header » sur mobile)
+    if (process.env.NODE_ENV === 'production') return null;
     if (!client) return null;
 
     return (
@@ -113,20 +115,24 @@ export function AdSense({
 }
 
 export function HeaderAd() {
-  if (!siteConfig.adsenseClient || !siteConfig.adsenseSlots.header) return null;
+  const headerSlot = siteConfig.adsenseSlots.header?.trim();
+  if (!siteConfig.adsenseClient || !headerSlot) return null;
 
   return (
     <div className="container mx-auto hidden px-4 py-2 md:block">
-      <AdSense slot={siteConfig.adsenseSlots.header} format="horizontal" label="header" />
+      <AdSense slot={headerSlot} format="horizontal" lazy className="my-0" label="header" />
     </div>
   );
 }
 
 export function SidebarAd() {
+  const sidebarSlot = siteConfig.adsenseSlots.sidebar?.trim();
+  if (!siteConfig.adsenseClient || !sidebarSlot) return null;
+
   return (
-    <div className="sticky top-20">
+    <div className="sticky top-20 hidden lg:block">
       <AdSense
-        slot={siteConfig.adsenseSlots.sidebar}
+        slot={sidebarSlot}
         format="vertical"
         className="mb-6"
         label="sidebar"
@@ -136,9 +142,12 @@ export function SidebarAd() {
 }
 
 export function ArticleTopAd() {
+  const slot = siteConfig.adsenseSlots.articleTop?.trim();
+  if (!siteConfig.adsenseClient || !slot) return null;
+
   return (
     <AdSense
-      slot={siteConfig.adsenseSlots.articleTop}
+      slot={slot}
       format="horizontal"
       lazy={false}
       label="article-top"
