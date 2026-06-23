@@ -25,18 +25,27 @@ D'après votre panneau **Domaines** :
 
 **`wab-infos.com`** pointe encore vers `~/public_html` (vide).
 
-Il faut l'attacher à la **même application Node.js** que `app.wab-infos.com` (dossier `~/app`).
+L'URL d'application Node.js est **souvent verrouillée** après création — on ne peut pas remplacer `app.wab-infos.com` par `wab-infos.com` dans le formulaire.
 
-### Panneau Node.js / Setup Node.js App
+### Solution A — Copier la config Passenger dans `public_html` (recommandé)
 
-1. Ouvrir l'application dans **`~/app`**
-2. Section **Domaines** / **Application URL** :
-   - **Ajouter** : `wab-infos.com`
-   - **Ajouter** : `www.wab-infos.com` (optionnel)
-3. Garder `app.wab-infos.com` en alias ou le retirer (les deux peuvent coexister)
-4. **Redémarrer** l'application
+1. Ouvrir **`~/app/.htaccess`** (racine de `app.wab-infos.com`)
+2. Copier le bloc `CLOUDLINUX PASSENGER CONFIGURATION`
+3. Créer **`~/public_html/.htaccess`** avec ce même bloc
+4. Tester `https://wab-infos.com`
 
-Après ça : `wab-infos.com` = Next.js, plus d'erreur 500.
+Modèle : `deploy/public_html/passenger-nextjs.htaccess.example`
+
+### Solution B — Recréer l'application Node.js
+
+1. Noter le chemin : `/home/.../wab-infos/apps/web`
+2. **Supprimer** l'app `wab-infos/apps/web` dans le panneau Node.js
+3. **Créer** une nouvelle app avec **URL = `wab-infos.com`** dès le départ (même chemin, `server.js`)
+4. Redémarrer
+
+### Solution C — Support PlanetHoster
+
+> « Je ne peux pas modifier l'URL de mon application Node.js `wab-infos/apps/web`. Pouvez-vous attacher le domaine principal **wab-infos.com** à cette application Passenger ? »
 
 ---
 

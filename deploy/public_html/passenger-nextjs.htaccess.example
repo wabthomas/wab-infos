@@ -1,0 +1,24 @@
+# wab-infos.com → même app Node.js que app.wab-infos.com
+# Quand l'URL d'application est verrouillée dans le panneau Node.js
+#
+# ÉTAPE 1 : Ouvrir le fichier .htaccess du sous-domaine app.wab-infos.com
+#   Chemin probable : ~/app/.htaccess
+#   (racine document de app.wab-infos.com)
+#
+# ÉTAPE 2 : Copier le bloc entre les lignes CLOUDLINUX PASSENGER CONFIGURATION
+#
+# ÉTAPE 3 : Coller dans ~/public_html/.htaccess
+#
+# Exemple de bloc (ADAPTER les chemins /home/anvvbzrr/ à votre compte) :
+
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/anvvbzrr/wab-infos/apps/web"
+PassengerBaseURI "/"
+PassengerNodejs "/home/anvvbzrr/nodevenv/wab-infos/apps/web/20/bin/node"
+PassengerAppType node
+PassengerStartupFile server.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+# ÉTAPE 4 : Sauvegarder, attendre 1 min, tester https://wab-infos.com
+#
+# Le dossier public_html/wp/ (WordPress) reste accessible via wp.wab-infos.com uniquement.
