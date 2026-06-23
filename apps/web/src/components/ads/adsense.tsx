@@ -113,8 +113,10 @@ export function AdSense({
 }
 
 export function HeaderAd() {
+  if (!siteConfig.adsenseClient || !siteConfig.adsenseSlots.header) return null;
+
   return (
-    <div className="container mx-auto px-4 py-2">
+    <div className="container mx-auto hidden px-4 py-2 md:block">
       <AdSense slot={siteConfig.adsenseSlots.header} format="horizontal" label="header" />
     </div>
   );
