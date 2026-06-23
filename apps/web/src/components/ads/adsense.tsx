@@ -74,9 +74,8 @@ export function AdSense({
   }, [client, lazy, resolvedSlot]);
 
   if (!client || !resolvedSlot) {
-    // Pas de cadre vide en production (évite « Pub — header » sur mobile)
     if (process.env.NODE_ENV === 'production') return null;
-    if (!client) return null;
+    if (!resolvedSlot) return null;
 
     return (
       <div
