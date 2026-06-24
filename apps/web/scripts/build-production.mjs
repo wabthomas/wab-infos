@@ -103,18 +103,22 @@ function assertNextBuildOutput() {
   console.info(`[build] BUILD_ID=${buildId}`);
 }
 
-/** nextBuild appelle process.exit(1) sur échec au lieu de rejeter la promesse. */
+/** nextBuild appelle process.exit() au lieu de rejeter la promesse (0 = succès, ≠0 = échec). */
 async function runCapturingProcessExit(fn) {
-  const originalExit = process.exit;
+  const originalExit = process.exit.bind(process);
+  let requestedExitCode = null;
+
   process.exit = (code = 0) => {
-    const exitCode = typeof code === 'number' ? code : 0;
-    if (exitCode === 0) return;
-    const err = new Error(`Next.js a terminé via process.exit(${exitCode})`);
-    err.exitCode = exitCode;
+    requestedExitCode = typeof code === 'number' ? code : 0;
+    if (requestedExitCode === 0) return;
+    const err = new Error(`Next.js a terminé via process.exit(${requestedExitCode})`);
+    err.exitCode = requestedExitCode;
     throw err;
   };
+
   try {
-    return await fn();
+    const result = await fn();
+    return { result, requestedExitCode, originalExit };
   } finally {
     process.exit = originalExit;
   }
@@ -127,7 +131,7 @@ async function runNextBuild() {
 
   const { nextBuild } = await import('next/dist/cli/next-build.js');
   // Mêmes défauts que `next build --webpack` (commander / NextBuildOptions)
-  await runCapturingProcessExit(() =>
+  const { requestedExitCode, originalExit } = await runCapturingProcessExit(() =>
     nextBuild(
       {
         webpack: true,
@@ -139,6 +143,10 @@ async function runNextBuild() {
     )
   );
   assertNextBuildOutput();
+  // Next a demandé exit(0) : terminer via le vrai process.exit (évite handles ouverts).
+  if (requestedExitCode === 0) {
+    originalExit(0);
+  }
 }
 
 async function main() {
@@ -167,6 +175,7 @@ async function main() {
       );
     } else if (exitCode !== 0) {
       console.error(err?.message || err);
+      printEagainHelp();
     }
     process.exit(exitCode);
   }
