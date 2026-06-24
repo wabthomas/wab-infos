@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Article } from '@wab-infos/shared';
+import { ArticleAuthorMeta } from '@/components/articles/article-author-meta';
 import { ArticleShareButtons } from '@/components/articles/article-share-buttons';
 import { ArticleViewCounter } from '@/components/articles/article-view-counter';
 import { getFeaturedImageCaption } from '@/components/articles/article-featured-image';
@@ -27,36 +28,6 @@ export function ArticleHero({
   const caption = getFeaturedImageCaption(article.featuredImage);
 
   const displayDate = getArticleDisplayDate(article);
-
-  const metaRow = (
-    <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1">
-      {article.author ? (
-        <Link
-          href={`/auteur/${article.author.slug}`}
-          className="text-sm font-semibold text-foreground transition-opacity hover:opacity-80 md:text-white"
-        >
-          Par {article.author.name}
-        </Link>
-      ) : (
-        <span className="text-sm font-medium text-muted-foreground md:text-white/70">Rédaction Wab-infos</span>
-      )}
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground md:text-white/85">
-        <time dateTime={displayDate} title={formatDate(displayDate)}>
-          {formatArticleDate(displayDate)}
-        </time>
-        <span aria-hidden className="text-muted-foreground/40 md:text-white/40">
-          |
-        </span>
-        <span>{article.readingTime} min de lecture</span>
-        <ArticleViewCounter
-          documentId={article.documentId}
-          slug={article.slug}
-          categorySlug={categorySlug}
-          initialCount={article.viewCount}
-        />
-      </div>
-    </div>
-  );
 
   const badges = (
     <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -105,7 +76,28 @@ export function ArticleHero({
               </Link>
             </div>
             <h1 className="font-display text-2xl font-bold leading-snug">{article.title}</h1>
-            <div className="mt-3">{metaRow}</div>
+            <div className="mt-3">
+              {article.author ? (
+                <ArticleAuthorMeta author={article.author} />
+              ) : (
+                <span className="text-sm font-medium text-muted-foreground">Rédaction Wab-infos</span>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground">
+              <time dateTime={displayDate} title={formatDate(displayDate)}>
+                {formatArticleDate(displayDate)}
+              </time>
+              <span aria-hidden className="text-muted-foreground/40">
+                |
+              </span>
+              <span>{article.readingTime} min de lecture</span>
+              <ArticleViewCounter
+                documentId={article.documentId}
+                slug={article.slug}
+                categorySlug={categorySlug}
+                initialCount={article.viewCount}
+              />
+            </div>
             <ArticleShareButtons url={articleUrl} title={article.title} className="mt-4" />
           </div>
         </div>
@@ -125,7 +117,28 @@ export function ArticleHero({
             <h1 className="font-display text-3xl font-bold leading-tight text-white drop-shadow-sm lg:text-4xl">
               {article.title}
             </h1>
-            <div className="mt-3 text-white/80">{metaRow}</div>
+            <div className="mt-3 text-white/80">
+              {article.author ? (
+                <ArticleAuthorMeta author={article.author} onDark />
+              ) : (
+                <span className="text-sm font-medium text-white/70">Rédaction Wab-infos</span>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-white/85">
+                <time dateTime={displayDate} title={formatDate(displayDate)}>
+                  {formatArticleDate(displayDate)}
+                </time>
+                <span aria-hidden className="text-white/40">
+                  |
+                </span>
+                <span>{article.readingTime} min de lecture</span>
+                <ArticleViewCounter
+                  documentId={article.documentId}
+                  slug={article.slug}
+                  categorySlug={categorySlug}
+                  initialCount={article.viewCount}
+                />
+              </div>
+            </div>
             <ArticleShareButtons
               url={articleUrl}
               title={article.title}
