@@ -142,11 +142,11 @@ export default function RootLayout({
             {/* img natif : affichage immédiat avant hydratation React */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo.png"
+              src="/icons/icon-512.png"
               alt=""
-              width={338}
-              height={259}
-              className="pwa-splash-logo h-28 w-auto sm:h-32"
+              width={512}
+              height={512}
+              className="pwa-splash-logo"
             />
           </div>
         </div>

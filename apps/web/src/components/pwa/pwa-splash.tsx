@@ -57,11 +57,11 @@ export function PwaSplash() {
     >
       <div className="pwa-splash-logo-wrap">
         <Image
-          src="/logo.png"
+          src="/icons/icon-512.png"
           alt={siteConfig.name}
-          width={338}
-          height={259}
-          className="pwa-splash-logo h-28 w-auto sm:h-32"
+          width={512}
+          height={512}
+          className="pwa-splash-logo"
           priority
         />
       </div>

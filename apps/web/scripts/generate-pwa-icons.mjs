@@ -22,13 +22,14 @@ fs.mkdirSync(iconsDir, { recursive: true });
 
 const WHITE = { r: 255, g: 255, b: 255, alpha: 255 };
 
-/** Icône carrée : pleine taille ou zone sûre maskable Android (80 %). */
+/** Icône carrée plein fond blanc (sans transparence → évite halo noir au splash PWA). */
 async function squareIcon(size, { maskable = false } = {}) {
-  const fillRatio = maskable ? 0.8 : 1;
+  const fillRatio = maskable ? 0.92 : 1;
   const inner = Math.round(size * fillRatio);
   const pad = Math.round((size - inner) / 2);
 
   return sharp(source)
+    .flatten({ background: WHITE })
     .resize(inner, inner, {
       fit: 'contain',
       background: WHITE,
@@ -40,6 +41,7 @@ async function squareIcon(size, { maskable = false } = {}) {
       right: size - inner - pad,
       background: WHITE,
     })
+    .flatten({ background: WHITE })
     .png()
     .toBuffer();
 }

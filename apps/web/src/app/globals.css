@@ -336,6 +336,12 @@ html.pwa-launching body {
   }
 }
 
+.pwa-splash-logo {
+  width: min(72vw, 18rem);
+  height: min(72vw, 18rem);
+  object-fit: contain;
+}
+
 .pwa-splash-logo-wrap {
   animation: pwa-splash-logo-in 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
