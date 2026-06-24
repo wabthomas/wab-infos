@@ -15,6 +15,11 @@
       "required": true,
       "unique": true
     },
+    "endpointKey": {
+      "type": "string",
+      "unique": true,
+      "maxLength": 64
+    },
     "p256dh": {
       "type": "string",
       "required": true

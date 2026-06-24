@@ -700,6 +700,9 @@ export interface ApiReaderPushSubscriptionReaderPushSubscription
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     endpoint: Schema.Attribute.Text & Schema.Attribute.Required & Schema.Attribute.Unique;
+    endpointKey: Schema.Attribute.String &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{ maxLength: 64 }>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
