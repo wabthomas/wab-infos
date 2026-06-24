@@ -172,7 +172,7 @@ async function triggerSocialPublish(result: {
   status?: string;
   facebookPostedAt?: string | null;
   xPostedAt?: string | null;
-  publishedAt?: string;
+  publishedAt?: string | null;
   wpPublishedAt?: string | null;
 }) {
   if (process.env.SOCIAL_SEND_ON_PUBLISH !== 'true') return;

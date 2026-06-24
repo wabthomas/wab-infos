@@ -683,6 +683,38 @@ export interface ApiEditorPushSubscriptionEditorPushSubscription
   };
 }
 
+export interface ApiReaderPushSubscriptionReaderPushSubscription
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'reader_push_subscriptions';
+  info: {
+    displayName: 'Abonnement push lecteurs';
+    pluralName: 'reader-push-subscriptions';
+    singularName: 'reader-push-subscription';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    auth: Schema.Attribute.String & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    endpoint: Schema.Attribute.Text & Schema.Attribute.Required & Schema.Attribute.Unique;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::reader-push-subscription.reader-push-subscription'
+    > &
+      Schema.Attribute.Private;
+    p256dh: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    userAgent: Schema.Attribute.String;
+  };
+}
+
 export interface ApiShowShow extends Struct.CollectionTypeSchema {
   collectionName: 'shows';
   info: {
@@ -1181,6 +1213,7 @@ declare module '@strapi/strapi' {
       'api::category.category': ApiCategoryCategory;
       'api::comment.comment': ApiCommentComment;
       'api::editor-push-subscription.editor-push-subscription': ApiEditorPushSubscriptionEditorPushSubscription;
+      'api::reader-push-subscription.reader-push-subscription': ApiReaderPushSubscriptionReaderPushSubscription;
       'api::show.show': ApiShowShow;
       'api::subscriber.subscriber': ApiSubscriberSubscriber;
       'api::tag.tag': ApiTagTag;
