@@ -92,6 +92,34 @@ async function ensureCompiledCss() {
   process.env.PRECOMPILED_CSS = '1';
 }
 
+function assertNextBuildOutput() {
+  const buildIdPath = path.join(appDir, '.next/BUILD_ID');
+  if (!fs.existsSync(buildIdPath)) {
+    const err = new Error('[build] Build Next.js incomplet : fichier .next/BUILD_ID absent.');
+    err.exitCode = 1;
+    throw err;
+  }
+  const buildId = fs.readFileSync(buildIdPath, 'utf8').trim();
+  console.info(`[build] BUILD_ID=${buildId}`);
+}
+
+/** nextBuild appelle process.exit(1) sur échec au lieu de rejeter la promesse. */
+async function runCapturingProcessExit(fn) {
+  const originalExit = process.exit;
+  process.exit = (code = 0) => {
+    const exitCode = typeof code === 'number' ? code : 0;
+    if (exitCode === 0) return;
+    const err = new Error(`Next.js a terminé via process.exit(${exitCode})`);
+    err.exitCode = exitCode;
+    throw err;
+  };
+  try {
+    return await fn();
+  } finally {
+    process.exit = originalExit;
+  }
+}
+
 async function runNextBuild() {
   process.chdir(appDir);
   process.env.NODE_ENV = process.env.NODE_ENV || 'production';
@@ -99,15 +127,18 @@ async function runNextBuild() {
 
   const { nextBuild } = await import('next/dist/cli/next-build.js');
   // Mêmes défauts que `next build --webpack` (commander / NextBuildOptions)
-  await nextBuild(
-    {
-      webpack: true,
-      mangling: true,
-      experimentalDebugMemoryUsage: false,
-      experimentalBuildMode: 'default',
-    },
-    undefined
+  await runCapturingProcessExit(() =>
+    nextBuild(
+      {
+        webpack: true,
+        mangling: true,
+        experimentalDebugMemoryUsage: false,
+        experimentalBuildMode: 'default',
+      },
+      undefined
+    )
   );
+  assertNextBuildOutput();
 }
 
 async function main() {
@@ -119,6 +150,10 @@ async function main() {
     await runNextBuild();
     process.exit(0);
   } catch (err) {
+    const exitCode = typeof err?.exitCode === 'number' ? err.exitCode : 1;
+    if (exitCode === 0) {
+      process.exit(0);
+    }
     const msg = err && typeof err === 'object' && 'code' in err ? String(err.code) : '';
     const syscall = err && typeof err === 'object' && 'syscall' in err ? String(err.syscall) : '';
     if (msg === 'EAGAIN' || syscall.includes('spawn')) {
@@ -130,11 +165,10 @@ async function main() {
           `  → npm run build:web:low-mem\n` +
           `  → Builder en local : npm run build:web && npm run pack:web-build\n`
       );
-    } else {
-      console.error(err);
-      printEagainHelp();
+    } else if (exitCode !== 0) {
+      console.error(err?.message || err);
     }
-    process.exit(1);
+    process.exit(exitCode);
   }
 }
 
