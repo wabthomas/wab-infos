@@ -1,30 +1,16 @@
-const OFFLINE_CACHE = 'wab-site-offline-v1';
+const OFFLINE_CACHE = 'wab-site-offline-v2';
 const OFFLINE_URL = '/offline.html';
 
-const OFFLINE_HTML = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Hors ligne — Wab-infos</title>
-  <style>
-    body { font-family: system-ui, sans-serif; display: flex; min-height: 100vh; align-items: center; justify-content: center; margin: 0; background: #fff; color: #111; text-align: center; padding: 1rem; }
-    h1 { font-size: 1.25rem; margin: 0 0 0.5rem; color: #c41e3a; }
-    p { margin: 0; color: #666; font-size: 0.95rem; }
-  </style>
-</head>
-<body>
-  <div>
-    <h1>Wab-infos</h1>
-    <p>Vérifiez votre connexion internet et réessayez.</p>
-  </div>
-</body>
-</html>`;
+/** Fallback si le cache SW n'est pas encore prêt (garder aligné avec public/offline.html). */
+const OFFLINE_HTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Indisponible — Wab-infos</title><style>body{font-family:system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:1rem;text-align:center;color:#f4f4f5;background:linear-gradient(145deg,#0c0c0f,#1d3557 52%,#8b1538)}.card{max-width:22rem;padding:2rem 1.5rem;border-radius:1.25rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}h1{font-size:1.2rem;margin:0 0 .75rem}p{margin:0;font-size:.95rem;opacity:.85}button{margin-top:1.25rem;width:100%;padding:.85rem;border:none;border-radius:.75rem;background:#c41e3a;color:#fff;font-weight:600;cursor:pointer}</style></head><body><div class="card"><h1>Service momentanément indisponible</h1><p>Maintenance ou serveur inaccessible. Réessayez dans quelques instants.</p><button type="button" onclick="location.reload()">Réessayer</button></div></body></html>`;
+
+const SERVER_DOWN_STATUSES = new Set([502, 503, 504]);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(OFFLINE_CACHE).then((cache) => cache.add(OFFLINE_URL))
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -37,32 +23,49 @@ self.addEventListener('activate', (event) => {
       )
     )
   );
+  self.clients.claim();
 });
 
+function offlineHtmlResponse(html) {
+  return new Response(html, {
+    status: 200,
+    statusText: 'OK',
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+/** UI Wab-infos (200) — évite la page brute « 503 Service Unavailable » du navigateur. */
 function offlineNavigationResponse() {
   return caches.match(OFFLINE_URL).then((cached) => {
-    if (cached) return cached;
-    return new Response(OFFLINE_HTML, {
-      status: 503,
-      statusText: 'Service Unavailable',
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-store',
-      },
-    });
+    if (cached) return cached.text().then(offlineHtmlResponse);
+    return offlineHtmlResponse(OFFLINE_HTML);
   });
+}
+
+function shouldServeOfflinePage(request, response) {
+  return request.mode === 'navigate' && (!response || SERVER_DOWN_STATUSES.has(response.status));
 }
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    fetch(event.request).catch(() => {
-      if (event.request.mode === 'navigate') {
-        return offlineNavigationResponse();
-      }
-      return Response.error();
-    })
+    fetch(event.request)
+      .then((response) => {
+        if (shouldServeOfflinePage(event.request, response)) {
+          return offlineNavigationResponse();
+        }
+        return response;
+      })
+      .catch(() => {
+        if (event.request.mode === 'navigate') {
+          return offlineNavigationResponse();
+        }
+        return Response.error();
+      })
   );
 });
 
@@ -93,7 +96,7 @@ self.addEventListener('notificationclick', (event) => {
       for (const client of list) {
         if ('focus' in client && client.url.includes(self.location.origin)) {
           if ('navigate' in client) {
-            return (client as WindowClient).navigate(url).then((c) => c?.focus() ?? client.focus());
+            return client.navigate(url).then((c) => (c ? c.focus() : client.focus()));
           }
           return client.focus();
         }
