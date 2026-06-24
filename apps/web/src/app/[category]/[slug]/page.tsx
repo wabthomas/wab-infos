@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { ArticleHero } from '@/components/articles/article-hero';
 import { ArticleSidebar } from '@/components/articles/article-sidebar';
 import { RelatedArticles } from '@/components/articles/related-articles';
-import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import {
   ArticleBottomAd,
   ArticleTopAd,
@@ -122,10 +121,6 @@ export default async function ArticlePage({ params }: PageProps) {
       />
 
       <article className="container mx-auto px-4 py-6">
-        <Breadcrumbs
-          items={[{ name: cat.name, href: `/${categorySlug}` }, { name: article.title }]}
-        />
-
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <ArticleHero

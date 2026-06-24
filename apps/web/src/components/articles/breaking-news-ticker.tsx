@@ -11,7 +11,7 @@ export function BreakingNewsTicker({ articles }: BreakingNewsTickerProps) {
   if (!articles.length) return null;
 
   return (
-    <div className="relative overflow-hidden border-b border-primary/30 bg-primary text-primary-foreground">
+    <div className="relative hidden overflow-hidden border-b border-primary/30 bg-primary text-primary-foreground md:block">
       <div className="absolute inset-0 bg-[linear-gradient(90deg,rgb(0_0_0/0.15)_0%,transparent_50%,rgb(0_0_0/0.1)_100%)]" />
       <div className="container relative mx-auto flex items-center gap-3 px-4 py-2.5">
         <div className="flex shrink-0 items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-widest backdrop-blur-sm">
