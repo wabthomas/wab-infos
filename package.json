@@ -27,6 +27,7 @@
     "postinstall": "node scripts/setup-strapi-link.js",
     "deploy:server": "bash scripts/deploy-server.sh",
     "pack:web-build": "node scripts/pack-web-build.mjs",
+    "unpack:web-build": "node scripts/unpack-web-build.mjs",
     "pack:cms-build": "node scripts/pack-cms-build.mjs",
     "secrets": "node scripts/generate-secrets.js",
     "lint": "npm run lint --workspace=apps/web"

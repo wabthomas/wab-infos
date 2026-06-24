@@ -80,8 +80,9 @@ const nextConfig: NextConfig = {
     webpackBuildWorker: false,
     staticGenerationMaxConcurrency: 1,
     staticGenerationMinPagesPerWorker: 50,
-    // CloudLinux : évite les worker threads jest-worker (EAGAIN)
-    workerThreads: false,
+    // CloudLinux : workerThreads=true → worker_threads (même processus)
+    // workerThreads=false → spawn processChild.js (EAGAIN si maxEntryProcs bas)
+    workerThreads: isLowMemBuild,
   },
   webpack: (config, { dev, webpack }) => {
     config.parallelism = 1;

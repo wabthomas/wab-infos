@@ -23,7 +23,7 @@ const EXCLUDE = [
 ];
 
 if (!fs.existsSync(path.join(nextDir, 'BUILD_ID'))) {
-  console.error('❌ Build absent. Lancez d’abord : npm run build:web:low-mem');
+  console.error('❌ Build absent. Lancez d’abord : npm run build:web');
   process.exit(1);
 }
 
@@ -58,4 +58,4 @@ if (result.status !== 0) {
 const sizeMb = (fs.statSync(out).size / (1024 * 1024)).toFixed(1);
 console.info(`✅ Archive créée : ${out} (${sizeMb} Mo)`);
 console.info('   Sur le serveur :');
-console.info('   cd ~/wab-infos && rm -rf apps/web/.next && tar -xzf web-next-build.tar.gz -C apps/web');
+console.info('   npm run unpack:web-build');

@@ -113,7 +113,13 @@ else
   export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-1}"
   export NEXT_CPU_COUNT="${NEXT_CPU_COUNT:-1}"
   export NEXT_TELEMETRY_DISABLED=1
-  npm run build:web:low-mem
+  npm run build:web:low-mem || {
+    echo ""
+    echo "❌ Build frontend impossible sur ce serveur (CloudLinux / EAGAIN)."
+    echo "   En local : npm run build:web && npm run pack:web-build"
+    echo "   Uploadez web-next-build.tar.gz dans $APP_DIR puis : npm run unpack:web-build"
+    exit 1
+  }
 fi
 
 if command -v pm2 >/dev/null 2>&1 && [ "${USE_PM2:-}" = "1" ]; then
