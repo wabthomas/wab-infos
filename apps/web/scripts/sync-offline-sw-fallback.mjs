@@ -30,7 +30,7 @@ function injectOfflineHtml(swPath, html) {
   if (!pattern.test(source)) {
     throw new Error(`OFFLINE_HTML introuvable dans ${path.basename(swPath)}`);
   }
-  const next = source.replace(pattern, `$1${minified}$2`);
+  const next = source.replace(pattern, (_match, open, close) => `${open}${minified}${close}`);
   if (next === source) {
     console.info(`  → ${path.basename(swPath)} déjà à jour`);
     return;
