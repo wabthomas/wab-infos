@@ -142,20 +142,25 @@ async function triggerNewsletter(result: {
 
     const body = await response.text();
 
+    let data: { skipped?: boolean; reason?: string; sent?: number } | null = null;
+    try {
+      data = JSON.parse(body) as { skipped?: boolean; reason?: string; sent?: number };
+    } catch {
+      // réponse non-JSON
+    }
+
+    if (data?.skipped) {
+      console.warn('[newsletter] send-article skipped:', data.reason ?? 'unknown');
+      return;
+    }
+
     if (!response.ok) {
       console.error('[newsletter] send-article failed:', response.status, body);
       return;
     }
 
-    try {
-      const data = JSON.parse(body) as { skipped?: boolean; reason?: string; sent?: number };
-      if (data.skipped) {
-        console.warn('[newsletter] send-article skipped:', data.reason ?? 'unknown');
-      } else if (data.sent) {
-        console.log(`[newsletter] sent to ${data.sent} subscriber(s) for ${result.slug}`);
-      }
-    } catch {
-      // réponse non-JSON
+    if (data?.sent) {
+      console.log(`[newsletter] sent to ${data.sent} subscriber(s) for ${result.slug}`);
     }
   } catch (err) {
     console.error('[newsletter] trigger failed:', err);

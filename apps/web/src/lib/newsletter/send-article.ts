@@ -92,7 +92,7 @@ export async function sendArticleNewsletter(slug: string): Promise<SendArticleNe
   }
 
   if (!isNewsletterConfigured()) {
-    return { ok: false, skipped: true, reason: 'mail_not_configured' };
+    return { ok: true, skipped: true, reason: 'mail_not_configured' };
   }
 
   const article = await fetchArticleForNewsletter(slug);

@@ -21,10 +21,6 @@ export async function POST(request: NextRequest) {
 
     const result = await sendArticleNewsletter(slug);
 
-    if (result.skipped && result.reason === 'mail_not_configured') {
-      return NextResponse.json(result, { status: 503 });
-    }
-
     if (!result.ok && !result.skipped) {
       return NextResponse.json(result, { status: 500 });
     }
