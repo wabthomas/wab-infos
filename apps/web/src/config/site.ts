@@ -6,7 +6,7 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_SITE_DESCRIPTION ||
     'Actualités RDC, politique, économie, sports et international. Wab-infos, votre source d\'information fiable.',
   url: SITE_URL,
-  ogImage: `${SITE_URL}/opengraph-image`,
+  ogImage: `${SITE_URL}/opengraph-image.png`,
   locale: 'fr_FR',
   language: 'fr',
   twitter: process.env.NEXT_PUBLIC_TWITTER_HANDLE || '@wabinfos',
