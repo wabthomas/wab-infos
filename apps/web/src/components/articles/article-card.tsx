@@ -172,34 +172,34 @@ export function ArticleCard({
   return (
     <article className={cn('group card-elevated overflow-hidden', className)}>
       <Link href={href} className="block">
-        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+        <div className="relative aspect-[4/3] overflow-hidden bg-muted sm:aspect-[16/10]">
           <ArticleImage
             src={imageUrl}
             alt={article.title}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 33vw"
           />
           <div
             className="absolute left-0 top-0 h-full w-1 opacity-0 transition-opacity group-hover:opacity-100"
             style={{ backgroundColor: categoryColor }}
           />
         </div>
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           {article.category && (
             <span
-              className="mb-2 inline-block text-[11px] font-bold uppercase tracking-wider"
+              className="mb-1.5 inline-block text-[10px] font-bold uppercase tracking-wider sm:mb-2 sm:text-[11px]"
               style={{ color: categoryColor }}
             >
               {article.category.name}
             </span>
           )}
-          <h3 className="font-display line-clamp-3 text-base font-semibold leading-snug transition-colors group-hover:text-primary md:text-lg">
+          <h3 className="font-display line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-primary sm:line-clamp-3 sm:text-base md:text-lg">
             {article.title}
           </h3>
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-2 hidden line-clamp-2 text-sm leading-relaxed text-muted-foreground sm:block">
             {article.excerpt}
           </p>
-          <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+          <div className="mt-2 flex items-center gap-2 border-t border-border pt-2 text-[10px] text-muted-foreground sm:mt-3 sm:pt-3 sm:text-xs">
             <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
             <span aria-hidden>·</span>
             <span>{article.readingTime} min</span>

@@ -5,27 +5,41 @@ import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({
+  className,
+  labeled = false,
+}: {
+  className?: string;
+  labeled?: boolean;
+}) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    return <div className={cn('h-9 w-9', className)} />;
+    return <div className={cn(labeled ? 'h-14 w-full' : 'h-9 w-9', className)} />;
   }
+
+  const isDark = theme === 'dark';
+  const label = isDark ? 'Mode clair' : 'Mode sombre';
 
   return (
     <button
       type="button"
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
       className={cn(
-        'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm transition-colors hover:border-primary/30 hover:bg-muted',
+        labeled
+          ? 'flex flex-1 flex-col items-center justify-center gap-1 rounded-md py-1.5 text-foreground transition-colors hover:bg-muted'
+          : 'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-sm transition-colors hover:border-primary/30 hover:bg-muted',
         className
       )}
-      aria-label={theme === 'dark' ? 'Activer le mode clair' : 'Activer le mode sombre'}
+      aria-label={isDark ? 'Activer le mode clair' : 'Activer le mode sombre'}
     >
-      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      {labeled && (
+        <span className="text-[10px] font-semibold leading-none text-muted-foreground">{label}</span>
+      )}
     </button>
   );
 }

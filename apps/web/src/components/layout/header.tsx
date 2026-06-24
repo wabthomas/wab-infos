@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { LogIn, Menu, Tv, X } from 'lucide-react';
+import { Menu, Tv, X } from 'lucide-react';
 import { categories, siteConfig } from '@/config/site';
 import { SiteLogo } from '@/components/brand/site-logo';
+import { HeaderAuthLink } from '@/components/layout/header-auth-link';
 import { HeaderSearch } from '@/components/layout/header-search';
+import { MobileMenuToolbar } from '@/components/layout/mobile-menu-toolbar';
+import { PushAlertsIconButton } from '@/components/layout/push-alerts-icon-button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { cn } from '@/lib/utils';
 
@@ -132,49 +135,49 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
             : 'relative shadow-[0_1px_0_0_rgba(0,0,0,0.04)]'
         )}
       >
-        <div className="container relative mx-auto flex h-14 items-center justify-between gap-2 px-3 sm:h-16 sm:gap-4 sm:px-4 md:h-[4.5rem]">
-          {/* Gauche : menu + recherche */}
-          <div className="z-10 flex min-w-0 flex-1 items-center justify-start gap-0.5 sm:gap-2">
+        <div className="container relative mx-auto flex h-14 items-center justify-between gap-2 px-3 md:h-[4.5rem] md:gap-4 md:px-4">
+          {/* Gauche : recherche (mobile) / menu + recherche (desktop) */}
+          <div className="z-10 flex min-w-0 flex-1 items-center justify-start gap-0.5 md:gap-2">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted sm:h-auto sm:w-auto sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-semibold sm:uppercase sm:tracking-wider"
+              className="hidden h-10 items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wider text-foreground transition-colors hover:bg-muted md:inline-flex"
               aria-expanded={menuOpen}
               aria-label="Ouvrir le menu"
             >
               <Menu className="h-5 w-5" />
-              <span className="hidden sm:inline">Menu</span>
+              Menu
             </button>
 
             <HeaderSearch className="min-w-0" />
           </div>
 
-          {/* Centre : logo (position absolue pour ne pas pousser les côtés) */}
+          {/* Centre : logo */}
           <Link
             href="/"
             className="group absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
             aria-label={`${siteConfig.name} — Accueil`}
           >
-            <SiteLogo priority className="h-12 w-auto sm:h-14 md:h-16 transition-opacity group-hover:opacity-90" />
+            <SiteLogo
+              priority
+              className="h-10 w-auto transition-opacity group-hover:opacity-90 md:h-16"
+            />
           </Link>
 
-          {/* Droite : thème + connexion + TV */}
-          <div className="z-10 flex flex-1 items-center justify-end gap-1.5 sm:gap-2">
-            <ThemeToggle className="hidden sm:inline-flex" />
-            <Link
-              href="/connexion"
-              className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted sm:inline-flex"
-            >
-              <LogIn className="h-4 w-4" />
-              Se connecter
-            </Link>
+          {/* Droite : alertes + TV (mobile) / thème + connexion + TV (desktop) */}
+          <div className="z-10 flex flex-1 items-center justify-end gap-0.5 md:gap-2">
+            <div className="flex items-center md:hidden">
+              <PushAlertsIconButton />
+            </div>
+            <ThemeToggle className="hidden md:inline-flex" />
+            <HeaderAuthLink className="hidden md:inline-flex" />
             <Link
               href="/tv"
-              className="inline-flex h-10 items-center gap-1.5 rounded-md bg-primary px-2.5 text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 sm:h-auto sm:px-4 sm:py-2 sm:text-sm sm:font-bold sm:uppercase sm:tracking-wider"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 md:h-auto md:w-auto md:gap-1.5 md:px-4 md:py-2"
               aria-label="Wab-infos TV"
             >
-              <Tv className="h-4 w-4 shrink-0" />
-              <span className="hidden text-xs font-bold uppercase tracking-wider min-[400px]:inline sm:text-sm">
+              <Tv className="h-5 w-5 shrink-0 md:h-4 md:w-4" />
+              <span className="hidden text-sm font-bold uppercase tracking-wider md:inline">
                 Wab-infos TV
               </span>
             </Link>
@@ -289,6 +292,8 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
               </button>
             </div>
 
+            <MobileMenuToolbar className="md:hidden" onNavigate={() => setMenuOpen(false)} />
+
             <div className="border-b border-border px-4 py-4">
               <HeaderSearch compact onSubmit={() => setMenuOpen(false)} />
             </div>
@@ -298,16 +303,15 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
                 <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   Rubriques
                 </h2>
-                <div className="-mx-4 overflow-x-auto px-4 pb-1 scrollbar-none touch-pan-x overscroll-x-contain [-webkit-overflow-scrolling:touch] sm:mx-0 sm:px-0 sm:overflow-visible">
-                  <ul className="flex w-max flex-nowrap gap-2 sm:grid sm:w-full sm:grid-cols-2 sm:gap-0.5">
-                    <li className="shrink-0 sm:col-span-2 sm:shrink">
+                <ul className="grid grid-cols-1 gap-0.5 sm:grid-cols-2">
+                    <li className="sm:col-span-2">
                       <Link
                         href="/"
                         className={cn(
-                          'flex items-center whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold transition-colors sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-sm',
+                          'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                           pathname === '/'
-                            ? 'bg-primary text-primary-foreground sm:bg-primary/10 sm:text-primary'
-                            : 'bg-muted text-foreground/80 sm:bg-transparent sm:hover:bg-muted'
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-muted'
                         )}
                         onClick={() => setMenuOpen(false)}
                       >
@@ -315,24 +319,19 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
                       </Link>
                     </li>
                     {mainNavCategories.map((cat) => (
-                      <li key={cat.slug} className="shrink-0 sm:shrink">
+                      <li key={cat.slug}>
                         <Link
                           href={`/${cat.slug}`}
                           className={cn(
-                            'flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold transition-colors sm:rounded-lg sm:px-3 sm:py-2.5 sm:text-sm sm:font-medium',
+                            'flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                             isActive(cat.slug)
-                              ? 'text-white sm:!bg-primary/10 sm:text-primary'
-                              : 'bg-muted text-foreground/80 sm:bg-transparent sm:hover:bg-muted'
+                              ? 'bg-primary/10 text-primary'
+                              : 'hover:bg-muted'
                           )}
-                          style={
-                            isActive(cat.slug)
-                              ? { backgroundColor: cat.color }
-                              : undefined
-                          }
                           onClick={() => setMenuOpen(false)}
                         >
                           <span
-                            className="hidden h-2 w-2 shrink-0 rounded-full sm:inline-block"
+                            className="h-2 w-2 shrink-0 rounded-full"
                             style={{ backgroundColor: cat.color }}
                           />
                           {cat.name}
@@ -340,7 +339,6 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
                       </li>
                     ))}
                   </ul>
-                </div>
               </section>
 
               <section className="mb-8">
@@ -385,29 +383,15 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
               </section>
             </div>
 
-            <div className="border-t border-border px-4 py-4">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Link
-                  href="/connexion"
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <LogIn className="h-4 w-4" />
-                  Se connecter
-                </Link>
-                <Link
-                  href="/tv"
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-primary-foreground transition-colors hover:bg-primary/90"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <Tv className="h-4 w-4" />
-                  Wab-infos TV
-                </Link>
-              </div>
-              <div className="mt-3 flex items-center justify-between sm:hidden">
-                <span className="text-sm text-muted-foreground">Thème</span>
-                <ThemeToggle />
-              </div>
+            <div className="border-t border-border px-4 py-4 md:hidden">
+              <Link
+                href="/tv"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-primary-foreground transition-colors hover:bg-primary/90"
+                onClick={() => setMenuOpen(false)}
+              >
+                <Tv className="h-4 w-4" />
+                Wab-infos TV
+              </Link>
             </div>
           </aside>
         </>

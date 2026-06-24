@@ -117,15 +117,8 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
       return ctx.notFound('Article not found');
     }
 
-    try {
-      await strapi.documents(UID).update({
-        documentId,
-        status: 'published',
-        data: { viewCount },
-      });
-    } catch {
-      // La colonne SQL est déjà à jour
-    }
+    // Ne pas appeler documents().update() : cela modifie updatedAt, déclenche les lifecycles
+    // et peut fausser les dates affichées (« À l'instant » après chaque vue).
 
     return { data: { viewCount } };
   },

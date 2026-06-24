@@ -189,7 +189,7 @@ export function HomeRecentNews({ articles, popularArticles = [] }: HomeRecentNew
           </div>
 
           {compactRow.length > 0 && (
-            <div className="mt-4 grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:mt-5 sm:gap-4 lg:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5 sm:gap-4 lg:grid-cols-4">
               {compactRow.map((article) => (
                 <RecentCompactCard key={article.id} article={article} />
               ))}
@@ -198,7 +198,7 @@ export function HomeRecentNews({ articles, popularArticles = [] }: HomeRecentNew
 
           <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3.5 w-3.5 shrink-0" />
-            Dernière mise à jour {formatArticleDate(getArticleDisplayDate(hero)).toLowerCase()}
+            Publié {formatArticleDate(getArticleDisplayDate(hero)).toLowerCase()}
           </p>
         </div>
       </div>

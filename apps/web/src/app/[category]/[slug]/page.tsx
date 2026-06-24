@@ -24,6 +24,7 @@ import { compareArticlesByDateDesc, formatArticleContent } from '@/lib/utils';
 import { ArticleCommentForm } from '@/components/comments/article-comment-form';
 import { ArticleCommentsList } from '@/components/comments/article-comments-list';
 import { GoogleSwgBasicScripts } from '@/components/google/swg-basic-scripts';
+import { MobileArticleBottomBar } from '@/components/layout/mobile-article-bottom-bar';
 
 interface PageProps {
   params: Promise<{ category: string; slug: string }>;
@@ -177,6 +178,14 @@ export default async function ArticlePage({ params }: PageProps) {
       </article>
 
       <StickyMobileAd />
+
+      <MobileArticleBottomBar
+        documentId={article.documentId}
+        slug={slug}
+        title={article.title}
+        url={articleUrl}
+        categorySlug={categorySlug}
+      />
     </>
   );
 }

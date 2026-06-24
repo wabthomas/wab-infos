@@ -2,18 +2,29 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff, Loader2 } from 'lucide-react';
-import { registerSiteServiceWorker } from '@/lib/pwa/register-site-sw';
+import { subscribeToPushNotifications, syncPushSubscriptionIfGranted } from '@/lib/push/client';
 import { cn } from '@/lib/utils';
 
 const DISMISS_KEY = 'wab-push-alerts-dismiss';
 
 type PushStatus = 'idle' | 'loading' | 'subscribed' | 'denied' | 'unsupported' | 'error';
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(base64);
-  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+function errorMessage(reason?: string, serverMessage?: string): string {
+  if (serverMessage?.includes('STRAPI_API_TOKEN')) {
+    return 'Configuration serveur incomplète. Contactez l\'équipe technique.';
+  }
+  if (serverMessage) return serverMessage;
+
+  switch (reason) {
+    case 'vapid_missing':
+      return 'Les alertes ne sont pas encore configurées sur le serveur.';
+    case 'sw_unavailable':
+      return 'Service worker indisponible. Rechargez la page et réessayez.';
+    case 'invalid_subscription':
+      return 'Abonnement navigateur invalide. Réessayez ou videz le cache du site.';
+    default:
+      return 'Impossible d\'activer les alertes. Réessayez plus tard.';
+  }
 }
 
 interface PushAlertsSignupProps {
@@ -23,6 +34,7 @@ interface PushAlertsSignupProps {
 
 export function PushAlertsSignup({ className, variant = 'default' }: PushAlertsSignupProps) {
   const [status, setStatus] = useState<PushStatus>('idle');
+  const [errorDetail, setErrorDetail] = useState('');
   const [dismissed, setDismissed] = useState(true);
   const isCompact = variant === 'compact';
 
@@ -36,81 +48,41 @@ export function PushAlertsSignup({ className, variant = 'default' }: PushAlertsS
 
     setDismissed(localStorage.getItem(DISMISS_KEY) === '1');
 
-    if (Notification.permission === 'granted') {
-      setStatus('subscribed');
-    } else if (Notification.permission === 'denied') {
+    if (Notification.permission === 'denied') {
       setStatus('denied');
+      return;
+    }
+
+    if (Notification.permission === 'granted') {
+      syncPushSubscriptionIfGranted().then((ok) => {
+        setStatus(ok ? 'subscribed' : 'idle');
+      });
     }
   }, []);
 
   const subscribe = useCallback(async () => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      setStatus('unsupported');
+    setStatus('loading');
+    setErrorDetail('');
+
+    const result = await subscribeToPushNotifications();
+
+    if (result.ok) {
+      setStatus('subscribed');
+      localStorage.removeItem(DISMISS_KEY);
       return;
     }
 
-    setStatus('loading');
-
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setStatus('denied');
-        return;
-      }
-
-      const registration = (await registerSiteServiceWorker()) ?? (await navigator.serviceWorker.ready);
-      if (!registration) {
-        setStatus('error');
-        return;
-      }
-
-      const keyRes = await fetch('/api/push/vapid-key');
-      if (!keyRes.ok) {
-        setStatus('error');
-        return;
-      }
-
-      const { publicKey } = (await keyRes.json()) as { publicKey?: string };
-      if (!publicKey) {
-        setStatus('error');
-        return;
-      }
-
-      let subscription = await registration.pushManager.getSubscription();
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-        });
-      }
-
-      const json = subscription.toJSON();
-      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-        setStatus('error');
-        return;
-      }
-
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subscription: {
-            endpoint: json.endpoint,
-            keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
-          },
-        }),
-      });
-
-      if (!res.ok) {
-        setStatus('error');
-        return;
-      }
-
-      setStatus('subscribed');
-      localStorage.removeItem(DISMISS_KEY);
-    } catch {
-      setStatus('error');
+    if (result.reason === 'unsupported') {
+      setStatus('unsupported');
+      return;
     }
+    if (result.reason === 'denied') {
+      setStatus('denied');
+      return;
+    }
+
+    setErrorDetail(errorMessage(result.reason, result.message));
+    setStatus('error');
   }, []);
 
   function handleDismiss() {
@@ -192,7 +164,7 @@ export function PushAlertsSignup({ className, variant = 'default' }: PushAlertsS
           )}
 
           {status === 'error' && (
-            <p className="text-xs text-destructive">Impossible d&apos;activer les alertes. Réessayez plus tard.</p>
+            <p className="text-xs text-destructive">{errorDetail}</p>
           )}
         </div>
       </div>

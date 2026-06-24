@@ -36,7 +36,7 @@ export function Footer() {
   const mainCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
 
   return (
-    <footer className="relative mt-auto overflow-hidden bg-[#0c0c0f] text-white">
+    <footer className="relative mt-auto hidden overflow-hidden bg-[#0c0c0f] text-white md:block">
       <div className="absolute inset-x-0 top-0 h-1 bg-[var(--gradient-hero)]" />
       <div
         className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/20 blur-3xl"

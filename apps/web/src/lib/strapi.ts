@@ -267,6 +267,23 @@ export async function getArticles(options?: {
   };
 }
 
+/** Derniers articles par rubrique (évite de rater une catégorie hors du top N global). */
+export async function getArticlesByCategories(
+  slugs: readonly string[],
+  limitPerCategory = 6
+): Promise<Record<string, Article[]>> {
+  const uniqueSlugs = [...new Set(slugs)];
+
+  const entries = await Promise.all(
+    uniqueSlugs.map(async (slug) => {
+      const { articles } = await getArticles({ category: slug, pageSize: limitPerCategory });
+      return [slug, articles] as const;
+    })
+  );
+
+  return Object.fromEntries(entries);
+}
+
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
     filters: { slug: { $eq: slug } },

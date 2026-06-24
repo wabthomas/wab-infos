@@ -66,6 +66,13 @@ export function isValidCategorySlug(slug: string): slug is CategorySlug {
   return categorySlugSet.has(slug);
 }
 
+/** Page article : /{rubrique}/{slug} */
+export function isArticlePagePath(pathname: string): boolean {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length !== 2) return false;
+  return isValidCategorySlug(segments[0]);
+}
+
 export function getCategoryBySlug(slug: string) {
   return categories.find((c) => c.slug === slug);
 }

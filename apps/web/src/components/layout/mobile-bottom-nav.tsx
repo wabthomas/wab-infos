@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Home, Menu, Newspaper, Play, Radio } from 'lucide-react';
+import { isArticlePagePath } from '@/config/site';
 import { cn } from '@/lib/utils';
 
 interface MobileBottomNavProps {
@@ -48,6 +49,10 @@ export function MobileBottomNav({ onOpenMenu, menuOpen = false }: MobileBottomNa
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tab = searchParams.get('tab');
+
+  if (isArticlePagePath(pathname)) {
+    return null;
+  }
 
   return (
     <nav

@@ -14,6 +14,7 @@ type CategoryMeta = {
 type LayoutVariant =
   | 'featured-sidebar'
   | 'bento'
+  | 'sports'
   | 'magazine-sidebar'
   | 'stack-list'
   | 'three-up'
@@ -21,7 +22,7 @@ type LayoutVariant =
 
 const layoutBySlug: Record<string, LayoutVariant> = {
   politique: 'featured-sidebar',
-  sports: 'bento',
+  sports: 'sports',
   societe: 'magazine-sidebar',
   securite: 'three-up',
   international: 'three-up',
@@ -30,7 +31,7 @@ const layoutBySlug: Record<string, LayoutVariant> = {
 
 interface HomeBottomSectionsProps {
   categories: readonly CategoryMeta[];
-  articles: Article[];
+  articlesByCategory: Record<string, Article[]>;
 }
 
 function CategorySidebar({
@@ -88,18 +89,116 @@ function FeaturedSidebarSection({
         <SectionHeader title={category.name} color={category.color} href={`/${category.slug}`} />
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
-            {hero && <ArticleCard article={hero} variant="featured" />}
-            {gridArticles.length > 0 && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {gridArticles.map((article) => (
-                  <ArticleCard key={article.id} article={article} variant="horizontal" />
-                ))}
-              </div>
-            )}
+            <div className="grid grid-cols-2 gap-3 md:hidden">
+              {articles.slice(0, 4).map((article) => (
+                <ArticleCard key={article.id} article={article} />
+              ))}
+            </div>
+            <div className="hidden space-y-4 md:block">
+              {hero && <ArticleCard article={hero} variant="featured" />}
+              {gridArticles.length > 0 && (
+                <div className="grid grid-cols-2 gap-4">
+                  {gridArticles.map((article) => (
+                    <ArticleCard key={article.id} article={article} variant="horizontal" />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <CategorySidebar articles={sidebarArticles} category={category} />
+          <div className="hidden lg:block">
+            <CategorySidebar articles={sidebarArticles} category={category} />
+          </div>
         </div>
       </div>
+    </section>
+  );
+}
+
+function SportsSection({ category, articles }: { category: CategoryMeta; articles: Article[] }) {
+  const [hero, ...rest] = articles;
+  const sideArticles = rest.slice(0, 2);
+  const moreArticles = rest.slice(2, 5);
+
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div
+        className="relative overflow-hidden px-5 py-4 md:px-6"
+        style={{
+          background: `linear-gradient(135deg, ${category.color} 0%, ${category.color}dd 55%, #1a3a44 100%)`,
+        }}
+      >
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage:
+              'repeating-linear-gradient(90deg, #fff 0, #fff 1px, transparent 1px, transparent 48px), repeating-linear-gradient(0deg, #fff 0, #fff 1px, transparent 1px, transparent 48px)',
+          }}
+          aria-hidden
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white/90">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+              Rubrique
+            </span>
+            <h2 className="font-display text-2xl font-bold tracking-tight text-white md:text-3xl">
+              {category.name}
+            </h2>
+          </div>
+          <Link
+            href={`/${category.slug}`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/25"
+          >
+            Tout le sport
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 p-5 md:hidden">
+        {articles.slice(0, 3).map((article) => (
+          <ArticleCard key={article.id} article={article} className="h-full" />
+        ))}
+      </div>
+
+      <div className="hidden gap-5 p-5 md:grid md:grid-cols-12 md:p-6">
+        {hero && (
+          <div className="md:col-span-7">
+            <ArticleCard article={hero} variant="featured" className="h-full" />
+          </div>
+        )}
+
+        {sideArticles.length > 0 && (
+          <div className="flex flex-col gap-4 md:col-span-5">
+            {sideArticles.map((article) => (
+              <ArticleCard key={article.id} article={article} variant="horizontal" className="flex-1" />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {moreArticles.length > 0 && (
+        <div className="border-t border-border bg-muted/25 px-5 py-4 md:px-6">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Autres résultats &amp; actus
+          </p>
+          <div className="grid grid-cols-2 gap-3 md:hidden">
+            {moreArticles.map((article) => (
+              <ArticleCard key={article.id} article={article} className="h-full" />
+            ))}
+          </div>
+          <div className="-mx-1 hidden gap-3 overflow-x-auto pb-1 scrollbar-none snap-x snap-mandatory md:flex">
+            {moreArticles.map((article) => (
+              <div
+                key={article.id}
+                className="w-[min(78vw,260px)] shrink-0 snap-start px-1"
+              >
+                <ArticleCard article={article} className="h-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -115,7 +214,12 @@ function BentoSection({ category, articles }: { category: CategoryMeta; articles
         aria-hidden
       />
       <SectionHeader title={category.name} color={category.color} href={`/${category.slug}`} />
-      <div className="grid gap-4 md:grid-cols-4 md:grid-rows-2">
+      <div className="grid grid-cols-2 gap-3 md:hidden">
+        {articles.slice(0, 3).map((article) => (
+          <ArticleCard key={article.id} article={article} className="h-full" />
+        ))}
+      </div>
+      <div className="hidden gap-4 md:grid md:grid-cols-4 md:grid-rows-2">
         {hero && (
           <div className="md:col-span-2 md:row-span-2">
             <ArticleCard article={hero} variant="featured" className="h-full" />
@@ -164,20 +268,29 @@ function MagazineSidebarSection({
       </div>
       <div className="grid gap-6 bg-card p-5 md:p-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
-          {lead && <ArticleCard article={lead} variant="horizontal" className="card-elevated" />}
-          <ul className="divide-y divide-border rounded-xl border border-border bg-muted/30">
-            {listArticles.map((article) => (
-              <li key={article.id} className="p-1">
-                <SidebarArticleItem article={article} />
-              </li>
+          <div className="grid grid-cols-2 gap-3 md:hidden">
+            {articles.slice(0, 4).map((article) => (
+              <ArticleCard key={article.id} article={article} />
             ))}
-          </ul>
+          </div>
+          <div className="hidden space-y-4 md:block">
+            {lead && <ArticleCard article={lead} variant="horizontal" className="card-elevated" />}
+            <ul className="divide-y divide-border rounded-xl border border-border bg-muted/30">
+              {listArticles.map((article) => (
+                <li key={article.id} className="p-1">
+                  <SidebarArticleItem article={article} />
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        <CategorySidebar
-          articles={sidebarArticles}
-          category={category}
-          title="À ne pas manquer"
-        />
+        <div className="hidden lg:block">
+          <CategorySidebar
+            articles={sidebarArticles}
+            category={category}
+            title="À ne pas manquer"
+          />
+        </div>
       </div>
     </section>
   );
@@ -212,7 +325,7 @@ function ThreeUpSection({ category, articles }: { category: CategoryMeta; articl
       style={{ borderTopWidth: 4, borderTopColor: category.color }}
     >
       <SectionHeader title={category.name} color={category.color} href={`/${category.slug}`} />
-      <div className="grid gap-5 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5">
         {rowArticles.map((article) => (
           <ArticleCard key={article.id} article={article} className="h-full" />
         ))}
@@ -243,7 +356,12 @@ function CarouselSection({ category, articles }: { category: CategoryMeta; artic
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
-      <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 scrollbar-none snap-x snap-mandatory">
+      <div className="grid grid-cols-2 gap-3 sm:hidden">
+        {articles.map((article) => (
+          <ArticleCard key={article.id} article={article} className="h-full" />
+        ))}
+      </div>
+      <div className="-mx-4 hidden gap-4 overflow-x-auto px-4 pb-2 scrollbar-none snap-x snap-mandatory sm:flex">
         {articles.map((article) => (
           <div
             key={article.id}
@@ -263,6 +381,8 @@ function renderSection(variant: LayoutVariant, category: CategoryMeta, articles:
       return <FeaturedSidebarSection category={category} articles={articles} />;
     case 'bento':
       return <BentoSection category={category} articles={articles} />;
+    case 'sports':
+      return <SportsSection category={category} articles={articles} />;
     case 'magazine-sidebar':
       return <MagazineSidebarSection category={category} articles={articles} />;
     case 'stack-list':
@@ -276,13 +396,12 @@ function renderSection(variant: LayoutVariant, category: CategoryMeta, articles:
   }
 }
 
-export function HomeBottomSections({ categories, articles }: HomeBottomSectionsProps) {
+export function HomeBottomSections({ categories, articlesByCategory }: HomeBottomSectionsProps) {
   return (
     <div className="space-y-10 md:space-y-14">
       {categories.map((category) => {
-        const catArticles = articles
-          .filter((a) => a.category?.slug === category.slug)
-          .slice(0, 5);
+        const limit = category.slug === 'sports' ? 6 : 5;
+        const catArticles = (articlesByCategory[category.slug] ?? []).slice(0, limit);
         if (!catArticles.length) return null;
 
         const variant = layoutBySlug[category.slug] ?? 'featured-sidebar';

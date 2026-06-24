@@ -108,11 +108,12 @@ export function LiveNewsTimeline({
                           {article.category.name}
                         </span>
                       )}
-                      {isLatest && (
-                        <span className="text-[9px] font-semibold text-primary">
-                          {formatArticleDate(displayDate)}
-                        </span>
-                      )}
+                      <time
+                        dateTime={displayDate}
+                        className="text-[9px] font-semibold text-muted-foreground"
+                      >
+                        {formatArticleDate(displayDate)}
+                      </time>
                     </div>
                     <p
                       className={cn(

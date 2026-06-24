@@ -37,7 +37,24 @@ fi
 # Sync frontend env from root .env
 if [ ! -f "$APP_DIR/apps/web/.env.local" ]; then
   echo "→ Création apps/web/.env.local depuis .env"
-  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_)' "$APP_DIR/.env" > "$APP_DIR/apps/web/.env.local" || true
+  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|VAPID_|PUSH_|GOOGLE_)' "$APP_DIR/.env" > "$APP_DIR/apps/web/.env.local" || true
+else
+  echo "→ Mise à jour apps/web/.env.local (variables clés depuis .env)"
+  TMP_ENV=$(mktemp)
+  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|VAPID_|PUSH_|GOOGLE_)' "$APP_DIR/.env" > "$TMP_ENV" || true
+  if [ -s "$TMP_ENV" ]; then
+    while IFS= read -r line; do
+      key="${line%%=*}"
+      if [ -n "$key" ]; then
+        if grep -q "^${key}=" "$APP_DIR/apps/web/.env.local" 2>/dev/null; then
+          sed -i "s|^${key}=.*|${line}|" "$APP_DIR/apps/web/.env.local"
+        else
+          echo "$line" >> "$APP_DIR/apps/web/.env.local"
+        fi
+      fi
+    done < "$TMP_ENV"
+  fi
+  rm -f "$TMP_ENV"
 fi
 
 echo "→ git pull"

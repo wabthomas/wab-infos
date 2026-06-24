@@ -14,7 +14,7 @@ import { categories } from '@/config/site';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { isLowMemBuild } from '@/lib/build-phase';
 import { getTopReadArticles } from '@/lib/sidebar-data';
-import { getBreakingNews, getArticles } from '@/lib/strapi';
+import { getBreakingNews, getArticles, getArticlesByCategories } from '@/lib/strapi';
 import { compareArticlesByDateDesc } from '@/lib/utils';
 import { generateHomeMetadata } from '@/lib/seo';
 import Link from 'next/link';
@@ -34,28 +34,43 @@ const bottomSectionSlugs = [
   'technologies',
 ] as const;
 
+const homeSectionSlugs = [...new Set([...topSectionSlugs, ...bottomSectionSlugs])];
+
+function buildMockArticlesByCategory(slugs: readonly string[], limitPerCategory: number) {
+  return Object.fromEntries(
+    slugs.map((slug) => [
+      slug,
+      getMockArticlesIfEnabled({ category: slug, pageSize: limitPerCategory }),
+    ])
+  );
+}
+
 async function getHomeData() {
-  const pageSize = isLowMemBuild() ? 12 : 30;
+  const globalPageSize = isLowMemBuild() ? 16 : RECENT_NEWS_DISPLAY_COUNT + 9;
+  const perCategoryLimit = 6;
 
   try {
-    const [breaking, latest, topRead] = await Promise.all([
+    const [breaking, latest, topRead, articlesByCategory] = await Promise.all([
       getBreakingNews(),
-      getArticles({ pageSize }),
+      getArticles({ pageSize: globalPageSize }),
       getTopReadArticles(5),
+      getArticlesByCategories(homeSectionSlugs, perCategoryLimit),
     ]);
     return {
       breaking,
       latest: latest.articles,
       topRead,
+      articlesByCategory,
     };
   } catch {
-    const mockLatest = getMockArticlesIfEnabled({ pageSize });
+    const mockLatest = getMockArticlesIfEnabled({ pageSize: globalPageSize });
     return {
       breaking: getMockArticlesIfEnabled({ breaking: true }),
       latest: mockLatest,
       topRead: [...mockLatest]
         .sort((a, b) => b.viewCount - a.viewCount)
         .slice(0, 5),
+      articlesByCategory: buildMockArticlesByCategory(homeSectionSlugs, perCategoryLimit),
     };
   }
 }
@@ -63,7 +78,7 @@ async function getHomeData() {
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const { breaking, latest, topRead } = await getHomeData();
+  const { breaking, latest, topRead, articlesByCategory } = await getHomeData();
 
   const recentNews = [...latest].sort(compareArticlesByDateDesc);
   const gridArticles = recentNews.slice(RECENT_NEWS_DISPLAY_COUNT, RECENT_NEWS_DISPLAY_COUNT + 9);
@@ -92,9 +107,7 @@ export default async function HomePage() {
         <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
           <div className="space-y-10 lg:col-span-2 lg:space-y-12">
             {topCategories.map((cat) => {
-              const catArticles = latest
-                .filter((a) => a.category?.slug === cat.slug)
-                .slice(0, 4);
+              const catArticles = (articlesByCategory[cat.slug] ?? []).slice(0, 4);
               if (!catArticles.length) return null;
 
               return (
@@ -104,7 +117,7 @@ export default async function HomePage() {
                     color={cat.color}
                     href={`/${cat.slug}`}
                   />
-                  <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-5">
                     {catArticles.map((article) => (
                       <ArticleCard key={article.id} article={article} />
                     ))}
@@ -115,7 +128,7 @@ export default async function HomePage() {
 
             <section>
               <SectionHeader title="Dernières actualités" href="/recherche" linkLabel="Tout voir" />
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3 sm:gap-5">
                 {gridArticles.map((article) => (
                   <ArticleCard key={article.id} article={article} />
                 ))}
@@ -169,7 +182,7 @@ export default async function HomePage() {
 
         <div className="mt-12 space-y-12">
           <HomeVideoSection />
-          <HomeBottomSections categories={bottomCategories} articles={latest} />
+          <HomeBottomSections categories={bottomCategories} articlesByCategory={articlesByCategory} />
         </div>
       </div>
     </>

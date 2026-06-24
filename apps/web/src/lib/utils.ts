@@ -22,30 +22,48 @@ export function formatTime(date: string | Date): string {
   }).format(new Date(date));
 }
 
-export function formatRelativeDate(date: string | Date) {
-  const now = new Date();
-  const target = new Date(date);
-  const diffMs = now.getTime() - target.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMinutes < 1) return "À l'instant";
-  if (diffMinutes < 60) return `Il y a ${diffMinutes} min`;
-  if (diffHours < 24) return `Il y a ${diffHours} h`;
-  if (diffDays < 7) return `Il y a ${diffDays} j`;
-  return formatDate(date);
+function parseValidDate(date?: string | null): Date | null {
+  if (!date) return null;
+  const parsed = new Date(date);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-/** Date de publication effective (WordPress ou Strapi), quelle que soit l'année. */
+function startOfLocalDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function formatRelativeDate(date: string | Date) {
+  return formatArticleDate(date);
+}
+
+/**
+ * Date de publication stable — ne jamais utiliser updatedAt (change à chaque vue/modif CMS).
+ * wpPublishedAt = import WordPress ; publishedAt = Strapi draft & publish.
+ * On prend la plus ancienne des deux pour éviter un publishedAt rafraîchi par erreur.
+ */
 export function getArticleDisplayDate(article: {
-  publishedAt?: string;
-  wpPublishedAt?: string;
-  scheduledAt?: string;
+  publishedAt?: string | null;
+  wpPublishedAt?: string | null;
+  scheduledAt?: string | null;
+  createdAt?: string;
   updatedAt?: string;
+  status?: string;
 }): string {
-  if (article.scheduledAt) return article.scheduledAt;
-  return article.wpPublishedAt || article.publishedAt || article.updatedAt || new Date().toISOString();
+  const publicationDates = [article.wpPublishedAt, article.publishedAt]
+    .map(parseValidDate)
+    .filter((d): d is Date => d !== null);
+
+  if (publicationDates.length) {
+    return new Date(Math.min(...publicationDates.map((d) => d.getTime()))).toISOString();
+  }
+
+  if (article.status === 'scheduled' && article.scheduledAt) {
+    return article.scheduledAt;
+  }
+
+  return article.createdAt || article.updatedAt || new Date(0).toISOString();
 }
 
 export function getArticleTimestamp(article: {
@@ -63,19 +81,46 @@ export function compareArticlesByDateDesc(
 }
 
 /**
- * Date lisible pour l'affichage :
- * - publication récente (< 48 h) → forme relative (« Il y a 2 h »)
- * - plus ancienne (2020, 2023, 2024, etc.) → date complète avec année
+ * Date lisible et stable pour l'affichage :
+ * - < 1 h → relatif court
+ * - même jour / hier → heure fixe (« Aujourd'hui à 14:32 »)
+ * - plus ancien → date complète
  */
 export function formatArticleDate(date: string | Date): string {
-  const target = new Date(date);
-  const diffHours = (Date.now() - target.getTime()) / (1000 * 60 * 60);
+  const target = parseValidDate(typeof date === 'string' ? date : date.toISOString());
+  if (!target) return '';
 
-  if (diffHours < 48) {
-    return formatRelativeDate(date);
+  const now = new Date();
+  const diffMs = now.getTime() - target.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+
+  if (diffMinutes < 0) {
+    return formatDate(target, { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  if (diffMinutes < 1) return "À l'instant";
+  if (diffMinutes < 60) return `Il y a ${diffMinutes} min`;
+
+  const todayStart = startOfLocalDay(now);
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  const timeLabel = formatTime(target);
+
+  if (target >= todayStart) return `Aujourd'hui à ${timeLabel}`;
+  if (target >= yesterdayStart) return `Hier à ${timeLabel}`;
+
+  const diffDays = Math.floor(diffMinutes / (60 * 24));
+  if (diffDays < 7) return `Il y a ${diffDays} j`;
+
+  if (target.getFullYear() === now.getFullYear()) {
+    return new Intl.DateTimeFormat('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(target);
   }
 
-  return formatDate(date, {
+  return formatDate(target, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
