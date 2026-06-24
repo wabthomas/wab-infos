@@ -74,9 +74,11 @@ if (process.env.LOW_MEM_BUILD === '1') {
   });
   if (cssResult.status !== 0) {
     console.error(
-      '[build] Échec compile-css. Limite de processus CloudLinux (EAGAIN) ?\n' +
-        '  → Contacter PlanetHoster pour augmenter maxEntryProcs / nproc\n' +
-        '  → Ou builder en local puis déployer le dossier .next'
+      '[build] Échec compile-css.\n' +
+        '  → Dépendances manquantes ? npm install --workspace=apps/web --include=optional\n' +
+        '  → Si NODE_ENV=production : npm install --workspace=apps/web --include=dev --include=optional\n' +
+        '  → Limite processus CloudLinux (EAGAIN) : contacter PlanetHoster (maxEntryProcs)\n' +
+        '  → Ou builder en local : npm run build:web && npm run pack:web-build'
     );
     process.exit(cssResult.status ?? 1);
   }

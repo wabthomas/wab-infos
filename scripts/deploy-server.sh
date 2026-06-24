@@ -66,9 +66,11 @@ npm install
 echo "→ npm install (CMS)"
 npm install --prefix apps/cms
 
-echo "→ npm install (web, binaires natifs Linux)"
+echo "→ npm install (web, binaires natifs Linux + deps build)"
 rm -rf apps/web/node_modules apps/web/.next
-npm install --workspace=apps/web --include=optional
+# NODE_ENV=production (souvent défini sur mutualisé) omet les devDependencies — inutile pour
+# typescript (skip en low-mem) mais compile-css exige tailwind/postcss (désormais en dependencies).
+npm install --workspace=apps/web --include=optional --include=dev
 
 echo "→ Lien Strapi monorepo"
 node scripts/setup-strapi-link.js
