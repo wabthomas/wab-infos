@@ -39,6 +39,12 @@ if (
 if (!process.env.RAYON_NUM_THREADS) process.env.RAYON_NUM_THREADS = '1';
 if (!process.env.UV_THREADPOOL_SIZE) process.env.UV_THREADPOOL_SIZE = '1';
 if (!process.env.NEXT_CPU_COUNT) process.env.NEXT_CPU_COUNT = '1';
+if (process.env.LOW_MEM_BUILD === '1') {
+  // SWC WASM évite le binaire natif Rust (tokio multi-thread → EAGAIN sur CloudLinux)
+  if (!process.env.NEXT_TEST_WASM) process.env.NEXT_TEST_WASM = '1';
+  if (!process.env.TOKIO_WORKER_THREADS) process.env.TOKIO_WORKER_THREADS = '1';
+  if (!process.env.OMP_NUM_THREADS) process.env.OMP_NUM_THREADS = '1';
+}
 process.env.NEXT_TELEMETRY_DISABLED = '1';
 process.env.GENERATE_SOURCEMAP = 'false';
 
@@ -55,6 +61,7 @@ if (!process.env.NODE_OPTIONS?.includes('max-old-space-size')) {
 console.info(
   `[build] heap=${heapMb}MB LOW_MEM_BUILD=${process.env.LOW_MEM_BUILD ?? '0'} ` +
     `(typescript=${process.env.LOW_MEM_BUILD === '1' ? 'skip' : 'check'}) ` +
+    `SWC=${process.env.LOW_MEM_BUILD === '1' ? 'wasm' : 'native'} ` +
     `RAYON_NUM_THREADS=${process.env.RAYON_NUM_THREADS} ` +
     `UV_THREADPOOL_SIZE=${process.env.UV_THREADPOOL_SIZE} NEXT_CPU_COUNT=${process.env.NEXT_CPU_COUNT}`
 );
@@ -67,11 +74,11 @@ if (process.env.LOW_MEM_BUILD === '1' && Number(heapMb) < 768) {
 
 function printEagainHelp() {
   console.error(
-    `\n[build] Erreur EAGAIN / spawn ? Limite de processus CloudLinux (pas la RAM).\n` +
-      `  → Recommandé : build local + archive\n` +
-      `       npm run build:web && npm run pack:web-build\n` +
+    `\n[build] Limite processus/threads CloudLinux (EAGAIN, tokio/rayon, SIGABRT).\n` +
+      `  → Recommandé : build local + archive (fiable sur PlanetHoster)\n` +
+      `       npm run build:web:pack\n` +
       `       uploadez web-next-build.tar.gz puis : npm run unpack:web-build\n` +
-      `  → Ou contacter PlanetHoster : augmenter maxEntryProcs / PMEM\n` +
+      `  → Ou contacter PlanetHoster : augmenter maxEntryProcs / PMEM / nproc\n` +
       `  → LOW_MEM_BUILD=1 BUILD_HEAP_MB=768 npm run build:web\n`
   );
 }

@@ -83,6 +83,8 @@ const nextConfig: NextConfig = {
     // CloudLinux : workerThreads=true → worker_threads (même processus)
     // workerThreads=false → spawn processChild.js (EAGAIN si maxEntryProcs bas)
     workerThreads: isLowMemBuild,
+    // Mutualisé : SWC natif (tokio/rayon) peut paniquer (EAGAIN threads) — WASM d'abord
+    useWasmBinary: isLowMemBuild,
   },
   webpack: (config, { dev, webpack }) => {
     config.parallelism = 1;

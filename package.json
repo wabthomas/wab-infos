@@ -15,6 +15,7 @@
     "build": "npm run build --workspace=apps/web",
     "build:web": "npm run build --workspace=apps/web",
     "build:web:low-mem": "npm run build:low-mem --workspace=apps/web",
+    "build:web:pack": "npm run build:web && npm run pack:web-build",
     "build:cms": "node scripts/build-cms-production.mjs",
     "build:cms:direct": "npm run build --prefix apps/cms",
     "start:web": "npm run start --workspace=apps/web",
