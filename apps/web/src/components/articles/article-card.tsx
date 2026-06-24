@@ -9,6 +9,7 @@ interface ArticleCardProps {
   variant?: 'default' | 'featured' | 'compact' | 'horizontal';
   className?: string;
   priority?: boolean;
+  showExcerpt?: boolean;
 }
 
 export function ArticleCard({
@@ -16,6 +17,7 @@ export function ArticleCard({
   variant = 'default',
   className,
   priority = false,
+  showExcerpt = true,
 }: ArticleCardProps) {
   const href = getArticlePath(article);
   const imageUrl = resolveArticleImageUrl(article.featuredImage, 'card');
@@ -196,10 +198,17 @@ export function ArticleCard({
           <h3 className="font-display line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-primary sm:line-clamp-3 sm:text-base md:text-lg">
             {article.title}
           </h3>
-          <p className="mt-2 hidden line-clamp-2 text-sm leading-relaxed text-muted-foreground sm:block">
-            {article.excerpt}
-          </p>
-          <div className="mt-2 flex items-center gap-2 border-t border-border pt-2 text-[10px] text-muted-foreground sm:mt-3 sm:pt-3 sm:text-xs">
+          {showExcerpt && article.excerpt && (
+            <p className="mt-2 hidden line-clamp-2 text-sm leading-relaxed text-muted-foreground sm:block">
+              {article.excerpt}
+            </p>
+          )}
+          <div
+            className={cn(
+              'flex items-center gap-2 border-t border-border text-[10px] text-muted-foreground sm:text-xs',
+              showExcerpt ? 'mt-2 pt-2 sm:mt-3 sm:pt-3' : 'mt-2 pt-2'
+            )}
+          >
             <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
             <span aria-hidden>·</span>
             <span>{article.readingTime} min</span>

@@ -3,6 +3,10 @@ import type { Author } from '@wab-infos/shared';
 import { ArticleImage } from '@/components/ui/article-image';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
 
+function normalizeXHandle(value: string): string {
+  return value.trim().replace(/^@+/, '');
+}
+
 function resolveAuthorXProfile(twitter?: string): { href: string; handle: string } | null {
   const raw = twitter?.trim();
   if (!raw) return null;
@@ -10,15 +14,18 @@ function resolveAuthorXProfile(twitter?: string): { href: string; handle: string
   if (/^https?:\/\//i.test(raw)) {
     try {
       const url = new URL(raw);
-      const segment = url.pathname.split('/').filter(Boolean)[0];
-      if (!segment) return { href: raw, handle: 'X' };
-      return { href: raw, handle: `@${segment.replace(/^@/, '')}` };
+      const handle = normalizeXHandle(url.pathname.split('/').filter(Boolean)[0] ?? '');
+      if (!handle) return { href: raw, handle: 'X' };
+      return {
+        href: `https://x.com/${handle}`,
+        handle: `@${handle}`,
+      };
     } catch {
       return { href: raw, handle: 'X' };
     }
   }
 
-  const handle = raw.replace(/^@/, '');
+  const handle = normalizeXHandle(raw);
   if (!handle) return null;
   return {
     href: `https://x.com/${handle}`,

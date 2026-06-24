@@ -29,6 +29,48 @@ export function ArticleHero({
 
   const displayDate = getArticleDisplayDate(article);
 
+  const metaRow = (onDark = false) => (
+    <div
+      className={cn(
+        'flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1',
+        onDark && 'text-white/80'
+      )}
+    >
+      {article.author ? (
+        <ArticleAuthorMeta author={article.author} onDark={onDark} />
+      ) : (
+        <span
+          className={cn(
+            'text-sm font-medium',
+            onDark ? 'text-white/70' : 'text-muted-foreground'
+          )}
+        >
+          Rédaction Wab-infos
+        </span>
+      )}
+      <div
+        className={cn(
+          'flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm',
+          onDark ? 'text-white/85' : 'text-muted-foreground'
+        )}
+      >
+        <time dateTime={displayDate} title={formatDate(displayDate)}>
+          {formatArticleDate(displayDate)}
+        </time>
+        <span aria-hidden className={onDark ? 'text-white/40' : 'text-muted-foreground/40'}>
+          |
+        </span>
+        <span>{article.readingTime} min de lecture</span>
+        <ArticleViewCounter
+          documentId={article.documentId}
+          slug={article.slug}
+          categorySlug={categorySlug}
+          initialCount={article.viewCount}
+        />
+      </div>
+    </div>
+  );
+
   const badges = (
     <div className="mb-3 flex flex-wrap items-center gap-2">
       {article.isBreaking && (
@@ -76,28 +118,7 @@ export function ArticleHero({
               </Link>
             </div>
             <h1 className="font-display text-2xl font-bold leading-snug">{article.title}</h1>
-            <div className="mt-3">
-              {article.author ? (
-                <ArticleAuthorMeta author={article.author} />
-              ) : (
-                <span className="text-sm font-medium text-muted-foreground">Rédaction Wab-infos</span>
-              )}
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted-foreground">
-              <time dateTime={displayDate} title={formatDate(displayDate)}>
-                {formatArticleDate(displayDate)}
-              </time>
-              <span aria-hidden className="text-muted-foreground/40">
-                |
-              </span>
-              <span>{article.readingTime} min de lecture</span>
-              <ArticleViewCounter
-                documentId={article.documentId}
-                slug={article.slug}
-                categorySlug={categorySlug}
-                initialCount={article.viewCount}
-              />
-            </div>
+            <div className="mt-3">{metaRow()}</div>
             <ArticleShareButtons url={articleUrl} title={article.title} className="mt-4" />
           </div>
         </div>
@@ -117,28 +138,7 @@ export function ArticleHero({
             <h1 className="font-display text-3xl font-bold leading-tight text-white drop-shadow-sm lg:text-4xl">
               {article.title}
             </h1>
-            <div className="mt-3 text-white/80">
-              {article.author ? (
-                <ArticleAuthorMeta author={article.author} onDark />
-              ) : (
-                <span className="text-sm font-medium text-white/70">Rédaction Wab-infos</span>
-              )}
-              <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-white/85">
-                <time dateTime={displayDate} title={formatDate(displayDate)}>
-                  {formatArticleDate(displayDate)}
-                </time>
-                <span aria-hidden className="text-white/40">
-                  |
-                </span>
-                <span>{article.readingTime} min de lecture</span>
-                <ArticleViewCounter
-                  documentId={article.documentId}
-                  slug={article.slug}
-                  categorySlug={categorySlug}
-                  initialCount={article.viewCount}
-                />
-              </div>
-            </div>
+            <div className="mt-3">{metaRow(true)}</div>
             <ArticleShareButtons
               url={articleUrl}
               title={article.title}

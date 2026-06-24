@@ -37,7 +37,7 @@ export function RelatedArticles({ articles, categoryName, categorySlug }: Relate
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {articles.map((article) => (
-          <ArticleCard key={article.id} article={article} />
+          <ArticleCard key={article.id} article={article} showExcerpt={false} />
         ))}
       </div>
     </section>
