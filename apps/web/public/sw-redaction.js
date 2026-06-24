@@ -5,6 +5,15 @@ const OFFLINE_HTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"
 
 const SERVER_DOWN_STATUSES = new Set([502, 503, 504]);
 
+function isRedactionWindow(client) {
+  try {
+    const path = new URL(client.url).pathname;
+    return path === '/redaction' || path.startsWith('/redaction/');
+  } catch {
+    return client.url.includes('/redaction');
+  }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(OFFLINE_CACHE).then((cache) => cache.add(OFFLINE_URL))
@@ -90,7 +99,7 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {
-        if ('focus' in client && client.url.includes(self.location.origin)) {
+        if ('focus' in client && isRedactionWindow(client)) {
           if ('navigate' in client) {
             return client.navigate(url).then((c) => (c ? c.focus() : client.focus()));
           }
