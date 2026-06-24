@@ -2,7 +2,6 @@ import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArticleHero } from '@/components/articles/article-hero';
-import { ArticleAuthorMeta } from '@/components/articles/article-author-meta';
 import { ArticleSidebar } from '@/components/articles/article-sidebar';
 import { RelatedArticles } from '@/components/articles/related-articles';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
@@ -142,8 +141,6 @@ export default async function ArticlePage({ params }: PageProps) {
             <ArticleBodyWithAds html={formatArticleContent(article.content)} />
 
             <ArticleBottomAd />
-
-            {article.author && <ArticleAuthorMeta author={article.author} variant="card" />}
 
             {article.tags && article.tags.length > 0 && (
               <div className="mt-8 flex flex-wrap gap-2 border-t border-border pt-6">
