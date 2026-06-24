@@ -73,7 +73,7 @@ function AuthorAvatar({ author, avatarUrl, onDark = false, size = 48 }: AuthorAv
           alt={author.name}
           width={pixelSize}
           height={pixelSize}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           sizes={`${size}px`}
           quality={95}
         />
