@@ -94,8 +94,20 @@ async function ensureCompiledCss() {
 
 async function runNextBuild() {
   process.chdir(appDir);
+  process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+  process.env.NEXT_RUNTIME = 'nodejs';
+
   const { nextBuild } = await import('next/dist/cli/next-build.js');
-  await nextBuild({ webpack: true }, undefined);
+  // Mêmes défauts que `next build --webpack` (commander / NextBuildOptions)
+  await nextBuild(
+    {
+      webpack: true,
+      mangling: true,
+      experimentalDebugMemoryUsage: false,
+      experimentalBuildMode: 'default',
+    },
+    undefined
+  );
 }
 
 async function main() {
