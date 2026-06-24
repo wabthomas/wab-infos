@@ -12,6 +12,7 @@
     "start": "next start",
     "lint": "eslint",
     "pwa:icons": "node scripts/generate-pwa-icons.mjs",
+    "pwa:offline": "node scripts/sync-offline-sw-fallback.mjs",
     "og:image": "node scripts/generate-og-image.mjs",
     "check:env": "node scripts/check-web-env.mjs"
   },
