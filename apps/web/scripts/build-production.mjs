@@ -9,11 +9,12 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.join(__dirname, '..');
 const compiledCssPath = path.join(appDir, 'src/app/globals.compiled.css');
+const compileCssModule = pathToFileURL(path.join(__dirname, 'compile-css.mjs')).href;
 
 if (process.argv.includes('--low-mem')) {
   process.env.LOW_MEM_BUILD = '1';
@@ -87,7 +88,7 @@ async function ensureCompiledCss() {
   }
 
   console.info('[build] Compilation Tailwind (in-process, pas de spawn)…');
-  await import('./compile-css.mjs');
+  await import(compileCssModule);
   process.env.PRECOMPILED_CSS = '1';
 }
 
