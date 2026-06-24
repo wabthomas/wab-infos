@@ -96,6 +96,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href={googleFontsUrl} rel="stylesheet" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
         {siteConfig.googleSiteVerification && (
           <meta
