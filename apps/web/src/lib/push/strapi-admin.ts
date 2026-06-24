@@ -23,7 +23,13 @@ export async function strapiAdminFetch<T>(
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Strapi ${res.status}: ${text.slice(0, 200)}`);
+    const snippet = text.slice(0, 200);
+    if (res.status === 404) {
+      throw new Error(
+        `Strapi 404: ${snippet}. Vérifiez que le CMS est à jour (type « Abonnement push lecteurs ») et que le token API a les droits reader-push-subscription.`
+      );
+    }
+    throw new Error(`Strapi ${res.status}: ${snippet}`);
   }
 
   return res.json() as Promise<T>;

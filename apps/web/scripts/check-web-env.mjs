@@ -71,7 +71,40 @@ console.log('\n📌 CMS (apps/cms/.env) — à vérifier séparément :');
 console.log('  • NEWSLETTER_SEND_ON_PUBLISH=true');
 console.log('  • PUSH_SEND_ON_PUBLISH=true');
 console.log('  • REVALIDATION_SECRET identique au web');
-console.log('  • NEXT_PUBLIC_SITE_URL=https://wab-infos.com\n');
+console.log('  • NEXT_PUBLIC_SITE_URL=https://wab-infos.com');
+console.log('  • Token API : droits reader-push-subscription (find, create, update, delete)\n');
+
+async function probeReaderPushApi() {
+  const strapiUrl = env.STRAPI_URL || env.NEXT_PUBLIC_STRAPI_URL;
+  const token = env.STRAPI_API_TOKEN?.trim();
+  if (!strapiUrl || !token) return;
+
+  try {
+    const res = await fetch(
+      `${strapiUrl.replace(/\/$/, '')}/api/reader-push-subscriptions?pagination[pageSize]=1`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    if (res.status === 404) {
+      console.log('  ✗ reader-push-subscriptions (Strapi)  ABSENT — rebuild CMS requis');
+      hasError = true;
+    } else if (res.status === 403 || res.status === 401) {
+      console.log('  ✗ reader-push-subscriptions (Strapi)  Token API sans droits');
+      hasError = true;
+    } else if (res.ok) {
+      console.log('  ✓ reader-push-subscriptions (Strapi)  OK');
+    } else {
+      console.log(`  ○ reader-push-subscriptions (Strapi)  HTTP ${res.status}`);
+    }
+  } catch {
+    console.log('  ○ reader-push-subscriptions (Strapi)  injoignable depuis cette machine');
+  }
+}
+
+await probeReaderPushApi();
+console.log('');
 
 if (hasError) {
   console.log('⚠️  Configuration incomplète — newsletter / alertes push ne fonctionneront pas en prod.\n');

@@ -68,6 +68,11 @@ export function PushAlertsIconButton({
       setState('unsupported');
       return;
     }
+    if (result.reason === 'server_error' && result.message) {
+      window.alert(result.message.includes('404') || result.message.includes('reader-push')
+        ? 'Les alertes push ne sont pas encore activées côté serveur.'
+        : result.message);
+    }
     setState('idle');
   }, [state]);
 

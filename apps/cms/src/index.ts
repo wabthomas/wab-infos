@@ -25,6 +25,18 @@ async function seedCategories(strapi: Core.Strapi) {
   }
 }
 
+async function verifyReaderPushContentType(strapi: Core.Strapi) {
+  try {
+    await strapi.documents('api::reader-push-subscription.reader-push-subscription').findFirst();
+    strapi.log.info('[push] Content-type reader-push-subscription OK');
+  } catch {
+    strapi.log.error(
+      '[push] Content-type reader-push-subscription introuvable. ' +
+        'Sur le serveur : git pull puis rebuild CMS (npm run build:cms ou cms-build.tar.gz).'
+    );
+  }
+}
+
 async function seedDemoContent(strapi: Core.Strapi) {
   const existingArticle = await strapi.documents('api::article.article').findFirst();
 
@@ -115,8 +127,12 @@ export default {
   async bootstrap({ strapi }: { strapi: Core.Strapi }) {
     await seedCategories(strapi);
     await seedDemoContent(strapi);
+    await verifyReaderPushContentType(strapi);
     strapi.log.info(
       'Wab-infos CMS pret. Activez les permissions Public dans Admin > Settings > Users & Permissions > Roles > Public'
+    );
+    strapi.log.info(
+      'Token API (alertes push lecteurs) : Settings > API Tokens > cocher reader-push-subscription (find, create, update, delete)'
     );
     strapi.log.info(
       'App redaction : Public > Auth > callback (local) ; Authenticated > User > me ; creer des Users pour les journalistes'
