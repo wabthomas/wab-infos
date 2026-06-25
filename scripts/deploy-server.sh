@@ -6,13 +6,56 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 cd "$APP_DIR"
 
+setup_node_path() {
+  if command -v node >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [ -n "${NODE_BIN:-}" ] && [ -x "$NODE_BIN" ]; then
+    export PATH="$(dirname "$NODE_BIN"):$PATH"
+    return 0
+  fi
+
+  local bin dir
+  for bin in "$HOME"/nodevenv/*/bin/node "$HOME"/nodevenv/*/*/bin/node; do
+    [ -x "$bin" ] || continue
+    dir=$(dirname "$bin")
+    export PATH="$dir:$PATH"
+    if command -v node >/dev/null 2>&1; then
+      echo "→ Node (PlanetHoster nodevenv): $(node -v) — $bin"
+      return 0
+    fi
+  done
+
+  if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    # shellcheck disable=SC1090
+    . "$HOME/.nvm/nvm.sh"
+    nvm use 20 >/dev/null 2>&1 || nvm use default >/dev/null 2>&1 || true
+    if command -v node >/dev/null 2>&1; then
+      echo "→ Node (nvm): $(node -v)"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 echo "══════════════════════════════════════════"
 echo "  Wab-infos — Déploiement serveur"
 echo "  Répertoire: $APP_DIR"
 echo "══════════════════════════════════════════"
 
-if ! command -v node >/dev/null 2>&1; then
-  echo "❌ Node.js requis (v20+). Installez via nvm: nvm install 20"
+if ! setup_node_path; then
+  echo "❌ Node.js introuvable en SSH (v20+ requis)."
+  echo ""
+  echo "   PlanetHoster / N0C — trouver le binaire :"
+  echo "     ls -la ~/nodevenv/*/bin/node ~/nodevenv/*/*/bin/node 2>/dev/null"
+  echo "   Puis relancer :"
+  echo "     export PATH=\"\$HOME/nodevenv/VOTRE_APP/20/bin:\$PATH\""
+  echo "     bash scripts/deploy-server.sh"
+  echo ""
+  echo "   Ou : NODE_BIN=\$HOME/nodevenv/.../bin/node bash scripts/deploy-server.sh"
+  echo "   (Chemin affiché dans N0C → Langues → Node.js → votre application)"
   exit 1
 fi
 
