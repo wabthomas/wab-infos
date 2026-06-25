@@ -15,6 +15,8 @@ import { calculateReadingTime, slugify } from '@/lib/utils';
 
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 interface StrapiEntity {
   id: number;
   documentId: string;
@@ -56,16 +58,49 @@ export async function getRedactionJwt(): Promise<string | null> {
   return jar.get(REDACTION_COOKIE)?.value ?? null;
 }
 
+async function verifyUsersPermissionsUser(jwt: string): Promise<RedactionUser | null> {
+  const res = await fetch(`${getStrapiUrl()}/api/users/me`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+  const user = (await res.json()) as { id: number; email: string; username: string };
+  if (!user.email) return null;
+  return { id: user.id, email: user.email.toLowerCase(), username: user.username };
+}
+
+async function verifyAdminUser(jwt: string): Promise<RedactionUser | null> {
+  const res = await fetch(`${getStrapiUrl()}/admin/users/me`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+
+  const body = (await res.json()) as {
+    data?: {
+      id: number;
+      email: string;
+      firstname?: string;
+      lastname?: string;
+      username?: string;
+    };
+  };
+  const admin = body.data;
+  if (!admin?.email) return null;
+
+  const displayName = [admin.firstname, admin.lastname].filter(Boolean).join(' ').trim();
+  return {
+    id: admin.id,
+    email: admin.email.toLowerCase(),
+    username: admin.username || displayName || admin.email.split('@')[0],
+  };
+}
+
 export async function verifyRedactionUser(jwt: string): Promise<RedactionUser | null> {
   try {
-    const res = await fetch(`${getStrapiUrl()}/api/users/me`, {
-      headers: { Authorization: `Bearer ${jwt}` },
-      cache: 'no-store',
-    });
-    if (!res.ok) return null;
-    const user = (await res.json()) as { id: number; email: string; username: string };
-    if (!user.email) return null;
-    return { id: user.id, email: user.email.toLowerCase(), username: user.username };
+    const fromUsers = await verifyUsersPermissionsUser(jwt);
+    if (fromUsers) return fromUsers;
+    return await verifyAdminUser(jwt);
   } catch {
     return null;
   }
@@ -552,10 +587,10 @@ export async function uploadEditorImage(
   return { id: media.id, url: media.url };
 }
 
-export async function loginRedactionUser(
+async function loginUsersPermissionsUser(
   identifier: string,
   password: string
-): Promise<{ jwt: string; user: RedactionUser }> {
+): Promise<{ jwt: string; user: RedactionUser } | null> {
   const res = await fetch(`${getStrapiUrl()}/api/auth/local`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -566,12 +601,9 @@ export async function loginRedactionUser(
   const data = (await res.json()) as {
     jwt?: string;
     user?: { id: number; email: string; username: string };
-    error?: { message?: string };
   };
 
-  if (!res.ok || !data.jwt || !data.user?.email) {
-    throw new RedactionAuthError('Identifiants incorrects');
-  }
+  if (!res.ok || !data.jwt || !data.user?.email) return null;
 
   return {
     jwt: data.jwt,
@@ -581,6 +613,54 @@ export async function loginRedactionUser(
       username: data.user.username,
     },
   };
+}
+
+async function loginAdminUser(
+  email: string,
+  password: string
+): Promise<{ jwt: string; user: RedactionUser }> {
+  const res = await fetch(`${getStrapiUrl()}/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.toLowerCase(), password }),
+    cache: 'no-store',
+  });
+
+  const data = (await res.json()) as {
+    data?: { token?: string };
+    error?: { message?: string };
+  };
+
+  if (!res.ok || !data.data?.token) {
+    throw new RedactionAuthError('Identifiants incorrects');
+  }
+
+  const user = await verifyAdminUser(data.data.token);
+  if (!user) {
+    throw new RedactionAuthError('Identifiants incorrects');
+  }
+
+  return { jwt: data.data.token, user };
+}
+
+export async function loginRedactionUser(
+  identifier: string,
+  password: string
+): Promise<{ jwt: string; user: RedactionUser }> {
+  const trimmed = identifier.trim();
+  if (!trimmed || !password) {
+    throw new RedactionAuthError('Identifiants requis');
+  }
+
+  const fromUsers = await loginUsersPermissionsUser(trimmed, password);
+  if (fromUsers) return fromUsers;
+
+  const email = trimmed.toLowerCase();
+  if (EMAIL_PATTERN.test(email)) {
+    return loginAdminUser(email, password);
+  }
+
+  throw new RedactionAuthError('Identifiants incorrects');
 }
 
 function mapComment(entity: StrapiEntity): RedactionComment {

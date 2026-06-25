@@ -78,14 +78,14 @@ export function RedactionLoginForm() {
 
           <div className="space-y-2">
             <label htmlFor="identifier" className="text-sm font-medium">
-              E-mail ou identifiant
+              Adresse e-mail
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 id="identifier"
-                type="text"
-                autoComplete="username"
+                type="email"
+                autoComplete="email"
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -140,10 +140,11 @@ export function RedactionLoginForm() {
         </form>
 
         <p className="mx-auto mt-8 max-w-md text-center text-xs text-muted-foreground">
-          Compte créé par l&apos;administrateur. Accès Strapi complet via{' '}
+          Utilisez votre e-mail de compte rédaction (identique à{' '}
           <Link href="/connexion" className="text-primary hover:underline">
             /connexion
           </Link>
+          ).
         </p>
       </div>
     </div>
