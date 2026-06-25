@@ -106,22 +106,37 @@ function firebaseErrorMessage(code: string): string {
   }
 }
 
+async function waitForWorkerActivated(worker: ServiceWorker): Promise<void> {
+  if (worker.state === 'activated') return;
+
+  await new Promise<void>((resolve) => {
+    const onStateChange = () => {
+      if (worker.state === 'activated') {
+        worker.removeEventListener('statechange', onStateChange);
+        resolve();
+      }
+    };
+
+    worker.addEventListener('statechange', onStateChange);
+
+    // Le worker peut déjà être activé avant l'attache du listener
+    if (worker.state === 'activated') {
+      worker.removeEventListener('statechange', onStateChange);
+      resolve();
+    }
+  });
+}
+
 async function prepareServiceWorker(
   registration: ServiceWorkerRegistration
 ): Promise<ServiceWorkerRegistration> {
   await registration.update().catch(() => undefined);
 
   if (!registration.active) {
-    await new Promise<void>((resolve) => {
-      const worker = registration.installing || registration.waiting;
-      if (!worker) {
-        resolve();
-        return;
-      }
-      worker.addEventListener('statechange', () => {
-        if (worker.state === 'activated') resolve();
-      });
-    });
+    const worker = registration.installing || registration.waiting;
+    if (worker) {
+      await waitForWorkerActivated(worker);
+    }
   }
 
   await navigator.serviceWorker.ready;
