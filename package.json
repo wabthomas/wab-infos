@@ -30,6 +30,8 @@
     "pack:web-build": "node scripts/pack-web-build.mjs",
     "unpack:web-build": "node scripts/unpack-web-build.mjs",
     "pack:cms-build": "node scripts/pack-cms-build.mjs",
+    "clean:build": "node scripts/clean-build-artifacts.mjs",
+    "clean:packs": "node scripts/clean-build-artifacts.mjs --packs-only",
     "secrets": "node scripts/generate-secrets.js",
     "lint": "npm run lint --workspace=apps/web"
   },

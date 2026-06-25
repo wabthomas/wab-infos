@@ -7,5 +7,5 @@ export function getStrapiUrl(): string {
 }
 
 export const REDACTION_COOKIE = 'redaction_jwt';
-export const REDACTION_COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
-export const REDACTION_COOKIE_MAX_AGE_SESSION = 60 * 60 * 8; // 8 h
+export const REDACTION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 jours
+export const REDACTION_COOKIE_MAX_AGE_SESSION = 60 * 60 * 24 * 14; // 14 jours

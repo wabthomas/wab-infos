@@ -15,7 +15,9 @@ export default async function RedactionEditorLayout({
     return (
       <>
         <RedactionPushSetup />
-        <RedactionShell authorName={author.name}>{children}</RedactionShell>
+        <RedactionShell authorName={author.name}>
+          {children}
+        </RedactionShell>
       </>
     );
   } catch {

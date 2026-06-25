@@ -67,7 +67,12 @@ async function verifyUsersPermissionsUser(jwt: string): Promise<RedactionUser | 
   if (!res.ok) return null;
   const user = (await res.json()) as { id: number; email: string; username: string };
   if (!user.email) return null;
-  return { id: user.id, email: user.email.toLowerCase(), username: user.username };
+  return {
+    id: user.id,
+    email: user.email.toLowerCase(),
+    username: user.username,
+    role: 'author',
+  };
 }
 
 async function verifyAdminUser(jwt: string): Promise<RedactionUser | null> {
@@ -94,6 +99,7 @@ async function verifyAdminUser(jwt: string): Promise<RedactionUser | null> {
     id: admin.id,
     email: admin.email.toLowerCase(),
     username: admin.username || displayName || admin.email.split('@')[0],
+    role: 'admin',
   };
 }
 
@@ -112,6 +118,18 @@ export async function requireRedactionUser(): Promise<RedactionUser> {
   if (!jwt) throw new RedactionAuthError('Non connecté');
   const user = await verifyRedactionUser(jwt);
   if (!user) throw new RedactionAuthError('Session expirée');
+  return user;
+}
+
+export function isRedactionSuperAdmin(user: RedactionUser): boolean {
+  return user.role === 'admin';
+}
+
+export async function requireRedactionSuperAdmin(): Promise<RedactionUser> {
+  const user = await requireRedactionUser();
+  if (!isRedactionSuperAdmin(user)) {
+    throw new RedactionAuthError('Accès réservé aux administrateurs');
+  }
   return user;
 }
 
@@ -214,9 +232,10 @@ async function resolveAuthorForUser(user: RedactionUser): Promise<RedactionAutho
 export async function getEditorProfile(user: RedactionUser): Promise<{
   user: RedactionUser;
   author: RedactionAuthor;
+  isSuperAdmin: boolean;
 }> {
   const author = await resolveAuthorForUser(user);
-  return { user, author };
+  return { user, author, isSuperAdmin: isRedactionSuperAdmin(user) };
 }
 
 export async function listEditorArticles(
@@ -245,7 +264,6 @@ export async function listEditorArticles(
     status: 'published',
   });
 
-  // Inclure aussi les brouillons (status=draft côté Strapi D&P)
   const drafts = await strapiFetch<{ data: StrapiEntity[] }>('/articles', {
     filters: { author: { documentId: { $eq: author.documentId } } },
     populate: { category: true, secondaryCategories: true, tags: true, featuredImage: true },
@@ -254,17 +272,27 @@ export async function listEditorArticles(
     status: 'draft',
   });
 
+  const publishedIds = new Set(response.data.map((item) => item.documentId));
   const merged = new Map<string, RedactionArticle>();
-  for (const item of [...response.data, ...drafts.data]) {
+
+  for (const item of drafts.data) {
+    if (!publishedIds.has(item.documentId)) {
+      merged.set(item.documentId, mapArticle(item));
+    }
+  }
+  for (const item of response.data) {
     merged.set(item.documentId, mapArticle(item));
   }
 
   let articles = [...merged.values()];
 
+  const isLive = (article: RedactionArticle) =>
+    article.status === 'published' || Boolean(article.publishedAt);
+
   if (status === 'draft') {
-    articles = articles.filter((a) => a.status === 'draft');
+    articles = articles.filter((a) => a.status === 'draft' && !isLive(a));
   } else if (status === 'published') {
-    articles = articles.filter((a) => a.status === 'published');
+    articles = articles.filter((a) => isLive(a));
   } else if (status === 'scheduled') {
     articles = articles.filter((a) => a.status === 'scheduled');
   }
@@ -783,6 +811,7 @@ async function loginUsersPermissionsUser(
       id: data.user.id,
       email: data.user.email.toLowerCase(),
       username: data.user.username,
+      role: 'author',
     },
   };
 }

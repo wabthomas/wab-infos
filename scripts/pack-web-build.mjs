@@ -22,6 +22,18 @@ const EXCLUDE = [
   '.next/trace-build',
 ];
 
+function removeStalePacks() {
+  for (const file of fs.readdirSync(root)) {
+    if (!/^web-next-build-\d+\.tar\.gz$/.test(file)) continue;
+    try {
+      fs.unlinkSync(path.join(root, file));
+      console.info(`[pack] archive orpheline supprimée : ${file}`);
+    } catch {
+      // fichier verrouillé — ignoré
+    }
+  }
+}
+
 if (!fs.existsSync(path.join(nextDir, 'BUILD_ID'))) {
   console.error('❌ Build absent. Lancez d’abord : npm run build:web');
   process.exit(1);
@@ -56,6 +68,7 @@ if (result.status !== 0) {
 }
 
 const sizeMb = (fs.statSync(out).size / (1024 * 1024)).toFixed(1);
+removeStalePacks();
 console.info(`✅ Archive créée : ${out} (${sizeMb} Mo)`);
 console.info('   Sur le serveur :');
 console.info('   npm run unpack:web-build');

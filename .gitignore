@@ -43,6 +43,7 @@ npm-debug.log*
 
 # Build artefacts (upload manuel serveur)
 web-next-build.tar.gz
+web-next-build-*.tar.gz
 cms-build.tar.gz
 
 # WordPress import

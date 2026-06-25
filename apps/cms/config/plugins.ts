@@ -4,7 +4,7 @@ const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Plugin =>
   'users-permissions': {
     config: {
       jwt: {
-        expiresIn: '7d',
+        expiresIn: '30d',
       },
       ratelimit: {
         max: 5,

@@ -12,6 +12,7 @@ import {
   PenLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { touchRedactionSession } from '@/lib/redaction/touch-session';
 
 const NAV_SIDE = [
   { href: '/redaction', label: 'Accueil', icon: Home, exact: true },
@@ -103,6 +104,19 @@ export function RedactionShell({ children, authorName }: RedactionShellProps) {
       .catch(() => undefined);
   }, [pathname]);
 
+  useEffect(() => {
+    void touchRedactionSession();
+    const interval = window.setInterval(() => void touchRedactionSession(), 10 * 60 * 1000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void touchRedactionSession();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+
   async function logout() {
     await fetch('/api/redaction/auth/logout', { method: 'POST' });
     router.replace('/redaction/login');
@@ -169,6 +183,7 @@ export function RedactionShell({ children, authorName }: RedactionShellProps) {
               pendingComments={pendingComments}
             />
           ))}
+
         </div>
       </nav>
     </div>

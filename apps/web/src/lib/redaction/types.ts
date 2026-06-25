@@ -1,7 +1,70 @@
+export type RedactionUserRole = 'author' | 'admin';
+
 export interface RedactionUser {
   id: number;
   email: string;
   username: string;
+  role: RedactionUserRole;
+}
+
+export type AdminStatsRange = 7 | 30 | 90 | 365;
+
+export interface AdminAnalyticsPoint {
+  date: string;
+  value: number;
+}
+
+export interface AdminAnalyticsNamedValue {
+  name: string;
+  value: number;
+}
+
+export interface AdminAnalyticsSummary {
+  views: number;
+  visitors: number;
+  articles: number;
+  published: number;
+  comments: number;
+  subscribers: number;
+  pushSubscribers: number;
+  pendingComments: number;
+}
+
+export interface AdminAnalytics {
+  range: { days: AdminStatsRange; from: string; to: string };
+  summary: AdminAnalyticsSummary;
+  traffic: AdminAnalyticsPoint[];
+  trends: {
+    views: AdminAnalyticsPoint[];
+    articles: AdminAnalyticsPoint[];
+    comments: AdminAnalyticsPoint[];
+  };
+  subscribers: {
+    active: number;
+    unsubscribed: number;
+    growth: AdminAnalyticsPoint[];
+    sources: AdminAnalyticsNamedValue[];
+  };
+  referrers: AdminAnalyticsNamedValue[];
+  countries: AdminAnalyticsNamedValue[];
+  topArticles: {
+    documentId: string;
+    title: string;
+    views: number;
+    category?: string;
+    publishedAt?: string;
+  }[];
+  topCategories: AdminAnalyticsNamedValue[];
+  comments: {
+    pending: number;
+    approved: number;
+    rejected: number;
+    timeline: AdminAnalyticsPoint[];
+  };
+  dataSources: {
+    viewsEstimated: boolean;
+    geoEstimated: boolean;
+  };
 }
 
 export interface RedactionAuthor {
