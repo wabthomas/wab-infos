@@ -33,6 +33,7 @@ export function MediaLibrarySheet({
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -91,6 +92,26 @@ export function MediaLibrarySheet({
     setPage(1);
     void loadPage(1, false);
   }, [debouncedSearch, open, loadPage]);
+
+  useEffect(() => {
+    if (!open || tab !== 'library' || loading || loadingMore) return;
+    if (page >= pageCount) return;
+
+    const node = loadMoreRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadPage(page + 1, true);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [open, tab, loading, loadingMore, page, pageCount, loadPage]);
 
   async function uploadFile(file: File) {
     setUploading(true);
@@ -209,7 +230,7 @@ export function MediaLibrarySheet({
           ) : (
             <div className="flex-1 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {items.map((item) => {
+                {items.map((item, index) => {
                   const src = getStrapiMediaUrl(item.url) ?? item.url;
                   return (
                     <button
@@ -228,6 +249,8 @@ export function MediaLibrarySheet({
                         className="object-cover transition-transform group-active:scale-105"
                         sizes="120px"
                         unoptimized
+                        priority={index < 9}
+                        loading={index < 9 ? 'eager' : 'lazy'}
                       />
                     </button>
                   );
@@ -235,18 +258,15 @@ export function MediaLibrarySheet({
               </div>
 
               {page < pageCount && (
-                <button
-                  type="button"
-                  disabled={loadingMore}
-                  onClick={() => void loadPage(page + 1, true)}
-                  className="mt-4 flex h-11 w-full items-center justify-center rounded-xl border border-border text-sm font-semibold disabled:opacity-60"
+                <div
+                  ref={loadMoreRef}
+                  className="mt-4 flex h-11 w-full items-center justify-center"
+                  aria-hidden
                 >
                   {loadingMore ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    'Charger plus'
-                  )}
-                </button>
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : null}
+                </div>
               )}
             </div>
           )}

@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
   Loader2,
   MoreVertical,
+  Redo2,
   Settings2,
+  Undo2,
 } from 'lucide-react';
+import type { Editor } from '@tiptap/react';
 import type { RedactionCategory, RedactionMediaItem } from '@/lib/redaction/types';
-import { formatArticleContent, getStrapiMediaUrl } from '@/lib/utils';
+import type { ArticleEditorPayload } from '@/lib/redaction/types';
+import { excerptFromContent, formatArticleContent, getStrapiMediaUrl } from '@/lib/utils';
 import { ArticleRichEditor } from '@/components/redaction/article-rich-editor';
 import { ArticleEditorSettingsSheet } from '@/components/redaction/article-editor-settings-sheet';
 import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
@@ -20,9 +24,9 @@ export interface ArticleEditorValues {
   content: string;
   categoryDocumentIds: string[];
   tagNames: string[];
-  seoTitle: string;
-  seoDescription: string;
-  canonicalUrl: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  canonicalUrl?: string;
   featuredImageId?: number | null;
   featuredImageUrl?: string;
   featuredImageAlt?: string;
@@ -47,11 +51,13 @@ function toEditorContent(raw?: string): string {
 interface ArticleEditorFormProps {
   initial?: Partial<ArticleEditorValues>;
   documentId?: string;
-  onSuccess?: (documentId: string) => void;
+  onSuccess?: (documentId: string, mode: 'draft' | 'publish' | 'schedule') => void;
 }
 
 export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEditorFormProps) {
   const [categories, setCategories] = useState<RedactionCategory[]>([]);
+  const excerptTouchedRef = useRef(Boolean(initial?.excerpt?.trim()));
+  const [editor, setEditor] = useState<Editor | null>(null);
   const [values, setValues] = useState<ArticleEditorValues>({
     title: initial?.title ?? '',
     excerpt: initial?.excerpt ?? '',
@@ -157,15 +163,14 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     setSaving(mode);
     setMenuOpen(false);
 
-    const payload = {
+    const excerpt =
+      values.excerpt.trim() || excerptFromContent(values.content, 170);
+
+    const payload: ArticleEditorPayload = {
       title: values.title,
-      excerpt: values.excerpt,
+      excerpt,
       content: values.content,
       categoryDocumentIds: values.categoryDocumentIds,
-      tagNames: values.tagNames,
-      seoTitle: values.seoTitle,
-      seoDescription: values.seoDescription,
-      canonicalUrl: values.canonicalUrl,
       featuredImageId: values.featuredImageId ?? null,
       isBreaking: values.isBreaking,
       publish: mode === 'publish',
@@ -174,6 +179,17 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           ? new Date(scheduledAt).toISOString()
           : null,
     };
+
+    if (values.tagNames.length) payload.tagNames = values.tagNames;
+
+    const seoTitle = values.seoTitle?.trim();
+    if (seoTitle) payload.seoTitle = seoTitle;
+
+    const seoDescription = values.seoDescription?.trim();
+    if (seoDescription) payload.seoDescription = seoDescription;
+
+    const canonicalUrl = values.canonicalUrl?.trim();
+    if (canonicalUrl) payload.canonicalUrl = canonicalUrl;
 
     try {
       const url = documentId
@@ -186,7 +202,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       });
       const data = (await res.json()) as { article?: { documentId: string }; error?: string };
       if (!res.ok) throw new Error(data.error ?? 'Enregistrement impossible');
-      onSuccess?.(data.article!.documentId);
+      onSuccess?.(data.article!.documentId, mode);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur');
     } finally {
@@ -208,6 +224,26 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
+
+          <button
+            type="button"
+            onClick={() => editor?.chain().focus().undo().run()}
+            disabled={!editor?.can().undo()}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted disabled:opacity-30"
+            aria-label="Annuler"
+          >
+            <Undo2 className="h-5 w-5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => editor?.chain().focus().redo().run()}
+            disabled={!editor?.can().redo()}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted disabled:opacity-30"
+            aria-label="Rétablir"
+          >
+            <Redo2 className="h-5 w-5" />
+          </button>
 
           <button
             type="button"
@@ -234,6 +270,22 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           >
             <Settings2 className="h-5 w-5" />
           </button>
+
+          {values.featuredImageUrl ? (
+            <button
+              type="button"
+              onClick={() => setMediaLibraryOpen(true)}
+              className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border"
+              aria-label="Photo à la une"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={getStrapiMediaUrl(values.featuredImageUrl) ?? values.featuredImageUrl}
+                alt={values.featuredImageAlt ?? ''}
+                className="h-full w-full object-cover"
+              />
+            </button>
+          ) : null}
 
           <div className="relative shrink-0">
             <button
@@ -301,25 +353,19 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             />
           </label>
 
-          {values.featuredImageUrl ? (
-            <button
-              type="button"
-              onClick={() => setMediaLibraryOpen(true)}
-              className="relative mt-4 block aspect-[16/10] w-full overflow-hidden rounded-xl bg-muted"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={getStrapiMediaUrl(values.featuredImageUrl) ?? values.featuredImageUrl}
-                alt={values.featuredImageAlt ?? ''}
-                className="h-full w-full object-cover"
-              />
-            </button>
-          ) : null}
-
           <div className="mt-3">
             <ArticleRichEditor
               value={values.content}
-              onChange={(content) => setValues((v) => ({ ...v, content }))}
+              onChange={(content) => {
+                setValues((v) => {
+                  const next = { ...v, content };
+                  if (!excerptTouchedRef.current) {
+                    next.excerpt = excerptFromContent(content, 170);
+                  }
+                  return next;
+                });
+              }}
+              onEditorReady={setEditor}
             />
           </div>
         </div>
@@ -332,14 +378,17 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         selectedCategoryIds={values.categoryDocumentIds}
         onToggleCategory={toggleCategory}
         excerpt={values.excerpt}
-        onExcerptChange={(excerpt) => setValues((v) => ({ ...v, excerpt }))}
+        onExcerptChange={(excerpt) => {
+          excerptTouchedRef.current = true;
+          setValues((v) => ({ ...v, excerpt }));
+        }}
         tagNames={values.tagNames}
         onTagNamesChange={(tagNames) => setValues((v) => ({ ...v, tagNames }))}
-        seoTitle={values.seoTitle}
+        seoTitle={values.seoTitle ?? ''}
         onSeoTitleChange={(seoTitle) => setValues((v) => ({ ...v, seoTitle }))}
-        seoDescription={values.seoDescription}
+        seoDescription={values.seoDescription ?? ''}
         onSeoDescriptionChange={(seoDescription) => setValues((v) => ({ ...v, seoDescription }))}
-        canonicalUrl={values.canonicalUrl}
+        canonicalUrl={values.canonicalUrl ?? ''}
         onCanonicalUrlChange={(canonicalUrl) => setValues((v) => ({ ...v, canonicalUrl }))}
         featuredImageId={values.featuredImageId}
         featuredImageUrl={values.featuredImageUrl}

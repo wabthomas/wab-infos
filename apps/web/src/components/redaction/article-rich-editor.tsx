@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
@@ -17,6 +17,7 @@ interface ArticleRichEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  onEditorReady?: (editor: Editor) => void;
 }
 
 type SheetMode = 'link' | 'embed' | null;
@@ -26,14 +27,29 @@ export function ArticleRichEditor({
   value,
   onChange,
   placeholder = 'Commencez à écrire…',
+  onEditorReady,
 }: ArticleRichEditorProps) {
   const [sheet, setSheet] = useState<SheetMode>(null);
   const [blockSheet, setBlockSheet] = useState<BlockMode>('closed');
   const [inputValue, setInputValue] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const lastEmitted = useRef(value);
+
+  const editorPlaceholder = useCallback(
+    ({ editor: ed }: { editor: Editor }) => {
+      const { doc } = ed.state;
+      const first = doc.firstChild;
+      const isOnlyEmptyParagraph =
+        doc.childCount === 1 &&
+        first?.type.name === 'paragraph' &&
+        first.content.size === 0;
+      return isOnlyEmptyParagraph ? placeholder : '';
+    },
+    [placeholder]
+  );
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -60,7 +76,7 @@ export function ArticleRichEditor({
         HTMLAttributes: { class: 'article-youtube-embed' },
       }),
       SocialEmbed,
-      Placeholder.configure({ placeholder }),
+      Placeholder.configure({ placeholder: editorPlaceholder }),
     ],
     content: value || '',
     editorProps: {
@@ -74,6 +90,38 @@ export function ArticleRichEditor({
       onChange(html);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    onEditorReady?.(editor);
+  }, [editor, onEditorReady]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const updateInset = () => {
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setKeyboardInset(inset > 50 ? inset : 0);
+    };
+
+    updateInset();
+    viewport.addEventListener('resize', updateInset);
+    viewport.addEventListener('scroll', updateInset);
+    return () => {
+      viewport.removeEventListener('resize', updateInset);
+      viewport.removeEventListener('scroll', updateInset);
+    };
+  }, []);
+
+  const dismissKeyboard = useCallback(() => {
+    editor?.commands.blur();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }, [editor]);
+
+  const toolbarBottom = keyboardInset > 0 ? keyboardInset : 0;
 
   useEffect(() => {
     if (!editor) return;
@@ -176,7 +224,13 @@ export function ArticleRichEditor({
       />
 
       {sheet && (
-        <div className="fixed inset-x-0 bottom-0 z-[70] border-t border-border bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.12)]">
+        <div
+          className="fixed inset-x-0 z-[70] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+          style={{
+            bottom: toolbarBottom > 0 ? toolbarBottom : undefined,
+            paddingBottom: toolbarBottom > 0 ? '0.75rem' : 'max(0.75rem, env(safe-area-inset-bottom))',
+          }}
+        >
           <div className="mx-auto max-w-lg">
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-sm font-semibold">
@@ -237,7 +291,15 @@ export function ArticleRichEditor({
       )}
 
       {blockSheet === 'blocks' && (
-        <div className="fixed inset-x-0 bottom-[calc(3.9rem+env(safe-area-inset-bottom))] z-[65] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]">
+        <div
+          className="fixed inset-x-0 z-[65] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+          style={{
+            bottom:
+              toolbarBottom > 0
+                ? toolbarBottom + 52
+                : 'calc(3.9rem + env(safe-area-inset-bottom))',
+          }}
+        >
           <div className="mx-auto max-w-lg">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold">Ajouter un bloc</p>
@@ -334,11 +396,19 @@ export function ArticleRichEditor({
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-50 pb-[max(0px,env(safe-area-inset-bottom))]">
+      <div
+        className="fixed inset-x-0 z-50 transition-[bottom] duration-150"
+        style={{
+          bottom: toolbarBottom > 0 ? toolbarBottom : 0,
+          paddingBottom: toolbarBottom > 0 ? 0 : 'max(0px, env(safe-area-inset-bottom))',
+        }}
+      >
         <div className="mx-auto max-w-lg">
           <ArticleEditorToolbar
             editor={editor}
             uploading={uploading}
+            showDismissKeyboard={keyboardInset > 0}
+            onDismissKeyboard={dismissKeyboard}
             onBlocksClick={() => {
               closeSheet();
               setBlockSheet((value) => (value === 'blocks' ? 'closed' : 'blocks'));

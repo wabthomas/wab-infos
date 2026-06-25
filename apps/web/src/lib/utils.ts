@@ -197,6 +197,17 @@ export function resolveArticleImageUrl(
   return getStrapiMediaUrl(src);
 }
 
+export function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Extrait les N premiers caractères du texte brut (sans balises HTML). */
+export function excerptFromContent(html: string, maxLength = 170): string {
+  const plain = stripHtml(html);
+  if (!plain) return '';
+  return plain.length <= maxLength ? plain : plain.slice(0, maxLength).trim();
+}
+
 export function truncate(text: string, length: number): string {
   if (text.length <= length) return text;
   return text.slice(0, length).trim() + '…';

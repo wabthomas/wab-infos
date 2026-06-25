@@ -15,7 +15,13 @@ export function EditArticleClient({ documentId, initial }: EditArticleClientProp
     <ArticleEditorForm
       documentId={documentId}
       initial={initial}
-      onSuccess={() => router.refresh()}
+      onSuccess={(_id, mode) => {
+        if (mode === 'publish' || mode === 'schedule') {
+          router.push('/redaction/articles');
+        } else {
+          router.refresh();
+        }
+      }}
     />
   );
 }

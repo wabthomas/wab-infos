@@ -1,6 +1,7 @@
 'use client';
 
-import { CalendarClock, Check, GripVertical, X, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CalendarClock, Check, ChevronDown, GripVertical, X, Zap } from 'lucide-react';
 import type { RedactionCategory } from '@/lib/redaction/types';
 import { cn } from '@/lib/utils';
 import { FeaturedImageField } from '@/components/redaction/featured-image-field';
@@ -52,6 +53,26 @@ function inputToTags(value: string): string[] {
     .slice(0, 12);
 }
 
+function TagsInput({
+  value,
+  onChange,
+  onCommit,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onCommit: () => void;
+}) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onCommit}
+      className="h-11 w-full rounded-xl border border-border bg-card px-3 text-base outline-none focus:border-primary"
+      placeholder="politique, kinshasa, économie"
+    />
+  );
+}
+
 export function ArticleEditorSettingsSheet({
   open,
   onClose,
@@ -86,6 +107,21 @@ export function ArticleEditorSettingsSheet({
   onScheduledAtChange,
   minScheduleDate,
 }: ArticleEditorSettingsSheetProps) {
+  const [tagsDraft, setTagsDraft] = useState(tagsToInput(tagNames));
+
+  useEffect(() => {
+    if (open) setTagsDraft(tagsToInput(tagNames));
+  }, [open, tagNames]);
+
+  function commitTags() {
+    onTagNamesChange(inputToTags(tagsDraft));
+  }
+
+  function handleClose() {
+    commitTags();
+    onClose();
+  }
+
   if (!open) return null;
 
   return (
@@ -94,7 +130,7 @@ export function ArticleEditorSettingsSheet({
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         aria-label="Fermer les réglages"
-        onClick={onClose}
+        onClick={handleClose}
       />
       <div
         role="dialog"
@@ -108,7 +144,7 @@ export function ArticleEditorSettingsSheet({
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
             aria-label="Fermer"
           >
@@ -117,49 +153,61 @@ export function ArticleEditorSettingsSheet({
         </div>
 
         <div className="space-y-6 px-4 py-4">
-          <section className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Rubriques
-            </p>
-            <p className="text-xs text-muted-foreground">
-              La première rubrique cochée devient la rubrique principale du site.
-            </p>
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
-              {categories.map((category) => {
-                const checked = selectedCategoryIds.includes(category.documentId);
-                const primary = selectedCategoryIds[0] === category.documentId;
+          <details className="group overflow-hidden rounded-xl border border-border bg-card">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 [&::-webkit-details-marker]:hidden">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Rubriques
+                </p>
+                <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
+                  {selectedCategoryIds.length
+                    ? `${selectedCategoryIds.length} sélectionnée${selectedCategoryIds.length > 1 ? 's' : ''}`
+                    : 'Choisir une rubrique'}
+                </p>
+              </div>
+              <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="border-t border-border px-3 pb-3 pt-2">
+              <p className="mb-2 text-xs text-muted-foreground">
+                La première rubrique cochée devient la rubrique principale du site.
+              </p>
+              <div className="overflow-hidden rounded-lg border border-border">
+                {categories.map((category) => {
+                  const checked = selectedCategoryIds.includes(category.documentId);
+                  const primary = selectedCategoryIds[0] === category.documentId;
 
-                return (
-                  <button
-                    key={category.documentId}
-                    type="button"
-                    onClick={() => onToggleCategory(category.documentId)}
-                    className="flex w-full items-center gap-3 border-b border-border px-3 py-3 text-left last:border-b-0 active:bg-muted/50"
-                  >
-                    <span
-                      className={cn(
-                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
-                        checked
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border bg-background'
-                      )}
+                  return (
+                    <button
+                      key={category.documentId}
+                      type="button"
+                      onClick={() => onToggleCategory(category.documentId)}
+                      className="flex w-full items-center gap-3 border-b border-border px-3 py-3 text-left last:border-b-0 active:bg-muted/50"
                     >
-                      {checked && <Check className="h-3.5 w-3.5" />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">{category.name}</span>
-                      {primary && (
-                        <span className="mt-0.5 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                          Principale
-                        </span>
-                      )}
-                    </span>
-                    <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-                  </button>
-                );
-              })}
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
+                          checked
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-border bg-background'
+                        )}
+                      >
+                        {checked && <Check className="h-3.5 w-3.5" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold">{category.name}</span>
+                        {primary && (
+                          <span className="mt-0.5 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                            Principale
+                          </span>
+                        )}
+                      </span>
+                      <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </section>
+          </details>
 
           <section className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -191,7 +239,7 @@ export function ArticleEditorSettingsSheet({
               rows={3}
               maxLength={500}
               className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-base outline-none focus:border-primary"
-              placeholder="Résumé court pour le site et les réseaux"
+              placeholder="Généré automatiquement depuis le contenu (170 caractères)"
             />
             <p className="text-right text-[11px] text-muted-foreground">{excerpt.length}/500</p>
           </section>
@@ -200,12 +248,7 @@ export function ArticleEditorSettingsSheet({
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Tags
             </p>
-            <input
-              value={tagsToInput(tagNames)}
-              onChange={(e) => onTagNamesChange(inputToTags(e.target.value))}
-              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-base outline-none focus:border-primary"
-              placeholder="politique, kinshasa, économie"
-            />
+            <TagsInput value={tagsDraft} onChange={setTagsDraft} onCommit={commitTags} />
             <p className="text-[11px] text-muted-foreground">
               Séparez les tags par des virgules.
             </p>
@@ -298,7 +341,7 @@ export function ArticleEditorSettingsSheet({
         <div className="border-t border-border px-4 py-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="h-11 w-full rounded-xl bg-primary text-sm font-bold text-primary-foreground"
           >
             Terminé

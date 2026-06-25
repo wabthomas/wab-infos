@@ -3,6 +3,7 @@
 import type { Editor } from '@tiptap/react';
 import {
   Bold,
+  ChevronDown,
   Heading2,
   ImageIcon,
   Italic,
@@ -51,6 +52,8 @@ function Btn({
 export interface ArticleEditorToolbarProps {
   editor: Editor;
   uploading?: boolean;
+  showDismissKeyboard?: boolean;
+  onDismissKeyboard?: () => void;
   onBlocksClick: () => void;
   onImageClick: () => void;
   onLinkClick: () => void;
@@ -61,6 +64,8 @@ export interface ArticleEditorToolbarProps {
 export function ArticleEditorToolbar({
   editor,
   uploading,
+  showDismissKeyboard,
+  onDismissKeyboard,
   onBlocksClick,
   onImageClick,
   onLinkClick,
@@ -157,6 +162,15 @@ export function ArticleEditorToolbar({
         <Btn label="Vidéo ou réseau social" onClick={onEmbedClick}>
           <Video className="h-[18px] w-[18px]" strokeWidth={2.5} />
         </Btn>
+
+        {showDismissKeyboard && onDismissKeyboard ? (
+          <>
+            <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden />
+            <Btn label="Masquer le clavier" onClick={onDismissKeyboard}>
+              <ChevronDown className="h-[18px] w-[18px]" strokeWidth={2.5} />
+            </Btn>
+          </>
+        ) : null}
       </div>
     </div>
   );

@@ -20,13 +20,19 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function toAbsoluteOgImageUrl(url: string): string {
+  if (url.startsWith('http')) return url;
+  const base = siteConfig.url.replace(/\/$/, '');
+  return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`;
+}
+
 function collectArticleImages(article: Article): string[] {
   const urls = new Set<string>();
   const featured = article.featuredImage;
 
   const add = (url?: string) => {
     const resolved = getStrapiMediaUrl(url);
-    if (resolved) urls.add(resolved);
+    if (resolved) urls.add(toAbsoluteOgImageUrl(resolved));
   };
 
   add(featured?.url);

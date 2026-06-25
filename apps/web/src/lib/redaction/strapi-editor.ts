@@ -374,21 +374,13 @@ async function syncArticleTags(options: {
 }): Promise<string[]> {
   if (options.tagNames) {
     const normalized = options.tagNames.map((name) => name.trim()).filter(Boolean).slice(0, 12);
-    const tagIds: string[] = [];
-    for (const name of normalized) {
-      const id = await findOrCreateTag(name);
-      if (id) tagIds.push(id);
-    }
-    return tagIds;
+    const ids = await Promise.all(normalized.map((name) => findOrCreateTag(name)));
+    return ids.filter((id): id is string => Boolean(id));
   }
 
   const candidates = extractTagCandidates(options.title, options.excerpt);
-  const tagIds: string[] = [];
-  for (const name of candidates) {
-    const id = await findOrCreateTag(name);
-    if (id) tagIds.push(id);
-  }
-  return tagIds;
+  const ids = await Promise.all(candidates.map((name) => findOrCreateTag(name)));
+  return ids.filter((id): id is string => Boolean(id));
 }
 
 function normalizeEditorContent(text: string): string {
@@ -468,10 +460,12 @@ function buildArticleData(
     data.secondaryCategories = categoryIds.slice(1);
   }
   if (payload.seoTitle !== undefined) {
-    data.seoTitle = payload.seoTitle.trim().slice(0, 70);
+    const seoTitle = payload.seoTitle.trim();
+    if (seoTitle) data.seoTitle = seoTitle.slice(0, 70);
   }
   if (payload.seoDescription !== undefined) {
-    data.seoDescription = payload.seoDescription.trim().slice(0, 160);
+    const seoDescription = payload.seoDescription.trim();
+    if (seoDescription) data.seoDescription = seoDescription.slice(0, 160);
   }
   if (payload.canonicalUrl !== undefined) {
     data.canonicalUrl = payload.canonicalUrl.trim() || null;
@@ -495,11 +489,14 @@ export async function createEditorArticle(
     customStatus: 'draft' as const,
     scheduledAt: null,
   };
-  const tagIds = await syncArticleTags({
-    title: payload.title,
-    excerpt: payload.excerpt,
-    tagNames: payload.tagNames,
-  });
+  const tagIds =
+    saveMode.strapiStatus === 'published'
+      ? await syncArticleTags({
+          title: payload.title,
+          excerpt: payload.excerpt,
+          tagNames: payload.tagNames,
+        })
+      : undefined;
   const endpoint =
     saveMode.strapiStatus === 'published' ? '/articles?status=published' : '/articles';
 
@@ -530,11 +527,14 @@ export async function updateEditorArticle(
   const excerpt = payload.excerpt?.trim() || existing.excerpt;
   const slug = isGenericSlug(existing.slug) ? generateArticleSlug(title) : existing.slug;
 
-  const tagIds = await syncArticleTags({
-    title,
-    excerpt,
-    tagNames: payload.tagNames ?? existing.tagNames,
-  });
+  const publishing = saveMode?.strapiStatus === 'published';
+  const tagIds = publishing
+    ? await syncArticleTags({
+        title,
+        excerpt,
+        tagNames: payload.tagNames ?? existing.tagNames,
+      })
+    : undefined;
 
   const response = await strapiFetch<{ data: StrapiEntity }>(
     `/articles/${documentId}?status=${statusParam}`,

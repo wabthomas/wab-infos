@@ -8,8 +8,12 @@ export default function RedactionNewArticlePage() {
 
   return (
     <ArticleEditorForm
-      onSuccess={(id) => {
-        router.push(`/redaction/articles/${id}/edit`);
+      onSuccess={(id, mode) => {
+        if (mode === 'publish' || mode === 'schedule') {
+          router.push('/redaction/articles');
+        } else {
+          router.push(`/redaction/articles/${id}/edit`);
+        }
         router.refresh();
       }}
     />
