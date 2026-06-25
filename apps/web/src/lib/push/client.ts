@@ -37,7 +37,7 @@ export async function subscribeToPushNotifications(): Promise<{
     return { ok: false, reason: 'unsupported' };
   }
 
-  if (!isFirebaseClientConfigured()) {
+  if (!(await isFirebaseClientConfigured())) {
     return { ok: false, reason: 'firebase_missing' };
   }
 
@@ -85,7 +85,7 @@ export async function syncPushSubscriptionIfGranted(): Promise<boolean> {
     typeof window === 'undefined' ||
     !('serviceWorker' in navigator) ||
     Notification.permission !== 'granted' ||
-    !isFirebaseClientConfigured()
+    !(await isFirebaseClientConfigured())
   ) {
     return false;
   }

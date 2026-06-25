@@ -9,12 +9,13 @@ import { isFirebaseClientConfigured, requestFcmToken } from '@/lib/firebase/clie
 
 export function RedactionPushSetup() {
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || !isFirebaseClientConfigured()) return;
+    if (!('serviceWorker' in navigator)) return;
 
     let cancelled = false;
 
     async function setup() {
       try {
+        if (!(await isFirebaseClientConfigured())) return;
         const permission = await Notification.requestPermission();
         if (permission !== 'granted' || cancelled) return;
 
