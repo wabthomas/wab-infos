@@ -5,17 +5,11 @@ import {
   registerRedactionServiceWorker,
   REDACTION_SW_SCOPE,
 } from '@/lib/redaction/register-service-worker';
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(base64);
-  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
-}
+import { isFirebaseClientConfigured, requestFcmToken } from '@/lib/firebase/client';
 
 export function RedactionPushSetup() {
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!('serviceWorker' in navigator) || !isFirebaseClientConfigured()) return;
 
     let cancelled = false;
 
@@ -31,31 +25,13 @@ export function RedactionPushSetup() {
 
         await navigator.serviceWorker.ready;
 
-        const keyRes = await fetch('/api/redaction/push/vapid-key');
-        if (!keyRes.ok || cancelled) return;
-        const { publicKey } = (await keyRes.json()) as { publicKey?: string };
-        if (!publicKey) return;
-
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-          });
-        }
-
-        const json = subscription.toJSON();
-        if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) return;
+        const fcmToken = await requestFcmToken(registration);
+        if (!fcmToken || cancelled) return;
 
         await fetch('/api/redaction/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subscription: {
-              endpoint: json.endpoint,
-              keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
-            },
-          }),
+          body: JSON.stringify({ fcmToken }),
         });
       } catch {
         // Push optionnel — échec silencieux

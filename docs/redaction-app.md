@@ -18,8 +18,9 @@ Dans `apps/web/.env.local` (production) :
 STRAPI_API_TOKEN=votre-token-full-access
 STRAPI_URL=https://cms.app.wab-infos.com
 REVALIDATION_SECRET=...
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
-VAPID_PRIVATE_KEY=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+NEXT_PUBLIC_FIREBASE_VAPID_KEY=...
+FIREBASE_SERVICE_ACCOUNT_JSON=...
 ```
 
 Le token doit permettre : articles (CRUD), auteurs, catégories, commentaires, abonnements push, upload.
@@ -121,20 +122,28 @@ Côté CMS (`apps/cms/.env`) : `SOCIAL_SEND_ON_PUBLISH=true` et `NEXT_PUBLIC_SIT
 
 Chaque plateforme enregistre `facebookPostedAt` / `xPostedAt` sur l’article pour éviter les doublons.
 
-## Notifications push (VAPID)
+## Notifications push (Firebase Cloud Messaging)
 
-Générer une paire de clés :
+1. Créer un projet sur [Firebase Console](https://console.firebase.google.com/)
+2. Ajouter une app Web, activer **Cloud Messaging**, copier la config et la clé Web Push (VAPID)
+3. Générer un compte de service (JSON) pour `firebase-admin`
 
-```bash
-npx web-push generate-vapid-keys
-```
-
-Copier dans `apps/web/.env` :
+Copier dans `apps/web/.env.local` :
 
 ```env
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
-VAPID_PRIVATE_KEY=...
-VAPID_SUBJECT=mailto:redaction@wab-infos.com
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+NEXT_PUBLIC_FIREBASE_VAPID_KEY=...
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+```
+
+Puis générer la config du service worker :
+
+```bash
+npm run pwa:fcm --workspace=apps/web
 ```
 
 `REVALIDATION_SECRET` doit être identique côté CMS (`apps/cms/.env`) pour que Strapi déclenche `/api/redaction/push/notify` à la création d’un commentaire.

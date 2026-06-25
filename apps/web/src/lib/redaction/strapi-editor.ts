@@ -3,7 +3,7 @@ import qs from 'qs';
 import { getStrapiUrl, REDACTION_COOKIE } from '@/lib/redaction/config';
 import type {
   ArticleEditorPayload,
-  PushSubscriptionPayload,
+  FcmSubscriptionPayload,
   RedactionArticle,
   RedactionAuthor,
   RedactionCategory,
@@ -664,4 +664,4 @@ export async function createPublicComment(payload: {
   return mapComment(response.data);
 }
 
-export type { PushSubscriptionPayload };
+export type { FcmSubscriptionPayload };

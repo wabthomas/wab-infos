@@ -15,7 +15,7 @@ function errorMessage(reason?: string, serverMessage?: string): string {
   }
   if (
     serverMessage?.includes('unique') &&
-    (serverMessage?.includes('endpoint') || serverMessage?.includes('endpointKey'))
+    (serverMessage?.includes('fcmToken') || serverMessage?.includes('fcmtoken'))
   ) {
     return 'Cet appareil est déjà abonné aux alertes.';
   }
@@ -25,12 +25,12 @@ function errorMessage(reason?: string, serverMessage?: string): string {
   if (serverMessage) return serverMessage;
 
   switch (reason) {
-    case 'vapid_missing':
+    case 'firebase_missing':
       return 'Les alertes ne sont pas encore configurées sur le serveur.';
     case 'sw_unavailable':
       return 'Service worker indisponible. Rechargez la page et réessayez.';
-    case 'invalid_subscription':
-      return 'Abonnement navigateur invalide. Réessayez ou videz le cache du site.';
+    case 'invalid_token':
+      return 'Token de notification invalide. Réessayez ou videz le cache du site.';
     default:
       return 'Impossible d\'activer les alertes. Réessayez plus tard.';
   }
@@ -50,7 +50,7 @@ export function PushAlertsSignup({ className, variant = 'default' }: PushAlertsS
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) {
       setStatus('unsupported');
       return;
     }

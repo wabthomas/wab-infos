@@ -69,24 +69,9 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-self.addEventListener('push', (event) => {
-  let data = { title: 'Wab-infos', body: '', url: '/' };
-  try {
-    data = { ...data, ...event.data?.json() };
-  } catch {
-    data.body = event.data?.text() ?? '';
-  }
-
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      data: { url: data.url },
-      tag: 'wab-article-notification',
-    })
-  );
-});
+self.FCM_NOTIFICATION_TAG = 'wab-article-notification';
+self.FCM_DEFAULT_URL = '/';
+importScripts('/fcm-background.js');
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

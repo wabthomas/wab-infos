@@ -14,18 +14,15 @@
       "type": "email",
       "required": true
     },
-    "endpoint": {
+    "fcmToken": {
       "type": "text",
       "required": true,
       "unique": true
     },
-    "p256dh": {
+    "fcmTokenKey": {
       "type": "string",
-      "required": true
-    },
-    "auth": {
-      "type": "string",
-      "required": true
+      "unique": true,
+      "maxLength": 64
     }
   }
 }

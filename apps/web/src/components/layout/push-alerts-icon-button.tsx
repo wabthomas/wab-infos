@@ -24,7 +24,6 @@ export function PushAlertsIconButton({
     if (
       typeof window === 'undefined' ||
       !('serviceWorker' in navigator) ||
-      !('PushManager' in window) ||
       !('Notification' in window)
     ) {
       setState('unsupported');

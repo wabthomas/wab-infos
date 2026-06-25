@@ -1,32 +1,19 @@
-import webpush from 'web-push';
 import qs from 'qs';
 import { getStrapiUrl } from '@/lib/redaction/config';
-import type { PushSubscriptionPayload } from '@/lib/redaction/types';
+import { fcmTokenKey } from '@/lib/push/fcm-token-key';
+import {
+  ensureFirebaseAdmin,
+  isInvalidFcmTokenError,
+  sendFcmToToken,
+} from '@/lib/firebase/admin';
+import { isFirebaseConfigured } from '@/lib/firebase/config';
 
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
 
-function vapidSubject(): string {
-  const site = process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, '') ?? 'wab-infos.com';
-  return process.env.VAPID_SUBJECT || `mailto:contact@${site}`;
-}
-
-export function getVapidPublicKey(): string | null {
-  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || null;
-}
-
-export function ensureWebPushConfigured(): boolean {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!publicKey || !privateKey) return false;
-  webpush.setVapidDetails(vapidSubject(), publicKey, privateKey);
-  return true;
-}
-
 interface StoredSubscription {
   documentId: string;
-  endpoint: string;
-  p256dh: string;
-  auth: string;
+  fcmToken: string;
+  fcmTokenKey?: string;
 }
 
 async function strapiAdminFetch<T>(
@@ -54,21 +41,22 @@ async function strapiAdminFetch<T>(
 
 export async function savePushSubscription(
   userEmail: string,
-  subscription: PushSubscriptionPayload
+  fcmToken: string
 ): Promise<void> {
+  const tokenKey = fcmTokenKey(fcmToken);
+
   const existing = await strapiAdminFetch<{ data: StoredSubscription[] }>(
     '/editor-push-subscriptions',
     {
-      filters: { endpoint: { $eq: subscription.endpoint } },
+      filters: { fcmTokenKey: { $eq: tokenKey } },
       pagination: { pageSize: 1 },
     }
   );
 
   const data = {
     userEmail: userEmail.toLowerCase(),
-    endpoint: subscription.endpoint,
-    p256dh: subscription.keys.p256dh,
-    auth: subscription.keys.auth,
+    fcmToken,
+    fcmTokenKey: tokenKey,
   };
 
   if (existing.data[0]) {
@@ -104,39 +92,27 @@ export async function notifyAllEditors(payload: {
   body: string;
   url: string;
 }): Promise<{ sent: number; failed: number }> {
-  if (!ensureWebPushConfigured()) {
+  if (!isFirebaseConfigured() || !ensureFirebaseAdmin()) {
     return { sent: 0, failed: 0 };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   const subscriptions = await listPushSubscriptions();
   let sent = 0;
   let failed = 0;
 
-  const pushPayload = JSON.stringify({
-    title: payload.title,
-    body: payload.body,
-    url: payload.url.startsWith('http') ? payload.url : `${siteUrl}${payload.url}`,
-  });
-
   await Promise.all(
     subscriptions.map(async (sub) => {
+      if (!sub.fcmToken) {
+        failed++;
+        return;
+      }
+
       try {
-        await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
-          pushPayload
-        );
+        await sendFcmToToken(sub.fcmToken, payload);
         sent++;
       } catch (err: unknown) {
         failed++;
-        const statusCode =
-          err && typeof err === 'object' && 'statusCode' in err
-            ? (err as { statusCode?: number }).statusCode
-            : undefined;
-        if (statusCode === 404 || statusCode === 410) {
+        if (isInvalidFcmTokenError(err)) {
           await deletePushSubscription(sub.documentId).catch(() => undefined);
         }
       }

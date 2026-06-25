@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server';
 import { RedactionAuthError, requireRedactionUser } from '@/lib/redaction/strapi-editor';
-import type { PushSubscriptionPayload } from '@/lib/redaction/types';
 import { savePushSubscription } from '@/lib/redaction/web-push';
 
 export async function POST(request: Request) {
   try {
     const user = await requireRedactionUser();
-    const body = (await request.json()) as { subscription?: PushSubscriptionPayload };
+    const body = (await request.json()) as { fcmToken?: string };
 
-    if (!body.subscription?.endpoint || !body.subscription.keys) {
-      return NextResponse.json({ error: 'Abonnement invalide' }, { status: 400 });
+    const fcmToken = body.fcmToken?.trim();
+    if (!fcmToken || fcmToken.length < 20) {
+      return NextResponse.json({ error: 'Token FCM invalide' }, { status: 400 });
     }
 
-    await savePushSubscription(user.email, body.subscription);
+    await savePushSubscription(user.email, fcmToken);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof RedactionAuthError) {

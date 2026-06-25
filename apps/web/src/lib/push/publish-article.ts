@@ -4,7 +4,7 @@ import { pushConfig } from '@/lib/push/config';
 import { sendPushToReaders } from '@/lib/push/send';
 import { listReaderPushSubscriptions } from '@/lib/push/subscriptions';
 import { strapiAdminFetch } from '@/lib/push/strapi-admin';
-import { ensureWebPushConfigured } from '@/lib/push/vapid';
+import { isFirebaseConfigured } from '@/lib/firebase/config';
 
 export interface PublishArticlePushResult {
   ok: boolean;
@@ -110,8 +110,8 @@ export async function publishArticlePush(slug: string): Promise<PublishArticlePu
     return { ok: true, skipped: true, reason: 'no_subscribers' };
   }
 
-  if (!ensureWebPushConfigured()) {
-    return { ok: false, skipped: true, reason: 'vapid_not_configured' };
+  if (!isFirebaseConfigured()) {
+    return { ok: false, skipped: true, reason: 'firebase_not_configured' };
   }
 
   const { sent, failed } = await sendPushToReaders({

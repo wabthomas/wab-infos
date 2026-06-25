@@ -52,8 +52,13 @@ const checks = [
   { label: 'NEWSLETTER_ENABLED', ok: env.NEWSLETTER_ENABLED === 'true', required: true },
   { label: 'NEWSLETTER_SEND_ON_PUBLISH (web)', ok: env.NEWSLETTER_SEND_ON_PUBLISH === 'true', required: false },
   { label: 'SMTP (host, user, pass)', ok: isSmtpConfigured(), required: true },
-  { label: 'NEXT_PUBLIC_VAPID_PUBLIC_KEY', ok: isSet('NEXT_PUBLIC_VAPID_PUBLIC_KEY'), required: true },
-  { label: 'VAPID_PRIVATE_KEY', ok: isSet('VAPID_PRIVATE_KEY'), required: true },
+  { label: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID', ok: isSet('NEXT_PUBLIC_FIREBASE_PROJECT_ID'), required: true },
+  { label: 'NEXT_PUBLIC_FIREBASE_VAPID_KEY', ok: isSet('NEXT_PUBLIC_FIREBASE_VAPID_KEY'), required: true },
+  {
+    label: 'FIREBASE_SERVICE_ACCOUNT',
+    ok: isSet('FIREBASE_SERVICE_ACCOUNT_JSON') || (isSet('FIREBASE_PROJECT_ID') && isSet('FIREBASE_CLIENT_EMAIL') && isSet('FIREBASE_PRIVATE_KEY')),
+    required: true,
+  },
   { label: 'PUSH_SEND_ON_PUBLISH (web)', ok: env.PUSH_SEND_ON_PUBLISH === 'true', required: false },
 ];
 
@@ -108,8 +113,9 @@ console.log('');
 
 if (hasError) {
   console.log('⚠️  Configuration incomplète — newsletter / alertes push ne fonctionneront pas en prod.\n');
-  console.log('   VAPID : npx web-push generate-vapid-keys');
-  console.log('   SMTP  : renseigner SMTP_PASS (boîte newsletter@wab-infos.com)\n');
+  console.log('   Firebase : console.firebase.google.com → Paramètres projet → Cloud Messaging');
+  console.log('   Puis    : npm run pwa:fcm (génère firebase-messaging-config.js pour le SW)');
+  console.log('   SMTP    : renseigner SMTP_PASS (boîte newsletter@wab-infos.com)\n');
   process.exit(1);
 }
 

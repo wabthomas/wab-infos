@@ -1,17 +1,11 @@
-import { pushEndpointKey, isDuplicatePushEndpointError } from '@/lib/push/endpoint-key';
+import { fcmTokenKey, isDuplicateFcmTokenError } from '@/lib/push/fcm-token-key';
 import { strapiAdminFetch } from '@/lib/push/strapi-admin';
-
-export interface PushSubscriptionKeys {
-  endpoint: string;
-  keys: { p256dh: string; auth: string };
-}
 
 interface StoredReaderSubscription {
   documentId: string;
-  endpoint: string;
-  endpointKey?: string;
-  p256dh: string;
-  auth: string;
+  fcmToken: string;
+  fcmTokenKey?: string;
+  userAgent?: string;
 }
 
 interface ReaderSubscriptionListResponse {
@@ -19,15 +13,15 @@ interface ReaderSubscriptionListResponse {
   meta?: { pagination?: { pageCount?: number } };
 }
 
-async function findReaderSubscriptionByEndpoint(
-  endpoint: string
+async function findReaderSubscriptionByToken(
+  fcmToken: string
 ): Promise<StoredReaderSubscription | null> {
-  const endpointKey = pushEndpointKey(endpoint);
+  const tokenKey = fcmTokenKey(fcmToken);
 
   const byKey = await strapiAdminFetch<ReaderSubscriptionListResponse>(
     '/reader-push-subscriptions',
     {
-      filters: { endpointKey: { $eq: endpointKey } },
+      filters: { fcmTokenKey: { $eq: tokenKey } },
       pagination: { pageSize: 1 },
     }
   );
@@ -42,7 +36,7 @@ async function findReaderSubscriptionByEndpoint(
       { pagination: { page, pageSize } }
     );
 
-    const match = batch.data.find((row) => row.endpoint === endpoint);
+    const match = batch.data.find((row) => row.fcmToken === fcmToken);
     if (match) return match;
 
     const pageCount = batch.meta?.pagination?.pageCount ?? 1;
@@ -64,18 +58,16 @@ async function updateReaderSubscription(
 }
 
 export async function saveReaderPushSubscription(
-  subscription: PushSubscriptionKeys,
+  fcmToken: string,
   userAgent?: string
 ): Promise<void> {
   const data = {
-    endpoint: subscription.endpoint,
-    endpointKey: pushEndpointKey(subscription.endpoint),
-    p256dh: subscription.keys.p256dh,
-    auth: subscription.keys.auth,
+    fcmToken,
+    fcmTokenKey: fcmTokenKey(fcmToken),
     userAgent: userAgent?.slice(0, 500),
   };
 
-  const existing = await findReaderSubscriptionByEndpoint(subscription.endpoint);
+  const existing = await findReaderSubscriptionByToken(fcmToken);
   if (existing) {
     await updateReaderSubscription(existing.documentId, data);
     return;
@@ -87,9 +79,9 @@ export async function saveReaderPushSubscription(
       body: JSON.stringify({ data }),
     });
   } catch (error) {
-    if (!isDuplicatePushEndpointError(error)) throw error;
+    if (!isDuplicateFcmTokenError(error)) throw error;
 
-    const duplicate = await findReaderSubscriptionByEndpoint(subscription.endpoint);
+    const duplicate = await findReaderSubscriptionByToken(fcmToken);
     if (!duplicate) throw error;
 
     await updateReaderSubscription(duplicate.documentId, data);

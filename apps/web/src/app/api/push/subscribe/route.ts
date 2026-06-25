@@ -1,22 +1,17 @@
 import { NextResponse } from 'next/server';
 import { saveReaderPushSubscription } from '@/lib/push/subscriptions';
-import type { PushSubscriptionKeys } from '@/lib/push/subscriptions';
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { subscription?: PushSubscriptionKeys };
-    const subscription = body.subscription;
+    const body = (await request.json()) as { fcmToken?: string };
+    const fcmToken = body.fcmToken?.trim();
 
-    if (!subscription?.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
-      return NextResponse.json({ error: 'Abonnement invalide' }, { status: 400 });
-    }
-
-    if (!subscription.endpoint.startsWith('https://')) {
-      return NextResponse.json({ error: 'Endpoint invalide' }, { status: 400 });
+    if (!fcmToken || fcmToken.length < 20) {
+      return NextResponse.json({ error: 'Token FCM invalide' }, { status: 400 });
     }
 
     const userAgent = request.headers.get('user-agent') ?? undefined;
-    await saveReaderPushSubscription(subscription, userAgent);
+    await saveReaderPushSubscription(fcmToken, userAgent);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

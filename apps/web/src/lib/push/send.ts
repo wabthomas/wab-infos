@@ -1,16 +1,18 @@
 import { deleteReaderPushSubscription, listReaderPushSubscriptions } from '@/lib/push/subscriptions';
-import { ensureWebPushConfigured, webpush } from '@/lib/push/vapid';
+import {
+  ensureFirebaseAdmin,
+  isInvalidFcmTokenError,
+  sendFcmToToken,
+  type FcmNotificationPayload,
+} from '@/lib/firebase/admin';
+import { isFirebaseConfigured } from '@/lib/firebase/config';
 
-export interface PushNotificationPayload {
-  title: string;
-  body: string;
-  url: string;
-}
+export type PushNotificationPayload = FcmNotificationPayload;
 
 export async function sendPushToReaders(
   payload: PushNotificationPayload
 ): Promise<{ sent: number; failed: number }> {
-  if (!ensureWebPushConfigured()) {
+  if (!isFirebaseConfigured() || !ensureFirebaseAdmin()) {
     return { sent: 0, failed: 0 };
   }
 
@@ -19,34 +21,22 @@ export async function sendPushToReaders(
     return { sent: 0, failed: 0 };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const pushPayload = JSON.stringify({
-    title: payload.title,
-    body: payload.body,
-    url: payload.url.startsWith('http') ? payload.url : `${siteUrl}${payload.url}`,
-  });
-
   let sent = 0;
   let failed = 0;
 
   await Promise.all(
     subscriptions.map(async (sub) => {
+      if (!sub.fcmToken) {
+        failed++;
+        return;
+      }
+
       try {
-        await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
-          },
-          pushPayload
-        );
+        await sendFcmToToken(sub.fcmToken, payload);
         sent++;
       } catch (err: unknown) {
         failed++;
-        const statusCode =
-          err && typeof err === 'object' && 'statusCode' in err
-            ? (err as { statusCode?: number }).statusCode
-            : undefined;
-        if (statusCode === 404 || statusCode === 410) {
+        if (isInvalidFcmTokenError(err)) {
           await deleteReaderPushSubscription(sub.documentId).catch(() => undefined);
         }
       }

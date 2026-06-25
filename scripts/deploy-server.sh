@@ -37,11 +37,11 @@ fi
 # Sync frontend env from root .env
 if [ ! -f "$APP_DIR/apps/web/.env.local" ]; then
   echo "→ Création apps/web/.env.local depuis .env"
-  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|VAPID_|PUSH_|GOOGLE_)' "$APP_DIR/.env" > "$APP_DIR/apps/web/.env.local" || true
+  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|FIREBASE_|PUSH_|GOOGLE_)' "$APP_DIR/.env" > "$APP_DIR/apps/web/.env.local" || true
 else
   echo "→ Mise à jour apps/web/.env.local (variables clés depuis .env)"
   TMP_ENV=$(mktemp)
-  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|VAPID_|PUSH_|GOOGLE_)' "$APP_DIR/.env" > "$TMP_ENV" || true
+  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|FIREBASE_|PUSH_|GOOGLE_)' "$APP_DIR/.env" > "$TMP_ENV" || true
   if [ -s "$TMP_ENV" ]; then
     while IFS= read -r line; do
       key="${line%%=*}"
@@ -71,6 +71,9 @@ rm -rf apps/web/node_modules apps/web/.next
 # NODE_ENV=production (souvent défini sur mutualisé) omet les devDependencies — inutile pour
 # typescript (skip en low-mem) mais compile-css exige tailwind/postcss (désormais en dependencies).
 npm install --workspace=apps/web --include=optional --include=dev
+
+echo "→ Config Firebase service worker (public/firebase-messaging-config.js)"
+npm run pwa:fcm --workspace=apps/web || true
 
 echo "→ Lien Strapi monorepo"
 node scripts/setup-strapi-link.js
