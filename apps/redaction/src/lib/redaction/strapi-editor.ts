@@ -659,9 +659,7 @@ export async function publishDueScheduledArticles(): Promise<{
   return { published: documentIds.length, documentIds };
 }
 
-export async function getEditorStats(user: RedactionUser): Promise<RedactionStats> {
-  const articles = await listEditorArticles(user, 'all');
-
+export function computeEditorStats(articles: RedactionArticle[]): RedactionStats {
   return {
     totalArticles: articles.length,
     publishedCount: articles.filter((a) => isLiveRedactionArticle(a)).length,
@@ -670,6 +668,11 @@ export async function getEditorStats(user: RedactionUser): Promise<RedactionStat
     totalViews: articles.reduce((sum, a) => sum + (a.viewCount ?? 0), 0),
     breakingCount: articles.filter((a) => a.isBreaking && isLiveRedactionArticle(a)).length,
   };
+}
+
+export async function getEditorStats(user: RedactionUser): Promise<RedactionStats> {
+  const articles = await listEditorArticles(user, 'all');
+  return computeEditorStats(articles);
 }
 
 export async function listEditorCategories(): Promise<RedactionCategory[]> {

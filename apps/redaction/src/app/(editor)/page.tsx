@@ -1,18 +1,17 @@
 import Link from 'next/link';
 import { PenLine, FileText, Eye, Zap, CalendarClock } from 'lucide-react';
-import { getEditorProfile, getEditorStats, listEditorArticles, requireRedactionUser } from '@/lib/redaction/strapi-editor';
+import { getEditorProfile, computeEditorStats, listEditorArticles, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 import { getRedactionArticleStatusLabel } from '@/lib/redaction/status-label';
 import { formatArticleDate, getArticleDisplayDate, cn } from '@/lib/utils';
 
 export default async function RedactionDashboardPage() {
   const user = await requireRedactionUser();
-  const [{ author }, stats, recent] = await Promise.all([
+  const [{ author }, articles] = await Promise.all([
     getEditorProfile(user),
-    getEditorStats(user),
     listEditorArticles(user, 'all'),
   ]);
-
-  const latest = recent.slice(0, 5);
+  const stats = computeEditorStats(articles);
+  const latest = articles.slice(0, 5);
 
   return (
     <div className="space-y-6">

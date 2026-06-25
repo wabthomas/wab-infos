@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import {
   Eye,
+  FileText,
   Globe,
   Heart,
   Loader2,
@@ -139,10 +140,10 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
   }, [tab, tabs]);
 
   const trafficChart =
-    data?.traffic.map((p) => ({
+    data?.traffic.map((p, index) => ({
       label: formatStatsDate(p.date),
-      vues: p.value,
-      visiteurs: Math.round(p.value * 0.72),
+      publications: p.value,
+      commentaires: data.trends.comments[index]?.value ?? 0,
     })) ?? [];
 
   return (
@@ -237,13 +238,23 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
       ) : data ? (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <KpiCard icon={Eye} label="Vues" value={formatNumber(data.summary.views)} />
-            <KpiCard icon={Users} label="Visiteurs" value={formatNumber(data.summary.visitors)} />
+            <KpiCard
+              icon={Eye}
+              label="Vues cumulées"
+              value={formatNumber(data.summary.views)}
+              hint="Total Strapi (tous articles publiés)"
+            />
             <KpiCard
               icon={MessageSquare}
               label="Commentaires"
               value={formatNumber(data.summary.comments)}
-              hint={`${data.summary.pendingComments} en attente`}
+              hint={`${data.summary.pendingComments} en attente · période ${days} j`}
+            />
+            <KpiCard
+              icon={TrendingUp}
+              label="Publiés"
+              value={formatNumber(data.summary.published)}
+              hint={`${data.summary.publishedTotal} au total`}
             />
             {isSiteScope ? (
               <KpiCard
@@ -254,45 +265,46 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
               />
             ) : (
               <KpiCard
-                icon={TrendingUp}
-                label="Publiés"
-                value={formatNumber(data.summary.published)}
+                icon={FileText}
+                label="Mes articles"
+                value={formatNumber(data.summary.articles)}
+                hint="Tous statuts confondus"
               />
             )}
           </div>
 
-          {data.dataSources.viewsEstimated && (
+          {data.dataSources.geoEstimated && (
             <p className="text-[11px] text-muted-foreground">
-              Les vues journalières sont estimées à partir des compteurs cumulés Strapi. Connectez
-              GA4 pour des données temps réel.
+              L&apos;onglet Pays reste une estimation indicative. Les vues et publications viennent
+              directement de Strapi.
             </p>
           )}
 
           {tab === 'traffic' && (
             <div className="space-y-4">
-              <ChartCard title="Vues et visiteurs">
+              <ChartCard title="Publications et commentaires">
                 <div className="h-56 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trafficChart}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                      <YAxis tick={{ fontSize: 10 }} width={36} />
+                      <YAxis tick={{ fontSize: 10 }} width={36} allowDecimals={false} />
                       <Tooltip />
                       <Line
                         type="monotone"
-                        dataKey="vues"
+                        dataKey="publications"
                         stroke="hsl(var(--primary))"
                         strokeWidth={2}
                         dot={false}
-                        name="Vues"
+                        name="Publications"
                       />
                       <Line
                         type="monotone"
-                        dataKey="visiteurs"
-                        stroke="#64748b"
+                        dataKey="commentaires"
+                        stroke="#7c3aed"
                         strokeWidth={2}
                         dot={false}
-                        name="Visiteurs"
+                        name="Commentaires"
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -365,20 +377,18 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
               <div className="grid grid-cols-3 gap-2">
                 <KpiCard
                   icon={Heart}
-                  label="Publiés"
+                  label="Publiés (période)"
                   value={formatNumber(data.summary.published)}
                 />
                 <KpiCard
                   icon={TrendingUp}
-                  label="Total articles"
-                  value={formatNumber(data.summary.articles)}
+                  label="Publiés (total)"
+                  value={formatNumber(data.summary.publishedTotal)}
                 />
                 <KpiCard
                   icon={Eye}
-                  label="Vues totales"
-                  value={formatNumber(
-                    data.topArticles.reduce((s, a) => s + a.views, 0)
-                  )}
+                  label="Vues cumulées"
+                  value={formatNumber(data.summary.views)}
                 />
               </div>
             </div>
@@ -508,20 +518,20 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
                   connectez GA4 (GA_PROPERTY_ID).
                 </p>
               )}
-              <ChartCard title="Visiteurs par pays">
+              <ChartCard title="Répartition estimée des lectures par pays">
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={data.countries.map((c) => ({
                         name: c.name.length > 14 ? `${c.name.slice(0, 14)}…` : c.name,
-                        visiteurs: c.value,
+                        lectures: c.value,
                       }))}
                     >
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={56} />
                       <YAxis tick={{ fontSize: 10 }} width={36} />
                       <Tooltip />
-                      <Bar dataKey="visiteurs" fill="#0891b2" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="lectures" fill="#0891b2" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

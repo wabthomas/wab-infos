@@ -21,9 +21,13 @@ export interface AdminAnalyticsNamedValue {
 
 export interface AdminAnalyticsSummary {
   views: number;
+  /** Réservé — non utilisé (pas de données visiteurs sans GA4) */
   visitors: number;
   articles: number;
+  /** Articles publiés dans la période sélectionnée */
   published: number;
+  /** Total articles publiés (toutes périodes) */
+  publishedTotal: number;
   comments: number;
   subscribers: number;
   pushSubscribers: number;
