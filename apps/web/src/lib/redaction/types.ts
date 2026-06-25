@@ -23,6 +23,9 @@ export interface RedactionArticle {
   slug: string;
   excerpt: string;
   content: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  canonicalUrl?: string;
   status: 'draft' | 'published' | 'scheduled' | 'archived';
   isBreaking: boolean;
   isFeatured: boolean;
@@ -33,7 +36,9 @@ export interface RedactionArticle {
   scheduledAt?: string;
   updatedAt: string;
   category?: RedactionCategory;
-  featuredImage?: { id: number; url: string };
+  secondaryCategories?: RedactionCategory[];
+  tagNames?: string[];
+  featuredImage?: { id: number; url: string; alternativeText?: string };
 }
 
 export interface RedactionStats {
@@ -64,7 +69,11 @@ export interface ArticleEditorPayload {
   title: string;
   excerpt: string;
   content: string;
-  categoryDocumentId: string;
+  categoryDocumentIds: string[];
+  tagNames?: string[];
+  seoTitle?: string;
+  seoDescription?: string;
+  canonicalUrl?: string;
   featuredImageId?: number | null;
   isBreaking?: boolean;
   publish?: boolean;
@@ -73,4 +82,16 @@ export interface ArticleEditorPayload {
 
 export interface FcmSubscriptionPayload {
   fcmToken: string;
+}
+
+export interface RedactionMediaItem {
+  id: number;
+  url: string;
+  name: string;
+  alternativeText?: string | null;
+  caption?: string | null;
+  width?: number;
+  height?: number;
+  mime: string;
+  createdAt?: string;
 }

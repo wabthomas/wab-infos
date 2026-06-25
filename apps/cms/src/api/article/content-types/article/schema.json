@@ -49,6 +49,12 @@
       "target": "api::category.category",
       "inversedBy": "articles"
     },
+    "secondaryCategories": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::category.category",
+      "inversedBy": "secondaryArticles"
+    },
     "tags": {
       "type": "relation",
       "relation": "manyToMany",

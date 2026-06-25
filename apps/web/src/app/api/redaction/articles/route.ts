@@ -30,8 +30,8 @@ export async function POST(request: Request) {
     if (!body.title?.trim() || !body.excerpt?.trim() || !body.content?.trim()) {
       return NextResponse.json({ error: 'Titre, chapô et contenu requis' }, { status: 400 });
     }
-    if (!body.categoryDocumentId) {
-      return NextResponse.json({ error: 'Rubrique requise' }, { status: 400 });
+    if (!body.categoryDocumentIds?.length) {
+      return NextResponse.json({ error: 'Au moins une rubrique est requise' }, { status: 400 });
     }
 
     const article = await createEditorArticle(user, body);

@@ -10,7 +10,9 @@ import {
   List,
   ListOrdered,
   Loader2,
+  Plus,
   Quote,
+  SeparatorHorizontal,
   Underline as UnderlineIcon,
   Video,
 } from 'lucide-react';
@@ -49,6 +51,7 @@ function Btn({
 export interface ArticleEditorToolbarProps {
   editor: Editor;
   uploading?: boolean;
+  onBlocksClick: () => void;
   onImageClick: () => void;
   onLinkClick: () => void;
   onEmbedClick: () => void;
@@ -58,6 +61,7 @@ export interface ArticleEditorToolbarProps {
 export function ArticleEditorToolbar({
   editor,
   uploading,
+  onBlocksClick,
   onImageClick,
   onLinkClick,
   onEmbedClick,
@@ -73,6 +77,18 @@ export function ArticleEditorToolbar({
       aria-label="Mise en forme"
     >
       <div className="flex items-center gap-0.5 overflow-x-auto px-2 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <Btn label="Plus de blocs" onClick={onBlocksClick}>
+          <Plus className="h-[18px] w-[18px]" strokeWidth={2.5} />
+        </Btn>
+        <Btn
+          label="Séparateur"
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        >
+          <SeparatorHorizontal className="h-[18px] w-[18px]" strokeWidth={2.5} />
+        </Btn>
+
+        <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden />
+
         <Btn
           label="Gras"
           active={editor.isActive('bold')}

@@ -20,9 +20,17 @@ export default async function RedactionEditArticlePage({ params }: PageProps) {
         title: article.title,
         excerpt: article.excerpt,
         content: article.content,
-        categoryDocumentId: article.category?.documentId ?? '',
+        categoryDocumentIds: [
+          article.category?.documentId,
+          ...(article.secondaryCategories?.map((item) => item.documentId) ?? []),
+        ].filter(Boolean) as string[],
+        tagNames: article.tagNames ?? [],
+        seoTitle: article.seoTitle,
+        seoDescription: article.seoDescription,
+        canonicalUrl: article.canonicalUrl,
         featuredImageId: article.featuredImage?.id,
         featuredImageUrl: article.featuredImage?.url,
+        featuredImageAlt: article.featuredImage?.alternativeText,
         isBreaking: article.isBreaking,
         scheduledAt: article.scheduledAt,
       }}

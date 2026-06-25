@@ -1,21 +1,38 @@
 'use client';
 
-import Image from 'next/image';
-import { CalendarClock, Camera, Loader2, X, Zap } from 'lucide-react';
+import { CalendarClock, Check, GripVertical, X, Zap } from 'lucide-react';
 import type { RedactionCategory } from '@/lib/redaction/types';
-import { cn, getStrapiMediaUrl } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { FeaturedImageField } from '@/components/redaction/featured-image-field';
 
 interface ArticleEditorSettingsSheetProps {
   open: boolean;
   onClose: () => void;
   categories: RedactionCategory[];
+  selectedCategoryIds: string[];
+  onToggleCategory: (id: string) => void;
   excerpt: string;
   onExcerptChange: (v: string) => void;
-  categoryDocumentId: string;
-  onCategoryChange: (id: string) => void;
+  tagNames: string[];
+  onTagNamesChange: (values: string[]) => void;
+  seoTitle: string;
+  onSeoTitleChange: (v: string) => void;
+  seoDescription: string;
+  onSeoDescriptionChange: (v: string) => void;
+  canonicalUrl: string;
+  onCanonicalUrlChange: (v: string) => void;
+  featuredImageId?: number | null;
   featuredImageUrl?: string;
-  onFeaturedImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  uploading: boolean;
+  featuredImageAlt?: string;
+  onOpenMediaLibrary: () => void;
+  onRemoveFeaturedImage: () => void;
+  onEditFeaturedAlt?: () => void;
+  savingFeaturedAlt?: boolean;
+  editingFeaturedAlt?: boolean;
+  featuredAltDraft?: string;
+  onFeaturedAltDraftChange?: (v: string) => void;
+  onSaveFeaturedAlt?: () => void;
+  onCancelFeaturedAlt?: () => void;
   isBreaking: boolean;
   onBreakingChange: (v: boolean) => void;
   scheduledAt: string;
@@ -23,17 +40,46 @@ interface ArticleEditorSettingsSheetProps {
   minScheduleDate: string;
 }
 
+function tagsToInput(tagNames: string[]): string {
+  return tagNames.join(', ');
+}
+
+function inputToTags(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
 export function ArticleEditorSettingsSheet({
   open,
   onClose,
   categories,
+  selectedCategoryIds,
+  onToggleCategory,
   excerpt,
   onExcerptChange,
-  categoryDocumentId,
-  onCategoryChange,
+  tagNames,
+  onTagNamesChange,
+  seoTitle,
+  onSeoTitleChange,
+  seoDescription,
+  onSeoDescriptionChange,
+  canonicalUrl,
+  onCanonicalUrlChange,
+  featuredImageId,
   featuredImageUrl,
-  onFeaturedImageChange,
-  uploading,
+  featuredImageAlt,
+  onOpenMediaLibrary,
+  onRemoveFeaturedImage,
+  onEditFeaturedAlt,
+  savingFeaturedAlt,
+  editingFeaturedAlt,
+  featuredAltDraft,
+  onFeaturedAltDraftChange,
+  onSaveFeaturedAlt,
+  onCancelFeaturedAlt,
   isBreaking,
   onBreakingChange,
   scheduledAt,
@@ -54,7 +100,7 @@ export function ArticleEditorSettingsSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="editor-settings-title"
-        className="relative max-h-[min(88dvh,640px)] overflow-y-auto rounded-t-2xl bg-background shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))]"
+        className="relative max-h-[min(92dvh,780px)] overflow-y-auto rounded-t-2xl bg-background shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))]"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
           <h2 id="editor-settings-title" className="font-display text-base font-bold">
@@ -70,27 +116,48 @@ export function ArticleEditorSettingsSheet({
           </button>
         </div>
 
-        <div className="space-y-5 px-4 py-4">
+        <div className="space-y-6 px-4 py-4">
           <section className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Rubrique
+              Rubriques
             </p>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((c) => (
-                <button
-                  key={c.documentId}
-                  type="button"
-                  onClick={() => onCategoryChange(c.documentId)}
-                  className={cn(
-                    'rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors',
-                    categoryDocumentId === c.documentId
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-card text-foreground hover:bg-muted'
-                  )}
-                >
-                  {c.name}
-                </button>
-              ))}
+            <p className="text-xs text-muted-foreground">
+              La première rubrique cochée devient la rubrique principale du site.
+            </p>
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              {categories.map((category) => {
+                const checked = selectedCategoryIds.includes(category.documentId);
+                const primary = selectedCategoryIds[0] === category.documentId;
+
+                return (
+                  <button
+                    key={category.documentId}
+                    type="button"
+                    onClick={() => onToggleCategory(category.documentId)}
+                    className="flex w-full items-center gap-3 border-b border-border px-3 py-3 text-left last:border-b-0 active:bg-muted/50"
+                  >
+                    <span
+                      className={cn(
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
+                        checked
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-background'
+                      )}
+                    >
+                      {checked && <Check className="h-3.5 w-3.5" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">{category.name}</span>
+                      {primary && (
+                        <span className="mt-0.5 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                          Principale
+                        </span>
+                      )}
+                    </span>
+                    <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                  </button>
+                );
+              })}
             </div>
           </section>
 
@@ -98,37 +165,20 @@ export function ArticleEditorSettingsSheet({
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Photo à la une
             </p>
-            <div className="relative overflow-hidden rounded-xl border border-dashed border-border bg-muted/30">
-              {featuredImageUrl ? (
-                <div className="relative aspect-[16/10] max-h-44">
-                  <Image
-                    src={getStrapiMediaUrl(featuredImageUrl) ?? featuredImageUrl}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-              ) : (
-                <div className="flex aspect-[16/10] max-h-36 flex-col items-center justify-center gap-1.5 text-muted-foreground">
-                  {uploading ? (
-                    <Loader2 className="h-7 w-7 animate-spin" />
-                  ) : (
-                    <Camera className="h-7 w-7" />
-                  )}
-                  <span className="text-sm">Ajouter une image</span>
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={onFeaturedImageChange}
-                className="absolute inset-0 cursor-pointer opacity-0"
-                disabled={uploading}
-                aria-label="Photo à la une"
-              />
-            </div>
+            <FeaturedImageField
+              imageId={featuredImageId}
+              imageUrl={featuredImageUrl}
+              alternativeText={featuredImageAlt}
+              onOpenLibrary={onOpenMediaLibrary}
+              onRemove={onRemoveFeaturedImage}
+              onEditAlt={onEditFeaturedAlt}
+              savingAlt={savingFeaturedAlt}
+              editingAlt={editingFeaturedAlt}
+              altDraft={featuredAltDraft}
+              onAltDraftChange={onFeaturedAltDraftChange}
+              onSaveAlt={onSaveFeaturedAlt}
+              onCancelAlt={onCancelFeaturedAlt}
+            />
           </section>
 
           <section className="space-y-2">
@@ -144,6 +194,65 @@ export function ArticleEditorSettingsSheet({
               placeholder="Résumé court pour le site et les réseaux"
             />
             <p className="text-right text-[11px] text-muted-foreground">{excerpt.length}/500</p>
+          </section>
+
+          <section className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Tags
+            </p>
+            <input
+              value={tagsToInput(tagNames)}
+              onChange={(e) => onTagNamesChange(inputToTags(e.target.value))}
+              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-base outline-none focus:border-primary"
+              placeholder="politique, kinshasa, économie"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Séparez les tags par des virgules.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              SEO
+            </p>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground">Titre SEO</span>
+              <input
+                value={seoTitle}
+                onChange={(e) => onSeoTitleChange(e.target.value)}
+                maxLength={70}
+                className="h-11 w-full rounded-xl border border-border bg-card px-3 text-base outline-none focus:border-primary"
+                placeholder="Par défaut : le titre de l’article"
+              />
+              <span className="block text-right text-[11px] text-muted-foreground">
+                {seoTitle.length}/70
+              </span>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground">Description SEO</span>
+              <textarea
+                value={seoDescription}
+                onChange={(e) => onSeoDescriptionChange(e.target.value)}
+                rows={3}
+                maxLength={160}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-base outline-none focus:border-primary"
+                placeholder="Par défaut : le chapô"
+              />
+              <span className="block text-right text-[11px] text-muted-foreground">
+                {seoDescription.length}/160
+              </span>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground">URL canonique</span>
+              <input
+                type="url"
+                inputMode="url"
+                value={canonicalUrl}
+                onChange={(e) => onCanonicalUrlChange(e.target.value)}
+                className="h-11 w-full rounded-xl border border-border bg-card px-3 text-base outline-none focus:border-primary"
+                placeholder="https://..."
+              />
+            </label>
           </section>
 
           <section className="space-y-3 border-t border-border pt-4">

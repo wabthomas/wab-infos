@@ -34,6 +34,12 @@
       "target": "api::article.article",
       "mappedBy": "category"
     },
+    "secondaryArticles": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::article.article",
+      "mappedBy": "secondaryCategories"
+    },
     "wpId": {
       "type": "integer",
       "unique": true

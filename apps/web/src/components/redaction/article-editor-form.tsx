@@ -8,18 +8,24 @@ import {
   MoreVertical,
   Settings2,
 } from 'lucide-react';
-import type { RedactionCategory } from '@/lib/redaction/types';
+import type { RedactionCategory, RedactionMediaItem } from '@/lib/redaction/types';
 import { formatArticleContent, getStrapiMediaUrl } from '@/lib/utils';
 import { ArticleRichEditor } from '@/components/redaction/article-rich-editor';
 import { ArticleEditorSettingsSheet } from '@/components/redaction/article-editor-settings-sheet';
+import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
 
 export interface ArticleEditorValues {
   title: string;
   excerpt: string;
   content: string;
-  categoryDocumentId: string;
+  categoryDocumentIds: string[];
+  tagNames: string[];
+  seoTitle: string;
+  seoDescription: string;
+  canonicalUrl: string;
   featuredImageId?: number | null;
   featuredImageUrl?: string;
+  featuredImageAlt?: string;
   isBreaking: boolean;
   scheduledAt?: string;
 }
@@ -50,53 +56,99 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     title: initial?.title ?? '',
     excerpt: initial?.excerpt ?? '',
     content: toEditorContent(initial?.content),
-    categoryDocumentId: initial?.categoryDocumentId ?? '',
+    categoryDocumentIds: initial?.categoryDocumentIds ?? [],
+    tagNames: initial?.tagNames ?? [],
+    seoTitle: initial?.seoTitle ?? '',
+    seoDescription: initial?.seoDescription ?? '',
+    canonicalUrl: initial?.canonicalUrl ?? '',
     featuredImageId: initial?.featuredImageId,
     featuredImageUrl: initial?.featuredImageUrl,
+    featuredImageAlt: initial?.featuredImageAlt ?? '',
     isBreaking: initial?.isBreaking ?? false,
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState<'draft' | 'publish' | 'schedule' | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [savingFeaturedAlt, setSavingFeaturedAlt] = useState(false);
   const [scheduledAt, setScheduledAt] = useState(toDatetimeLocal(initial?.scheduledAt));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+  const [editingFeaturedAlt, setEditingFeaturedAlt] = useState(false);
+  const [featuredAltDraft, setFeaturedAltDraft] = useState(initial?.featuredImageAlt ?? '');
 
   useEffect(() => {
     fetch('/api/redaction/categories')
       .then((r) => r.json())
       .then((d: { categories?: RedactionCategory[] }) => {
         setCategories(d.categories ?? []);
-        if (!values.categoryDocumentId && d.categories?.[0]) {
-          setValues((v) => ({ ...v, categoryDocumentId: d.categories![0].documentId }));
+        if (!values.categoryDocumentIds.length && d.categories?.[0]) {
+          setValues((v) => ({ ...v, categoryDocumentIds: [d.categories![0].documentId] }));
         }
       })
       .catch(() => setError('Impossible de charger les rubriques'));
-  }, [values.categoryDocumentId]);
+  }, [values.categoryDocumentIds.length]);
 
-  const categoryName =
-    categories.find((c) => c.documentId === values.categoryDocumentId)?.name ?? 'Rubrique';
+  const primaryCategoryId = values.categoryDocumentIds[0] ?? '';
+  const primaryCategoryName =
+    categories.find((c) => c.documentId === primaryCategoryId)?.name ?? 'Rubrique';
 
-  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
+  function toggleCategory(categoryId: string) {
+    setValues((current) => {
+      const exists = current.categoryDocumentIds.includes(categoryId);
+      if (exists) {
+        const next = current.categoryDocumentIds.filter((id) => id !== categoryId);
+        return {
+          ...current,
+          categoryDocumentIds: next.length ? next : [categoryId],
+        };
+      }
+      return {
+        ...current,
+        categoryDocumentIds: [...current.categoryDocumentIds, categoryId],
+      };
+    });
+  }
+
+  function selectFeaturedImage(media: RedactionMediaItem) {
+    setValues((v) => ({
+      ...v,
+      featuredImageId: media.id,
+      featuredImageUrl: media.url,
+      featuredImageAlt: media.alternativeText ?? '',
+    }));
+    setFeaturedAltDraft(media.alternativeText ?? '');
+    setEditingFeaturedAlt(false);
+  }
+
+  function removeFeaturedImage() {
+    setValues((v) => ({
+      ...v,
+      featuredImageId: null,
+      featuredImageUrl: undefined,
+      featuredImageAlt: '',
+    }));
+    setFeaturedAltDraft('');
+    setEditingFeaturedAlt(false);
+  }
+
+  async function saveFeaturedAlt() {
+    if (!values.featuredImageId) return;
+    setSavingFeaturedAlt(true);
     setError('');
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await fetch('/api/redaction/upload', { method: 'POST', body: form });
-      const data = (await res.json()) as { media?: { id: number; url: string }; error?: string };
-      if (!res.ok) throw new Error(data.error ?? 'Upload échoué');
-      setValues((v) => ({
-        ...v,
-        featuredImageId: data.media!.id,
-        featuredImageUrl: data.media!.url,
-      }));
+      const res = await fetch(`/api/redaction/media/${values.featuredImageId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alternativeText: featuredAltDraft.trim() }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Mise à jour impossible');
+      setValues((v) => ({ ...v, featuredImageAlt: featuredAltDraft.trim() }));
+      setEditingFeaturedAlt(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload échoué');
+      setError(err instanceof Error ? err.message : 'Erreur');
     } finally {
-      setUploading(false);
+      setSavingFeaturedAlt(false);
     }
   }
 
@@ -109,7 +161,11 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       title: values.title,
       excerpt: values.excerpt,
       content: values.content,
-      categoryDocumentId: values.categoryDocumentId,
+      categoryDocumentIds: values.categoryDocumentIds,
+      tagNames: values.tagNames,
+      seoTitle: values.seoTitle,
+      seoDescription: values.seoDescription,
+      canonicalUrl: values.canonicalUrl,
       featuredImageId: values.featuredImageId ?? null,
       isBreaking: values.isBreaking,
       publish: mode === 'publish',
@@ -158,7 +214,10 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             onClick={() => setSettingsOpen(true)}
             className="min-w-0 flex-1 truncate rounded-full bg-muted/80 px-3 py-1.5 text-left text-xs font-semibold text-muted-foreground active:bg-muted"
           >
-            {categoryName}
+            {primaryCategoryName}
+            {values.categoryDocumentIds.length > 1 && (
+              <span className="ml-1.5">+{values.categoryDocumentIds.length - 1}</span>
+            )}
             {values.isBreaking && (
               <span className="ml-1.5 text-red-600">· Flash</span>
             )}
@@ -242,16 +301,20 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             />
           </label>
 
-          {values.featuredImageUrl && (
-            <div className="relative mt-4 aspect-[16/10] overflow-hidden rounded-xl bg-muted">
+          {values.featuredImageUrl ? (
+            <button
+              type="button"
+              onClick={() => setMediaLibraryOpen(true)}
+              className="relative mt-4 block aspect-[16/10] w-full overflow-hidden rounded-xl bg-muted"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={getStrapiMediaUrl(values.featuredImageUrl) ?? values.featuredImageUrl}
-                alt=""
+                alt={values.featuredImageAlt ?? ''}
                 className="h-full w-full object-cover"
               />
-            </div>
-          )}
+            </button>
+          ) : null}
 
           <div className="mt-3">
             <ArticleRichEditor
@@ -266,18 +329,48 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         categories={categories}
+        selectedCategoryIds={values.categoryDocumentIds}
+        onToggleCategory={toggleCategory}
         excerpt={values.excerpt}
         onExcerptChange={(excerpt) => setValues((v) => ({ ...v, excerpt }))}
-        categoryDocumentId={values.categoryDocumentId}
-        onCategoryChange={(id) => setValues((v) => ({ ...v, categoryDocumentId: id }))}
+        tagNames={values.tagNames}
+        onTagNamesChange={(tagNames) => setValues((v) => ({ ...v, tagNames }))}
+        seoTitle={values.seoTitle}
+        onSeoTitleChange={(seoTitle) => setValues((v) => ({ ...v, seoTitle }))}
+        seoDescription={values.seoDescription}
+        onSeoDescriptionChange={(seoDescription) => setValues((v) => ({ ...v, seoDescription }))}
+        canonicalUrl={values.canonicalUrl}
+        onCanonicalUrlChange={(canonicalUrl) => setValues((v) => ({ ...v, canonicalUrl }))}
+        featuredImageId={values.featuredImageId}
         featuredImageUrl={values.featuredImageUrl}
-        onFeaturedImageChange={handleImageChange}
-        uploading={uploading}
+        featuredImageAlt={values.featuredImageAlt}
+        onOpenMediaLibrary={() => setMediaLibraryOpen(true)}
+        onRemoveFeaturedImage={removeFeaturedImage}
+        onEditFeaturedAlt={() => {
+          setFeaturedAltDraft(values.featuredImageAlt ?? '');
+          setEditingFeaturedAlt(true);
+        }}
+        savingFeaturedAlt={savingFeaturedAlt}
+        editingFeaturedAlt={editingFeaturedAlt}
+        featuredAltDraft={featuredAltDraft}
+        onFeaturedAltDraftChange={setFeaturedAltDraft}
+        onSaveFeaturedAlt={() => void saveFeaturedAlt()}
+        onCancelFeaturedAlt={() => {
+          setFeaturedAltDraft(values.featuredImageAlt ?? '');
+          setEditingFeaturedAlt(false);
+        }}
         isBreaking={values.isBreaking}
         onBreakingChange={(isBreaking) => setValues((v) => ({ ...v, isBreaking }))}
         scheduledAt={scheduledAt}
         onScheduledAtChange={setScheduledAt}
         minScheduleDate={toDatetimeLocal(new Date().toISOString())}
+      />
+
+      <MediaLibrarySheet
+        open={mediaLibraryOpen}
+        onClose={() => setMediaLibraryOpen(false)}
+        onSelect={selectFeaturedImage}
+        title="Photo à la une"
       />
     </div>
   );

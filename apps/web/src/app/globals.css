@@ -190,6 +190,12 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+.prose-article hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
 .prose-article blockquote {
   border-left: 4px solid var(--primary);
   padding: 0.5rem 0 0.5rem 1.25rem;
@@ -305,6 +311,12 @@ body {
   height: auto;
   border-radius: 0.5rem;
   margin: 1rem 0;
+}
+
+.redaction-editor-prose hr {
+  margin: 1.25rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
 }
 
 .redaction-editor-prose [data-youtube-video],

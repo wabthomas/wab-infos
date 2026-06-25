@@ -8,7 +8,7 @@ import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import Youtube from '@tiptap/extension-youtube';
-import { Loader2, X } from 'lucide-react';
+import { Braces, Heading2, ImageIcon, List, Loader2, Quote, SeparatorHorizontal, Video, X } from 'lucide-react';
 import { parseEmbedUrl } from '@/lib/redaction/embed-urls';
 import { SocialEmbed } from '@/lib/redaction/tiptap-social-embed';
 import { ArticleEditorToolbar } from '@/components/redaction/article-editor-toolbar';
@@ -20,6 +20,7 @@ interface ArticleRichEditorProps {
 }
 
 type SheetMode = 'link' | 'embed' | null;
+type BlockMode = 'closed' | 'blocks';
 
 export function ArticleRichEditor({
   value,
@@ -27,6 +28,7 @@ export function ArticleRichEditor({
   placeholder = 'Commencez à écrire…',
 }: ArticleRichEditorProps) {
   const [sheet, setSheet] = useState<SheetMode>(null);
+  const [blockSheet, setBlockSheet] = useState<BlockMode>('closed');
   const [inputValue, setInputValue] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -85,6 +87,10 @@ export function ArticleRichEditor({
     setSheet(null);
     setInputValue('');
     setError('');
+  }, []);
+
+  const closeBlockSheet = useCallback(() => {
+    setBlockSheet('closed');
   }, []);
 
   const applyLink = useCallback(() => {
@@ -161,7 +167,6 @@ export function ArticleRichEditor({
         ref={fileRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -231,18 +236,122 @@ export function ArticleRichEditor({
         </div>
       )}
 
+      {blockSheet === 'blocks' && (
+        <div className="fixed inset-x-0 bottom-[calc(3.9rem+env(safe-area-inset-bottom))] z-[65] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]">
+          <div className="mx-auto max-w-lg">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold">Ajouter un bloc</p>
+              <button
+                type="button"
+                onClick={closeBlockSheet}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+                aria-label="Fermer les blocs"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => {
+                  closeBlockSheet();
+                  fileRef.current?.click();
+                }}
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <ImageIcon className="mx-auto mb-1 h-5 w-5" />
+                Image
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().toggleHeading({ level: 2 }).run();
+                  closeBlockSheet();
+                }}
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <Heading2 className="mx-auto mb-1 h-5 w-5" />
+                Intertitre
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().toggleBlockquote().run();
+                  closeBlockSheet();
+                }}
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <Quote className="mx-auto mb-1 h-5 w-5" />
+                Citation
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().toggleBulletList().run();
+                  closeBlockSheet();
+                }}
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <List className="mx-auto mb-1 h-5 w-5" />
+                Liste
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().setHorizontalRule().run();
+                  closeBlockSheet();
+                }}
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <SeparatorHorizontal className="mx-auto mb-1 h-5 w-5" />
+                Séparateur
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInputValue('');
+                  setSheet('embed');
+                  closeBlockSheet();
+                }}
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <Video className="mx-auto mb-1 h-5 w-5" />
+                Vidéo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().insertContent('<p>[shortcode]</p>').run();
+                  closeBlockSheet();
+                }}
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <Braces className="mx-auto mb-1 h-5 w-5" />
+                Code court
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="fixed inset-x-0 bottom-0 z-50 pb-[max(0px,env(safe-area-inset-bottom))]">
         <div className="mx-auto max-w-lg">
           <ArticleEditorToolbar
             editor={editor}
             uploading={uploading}
+            onBlocksClick={() => {
+              closeSheet();
+              setBlockSheet((value) => (value === 'blocks' ? 'closed' : 'blocks'));
+            }}
             onImageClick={() => fileRef.current?.click()}
             onLinkClick={() => {
+              closeBlockSheet();
               const prev = editor.getAttributes('link').href as string | undefined;
               setInputValue(prev ?? '');
               setSheet('link');
             }}
             onEmbedClick={() => {
+              closeBlockSheet();
               setInputValue('');
               setSheet('embed');
             }}

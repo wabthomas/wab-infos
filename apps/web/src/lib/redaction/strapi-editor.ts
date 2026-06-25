@@ -8,6 +8,7 @@ import type {
   RedactionAuthor,
   RedactionCategory,
   RedactionComment,
+  RedactionMediaItem,
   RedactionStats,
   RedactionUser,
 } from '@/lib/redaction/types';
@@ -123,6 +124,8 @@ export class RedactionAuthError extends Error {
 
 function mapArticle(entity: StrapiEntity): RedactionArticle {
   const category = entity.category as StrapiEntity | null | undefined;
+  const secondaryCategories = (entity.secondaryCategories as StrapiEntity[] | null | undefined) ?? [];
+  const tags = (entity.tags as StrapiEntity[] | null | undefined) ?? [];
   const featuredImage = entity.featuredImage as StrapiEntity | null | undefined;
 
   return {
@@ -131,6 +134,9 @@ function mapArticle(entity: StrapiEntity): RedactionArticle {
     slug: entity.slug as string,
     excerpt: entity.excerpt as string,
     content: entity.content as string,
+    seoTitle: entity.seoTitle as string | undefined,
+    seoDescription: entity.seoDescription as string | undefined,
+    canonicalUrl: entity.canonicalUrl as string | undefined,
     status: entity.status as RedactionArticle['status'],
     isBreaking: (entity.isBreaking as boolean) ?? false,
     isFeatured: (entity.isFeatured as boolean) ?? false,
@@ -148,8 +154,19 @@ function mapArticle(entity: StrapiEntity): RedactionArticle {
           color: category.color as string | undefined,
         }
       : undefined,
+    secondaryCategories: secondaryCategories.map((item) => ({
+      documentId: item.documentId,
+      name: item.name as string,
+      slug: item.slug as string,
+      color: item.color as string | undefined,
+    })),
+    tagNames: tags.map((item) => item.name as string).filter(Boolean),
     featuredImage: featuredImage?.url
-      ? { id: featuredImage.id, url: featuredImage.url as string }
+      ? {
+          id: featuredImage.id,
+          url: featuredImage.url as string,
+          alternativeText: featuredImage.alternativeText as string | undefined,
+        }
       : undefined,
   };
 }
@@ -222,7 +239,7 @@ export async function listEditorArticles(
 
   const response = await strapiFetch<{ data: StrapiEntity[] }>('/articles', {
     filters,
-    populate: { category: true, featuredImage: true, author: true },
+    populate: { category: true, secondaryCategories: true, tags: true, featuredImage: true, author: true },
     sort: ['updatedAt:desc'],
     pagination: { pageSize: 100 },
     status: 'published',
@@ -231,7 +248,7 @@ export async function listEditorArticles(
   // Inclure aussi les brouillons (status=draft côté Strapi D&P)
   const drafts = await strapiFetch<{ data: StrapiEntity[] }>('/articles', {
     filters: { author: { documentId: { $eq: author.documentId } } },
-    populate: { category: true, featuredImage: true },
+    populate: { category: true, secondaryCategories: true, tags: true, featuredImage: true },
     sort: ['updatedAt:desc'],
     pagination: { pageSize: 100 },
     status: 'draft',
@@ -266,7 +283,7 @@ export async function getEditorArticle(
   for (const publicationStatus of ['published', 'draft'] as const) {
     try {
       const response = await strapiFetch<{ data: StrapiEntity }>(`/articles/${documentId}`, {
-        populate: { category: true, featuredImage: true, author: true },
+        populate: { category: true, secondaryCategories: true, tags: true, featuredImage: true, author: true },
         status: publicationStatus,
       });
 
@@ -350,8 +367,22 @@ async function findOrCreateTag(name: string): Promise<string | null> {
   }
 }
 
-async function syncArticleTags(title: string, excerpt?: string): Promise<string[]> {
-  const candidates = extractTagCandidates(title, excerpt);
+async function syncArticleTags(options: {
+  title: string;
+  excerpt?: string;
+  tagNames?: string[];
+}): Promise<string[]> {
+  if (options.tagNames) {
+    const normalized = options.tagNames.map((name) => name.trim()).filter(Boolean).slice(0, 12);
+    const tagIds: string[] = [];
+    for (const name of normalized) {
+      const id = await findOrCreateTag(name);
+      if (id) tagIds.push(id);
+    }
+    return tagIds;
+  }
+
+  const candidates = extractTagCandidates(options.title, options.excerpt);
   const tagIds: string[] = [];
   for (const name of candidates) {
     const id = await findOrCreateTag(name);
@@ -413,23 +444,42 @@ function buildArticleData(
 
   if (slug) data.slug = slug;
   if (payload.title !== undefined) {
-    data.title = payload.title.trim();
-    data.seoTitle = payload.title.trim().slice(0, 70);
+    const title = payload.title.trim();
+    data.title = title;
+    if (payload.seoTitle === undefined) {
+      data.seoTitle = title.slice(0, 70);
+    }
   }
   if (payload.excerpt !== undefined) {
-    data.excerpt = payload.excerpt.trim().slice(0, 500);
-    data.seoDescription = payload.excerpt.trim().slice(0, 160);
+    const excerpt = payload.excerpt.trim().slice(0, 500);
+    data.excerpt = excerpt;
+    if (payload.seoDescription === undefined) {
+      data.seoDescription = excerpt.slice(0, 160);
+    }
   }
   if (payload.content !== undefined) {
     const content = normalizeEditorContent(payload.content);
     data.content = content;
     data.readingTime = calculateReadingTime(content);
   }
-  if (payload.categoryDocumentId) data.category = payload.categoryDocumentId;
+  if (payload.categoryDocumentIds !== undefined) {
+    const categoryIds = payload.categoryDocumentIds.map((id) => id.trim()).filter(Boolean);
+    if (categoryIds[0]) data.category = categoryIds[0];
+    data.secondaryCategories = categoryIds.slice(1);
+  }
+  if (payload.seoTitle !== undefined) {
+    data.seoTitle = payload.seoTitle.trim().slice(0, 70);
+  }
+  if (payload.seoDescription !== undefined) {
+    data.seoDescription = payload.seoDescription.trim().slice(0, 160);
+  }
+  if (payload.canonicalUrl !== undefined) {
+    data.canonicalUrl = payload.canonicalUrl.trim() || null;
+  }
   if (payload.featuredImageId !== undefined) data.featuredImage = payload.featuredImageId;
   if (payload.isBreaking !== undefined) data.isBreaking = payload.isBreaking;
   if (author.documentId) data.author = author.documentId;
-  if (tagIds?.length) data.tags = tagIds;
+  if (tagIds !== undefined) data.tags = tagIds;
 
   return data;
 }
@@ -445,10 +495,11 @@ export async function createEditorArticle(
     customStatus: 'draft' as const,
     scheduledAt: null,
   };
-  const tagIds =
-    saveMode.strapiStatus === 'published'
-      ? await syncArticleTags(payload.title, payload.excerpt)
-      : undefined;
+  const tagIds = await syncArticleTags({
+    title: payload.title,
+    excerpt: payload.excerpt,
+    tagNames: payload.tagNames,
+  });
   const endpoint =
     saveMode.strapiStatus === 'published' ? '/articles?status=published' : '/articles';
 
@@ -479,8 +530,11 @@ export async function updateEditorArticle(
   const excerpt = payload.excerpt?.trim() || existing.excerpt;
   const slug = isGenericSlug(existing.slug) ? generateArticleSlug(title) : existing.slug;
 
-  const publishing = saveMode?.strapiStatus === 'published';
-  const tagIds = publishing ? await syncArticleTags(title, excerpt) : undefined;
+  const tagIds = await syncArticleTags({
+    title,
+    excerpt,
+    tagNames: payload.tagNames ?? existing.tagNames,
+  });
 
   const response = await strapiFetch<{ data: StrapiEntity }>(
     `/articles/${documentId}?status=${statusParam}`,
@@ -559,7 +613,7 @@ export async function listEditorCategories(): Promise<RedactionCategory[]> {
 export async function uploadEditorImage(
   user: RedactionUser,
   file: File
-): Promise<{ id: number; url: string }> {
+): Promise<{ id: number; url: string; name?: string; alternativeText?: string }> {
   await resolveAuthorForUser(user);
 
   if (!STRAPI_TOKEN) {
@@ -584,7 +638,117 @@ export async function uploadEditorImage(
   const media = data[0];
   if (!media?.id) throw new Error('Upload sans identifiant');
 
-  return { id: media.id, url: media.url };
+  return {
+    id: media.id,
+    url: media.url,
+    name: (media as { name?: string }).name,
+    alternativeText: (media as { alternativeText?: string }).alternativeText,
+  };
+}
+
+function mapUploadFile(raw: Record<string, unknown>): RedactionMediaItem {
+  return {
+    id: raw.id as number,
+    url: raw.url as string,
+    name: (raw.name as string) ?? '',
+    alternativeText: raw.alternativeText as string | null | undefined,
+    caption: raw.caption as string | null | undefined,
+    width: raw.width as number | undefined,
+    height: raw.height as number | undefined,
+    mime: (raw.mime as string) ?? '',
+    createdAt: raw.createdAt as string | undefined,
+  };
+}
+
+export async function listEditorMedia(options?: {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}): Promise<{ items: RedactionMediaItem[]; total: number; pageCount: number }> {
+  const page = options?.page ?? 1;
+  const pageSize = options?.pageSize ?? 24;
+  const search = options?.search?.trim();
+
+  const filters: Record<string, unknown> = search
+    ? {
+        $and: [
+          { mime: { $startsWith: 'image' } },
+          {
+            $or: [
+              { name: { $containsi: search } },
+              { alternativeText: { $containsi: search } },
+              { caption: { $containsi: search } },
+            ],
+          },
+        ],
+      }
+    : { mime: { $startsWith: 'image' } };
+
+  const query = qs.stringify(
+    {
+      filters,
+      sort: ['createdAt:desc'],
+      pagination: { page, pageSize },
+    },
+    { encodeValuesOnly: true }
+  );
+
+  const res = await fetch(`${getStrapiUrl()}/api/upload/files?${query}`, {
+    headers: apiTokenHeaders(),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Médiathèque indisponible (${res.status}): ${text.slice(0, 120)}`);
+  }
+
+  const data = (await res.json()) as
+    | Record<string, unknown>[]
+    | { results?: Record<string, unknown>[]; pagination?: { total: number; pageCount: number } };
+
+  if (Array.isArray(data)) {
+    return {
+      items: data.map((item) => mapUploadFile(item)),
+      total: data.length,
+      pageCount: 1,
+    };
+  }
+
+  const items = (data.results ?? []).map((item) => mapUploadFile(item));
+  return {
+    items,
+    total: data.pagination?.total ?? items.length,
+    pageCount: data.pagination?.pageCount ?? 1,
+  };
+}
+
+export async function updateEditorMedia(
+  id: number,
+  payload: { alternativeText?: string; caption?: string }
+): Promise<RedactionMediaItem> {
+  if (!STRAPI_TOKEN) {
+    throw new Error('STRAPI_API_TOKEN manquant');
+  }
+
+  const form = new FormData();
+  form.append('fileInfo', JSON.stringify(payload));
+
+  const res = await fetch(`${getStrapiUrl()}/api/upload?id=${id}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${STRAPI_TOKEN}` },
+    body: form,
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`Mise à jour média échouée (${res.status})`);
+  }
+
+  const data = (await res.json()) as Record<string, unknown>[] | Record<string, unknown>;
+  const file = Array.isArray(data) ? data[0] : data;
+  if (!file?.id) throw new Error('Réponse média invalide');
+  return mapUploadFile(file);
 }
 
 async function loginUsersPermissionsUser(
