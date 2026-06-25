@@ -51,21 +51,19 @@ export async function subscribeToPushNotifications(): Promise<{
     return { ok: false, reason: 'sw_unavailable' };
   }
 
-  let fcmToken: string | null;
-  try {
-    fcmToken = await requestFcmToken(registration);
-  } catch {
-    return { ok: false, reason: 'invalid_token' };
-  }
-
-  if (!fcmToken) {
-    return { ok: false, reason: 'invalid_token' };
+  const tokenResult = await requestFcmToken(registration);
+  if (!tokenResult.ok) {
+    return {
+      ok: false,
+      reason: 'invalid_token',
+      message: tokenResult.message,
+    };
   }
 
   const res = await fetch('/api/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fcmToken }),
+    body: JSON.stringify({ fcmToken: tokenResult.token }),
   });
 
   if (!res.ok) {
@@ -93,19 +91,13 @@ export async function syncPushSubscriptionIfGranted(): Promise<boolean> {
   const registration = await waitForServiceWorker(4000);
   if (!registration) return false;
 
-  let fcmToken: string | null;
-  try {
-    fcmToken = await requestFcmToken(registration);
-  } catch {
-    return false;
-  }
-
-  if (!fcmToken) return false;
+  const tokenResult = await requestFcmToken(registration);
+  if (!tokenResult.ok) return false;
 
   const res = await fetch('/api/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fcmToken }),
+    body: JSON.stringify({ fcmToken: tokenResult.token }),
   });
 
   return res.ok;

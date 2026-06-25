@@ -26,13 +26,13 @@ export function RedactionPushSetup() {
 
         await navigator.serviceWorker.ready;
 
-        const fcmToken = await requestFcmToken(registration);
-        if (!fcmToken || cancelled) return;
+        const tokenResult = await requestFcmToken(registration);
+        if (!tokenResult.ok || cancelled) return;
 
         await fetch('/api/redaction/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fcmToken }),
+          body: JSON.stringify({ fcmToken: tokenResult.token }),
         });
       } catch {
         // Push optionnel — échec silencieux

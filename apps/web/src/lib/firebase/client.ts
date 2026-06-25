@@ -1,7 +1,7 @@
 'use client';
 
-import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getMessaging, getToken, isSupported, type Messaging } from 'firebase/messaging';
+import { deleteApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import {
   getFirebaseClientConfig,
   getFirebaseVapidKey,
@@ -11,6 +11,10 @@ import {
 let cachedConfig: FirebaseClientConfig | null = null;
 let cachedVapidKey: string | null = null;
 let fetchPromise: Promise<boolean> | null = null;
+
+export type FcmTokenResult =
+  | { ok: true; token: string }
+  | { ok: false; code: string; message: string };
 
 async function fetchFirebaseConfigFromServer(): Promise<boolean> {
   try {
@@ -72,7 +76,59 @@ async function resolveVapidKey(): Promise<string | null> {
 }
 
 function getOrInitApp(config: FirebaseClientConfig): FirebaseApp {
-  return getApps().length ? getApps()[0]! : initializeApp(config);
+  const apps = getApps();
+  if (!apps.length) return initializeApp(config);
+
+  const app = apps[0]!;
+  if (app.options.projectId !== config.projectId) {
+    void deleteApp(app).catch(() => undefined);
+    return initializeApp(config);
+  }
+  return app;
+}
+
+function firebaseErrorMessage(code: string): string {
+  switch (code) {
+    case 'messaging/failed-service-worker-registration':
+      return 'Service worker Firebase indisponible. Videz le cache du site et rechargez.';
+    case 'messaging/token-subscribe-failed':
+      return 'Clé Web Push Firebase invalide. Vérifiez NEXT_PUBLIC_FIREBASE_VAPID_KEY.';
+    case 'messaging/permission-blocked':
+      return 'Notifications bloquées dans le navigateur.';
+    case 'messaging/unsupported-browser':
+      return 'Navigateur non compatible avec les notifications push.';
+    default:
+      return 'Impossible d\'obtenir le token de notification. Réessayez ou videz le cache.';
+  }
+}
+
+async function prepareServiceWorker(
+  registration: ServiceWorkerRegistration
+): Promise<ServiceWorkerRegistration> {
+  await registration.update().catch(() => undefined);
+
+  if (!registration.active) {
+    await new Promise<void>((resolve) => {
+      const worker = registration.installing || registration.waiting;
+      if (!worker) {
+        resolve();
+        return;
+      }
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'activated') resolve();
+      });
+    });
+  }
+
+  await navigator.serviceWorker.ready;
+
+  // Ancien abonnement VAPID (web-push) incompatible avec FCM
+  const stale = await registration.pushManager.getSubscription();
+  if (stale) {
+    await stale.unsubscribe().catch(() => undefined);
+  }
+
+  return registration;
 }
 
 export async function isFirebaseClientConfigured(): Promise<boolean> {
@@ -83,18 +139,55 @@ export async function isFirebaseClientConfigured(): Promise<boolean> {
 
 export async function requestFcmToken(
   serviceWorkerRegistration: ServiceWorkerRegistration
-): Promise<string | null> {
-  if (!(await isSupported())) return null;
+): Promise<FcmTokenResult> {
+  if (!(await isSupported())) {
+    return {
+      ok: false,
+      code: 'messaging/unsupported-browser',
+      message: firebaseErrorMessage('messaging/unsupported-browser'),
+    };
+  }
 
   const config = await resolveFirebaseClientConfig();
   const vapidKey = await resolveVapidKey();
-  if (!config || !vapidKey) return null;
+  if (!config || !vapidKey) {
+    return {
+      ok: false,
+      code: 'firebase/config-missing',
+      message: 'Configuration Firebase indisponible sur le serveur.',
+    };
+  }
 
-  const app = getOrInitApp(config);
-  const messaging: Messaging = getMessaging(app);
+  try {
+    const registration = await prepareServiceWorker(serviceWorkerRegistration);
+    const app = getOrInitApp(config);
+    const messaging = getMessaging(app);
 
-  return getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration,
-  });
+    const token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: registration,
+    });
+
+    if (!token) {
+      return {
+        ok: false,
+        code: 'messaging/empty-token',
+        message: firebaseErrorMessage('messaging/empty-token'),
+      };
+    }
+
+    return { ok: true, token };
+  } catch (error: unknown) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? String((error as { code?: string }).code)
+        : 'messaging/unknown';
+    const message =
+      error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: string }).message)
+        : firebaseErrorMessage(code);
+
+    console.error('[fcm] getToken failed', code, message);
+    return { ok: false, code, message: firebaseErrorMessage(code) || message };
+  }
 }

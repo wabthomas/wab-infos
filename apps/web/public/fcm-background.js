@@ -1,10 +1,12 @@
 try {
-  importScripts('https://www.gstatic.com/firebasejs/11.9.0/firebase-app-compat.js');
-  importScripts('https://www.gstatic.com/firebasejs/11.9.0/firebase-messaging-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/12.15.0/firebase-messaging-compat.js');
   importScripts('/firebase-messaging-config.js');
 
   if (self.FIREBASE_CONFIG?.apiKey) {
-    firebase.initializeApp(self.FIREBASE_CONFIG);
+    if (!firebase.apps.length) {
+      firebase.initializeApp(self.FIREBASE_CONFIG);
+    }
     firebase.messaging().onBackgroundMessage((payload) => {
       const title = payload.data?.title || payload.notification?.title || 'Wab-infos';
       const body = payload.data?.body || payload.notification?.body || '';
@@ -19,6 +21,6 @@ try {
       });
     });
   }
-} catch {
-  // Firebase non configuré — alertes push désactivées
+} catch (error) {
+  console.error('[fcm-background]', error);
 }
