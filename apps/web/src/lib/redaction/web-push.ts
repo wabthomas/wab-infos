@@ -1,6 +1,5 @@
 import qs from 'qs';
 import { getStrapiUrl } from '@/lib/redaction/config';
-import { fcmTokenKey } from '@/lib/push/fcm-token-key';
 import {
   ensureFirebaseAdmin,
   isInvalidFcmTokenError,
@@ -13,7 +12,6 @@ const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
 interface StoredSubscription {
   documentId: string;
   fcmToken: string;
-  fcmTokenKey?: string;
 }
 
 async function strapiAdminFetch<T>(
@@ -43,24 +41,29 @@ export async function savePushSubscription(
   userEmail: string,
   fcmToken: string
 ): Promise<void> {
-  const tokenKey = fcmTokenKey(fcmToken);
+  let existing: StoredSubscription | undefined;
 
-  const existing = await strapiAdminFetch<{ data: StoredSubscription[] }>(
-    '/editor-push-subscriptions',
-    {
-      filters: { fcmTokenKey: { $eq: tokenKey } },
-      pagination: { pageSize: 1 },
-    }
-  );
+  try {
+    const response = await strapiAdminFetch<{ data: StoredSubscription[] }>(
+      '/editor-push-subscriptions',
+      {
+        filters: { fcmToken: { $eq: fcmToken } },
+        pagination: { pageSize: 1 },
+      }
+    );
+    existing = response.data[0];
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : '';
+    if (!(message.includes('400') && message.includes('invalid key'))) throw error;
+  }
 
   const data = {
     userEmail: userEmail.toLowerCase(),
     fcmToken,
-    fcmTokenKey: tokenKey,
   };
 
-  if (existing.data[0]) {
-    await strapiAdminFetch(`/editor-push-subscriptions/${existing.data[0].documentId}`, undefined, {
+  if (existing) {
+    await strapiAdminFetch(`/editor-push-subscriptions/${existing.documentId}`, undefined, {
       method: 'PUT',
       body: JSON.stringify({ data }),
     });

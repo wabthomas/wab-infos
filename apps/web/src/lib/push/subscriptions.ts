@@ -1,10 +1,9 @@
-import { fcmTokenKey, isDuplicateFcmTokenError } from '@/lib/push/fcm-token-key';
+import { isDuplicateFcmTokenError } from '@/lib/push/fcm-token-key';
 import { strapiAdminFetch } from '@/lib/push/strapi-admin';
 
 interface StoredReaderSubscription {
   documentId: string;
   fcmToken: string;
-  fcmTokenKey?: string;
   userAgent?: string;
 }
 
@@ -13,19 +12,27 @@ interface ReaderSubscriptionListResponse {
   meta?: { pagination?: { pageCount?: number } };
 }
 
+function isInvalidStrapiFilterError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return message.includes('400') && message.includes('invalid key');
+}
+
 async function findReaderSubscriptionByToken(
   fcmToken: string
 ): Promise<StoredReaderSubscription | null> {
-  const tokenKey = fcmTokenKey(fcmToken);
-
-  const byKey = await strapiAdminFetch<ReaderSubscriptionListResponse>(
-    '/reader-push-subscriptions',
-    {
-      filters: { fcmTokenKey: { $eq: tokenKey } },
-      pagination: { pageSize: 1 },
-    }
-  );
-  if (byKey.data[0]) return byKey.data[0];
+  try {
+    const byToken = await strapiAdminFetch<ReaderSubscriptionListResponse>(
+      '/reader-push-subscriptions',
+      {
+        filters: { fcmToken: { $eq: fcmToken } },
+        pagination: { pageSize: 1 },
+      }
+    );
+    if (byToken.data[0]) return byToken.data[0];
+  } catch (error) {
+    if (!isInvalidStrapiFilterError(error)) throw error;
+  }
 
   let page = 1;
   const pageSize = 100;
@@ -63,7 +70,6 @@ export async function saveReaderPushSubscription(
 ): Promise<void> {
   const data = {
     fcmToken,
-    fcmTokenKey: fcmTokenKey(fcmToken),
     userAgent: userAgent?.slice(0, 500),
   };
 

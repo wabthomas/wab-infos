@@ -15,11 +15,6 @@
       "required": true,
       "unique": true
     },
-    "fcmTokenKey": {
-      "type": "string",
-      "unique": true,
-      "maxLength": 64
-    },
     "userAgent": {
       "type": "string"
     }
