@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { preload } from 'react-dom';
 import { BreakingNewsTicker } from '@/components/articles/breaking-news-ticker';
 import { ArticleCard } from '@/components/articles/article-card';
 import { HomeRecentNews, RECENT_NEWS_DISPLAY_COUNT } from '@/components/home/home-recent-news';
@@ -15,7 +17,7 @@ import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { isLowMemBuild } from '@/lib/build-phase';
 import { getTopReadArticles } from '@/lib/sidebar-data';
 import { getBreakingNews, getArticles, getArticlesByCategories } from '@/lib/strapi';
-import { compareArticlesByDateDesc } from '@/lib/utils';
+import { compareArticlesByDateDesc, resolveArticleImageUrl } from '@/lib/utils';
 import { generateHomeMetadata } from '@/lib/seo';
 import Link from 'next/link';
 
@@ -77,6 +79,15 @@ async function getHomeData() {
 
 export const revalidate = 60;
 
+function HomeVideoFallback() {
+  return (
+    <div
+      className="h-64 animate-pulse rounded-2xl border border-border bg-muted/40 md:h-80"
+      aria-hidden
+    />
+  );
+}
+
 export default async function HomePage() {
   const { breaking, latest, topRead, articlesByCategory } = await getHomeData();
 
@@ -92,6 +103,11 @@ export default async function HomePage() {
   const bottomCategories = navCategories.filter((cat) =>
     (bottomSectionSlugs as readonly string[]).includes(cat.slug)
   );
+
+  const heroImage = resolveArticleImageUrl(recentNews[0]?.featuredImage, 'hero');
+  if (heroImage) {
+    preload(heroImage, { as: 'image' });
+  }
 
   return (
     <>
@@ -181,7 +197,9 @@ export default async function HomePage() {
         </div>
 
         <div className="mt-12 space-y-12">
-          <HomeVideoSection />
+          <Suspense fallback={<HomeVideoFallback />}>
+            <HomeVideoSection />
+          </Suspense>
           <HomeBottomSections categories={bottomCategories} articlesByCategory={articlesByCategory} />
         </div>
       </div>

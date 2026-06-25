@@ -267,21 +267,60 @@ export async function getArticles(options?: {
   };
 }
 
-/** Derniers articles par rubrique (évite de rater une catégorie hors du top N global). */
+/** Derniers articles par rubrique — une requête Strapi (+ rattrapage si besoin). */
 export async function getArticlesByCategories(
   slugs: readonly string[],
   limitPerCategory = 6
 ): Promise<Record<string, Article[]>> {
   const uniqueSlugs = [...new Set(slugs)];
+  if (!uniqueSlugs.length) return {};
 
-  const entries = await Promise.all(
-    uniqueSlugs.map(async (slug) => {
-      const { articles } = await getArticles({ category: slug, pageSize: limitPerCategory });
-      return [slug, articles] as const;
-    })
+  const byCategory: Record<string, Article[]> = Object.fromEntries(
+    uniqueSlugs.map((slug) => [slug, [] as Article[]])
   );
 
-  return Object.fromEntries(entries);
+  const pageSize = Math.min(100, uniqueSlugs.length * limitPerCategory * 4);
+
+  const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
+    filters: {
+      category: { slug: { $in: uniqueSlugs } },
+    },
+    ...articlePopulate,
+    sort: [...ARTICLE_SORT],
+    pagination: { page: 1, pageSize },
+    status: 'published',
+  });
+
+  for (const entity of response.data) {
+    const article = mapArticle(entity);
+    const slug = article.category?.slug;
+    if (!slug || !(slug in byCategory)) continue;
+    if (byCategory[slug].length < limitPerCategory) {
+      byCategory[slug].push(article);
+    }
+  }
+
+  const missingSlugs = uniqueSlugs.filter((slug) => byCategory[slug].length < limitPerCategory);
+  if (missingSlugs.length > 0) {
+    const fallbacks = await Promise.all(
+      missingSlugs.map(async (slug) => {
+        const { articles } = await getArticles({ category: slug, pageSize: limitPerCategory });
+        return [slug, articles] as const;
+      })
+    );
+    for (const [slug, articles] of fallbacks) {
+      if (byCategory[slug].length < limitPerCategory) {
+        const seen = new Set(byCategory[slug].map((a) => a.id));
+        for (const article of articles) {
+          if (byCategory[slug].length >= limitPerCategory) break;
+          if (seen.has(article.id)) continue;
+          byCategory[slug].push(article);
+        }
+      }
+    }
+  }
+
+  return byCategory;
 }
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {

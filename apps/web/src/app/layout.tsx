@@ -9,6 +9,12 @@ import { GoogleTagManagerBody, GoogleTagManagerHead } from '@/components/google/
 import { generateWebsiteJsonLd } from '@/lib/seo';
 import './globals.css';
 
+const strapiOrigin = (
+  process.env.NEXT_PUBLIC_STRAPI_URL ||
+  process.env.STRAPI_URL ||
+  'https://cms.app.wab-infos.com'
+).replace(/\/$/, '');
+
 const googleFontsUrl =
   'https://fonts.googleapis.com/css2?' +
   'family=Inter:wght@400;500;600;700&' +
@@ -92,6 +98,8 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning className="h-full">
       <head>
+        <link rel="preconnect" href={strapiOrigin} />
+        <link rel="dns-prefetch" href={strapiOrigin} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href={googleFontsUrl} rel="stylesheet" />
@@ -110,9 +118,9 @@ export default function RootLayout({
             <Script
               async
               src={`https://www.googletagmanager.com/gtag/js?id=${siteConfig.gaId}`}
-              strategy="beforeInteractive"
+              strategy="afterInteractive"
             />
-            <Script id="google-analytics" strategy="beforeInteractive">
+            <Script id="google-analytics" strategy="afterInteractive">
               {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${siteConfig.gaId}');`}
             </Script>
           </>
