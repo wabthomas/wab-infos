@@ -118,40 +118,63 @@ function extractErrorMessage(error: unknown, code: string): string {
 
 const WORKER_ACTIVATION_TIMEOUT_MS = 10_000;
 
-async function waitForWorkerActivated(worker: ServiceWorker): Promise<void> {
-  if (worker.state === 'activated') return;
+async function waitForRegistrationActive(
+  registration: ServiceWorkerRegistration,
+  timeoutMs = WORKER_ACTIVATION_TIMEOUT_MS
+): Promise<void> {
+  if (registration.active) return;
 
   try {
     await Promise.race([
       new Promise<void>((resolve, reject) => {
-        const onStateChange = () => {
-          if (worker.state === 'activated') {
-            cleanup();
-            resolve();
-          } else if (worker.state === 'redundant') {
-            cleanup();
-            reject(new Error('Service worker redundant'));
-          }
+        const cleanups: Array<() => void> = [];
+
+        const cleanup = () => {
+          for (const fn of cleanups) fn();
         };
 
-        const cleanup = () => worker.removeEventListener('statechange', onStateChange);
+        const watchWorker = (worker: ServiceWorker) => {
+          const onStateChange = () => {
+            if (registration.active) {
+              cleanup();
+              resolve();
+              return;
+            }
+            if (worker.state === 'redundant') {
+              cleanup();
+              reject(new Error('Service worker redundant'));
+            }
+          };
 
-        worker.addEventListener('statechange', onStateChange);
+          worker.addEventListener('statechange', onStateChange);
+          cleanups.push(() => worker.removeEventListener('statechange', onStateChange));
+          onStateChange();
+        };
 
-        if (worker.state === 'activated') {
-          cleanup();
+        const onUpdateFound = () => {
+          const installing = registration.installing;
+          if (installing) watchWorker(installing);
+        };
+
+        registration.addEventListener('updatefound', onUpdateFound);
+        cleanups.push(() => registration.removeEventListener('updatefound', onUpdateFound));
+
+        const pending = registration.installing || registration.waiting;
+        if (pending) {
+          watchWorker(pending);
+        } else if (registration.active) {
           resolve();
         }
       }),
       new Promise<void>((_, reject) => {
         setTimeout(
           () => reject(new Error('Service worker activation timeout')),
-          WORKER_ACTIVATION_TIMEOUT_MS
+          timeoutMs
         );
       }),
     ]);
   } catch {
-    // Timeout ou échec d'activation — on continue via navigator.serviceWorker.ready
+    // Timeout ou échec — getToken renverra une erreur explicite si active est absent
   }
 }
 
@@ -160,22 +183,20 @@ async function prepareServiceWorker(
 ): Promise<ServiceWorkerRegistration> {
   await registration.update().catch(() => undefined);
 
-  if (!registration.active) {
-    const worker = registration.installing || registration.waiting;
-    if (worker) {
-      await waitForWorkerActivated(worker);
-    }
-  }
+  const reg =
+    (registration.scope
+      ? await navigator.serviceWorker.getRegistration(registration.scope)
+      : null) ?? registration;
 
-  await navigator.serviceWorker.ready;
+  await waitForRegistrationActive(reg);
 
   // Ancien abonnement VAPID (web-push) incompatible avec FCM
-  const stale = await registration.pushManager.getSubscription();
+  const stale = await reg.pushManager.getSubscription();
   if (stale) {
     await stale.unsubscribe().catch(() => undefined);
   }
 
-  return registration;
+  return reg;
 }
 
 export async function isFirebaseClientConfigured(): Promise<boolean> {
