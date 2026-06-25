@@ -1,10 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import Image from 'next/image';
-import { CalendarClock, Camera, ChevronDown, Loader2, SlidersHorizontal, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import {
+  ArrowLeft,
+  Loader2,
+  MoreVertical,
+  Settings2,
+} from 'lucide-react';
 import type { RedactionCategory } from '@/lib/redaction/types';
-import { cn, getStrapiMediaUrl } from '@/lib/utils';
+import { formatArticleContent, getStrapiMediaUrl } from '@/lib/utils';
+import { ArticleRichEditor } from '@/components/redaction/article-rich-editor';
+import { ArticleEditorSettingsSheet } from '@/components/redaction/article-editor-settings-sheet';
 
 export interface ArticleEditorValues {
   title: string;
@@ -25,14 +32,10 @@ function toDatetimeLocal(iso?: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function hasOptionalFields(initial?: Partial<ArticleEditorValues>): boolean {
-  if (!initial) return false;
-  return Boolean(
-    initial.excerpt?.trim() ||
-      initial.featuredImageUrl ||
-      initial.isBreaking ||
-      initial.scheduledAt
-  );
+function toEditorContent(raw?: string): string {
+  if (!raw?.trim()) return '';
+  if (/<[a-z][\s\S]*>/i.test(raw)) return raw;
+  return formatArticleContent(raw);
 }
 
 interface ArticleEditorFormProps {
@@ -46,7 +49,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const [values, setValues] = useState<ArticleEditorValues>({
     title: initial?.title ?? '',
     excerpt: initial?.excerpt ?? '',
-    content: initial?.content ?? '',
+    content: toEditorContent(initial?.content),
     categoryDocumentId: initial?.categoryDocumentId ?? '',
     featuredImageId: initial?.featuredImageId,
     featuredImageUrl: initial?.featuredImageUrl,
@@ -56,7 +59,8 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const [saving, setSaving] = useState<'draft' | 'publish' | 'schedule' | null>(null);
   const [uploading, setUploading] = useState(false);
   const [scheduledAt, setScheduledAt] = useState(toDatetimeLocal(initial?.scheduledAt));
-  const [optionsOpen, setOptionsOpen] = useState(hasOptionalFields(initial));
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/redaction/categories')
@@ -70,19 +74,8 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       .catch(() => setError('Impossible de charger les rubriques'));
   }, [values.categoryDocumentId]);
 
-  const stripHtmlForEdit = useCallback((html: string) => {
-    return html
-      .replace(/<\/p>\s*<p>/gi, '\n\n')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .trim();
-  }, []);
-
-  useEffect(() => {
-    if (initial?.content && initial.content.includes('<')) {
-      setValues((v) => ({ ...v, content: stripHtmlForEdit(initial.content!) }));
-    }
-  }, [initial?.content, stripHtmlForEdit]);
+  const categoryName =
+    categories.find((c) => c.documentId === values.categoryDocumentId)?.name ?? 'Rubrique';
 
   async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -110,6 +103,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   async function save(mode: 'draft' | 'publish' | 'schedule') {
     setError('');
     setSaving(mode);
+    setMenuOpen(false);
 
     const payload = {
       title: values.title,
@@ -144,244 +138,147 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     }
   }
 
-  const optionsActive =
-    Boolean(values.excerpt.trim()) ||
-    Boolean(values.featuredImageUrl) ||
-    values.isBreaking ||
-    Boolean(scheduledAt);
+  const primaryMode =
+    scheduledAt && new Date(scheduledAt).getTime() > Date.now() ? 'schedule' : 'publish';
 
   return (
-    <>
-      <div className="space-y-4 pb-24">
-        {error && (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-600">
-            {error}
-          </div>
-        )}
+    <div className="jetpack-editor-screen flex min-h-[100dvh] flex-col">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur pt-[max(0.5rem,env(safe-area-inset-top))]">
+        <div className="flex items-center gap-2 px-3 py-2.5">
+          <Link
+            href="/redaction/articles"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted"
+            aria-label="Retour"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
 
-        <label className="block space-y-1">
-          <span className="sr-only">Titre</span>
-          <input
-            value={values.title}
-            onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))}
-            className="h-11 w-full rounded-lg border border-border bg-card px-3 text-base font-semibold outline-none focus:border-primary"
-            placeholder="Titre"
-          />
-        </label>
-
-        <label className="block space-y-1">
-          <span className="sr-only">Contenu</span>
-          <textarea
-            value={values.content}
-            onChange={(e) => setValues((v) => ({ ...v, content: e.target.value }))}
-            rows={16}
-            className="min-h-[52dvh] w-full rounded-lg border border-border bg-card px-3 py-3 text-base leading-relaxed outline-none focus:border-primary"
-            placeholder="Rédigez votre article…"
-          />
-        </label>
-
-        <div className="rounded-xl border border-border bg-card">
           <button
             type="button"
-            onClick={() => setOptionsOpen((open) => !open)}
-            className="flex w-full items-center gap-3 px-3 py-3.5 text-left"
-            aria-expanded={optionsOpen}
+            onClick={() => setSettingsOpen(true)}
+            className="min-w-0 flex-1 truncate rounded-full bg-muted/80 px-3 py-1.5 text-left text-xs font-semibold text-muted-foreground active:bg-muted"
           >
-            {values.featuredImageUrl ? (
-              <span className="relative h-11 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                <Image
-                  src={getStrapiMediaUrl(values.featuredImageUrl) ?? values.featuredImageUrl}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              </span>
-            ) : (
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <SlidersHorizontal className="h-5 w-5" />
-              </span>
+            {categoryName}
+            {values.isBreaking && (
+              <span className="ml-1.5 text-red-600">· Flash</span>
             )}
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold">Chapô, photo & réglages</span>
-              <span className="block truncate text-xs text-muted-foreground">
-                {optionsActive
-                  ? [
-                      values.excerpt.trim() && 'Chapô',
-                      values.featuredImageUrl && 'Photo',
-                      values.isBreaking && 'Flash',
-                      scheduledAt && 'Planifié',
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')
-                  : 'Extrait, image, rubrique, flash…'}
-              </span>
-            </span>
-            {optionsActive && (
-              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                actif
-              </span>
+            {scheduledAt && (
+              <span className="ml-1.5 text-primary">· Planifié</span>
             )}
-            <ChevronDown
-              className={cn(
-                'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-                optionsOpen && 'rotate-180'
-              )}
-            />
           </button>
 
-          {optionsOpen && (
-            <div className="space-y-4 border-t border-border px-3 pb-4 pt-3">
-              <section className="space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Photo à la une
-                </h3>
-                <div className="relative overflow-hidden rounded-lg border border-dashed border-border bg-muted/40">
-                  {values.featuredImageUrl ? (
-                    <div className="relative aspect-[16/10] max-h-40">
-                      <Image
-                        src={getStrapiMediaUrl(values.featuredImageUrl) ?? values.featuredImageUrl}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex aspect-[16/10] max-h-32 flex-col items-center justify-center gap-1.5 text-muted-foreground">
-                      {uploading ? (
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                      ) : (
-                        <Camera className="h-6 w-6" />
-                      )}
-                      <span className="text-xs">Ajouter une photo</span>
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleImageChange}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                    disabled={uploading}
-                    aria-label="Ajouter une photo à la une"
-                  />
-                </div>
-              </section>
-
-              <section className="space-y-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Chapô / extrait
-                </h3>
-                <textarea
-                  value={values.excerpt}
-                  onChange={(e) => setValues((v) => ({ ...v, excerpt: e.target.value }))}
-                  rows={3}
-                  maxLength={500}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-                  placeholder="Résumé court affiché sur le site (1–2 phrases)"
-                />
-                <p className="text-right text-[11px] text-muted-foreground">
-                  {values.excerpt.length}/500
-                </p>
-              </section>
-
-              <section className="space-y-3 border-t border-border pt-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Publication
-                </h3>
-
-                <label className="block space-y-1">
-                  <span className="text-xs font-medium text-muted-foreground">Rubrique</span>
-                  <select
-                    value={values.categoryDocumentId}
-                    onChange={(e) => setValues((v) => ({ ...v, categoryDocumentId: e.target.value }))}
-                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.documentId} value={c.documentId}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() => setValues((v) => ({ ...v, isBreaking: !v.isBreaking }))}
-                  className={cn(
-                    'flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors',
-                    values.isBreaking
-                      ? 'border-red-600 bg-red-600 text-white'
-                      : 'border-border bg-background text-foreground hover:bg-muted'
-                  )}
-                >
-                  <Zap className="h-4 w-4" />
-                  {values.isBreaking ? 'Flash info activé' : 'Marquer en flash info'}
-                </button>
-
-                <label className="block space-y-1">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                    <CalendarClock className="h-3.5 w-3.5" />
-                    Publication planifiée
-                  </span>
-                  <input
-                    type="datetime-local"
-                    value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
-                    min={toDatetimeLocal(new Date().toISOString())}
-                    className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-                  />
-                </label>
-              </section>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div
-          className={cn(
-            'mx-auto grid max-w-lg gap-2',
-            scheduledAt ? 'grid-cols-3' : 'grid-cols-2'
-          )}
-        >
           <button
             type="button"
-            disabled={!!saving}
-            onClick={() => save('draft')}
-            className="h-11 rounded-lg border border-border bg-card text-sm font-semibold disabled:opacity-60"
+            onClick={() => setSettingsOpen(true)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted"
+            aria-label="Réglages"
           >
-            {saving === 'draft' ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'Brouillon'}
+            <Settings2 className="h-5 w-5" />
           </button>
-          {scheduledAt && (
+
+          <div className="relative shrink-0">
             <button
               type="button"
-              disabled={!!saving}
-              onClick={() => save('schedule')}
-              className="h-11 rounded-lg border border-primary bg-primary/10 text-sm font-semibold text-primary disabled:opacity-60"
+              onClick={() => setMenuOpen((o) => !o)}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-foreground active:bg-muted"
+              aria-label="Plus d’actions"
             >
-              {saving === 'schedule' ? (
-                <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-              ) : (
-                'Planifier'
-              )}
+              <MoreVertical className="h-5 w-5" />
             </button>
-          )}
+            {menuOpen && (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-40"
+                  aria-label="Fermer le menu"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg">
+                  <button
+                    type="button"
+                    disabled={!!saving}
+                    onClick={() => save('draft')}
+                    className="flex w-full px-4 py-2.5 text-left text-sm font-medium active:bg-muted disabled:opacity-50"
+                  >
+                    {saving === 'draft' ? 'Enregistrement…' : 'Enregistrer brouillon'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <button
             type="button"
             disabled={!!saving}
-            onClick={() => save('publish')}
-            className="h-11 rounded-lg bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60"
+            onClick={() => save(primaryMode)}
+            className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-60"
           >
-            {saving === 'publish' ? (
-              <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+            {saving === primaryMode ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : primaryMode === 'schedule' ? (
+              'Planifier'
             ) : (
               'Publier'
             )}
           </button>
         </div>
+      </header>
+
+      {error && (
+        <div className="mx-4 mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto pb-[calc(3.75rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto max-w-lg px-4 pt-4">
+          <label className="block">
+            <span className="sr-only">Titre</span>
+            <input
+              value={values.title}
+              onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))}
+              className="jetpack-editor-title w-full border-0 bg-transparent font-display text-[1.65rem] font-bold leading-tight tracking-tight outline-none placeholder:text-muted-foreground/50"
+              placeholder="Titre"
+            />
+          </label>
+
+          {values.featuredImageUrl && (
+            <div className="relative mt-4 aspect-[16/10] overflow-hidden rounded-xl bg-muted">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={getStrapiMediaUrl(values.featuredImageUrl) ?? values.featuredImageUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
+
+          <div className="mt-3">
+            <ArticleRichEditor
+              value={values.content}
+              onChange={(content) => setValues((v) => ({ ...v, content }))}
+            />
+          </div>
+        </div>
       </div>
-    </>
+
+      <ArticleEditorSettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        categories={categories}
+        excerpt={values.excerpt}
+        onExcerptChange={(excerpt) => setValues((v) => ({ ...v, excerpt }))}
+        categoryDocumentId={values.categoryDocumentId}
+        onCategoryChange={(id) => setValues((v) => ({ ...v, categoryDocumentId: id }))}
+        featuredImageUrl={values.featuredImageUrl}
+        onFeaturedImageChange={handleImageChange}
+        uploading={uploading}
+        isBreaking={values.isBreaking}
+        onBreakingChange={(isBreaking) => setValues((v) => ({ ...v, isBreaking }))}
+        scheduledAt={scheduledAt}
+        onScheduledAtChange={setScheduledAt}
+        minScheduleDate={toDatetimeLocal(new Date().toISOString())}
+      />
+    </div>
   );
 }

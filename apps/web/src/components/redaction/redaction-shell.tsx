@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
-  ArrowLeft,
   BarChart3,
   FileText,
   Home,
@@ -32,12 +31,6 @@ const NAV_WRITE = {
 
 function isWritingPage(pathname: string): boolean {
   return pathname === '/redaction/nouveau' || /\/redaction\/articles\/[^/]+\/edit$/.test(pathname);
-}
-
-function writingPageTitle(pathname: string): string {
-  if (pathname === '/redaction/nouveau') return 'Nouvel article';
-  if (/\/edit$/.test(pathname)) return 'Modifier l\'article';
-  return 'Rédaction';
 }
 
 function isNavActive(pathname: string, href: string, exact?: boolean): boolean {
@@ -85,7 +78,7 @@ function NavItem({
       )}
     >
       <Icon className={cn('shrink-0', prominent ? 'h-6 w-6' : 'h-5 w-5')} />
-      <span className={cn('max-w-full truncate text-center font-semibold leading-none', prominent ? 'text-[10px]' : 'text-[10px]')}>
+      <span className="max-w-full truncate text-center text-[10px] font-semibold leading-none">
         {label}
       </span>
       {badge && (pendingComments ?? 0) > 0 && (
@@ -116,31 +109,20 @@ export function RedactionShell({ children, authorName }: RedactionShellProps) {
     router.refresh();
   }
 
+  if (writing) {
+    return <div className="min-h-[100dvh] bg-background">{children}</div>;
+  }
+
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
-          {writing ? (
-            <>
-              <Link
-                href="/redaction/articles"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Retour aux articles"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <p className="min-w-0 flex-1 truncate text-center font-display text-sm font-bold">
-                {writingPageTitle(pathname)}
-              </p>
-            </>
-          ) : (
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
-                Rédaction
-              </p>
-              <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
-            </div>
-          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+              Rédaction
+            </p>
+            <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
+          </div>
           <button
             type="button"
             onClick={logout}
@@ -152,50 +134,43 @@ export function RedactionShell({ children, authorName }: RedactionShellProps) {
         </div>
       </header>
 
-      <main
-        className={cn(
-          'mx-auto w-full max-w-lg flex-1 px-4 py-4',
-          writing ? 'pb-6' : 'pb-[calc(4.5rem+env(safe-area-inset-bottom))]'
-        )}
-      >
+      <main className="mx-auto w-full max-w-lg flex-1 px-4 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
 
-      {!writing && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))]">
-          <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
-            {NAV_SIDE.map(({ href, label, icon, ...rest }) => (
-              <NavItem
-                key={href}
-                href={href}
-                label={label}
-                icon={icon}
-                active={isNavActive(pathname, href, 'exact' in rest && rest.exact)}
-              />
-            ))}
-
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
+          {NAV_SIDE.map(({ href, label, icon, ...rest }) => (
             <NavItem
-              href={NAV_WRITE.href}
-              label={NAV_WRITE.label}
-              icon={NAV_WRITE.icon}
-              active={isNavActive(pathname, NAV_WRITE.href)}
-              prominent
+              key={href}
+              href={href}
+              label={label}
+              icon={icon}
+              active={isNavActive(pathname, href, 'exact' in rest && rest.exact)}
             />
+          ))}
 
-            {NAV_SIDE_RIGHT.map(({ href, label, icon, ...rest }) => (
-              <NavItem
-                key={href}
-                href={href}
-                label={label}
-                icon={icon}
-                active={isNavActive(pathname, href)}
-                badge={'badge' in rest && rest.badge}
-                pendingComments={pendingComments}
-              />
-            ))}
-          </div>
-        </nav>
-      )}
+          <NavItem
+            href={NAV_WRITE.href}
+            label={NAV_WRITE.label}
+            icon={NAV_WRITE.icon}
+            active={isNavActive(pathname, NAV_WRITE.href)}
+            prominent
+          />
+
+          {NAV_SIDE_RIGHT.map(({ href, label, icon, ...rest }) => (
+            <NavItem
+              key={href}
+              href={href}
+              label={label}
+              icon={icon}
+              active={isNavActive(pathname, href)}
+              badge={'badge' in rest && rest.badge}
+              pendingComments={pendingComments}
+            />
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

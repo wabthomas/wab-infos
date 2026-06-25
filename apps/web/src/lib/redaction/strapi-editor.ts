@@ -327,15 +327,14 @@ async function syncArticleTags(title: string, excerpt?: string): Promise<string[
 
 function normalizeEditorContent(text: string): string {
   const trimmed = text.trim();
-  if (!trimmed) return '';
-  if (/<(?:p|div|h[1-6]|ul|ol|blockquote)\b/i.test(trimmed)) {
-    return trimmed
-      .replace(/<\/p>\s*<p>/gi, '\n\n')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/\r\n/g, '\n')
-      .trim();
+  if (!trimmed || trimmed === '<p></p>') return '';
+
+  // HTML issu de l'éditeur riche — conserver tel quel
+  if (/<[a-z][\s\S]*>/i.test(trimmed)) {
+    return trimmed;
   }
+
+  // Texte brut (anciens articles) — les paragraphes sont ajoutés à l'affichage
   return trimmed.replace(/\r\n/g, '\n');
 }
 
