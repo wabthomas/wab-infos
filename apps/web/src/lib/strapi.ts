@@ -1,4 +1,5 @@
 import qs from 'qs';
+import { cache } from 'react';
 import type {
   Article,
   Author,
@@ -323,7 +324,7 @@ export async function getArticlesByCategories(
   return byCategory;
 }
 
-export async function getArticleBySlug(slug: string): Promise<Article | null> {
+export const getArticleBySlug = cache(async (slug: string): Promise<Article | null> => {
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
     filters: { slug: { $eq: slug } },
     ...articlePopulate,
@@ -332,7 +333,7 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
 
   if (!response.data.length) return null;
   return mapArticle(response.data[0]);
-}
+});
 
 export async function getBreakingNews(): Promise<Article[]> {
   const { articles } = await getArticles({ breaking: true, pageSize: 5 });
@@ -369,27 +370,30 @@ export async function getRecommendedArticles(excludeSlug?: string): Promise<Arti
 }
 
 /** Articles liés : même rubrique, puis récents — ne dépend pas de isRecommended */
-export async function getRelatedArticles(
+export const getRelatedArticles = cache(async (
   slug: string,
   categorySlug?: string,
   pageSize = 4
-): Promise<Article[]> {
+): Promise<Article[]> => {
   const seen = new Set<string>([slug]);
   const result: Article[] = [];
 
-  if (categorySlug) {
-    const sameCategory = await getArticles({ category: categorySlug, pageSize: pageSize + 5 });
-    for (const article of sameCategory.articles) {
-      if (result.length >= pageSize) break;
-      if (seen.has(article.slug)) continue;
-      seen.add(article.slug);
-      result.push(article);
-    }
+  const [categoryResult, recentResult] = await Promise.all([
+    categorySlug
+      ? getArticles({ category: categorySlug, pageSize: pageSize + 5 })
+      : Promise.resolve({ articles: [] as Article[], pagination: { total: 0, pageCount: 0 } }),
+    getArticles({ pageSize: pageSize + 10 }),
+  ]);
+
+  for (const article of categoryResult.articles) {
+    if (result.length >= pageSize) break;
+    if (seen.has(article.slug)) continue;
+    seen.add(article.slug);
+    result.push(article);
   }
 
   if (result.length < pageSize) {
-    const recent = await getArticles({ pageSize: pageSize + 10 });
-    for (const article of recent.articles) {
+    for (const article of recentResult.articles) {
       if (result.length >= pageSize) break;
       if (seen.has(article.slug)) continue;
       seen.add(article.slug);
@@ -398,7 +402,7 @@ export async function getRelatedArticles(
   }
 
   return result;
-}
+});
 
 export async function searchArticles(query: string, page = 1): Promise<{
   articles: Article[];

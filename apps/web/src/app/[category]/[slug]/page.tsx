@@ -1,9 +1,17 @@
+import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
+import { preload } from 'react-dom';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArticleHero } from '@/components/articles/article-hero';
-import { ArticleSidebar } from '@/components/articles/article-sidebar';
-import { RelatedArticles } from '@/components/articles/related-articles';
+import {
+  ArticleCommentsAsync,
+  ArticleCommentsSkeleton,
+  ArticleRelatedAsync,
+  ArticleRelatedSkeleton,
+  ArticleSidebarAsync,
+  ArticleSidebarSkeleton,
+} from '@/components/articles/article-page-async';
 import {
   ArticleBottomAd,
   ArticleTopAd,
@@ -11,17 +19,14 @@ import {
 } from '@/components/ads/adsense';
 import { ArticleBodyWithAds } from '@/components/articles/article-body-with-ads';
 import { siteConfig, resolveArticleCategorySlug, resolveCategoryMeta, isValidCategorySlug } from '@/config/site';
-import { findMockArticleBySlug, getMockArticlesIfEnabled } from '@/lib/mock-data';
+import { findMockArticleBySlug } from '@/lib/mock-data';
 import {
   generateArticleJsonLd,
   generateArticleMetadata,
   generateBreadcrumbJsonLd,
 } from '@/lib/seo';
-import { getArticleBySlug, getRelatedArticles, getApprovedComments } from '@/lib/strapi';
-import { getLiveFeed } from '@/lib/sidebar-data';
-import { compareArticlesByDateDesc, formatArticleContent } from '@/lib/utils';
-import { ArticleCommentForm } from '@/components/comments/article-comment-form';
-import { ArticleCommentsList } from '@/components/comments/article-comments-list';
+import { getArticleBySlug } from '@/lib/strapi';
+import { formatArticleContent, resolveArticleImageUrl } from '@/lib/utils';
 import { GoogleSwgBasicScripts } from '@/components/google/swg-basic-scripts';
 import { MobileArticleBottomBar } from '@/components/layout/mobile-article-bottom-bar';
 
@@ -70,36 +75,6 @@ export default async function ArticlePage({ params }: PageProps) {
     color: article.category?.color,
   });
 
-  let related: Awaited<ReturnType<typeof getRelatedArticles>> = [];
-  let liveFeed: Awaited<ReturnType<typeof getLiveFeed>> = [];
-  let comments: Awaited<ReturnType<typeof getApprovedComments>> = [];
-
-  const [relatedResult, liveResult, commentsResult] = await Promise.allSettled([
-    getRelatedArticles(slug, article.category?.slug, 4),
-    getLiveFeed(12),
-    getApprovedComments(article.documentId),
-  ]);
-
-  if (relatedResult.status === 'fulfilled') {
-    related = relatedResult.value;
-  } else {
-    related = getMockArticlesIfEnabled({ pageSize: 12 })
-      .filter((a) => a.slug !== slug)
-      .slice(0, 4);
-  }
-
-  if (liveResult.status === 'fulfilled') {
-    liveFeed = liveResult.value.filter((item) => item.slug !== slug);
-  } else {
-    liveFeed = getMockArticlesIfEnabled({ pageSize: 12 })
-      .filter((a) => a.slug !== slug)
-      .sort(compareArticlesByDateDesc);
-  }
-
-  if (commentsResult.status === 'fulfilled') {
-    comments = commentsResult.value;
-  }
-
   const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;
   const articleJsonLd = generateArticleJsonLd(article, category);
   const breadcrumbJsonLd = generateBreadcrumbJsonLd([
@@ -107,6 +82,11 @@ export default async function ArticlePage({ params }: PageProps) {
     { name: cat.name, url: `${siteConfig.url}/${categorySlug}` },
     { name: article.title, url: articleUrl },
   ]);
+
+  const heroImage = resolveArticleImageUrl(article.featuredImage, 'hero');
+  if (heroImage) {
+    preload(heroImage, { as: 'image' });
+  }
 
   return (
     <>
@@ -151,24 +131,27 @@ export default async function ArticlePage({ params }: PageProps) {
               </div>
             )}
 
-            <RelatedArticles
-              articles={related}
-              categoryName={cat.name}
-              categorySlug={categorySlug}
-            />
+            <Suspense fallback={<ArticleRelatedSkeleton />}>
+              <ArticleRelatedAsync
+                slug={slug}
+                categorySlug={categorySlug}
+                categoryName={cat.name}
+              />
+            </Suspense>
 
-            <ArticleCommentsList comments={comments} />
-            <ArticleCommentForm articleDocumentId={article.documentId} />
+            <Suspense fallback={<ArticleCommentsSkeleton />}>
+              <ArticleCommentsAsync documentId={article.documentId} />
+            </Suspense>
           </div>
 
-          <ArticleSidebar
-            related={related}
-            liveFeed={liveFeed}
-            categoryName={cat.name}
-            categorySlug={categorySlug}
-            categoryColor={cat.color}
-            excludeArticleSlugs={[slug]}
-          />
+          <Suspense fallback={<ArticleSidebarSkeleton />}>
+            <ArticleSidebarAsync
+              slug={slug}
+              categorySlug={categorySlug}
+              categoryName={cat.name}
+              categoryColor={cat.color}
+            />
+          </Suspense>
         </div>
       </article>
 
