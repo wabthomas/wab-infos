@@ -29,6 +29,8 @@ Cloudflare scanne vos DNS actuels. Vérifiez :
 
 > Commencez par mettre **uniquement le domaine principal** en proxy orange. Les sous-domaines CMS / rédaction peuvent rester en gris pour éviter les surprises (admin, cookies, API).
 
+> **Critique** : après le changement de nameservers, **tous** les sous-domaines doivent exister dans Cloudflare DNS. Sinon ils deviennent injoignables (`DNS_PROBE_FINISHED_NXDOMAIN`). Voir [§ Dépannage sous-domaines](#dépannage--sous-domaines-injoignables-après-cloudflare) en bas du doc.
+
 ## 3. Changer les nameservers
 
 Cloudflare affiche 2 nameservers (ex. `ada.ns.cloudflare.com`).
@@ -157,6 +159,59 @@ npm run build:web:pack
 | LCP | ~4,4 s | ~2,5–3,5 s |
 
 Les Core Web Vitals CrUX se mettent à jour sur **28 jours** — retestez PageSpeed chaque semaine.
+
+## Dépannage — sous-domaines injoignables après Cloudflare
+
+### Symptôme
+
+- `wab-infos.com` fonctionne
+- `cms.app.wab-infos.com` ou `redaction.app.wab-infos.com` → **site introuvable** / `DNS_PROBE_FINISHED_NXDOMAIN`
+
+### Cause
+
+Les nameservers pointent vers Cloudflare, mais les enregistrements DNS des sous-domaines **n’ont pas été recréés** dans le tableau DNS Cloudflare (l’import initial ne les a pas toujours détectés).
+
+Vérification (depuis votre PC) :
+
+```bash
+nslookup cms.app.wab-infos.com 1.1.1.1
+nslookup redaction.app.wab-infos.com 1.1.1.1
+```
+
+Si la réponse est **Non-existent domain** → enregistrements manquants chez Cloudflare.
+
+### Correction (Cloudflare → DNS → Records → Add record)
+
+Remplacez `185.22.110.232` par l’**IP réelle** de votre serveur PlanetHoster si différente.
+
+| Type | Nom (colonne Name) | Contenu (Target) | Proxy |
+|------|-------------------|------------------|-------|
+| **A** | `cms.app` | `185.22.110.232` | **DNS only** (nuage gris) |
+| **A** | `redaction.app` | `185.22.110.232` | **DNS only** (nuage gris) |
+| **A** | `app` | `185.22.110.232` | DNS only (si encore utilisé) |
+| **A** | `wp` | `185.22.110.232` | DNS only (WordPress) |
+
+> Le nom `cms.app` dans Cloudflare = le FQDN `cms.app.wab-infos.com`. Idem pour `redaction.app`.
+
+**Ne pas** laisser ces sous-domaines en proxy orange au début — Strapi admin, uploads et cookies posent souvent problème derrière le CDN.
+
+### Après ajout
+
+Attendre 2–5 minutes, puis :
+
+```bash
+nslookup cms.app.wab-infos.com 1.1.1.1
+curl -sI https://cms.app.wab-infos.com/admin
+curl -sI https://redaction.app.wab-infos.com/login
+```
+
+### Erreurs SSL (522 / 525) avec proxy orange
+
+Si vous activez le proxy orange sur un sous-domaine et obtenez une erreur Cloudflare :
+
+1. Repasser en **nuage gris** (DNS only)
+2. Ou **SSL/TLS** → mode **Full** (pas strict) pour ce sous-domaine
+3. Vérifier que l’app Node tourne dans N0C (redémarrer)
 
 ## Support
 
