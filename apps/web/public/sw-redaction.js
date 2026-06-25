@@ -75,10 +75,6 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-self.FCM_NOTIFICATION_TAG = 'wab-redaction-notification';
-self.FCM_DEFAULT_URL = '/redaction';
-importScripts('/fcm-background.js');
-
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url || '/redaction';
@@ -96,3 +92,11 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+self.FCM_NOTIFICATION_TAG = 'wab-redaction-notification';
+self.FCM_DEFAULT_URL = '/redaction';
+try {
+  importScripts('/fcm-background.js');
+} catch (error) {
+  console.error('[sw-redaction] FCM indisponible', error);
+}

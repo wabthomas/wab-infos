@@ -116,25 +116,43 @@ function extractErrorMessage(error: unknown, code: string): string {
   return firebaseErrorMessage(code);
 }
 
+const WORKER_ACTIVATION_TIMEOUT_MS = 10_000;
+
 async function waitForWorkerActivated(worker: ServiceWorker): Promise<void> {
   if (worker.state === 'activated') return;
 
-  await new Promise<void>((resolve) => {
-    const onStateChange = () => {
-      if (worker.state === 'activated') {
-        worker.removeEventListener('statechange', onStateChange);
-        resolve();
-      }
-    };
+  try {
+    await Promise.race([
+      new Promise<void>((resolve, reject) => {
+        const onStateChange = () => {
+          if (worker.state === 'activated') {
+            cleanup();
+            resolve();
+          } else if (worker.state === 'redundant') {
+            cleanup();
+            reject(new Error('Service worker redundant'));
+          }
+        };
 
-    worker.addEventListener('statechange', onStateChange);
+        const cleanup = () => worker.removeEventListener('statechange', onStateChange);
 
-    // Le worker peut déjà être activé avant l'attache du listener
-    if (worker.state === 'activated') {
-      worker.removeEventListener('statechange', onStateChange);
-      resolve();
-    }
-  });
+        worker.addEventListener('statechange', onStateChange);
+
+        if (worker.state === 'activated') {
+          cleanup();
+          resolve();
+        }
+      }),
+      new Promise<void>((_, reject) => {
+        setTimeout(
+          () => reject(new Error('Service worker activation timeout')),
+          WORKER_ACTIVATION_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } catch {
+    // Timeout ou échec d'activation — on continue via navigator.serviceWorker.ready
+  }
 }
 
 async function prepareServiceWorker(
