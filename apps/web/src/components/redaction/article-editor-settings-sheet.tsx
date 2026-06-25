@@ -265,7 +265,7 @@ export function ArticleEditorSettingsSheet({
                 onChange={(e) => onSeoTitleChange(e.target.value)}
                 maxLength={70}
                 className="h-11 w-full rounded-xl border border-border bg-card px-3 text-base outline-none focus:border-primary"
-                placeholder="Par défaut : le titre de l’article"
+                placeholder="Généré : titre + accroche du 1er paragraphe"
               />
               <span className="block text-right text-[11px] text-muted-foreground">
                 {seoTitle.length}/70
@@ -279,7 +279,7 @@ export function ArticleEditorSettingsSheet({
                 rows={3}
                 maxLength={160}
                 className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-base outline-none focus:border-primary"
-                placeholder="Par défaut : le chapô"
+                placeholder="Générée depuis le premier paragraphe"
               />
               <span className="block text-right text-[11px] text-muted-foreground">
                 {seoDescription.length}/160

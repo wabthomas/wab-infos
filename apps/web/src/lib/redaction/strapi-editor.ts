@@ -12,7 +12,7 @@ import type {
   RedactionStats,
   RedactionUser,
 } from '@/lib/redaction/types';
-import { calculateReadingTime, slugify } from '@/lib/utils';
+import { calculateReadingTime, generateSeoDescription, generateSeoTitle, slugify } from '@/lib/utils';
 
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
 
@@ -428,6 +428,9 @@ function buildArticleData(
   tagIds?: string[]
 ): Record<string, unknown> {
   const data: Record<string, unknown> = {};
+  let resolvedTitle = '';
+  let resolvedContent = '';
+  let resolvedExcerpt = '';
 
   if (saveMode) {
     data.status = saveMode.customStatus;
@@ -436,23 +439,17 @@ function buildArticleData(
 
   if (slug) data.slug = slug;
   if (payload.title !== undefined) {
-    const title = payload.title.trim();
-    data.title = title;
-    if (payload.seoTitle === undefined) {
-      data.seoTitle = title.slice(0, 70);
-    }
+    resolvedTitle = payload.title.trim();
+    data.title = resolvedTitle;
   }
   if (payload.excerpt !== undefined) {
-    const excerpt = payload.excerpt.trim().slice(0, 500);
-    data.excerpt = excerpt;
-    if (payload.seoDescription === undefined) {
-      data.seoDescription = excerpt.slice(0, 160);
-    }
+    resolvedExcerpt = payload.excerpt.trim().slice(0, 500);
+    data.excerpt = resolvedExcerpt;
   }
   if (payload.content !== undefined) {
-    const content = normalizeEditorContent(payload.content);
-    data.content = content;
-    data.readingTime = calculateReadingTime(content);
+    resolvedContent = normalizeEditorContent(payload.content);
+    data.content = resolvedContent;
+    data.readingTime = calculateReadingTime(resolvedContent);
   }
   if (payload.categoryDocumentIds !== undefined) {
     const categoryIds = payload.categoryDocumentIds.map((id) => id.trim()).filter(Boolean);
@@ -474,6 +471,17 @@ function buildArticleData(
   if (payload.isBreaking !== undefined) data.isBreaking = payload.isBreaking;
   if (author.documentId) data.author = author.documentId;
   if (tagIds !== undefined) data.tags = tagIds;
+
+  if (!data.seoTitle && (resolvedTitle || resolvedContent)) {
+    data.seoTitle = generateSeoTitle(resolvedTitle, resolvedContent);
+  }
+  if (!data.seoDescription) {
+    if (resolvedContent) {
+      data.seoDescription = generateSeoDescription(resolvedContent);
+    } else if (resolvedExcerpt) {
+      data.seoDescription = resolvedExcerpt.slice(0, 160);
+    }
+  }
 
   return data;
 }

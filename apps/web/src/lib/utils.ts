@@ -201,6 +201,61 @@ export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+/** Extrait le texte du premier paragraphe HTML (ou du contenu brut). */
+export function firstParagraphFromHtml(html: string): string {
+  if (!html?.trim()) return '';
+  const paragraphMatch = html.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+  if (paragraphMatch) return stripHtml(paragraphMatch[1]);
+  return stripHtml(html);
+}
+
+function firstSentence(text: string): string {
+  const match = text.match(/^(.+?[.!?…])(?:\s|$)/u);
+  return match ? match[1].trim() : text.trim();
+}
+
+function truncateAtWord(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  const slice = text.slice(0, maxLength);
+  const lastSpace = slice.lastIndexOf(' ');
+  if (lastSpace > maxLength * 0.55) return slice.slice(0, lastSpace).trim();
+  return slice.trim();
+}
+
+/**
+ * Titre SEO accrocheur : titre de l’article enrichi par l’accroche du premier paragraphe.
+ */
+export function generateSeoTitle(title: string, content: string, maxLength = 70): string {
+  const cleanTitle = title.trim();
+  const firstPara = firstParagraphFromHtml(content);
+
+  if (!cleanTitle) return truncateAtWord(firstPara, maxLength);
+  if (!firstPara) return truncateAtWord(cleanTitle, maxLength);
+
+  if (cleanTitle.length >= 55) return truncateAtWord(cleanTitle, maxLength);
+
+  const hook = firstSentence(firstPara);
+  const titlePrefix = cleanTitle.toLowerCase().slice(0, Math.min(28, cleanTitle.length));
+  if (titlePrefix && hook.toLowerCase().startsWith(titlePrefix)) {
+    return truncateAtWord(cleanTitle, maxLength);
+  }
+
+  const separator = ' — ';
+  const hookBudget = maxLength - cleanTitle.length - separator.length;
+  if (hookBudget < 12) return truncateAtWord(cleanTitle, maxLength);
+
+  const hookPart = truncateAtWord(hook, hookBudget);
+  return `${cleanTitle}${separator}${hookPart}`.slice(0, maxLength);
+}
+
+/** Description SEO : texte du premier paragraphe, tronqué pour les réseaux. */
+export function generateSeoDescription(content: string, maxLength = 160): string {
+  const firstPara = firstParagraphFromHtml(content);
+  if (!firstPara) return '';
+  if (firstPara.length <= maxLength) return firstPara;
+  return `${truncateAtWord(firstPara, maxLength - 1)}…`;
+}
+
 /** Extrait les N premiers caractères du texte brut (sans balises HTML). */
 export function excerptFromContent(html: string, maxLength = 170): string {
   const plain = stripHtml(html);

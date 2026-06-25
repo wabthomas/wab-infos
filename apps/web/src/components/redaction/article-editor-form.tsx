@@ -13,7 +13,7 @@ import {
 import type { Editor } from '@tiptap/react';
 import type { RedactionCategory, RedactionMediaItem } from '@/lib/redaction/types';
 import type { ArticleEditorPayload } from '@/lib/redaction/types';
-import { excerptFromContent, formatArticleContent, getStrapiMediaUrl } from '@/lib/utils';
+import { excerptFromContent, formatArticleContent, generateSeoDescription, generateSeoTitle, getStrapiMediaUrl } from '@/lib/utils';
 import { ArticleRichEditor } from '@/components/redaction/article-rich-editor';
 import { ArticleEditorSettingsSheet } from '@/components/redaction/article-editor-settings-sheet';
 import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
@@ -57,6 +57,8 @@ interface ArticleEditorFormProps {
 export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEditorFormProps) {
   const [categories, setCategories] = useState<RedactionCategory[]>([]);
   const excerptTouchedRef = useRef(Boolean(initial?.excerpt?.trim()));
+  const seoTitleTouchedRef = useRef(Boolean(initial?.seoTitle?.trim()));
+  const seoDescriptionTouchedRef = useRef(Boolean(initial?.seoDescription?.trim()));
   const [editor, setEditor] = useState<Editor | null>(null);
   const [values, setValues] = useState<ArticleEditorValues>({
     title: initial?.title ?? '',
@@ -97,6 +99,20 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const primaryCategoryId = values.categoryDocumentIds[0] ?? '';
   const primaryCategoryName =
     categories.find((c) => c.documentId === primaryCategoryId)?.name ?? 'Rubrique';
+
+  function applyDerivedFields(next: ArticleEditorValues): ArticleEditorValues {
+    const result = { ...next };
+    if (!excerptTouchedRef.current) {
+      result.excerpt = excerptFromContent(next.content, 170);
+    }
+    if (!seoTitleTouchedRef.current) {
+      result.seoTitle = generateSeoTitle(next.title, next.content);
+    }
+    if (!seoDescriptionTouchedRef.current) {
+      result.seoDescription = generateSeoDescription(next.content);
+    }
+    return result;
+  }
 
   function toggleCategory(categoryId: string) {
     setValues((current) => {
@@ -347,7 +363,9 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             <span className="sr-only">Titre</span>
             <input
               value={values.title}
-              onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))}
+              onChange={(e) =>
+                setValues((v) => applyDerivedFields({ ...v, title: e.target.value }))
+              }
               className="jetpack-editor-title w-full border-0 bg-transparent font-display text-[1.65rem] font-bold leading-tight tracking-tight outline-none placeholder:text-muted-foreground/50"
               placeholder="Titre"
             />
@@ -356,15 +374,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           <div className="mt-3">
             <ArticleRichEditor
               value={values.content}
-              onChange={(content) => {
-                setValues((v) => {
-                  const next = { ...v, content };
-                  if (!excerptTouchedRef.current) {
-                    next.excerpt = excerptFromContent(content, 170);
-                  }
-                  return next;
-                });
-              }}
+              onChange={(content) => setValues((v) => applyDerivedFields({ ...v, content }))}
               onEditorReady={setEditor}
             />
           </div>
@@ -385,9 +395,15 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         tagNames={values.tagNames}
         onTagNamesChange={(tagNames) => setValues((v) => ({ ...v, tagNames }))}
         seoTitle={values.seoTitle ?? ''}
-        onSeoTitleChange={(seoTitle) => setValues((v) => ({ ...v, seoTitle }))}
+        onSeoTitleChange={(seoTitle) => {
+          seoTitleTouchedRef.current = true;
+          setValues((v) => ({ ...v, seoTitle }));
+        }}
         seoDescription={values.seoDescription ?? ''}
-        onSeoDescriptionChange={(seoDescription) => setValues((v) => ({ ...v, seoDescription }))}
+        onSeoDescriptionChange={(seoDescription) => {
+          seoDescriptionTouchedRef.current = true;
+          setValues((v) => ({ ...v, seoDescription }));
+        }}
         canonicalUrl={values.canonicalUrl ?? ''}
         onCanonicalUrlChange={(canonicalUrl) => setValues((v) => ({ ...v, canonicalUrl }))}
         featuredImageId={values.featuredImageId}
