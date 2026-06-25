@@ -4,6 +4,10 @@ import path from 'path';
 const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
 const wpUploadsOrigin =
   process.env.WP_UPLOADS_ORIGIN || process.env.WP_BASE_URL || 'https://wp.wab-infos.com';
+const redactionUrl = (process.env.NEXT_PUBLIC_REDACTION_URL || 'http://localhost:3001').replace(
+  /\/$/,
+  ''
+);
 const isLowMemBuild = process.env.LOW_MEM_BUILD === '1';
 
 const nextConfig: NextConfig = {
@@ -46,17 +50,16 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { source: '/redaction', destination: redactionUrl, permanent: false },
+      { source: '/redaction/:path*', destination: `${redactionUrl}/:path*`, permanent: false },
+    ];
+  },
   async headers() {
     return [
       {
         source: '/sw.js',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
-          { key: 'Service-Worker-Allowed', value: '/' },
-        ],
-      },
-      {
-        source: '/sw-redaction.js',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
           { key: 'Service-Worker-Allowed', value: '/' },

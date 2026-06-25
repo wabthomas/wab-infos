@@ -126,14 +126,6 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
-        {siteConfig.adsenseClient && (
-          <Script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${siteConfig.adsenseClient}`}
-            crossOrigin="anonymous"
-            strategy="lazyOnload"
-          />
-        )}
       </head>
       <body className="min-h-full flex flex-col antialiased">
         <GoogleTagManagerBody />

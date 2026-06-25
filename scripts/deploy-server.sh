@@ -100,6 +100,13 @@ else
   rm -f "$TMP_ENV"
 fi
 
+if [ ! -f "$APP_DIR/apps/redaction/.env.local" ]; then
+  echo "→ Création apps/redaction/.env.local depuis .env"
+  grep -E '^(NEXT_PUBLIC_|STRAPI_|REDACTION_|FIREBASE_|PUSH_)' "$APP_DIR/.env" > "$APP_DIR/apps/redaction/.env.local" || true
+else
+  echo "→ apps/redaction/.env.local déjà présent"
+fi
+
 echo "→ git pull"
 git pull --ff-only origin main
 
@@ -168,6 +175,12 @@ else
   }
 fi
 
+echo "→ Build app rédaction"
+npm run build:redaction || {
+  echo "❌ Build rédaction échoué"
+  exit 1
+}
+
 if command -v pm2 >/dev/null 2>&1 && [ "${USE_PM2:-}" = "1" ]; then
   echo "→ PM2 reload (USE_PM2=1)"
   pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
@@ -181,4 +194,5 @@ fi
 echo ""
 echo "✅ Déploiement terminé."
 echo "   Site: vérifier https://app.wab-infos.com"
+echo "   Rédaction: vérifier https://redaction.app.wab-infos.com"
 echo "   CMS:  vérifier https://cms.app.wab-infos.com/admin"

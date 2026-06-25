@@ -5,20 +5,24 @@
   "description": "Plateforme média professionnelle Wab-infos",
   "workspaces": [
     "apps/web",
+    "apps/redaction",
     "packages/*",
     "scripts/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:web\" \"npm run dev:cms\"",
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:cms\" \"npm run dev:redaction\"",
     "dev:web": "npm run dev --workspace=apps/web",
+    "dev:redaction": "npm run dev --workspace=apps/redaction",
     "dev:cms": "cd apps/cms && npm run develop",
     "build": "npm run build --workspace=apps/web",
     "build:web": "npm run build --workspace=apps/web",
+    "build:redaction": "npm run build --workspace=apps/redaction",
     "build:web:low-mem": "npm run build:low-mem --workspace=apps/web",
     "build:web:pack": "npm run build:web && npm run pack:web-build",
     "build:cms": "node scripts/build-cms-production.mjs",
     "build:cms:direct": "npm run build --prefix apps/cms",
     "start:web": "npm run start --workspace=apps/web",
+    "start:redaction": "npm run start --workspace=apps/redaction",
     "start:cms": "npm run start --prefix apps/cms",
     "import:wordpress": "npm run import --workspace=@wab-infos/wordpress-import --",
     "import:images": "npm run backfill-images --workspace=@wab-infos/wordpress-import --",
@@ -33,7 +37,8 @@
     "clean:build": "node scripts/clean-build-artifacts.mjs",
     "clean:packs": "node scripts/clean-build-artifacts.mjs --packs-only",
     "secrets": "node scripts/generate-secrets.js",
-    "lint": "npm run lint --workspace=apps/web"
+    "lint": "npm run lint --workspace=apps/web",
+    "typecheck": "npm run typecheck --workspace=apps/web && npm run typecheck --workspace=apps/redaction"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { publishDueScheduledArticles } from '@/lib/redaction/strapi-editor';
+import { publishDueScheduledArticles } from '@/lib/strapi-server';
 
 export async function POST(request: Request) {
   const secret = request.headers.get('x-revalidation-secret');

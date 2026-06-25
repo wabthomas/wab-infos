@@ -344,6 +344,12 @@ body {
   background: var(--background);
 }
 
+html.redaction-writing,
+html.redaction-writing body {
+  overflow: hidden;
+  height: 100%;
+}
+
 .jetpack-editor-title {
   font-size: clamp(1.5rem, 5vw, 1.75rem);
 }

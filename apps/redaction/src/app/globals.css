@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+:root {
+  --font-geist-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-playfair: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --background: #fafafa;
+  --foreground: #111827;
+  --primary: #c41e3a;
+  --primary-foreground: #ffffff;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --border: #e5e7eb;
+  --card: #ffffff;
+  --card-foreground: #111827;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-playfair);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-playfair), Georgia, 'Times New Roman', serif;
+}
+
+.redaction-editor-prose {
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--foreground);
+}
+
+.redaction-editor-prose p.is-editor-empty:first-child::before {
+  color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.redaction-editor-prose h2 {
+  font-family: var(--font-playfair), Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.redaction-editor-prose blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: var(--muted-foreground);
+}
+
+.redaction-editor-prose ul,
+.redaction-editor-prose ol {
+  padding-left: 1.25rem;
+  margin: 0.75rem 0;
+}
+
+.redaction-editor-prose a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.redaction-editor-prose img,
+.redaction-editor-prose .article-inline-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.redaction-editor-prose hr {
+  margin: 1.25rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.redaction-editor-prose [data-youtube-video],
+.redaction-editor-prose .social-embed {
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.redaction-editor-prose [data-youtube-video] iframe,
+.redaction-editor-prose .social-embed iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 180px;
+  border: 0;
+}
+
+.redaction-editor-prose .social-embed--twitter iframe {
+  aspect-ratio: auto;
+  min-height: 320px;
+}
+
+.jetpack-editor-screen {
+  background: var(--background);
+}
+
+html.redaction-writing,
+html.redaction-writing body {
+  overflow: hidden;
+  height: 100%;
+}
+
+.jetpack-editor-title {
+  font-size: clamp(1.5rem, 5vw, 1.75rem);
+}
+
+.jetpack-editor-body {
+  min-height: 38dvh;
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  padding-bottom: 0.5rem;
+}
+
+.jetpack-editor-body p.is-editor-empty:first-child::before {
+  color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

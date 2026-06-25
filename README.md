@@ -16,7 +16,8 @@ Plateforme d'actualités moderne remplaçant WordPress, optimisée pour Google N
 ```
 wab-infos/
 ├── apps/
-│   ├── web/          # Frontend Next.js (port 3000)
+│   ├── web/          # Site public Next.js (port 3000)
+│   ├── redaction/    # App rédaction mobile (port 3001)
 │   └── cms/          # Backend Strapi (port 8090)
 ├── packages/
 │   └── shared/       # Types TypeScript partagés

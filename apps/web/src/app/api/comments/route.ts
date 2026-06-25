@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createPublicComment } from '@/lib/redaction/strapi-editor';
+import { createPublicComment } from '@/lib/strapi-server';
 
 export async function POST(request: Request) {
   try {

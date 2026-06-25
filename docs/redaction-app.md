@@ -4,15 +4,15 @@ Interface mobile-first pour les journalistes (~10 comptes) : rédaction, publica
 
 ## Accès
 
-- **URL** : `https://app.wab-infos.com/redaction`
-- **Connexion** : `https://app.wab-infos.com/redaction/login`
-- **Admin Strapi complet** : `/connexion` (tableau de bord CMS)
+- **URL** : `https://redaction.app.wab-infos.com`
+- **Connexion** : `https://redaction.app.wab-infos.com/login`
+- **Admin Strapi complet** : `https://cms.app.wab-infos.com/admin` (ou `/connexion` sur le site public → redirect)
 
-## Configuration Strapi (une fois)
+L’ancienne URL `app.wab-infos.com/redaction` redirige automatiquement vers l’app dédiée.
 
-### 1. Token API serveur
+## Configuration
 
-Dans `apps/web/.env.local` (production) :
+Variables dans `apps/redaction/.env.local` (voir `apps/redaction/.env.example`).
 
 ```env
 STRAPI_API_TOKEN=votre-token-full-access

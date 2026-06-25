@@ -2,22 +2,28 @@
 
 import { Suspense, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import Script from 'next/script';
+import { siteConfig } from '@/config/site';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { PwaInstallBanner } from '@/components/pwa/pwa-install-banner';
 
-const AUTH_ONLY_PREFIXES = ['/connexion', '/redaction'];
-
-function isRedactionLoginPath(pathname: string): boolean {
-  return pathname === '/redaction/login' || pathname.startsWith('/redaction/login/');
-}
+const AUTH_ONLY_PREFIXES = ['/connexion'];
 
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <>
+      {siteConfig.adsenseClient ? (
+        <Script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${siteConfig.adsenseClient}`}
+          crossOrigin="anonymous"
+          strategy="lazyOnload"
+        />
+      ) : null}
       <Header menuOpen={menuOpen} onMenuOpenChange={setMenuOpen} />
       <main className="flex-1 pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:pb-0">
         {children}
@@ -38,7 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage = AUTH_ONLY_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
-  const showSiteInstallBanner = !isRedactionLoginPath(pathname);
+  const showSiteInstallBanner = true;
 
   return (
     <>

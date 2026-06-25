@@ -11,18 +11,22 @@ export default {
     await notifyEditors({
       title: 'Nouveau commentaire',
       body: `${event.result.authorName ?? 'Lecteur'} — ${(event.result.content ?? '').slice(0, 80)}`,
-      url: '/redaction/comments',
+      url: '/comments',
     });
   },
 };
 
 async function notifyEditors(payload: { title: string; body: string; url: string }) {
   const secret = process.env.REVALIDATION_SECRET;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const redactionUrl = (
+    process.env.REDACTION_APP_URL ||
+    process.env.NEXT_PUBLIC_REDACTION_URL ||
+    'http://localhost:3001'
+  ).replace(/\/$/, '');
   if (!secret) return;
 
   try {
-    await fetch(`${siteUrl}/api/redaction/push/notify`, {
+    await fetch(`${redactionUrl}/api/redaction/push/notify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
