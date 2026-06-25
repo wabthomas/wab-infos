@@ -1,13 +1,14 @@
 /**
  * Nettoie archives de déploiement et caches Next.js inutiles en prod.
- * Conserve apps/web/.next/server + static (build prod) si présents.
+ * Conserve apps/*/.next/server + static (build prod) si présents.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const nextDir = path.join(root, 'apps/web/.next');
+
+const NEXT_APPS = ['apps/web', 'apps/redaction'];
 
 const PACK_PATTERNS = [
   /^web-next-build-\d+\.tar\.gz$/,
@@ -56,12 +57,15 @@ for (const file of fs.readdirSync(root)) {
 }
 
 if (!packsOnly) {
-  for (const name of NEXT_PRUNE) {
-    const target = path.join(nextDir, name);
-    const removed = rmPath(target);
-    if (removed > 0) {
-      freed += removed;
-      console.info(`[clean] .next/${name} (${formatMb(removed)})`);
+  for (const app of NEXT_APPS) {
+    const nextDir = path.join(root, app, '.next');
+    for (const name of NEXT_PRUNE) {
+      const target = path.join(nextDir, name);
+      const removed = rmPath(target);
+      if (removed > 0) {
+        freed += removed;
+        console.info(`[clean] ${app}/.next/${name} (${formatMb(removed)})`);
+      }
     }
   }
 }
