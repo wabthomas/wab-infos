@@ -175,11 +175,25 @@ else
   }
 fi
 
-echo "→ Build app rédaction"
-npm run build:redaction || {
-  echo "❌ Build rédaction échoué"
-  exit 1
-}
+# ── App rédaction Next.js ──
+if [ -f "$APP_DIR/redaction-next-build.tar.gz" ]; then
+  echo "→ Extraction rédaction depuis redaction-next-build.tar.gz (build local)"
+  rm -rf apps/redaction/.next
+  tar -xzf redaction-next-build.tar.gz -C apps/redaction
+elif [ -f "$APP_DIR/apps/redaction/.next/BUILD_ID" ] && [ "${FORCE_REDACTION_BUILD:-0}" != "1" ]; then
+  echo "→ Rédaction déjà compilée (apps/redaction/.next) — skip"
+  echo "   FORCE_REDACTION_BUILD=1 pour reconstruire sur le serveur"
+else
+  echo "→ Build app rédaction"
+  npm run build:redaction || {
+    echo ""
+    echo "❌ Build rédaction impossible sur ce serveur."
+    echo "   En local : npm run build:redaction && npm run pack:redaction-build"
+    echo "   Uploadez redaction-next-build.tar.gz dans $APP_DIR puis :"
+    echo "   tar -xzf redaction-next-build.tar.gz -C apps/redaction"
+    exit 1
+  }
+fi
 
 if command -v pm2 >/dev/null 2>&1 && [ "${USE_PM2:-}" = "1" ]; then
   echo "→ PM2 reload (USE_PM2=1)"

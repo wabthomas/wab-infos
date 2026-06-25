@@ -9,7 +9,13 @@ import { fileURLToPath } from 'node:url';
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const nextDir = path.join(root, 'apps/web/.next');
 
-const PACK_PATTERNS = [/^web-next-build-\d+\.tar\.gz$/, /^web-next-build\.tar\.gz$/, /^cms-build\.tar\.gz$/];
+const PACK_PATTERNS = [
+  /^web-next-build-\d+\.tar\.gz$/,
+  /^web-next-build\.tar\.gz$/,
+  /^cms-build\.tar\.gz$/,
+  /^redaction-next-build-\d+\.tar\.gz$/,
+  /^redaction-next-build\.tar\.gz$/,
+];
 
 const NEXT_PRUNE = ['dev', 'cache', 'standalone', 'diagnostics', 'trace', 'trace-build', 'types'];
 

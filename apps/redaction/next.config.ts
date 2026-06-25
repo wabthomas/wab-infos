@@ -5,7 +5,7 @@ const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || process.env.STRAPI_URL |
 const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  // Pas de output: 'standalone' — incompatible avec server.js (PlanetHoster / Passenger)
   turbopack: {
     root: path.join(__dirname, '../..'),
   },
