@@ -75,13 +75,17 @@ async function resolveVapidKey(): Promise<string | null> {
   return cachedVapidKey;
 }
 
-function getOrInitApp(config: FirebaseClientConfig): FirebaseApp {
+async function getOrInitApp(config: FirebaseClientConfig): Promise<FirebaseApp> {
   const apps = getApps();
   if (!apps.length) return initializeApp(config);
 
   const app = apps[0]!;
   if (app.options.projectId !== config.projectId) {
-    void deleteApp(app).catch(() => undefined);
+    try {
+      await deleteApp(app);
+    } catch {
+      // App déjà supprimée ou en cours de nettoyage
+    }
     return initializeApp(config);
   }
   return app;
@@ -160,7 +164,7 @@ export async function requestFcmToken(
 
   try {
     const registration = await prepareServiceWorker(serviceWorkerRegistration);
-    const app = getOrInitApp(config);
+    const app = await getOrInitApp(config);
     const messaging = getMessaging(app);
 
     const token = await getToken(messaging, {
@@ -188,6 +192,6 @@ export async function requestFcmToken(
         : firebaseErrorMessage(code);
 
     console.error('[fcm] getToken failed', code, message);
-    return { ok: false, code, message: firebaseErrorMessage(code) || message };
+    return { ok: false, code, message: message || firebaseErrorMessage(code) };
   }
 }
