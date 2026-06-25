@@ -141,6 +141,15 @@ export function rewriteWordPressContent(html: string): string {
   );
 }
 
+/** Échappe les caractères réservés HTML dans du texte brut. */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 /** Convertit le texte brut (retours à la ligne) en HTML pour l'affichage article. */
 export function formatArticleContent(content: string): string {
   const rewritten = rewriteWordPressContent(content);
@@ -152,8 +161,13 @@ export function formatArticleContent(content: string): string {
 
   return rewritten
     .split(/\n{2,}/)
-    .map((p) => `<p>${p.replace(/\n/g, '<br>').trim()}</p>`)
-    .filter((p) => p !== '<p></p>')
+    .map((p) => {
+      const trimmed = p.trim();
+      if (!trimmed) return '';
+      const body = escapeHtml(trimmed).replace(/\n/g, '<br>');
+      return `<p>${body}</p>`;
+    })
+    .filter(Boolean)
     .join('');
 }
 
