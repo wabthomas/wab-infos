@@ -106,6 +106,16 @@ function firebaseErrorMessage(code: string): string {
   }
 }
 
+function extractErrorMessage(error: unknown, code: string): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const raw = (error as { message?: unknown }).message;
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw;
+    }
+  }
+  return firebaseErrorMessage(code);
+}
+
 async function waitForWorkerActivated(worker: ServiceWorker): Promise<void> {
   if (worker.state === 'activated') return;
 
@@ -201,12 +211,9 @@ export async function requestFcmToken(
       error && typeof error === 'object' && 'code' in error
         ? String((error as { code?: string }).code)
         : 'messaging/unknown';
-    const message =
-      error && typeof error === 'object' && 'message' in error
-        ? String((error as { message?: string }).message)
-        : firebaseErrorMessage(code);
+    const message = extractErrorMessage(error, code);
 
     console.error('[fcm] getToken failed', code, message);
-    return { ok: false, code, message: message || firebaseErrorMessage(code) };
+    return { ok: false, code, message };
   }
 }
