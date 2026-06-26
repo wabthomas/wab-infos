@@ -6,6 +6,7 @@
   "workspaces": [
     "apps/web",
     "apps/redaction",
+    "apps/reader-android",
     "packages/*",
     "scripts/*"
   ],
@@ -20,6 +21,8 @@
     "build:redaction:pack": "npm run build:redaction && npm run pack:redaction-build",
     "build:web:low-mem": "npm run build:low-mem --workspace=apps/web",
     "build:web:pack": "npm run build:web && npm run pack:web-build",
+    "reader-android:sync": "npm run cap:sync --workspace=apps/reader-android",
+    "reader-android:open": "npm run cap:open --workspace=apps/reader-android",
     "build:cms": "node scripts/build-cms-production.mjs",
     "build:cms:direct": "npm run build --prefix apps/cms",
     "start:web": "npm run start --workspace=apps/web",

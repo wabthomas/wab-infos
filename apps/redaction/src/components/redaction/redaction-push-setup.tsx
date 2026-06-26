@@ -6,11 +6,18 @@ import {
   registerRedactionServiceWorker,
   REDACTION_SW_SCOPE,
 } from '@/lib/redaction/register-service-worker';
-import { isFirebaseClientConfigured, requestFcmToken } from '@/lib/firebase/client';
+import { isFirebaseClientConfigured, requestFcmToken, setupForegroundFcmListener } from '@/lib/firebase/client';
+import {
+  getCapacitorPushPermission,
+  isNativeCapacitorApp,
+  setupCapacitorPushListeners,
+  subscribeEditorViaCapacitorPush,
+  syncEditorCapacitorPushIfGranted,
+} from '@/lib/push/capacitor-native';
 
 const DISMISS_KEY = 'redaction-push-banner-dismiss';
 
-async function registerPushSubscription(): Promise<boolean> {
+async function registerWebPushSubscription(): Promise<boolean> {
   if (!('serviceWorker' in navigator) || !(await isFirebaseClientConfigured())) {
     return false;
   }
@@ -37,10 +44,41 @@ async function registerPushSubscription(): Promise<boolean> {
   return res.ok;
 }
 
+async function registerPushSubscription(): Promise<boolean> {
+  if (await isNativeCapacitorApp()) {
+    const result = await subscribeEditorViaCapacitorPush();
+    if (!result.ok) {
+      console.warn('[push/native]', result.reason, result.message);
+    }
+    return result.ok;
+  }
+
+  return registerWebPushSubscription();
+}
+
 export function RedactionPushSetup() {
   useEffect(() => {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    void registerPushSubscription();
+    void (async () => {
+      if (await isNativeCapacitorApp()) {
+        await setupCapacitorPushListeners();
+        const permission = await getCapacitorPushPermission();
+        if (permission === 'granted') {
+          await syncEditorCapacitorPushIfGranted();
+        }
+        return;
+      }
+
+      void registerRedactionServiceWorker();
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      if (await isNativeCapacitorApp()) return;
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      void setupForegroundFcmListener();
+      void registerWebPushSubscription();
+    })();
   }, []);
 
   return null;
@@ -52,17 +90,22 @@ export function RedactionPushBanner() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!('Notification' in window)) return;
+    void (async () => {
+      if (localStorage.getItem(DISMISS_KEY) === '1') return;
 
-    if (Notification.permission === 'granted' || Notification.permission === 'denied') {
-      return;
-    }
+      if (await isNativeCapacitorApp()) {
+        const permission = await getCapacitorPushPermission();
+        if (permission === 'granted' || permission === 'denied') return;
+        setVisible(true);
+        return;
+      }
 
-    if (localStorage.getItem(DISMISS_KEY) === '1') return;
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
 
-    void isFirebaseClientConfigured().then((ok) => {
+      const ok = await isFirebaseClientConfigured();
       if (ok) setVisible(true);
-    });
+    })();
   }, []);
 
   const enable = useCallback(async () => {
@@ -70,12 +113,6 @@ export function RedactionPushBanner() {
     setError('');
 
     try {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        setError('Autorisation refusée dans le navigateur.');
-        return;
-      }
-
       const ok = await registerPushSubscription();
       if (!ok) {
         setError('Enregistrement impossible. Réessayez après avoir vidé le cache.');

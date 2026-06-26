@@ -21,6 +21,8 @@
     "@tiptap/react": "^2.27.2",
     "@tiptap/starter-kit": "^2.27.2",
     "@wab-infos/shared": "*",
+    "@capacitor/core": "^6.0.5",
+    "@capacitor/push-notifications": "^6.0.5",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "firebase": "^12.15.0",

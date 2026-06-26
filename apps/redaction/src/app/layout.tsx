@@ -31,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="apple-touch-icon" href="/logo.png" />
       </head>
       <body className="min-h-full antialiased">{children}</body>
     </html>

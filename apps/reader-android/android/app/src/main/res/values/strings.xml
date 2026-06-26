@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Wab-infos</string>
+    <string name="title_activity_main">Wab-infos</string>
+    <string name="package_name">com.wabinfos.app</string>
+    <string name="custom_url_scheme">com.wabinfos.app</string>
+</resources>

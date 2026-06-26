@@ -4,6 +4,7 @@ import { siteConfig } from '@/config/site';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AppShell } from '@/components/layout/app-shell';
 import { PwaSetup } from '@/components/pwa/pwa-setup';
+import { NativePushSetup } from '@/components/pwa/native-push-setup';
 import { PwaSplash } from '@/components/pwa/pwa-splash';
 import { GoogleTagManagerBody, GoogleTagManagerHead } from '@/components/google/google-tag-manager';
 import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
@@ -159,6 +160,7 @@ export default function RootLayout({
         <PwaSplash />
         <div id="app-root" className="flex min-h-full flex-1 flex-col">
           <PwaSetup />
+          <NativePushSetup />
           <ThemeProvider>
             <AdsenseConfigProvider config={adsenseConfig}>
               <AppShell>{children}</AppShell>

@@ -21,6 +21,8 @@
     "@tailwindcss/postcss": "^4",
     "@wab-infos/shared": "*",
     "clsx": "^2.1.1",
+    "@capacitor/core": "^6.0.5",
+    "@capacitor/push-notifications": "^6.0.5",
     "date-fns": "^4.4.0",
     "firebase": "^12.15.0",
     "firebase-admin": "^14.1.0",

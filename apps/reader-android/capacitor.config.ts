@@ -1,0 +1,33 @@
+import type { CapacitorConfig } from '@capacitor/cli';
+
+/**
+ * En prod, l'APK charge le site (SSR Next.js) via server.url.
+ * Définir CAPACITOR_SERVER_URL=https://wab-infos.com avant cap sync.
+ * En dev local : CAPACITOR_SERVER_URL=http://10.0.2.2:3000 (émulateur Android)
+ */
+const serverUrl = process.env.CAPACITOR_SERVER_URL?.trim();
+
+const config: CapacitorConfig = {
+  appId: 'com.wabinfos.app',
+  appName: 'Wab-infos',
+  webDir: 'www',
+  android: {
+    allowMixedContent: false,
+  },
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+  },
+  ...(serverUrl
+    ? {
+        server: {
+          url: serverUrl,
+          cleartext: serverUrl.startsWith('http://'),
+          androidScheme: serverUrl.startsWith('https') ? 'https' : 'http',
+        },
+      }
+    : {}),
+};
+
+export default config;

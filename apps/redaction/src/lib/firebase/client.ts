@@ -1,7 +1,7 @@
 'use client';
 
 import { deleteApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import { getMessaging, getToken, isSupported } from 'firebase/messaging';
+import { getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging';
 import {
   getFirebaseClientConfig,
   getFirebaseVapidKey,
@@ -254,5 +254,38 @@ export async function requestFcmToken(
 
     console.error('[fcm] getToken failed', code, message);
     return { ok: false, code, message };
+  }
+}
+
+/** Affiche les notifications quand l'app est ouverte au premier plan (Android / desktop). */
+export async function setupForegroundFcmListener(): Promise<void> {
+  if (typeof window === 'undefined' || !(await isSupported())) return;
+  if (Notification.permission !== 'granted') return;
+
+  const config = await resolveFirebaseClientConfig();
+  if (!config) return;
+
+  try {
+    const app = await getOrInitApp(config);
+    const messaging = getMessaging(app);
+    onMessage(messaging, (payload) => {
+      const title =
+        payload.notification?.title || payload.data?.title || 'Wab Rédaction';
+      const body = payload.notification?.body || payload.data?.body || '';
+      const url = payload.data?.url || '/comments';
+      try {
+        new Notification(title, {
+          body,
+          icon: '/logo.png',
+          badge: '/logo.png',
+          tag: 'wab-redaction-notification',
+          data: { url },
+        });
+      } catch {
+        // navigateur sans API Notification
+      }
+    });
+  } catch (error) {
+    console.warn('[fcm] foreground listener unavailable', error);
   }
 }

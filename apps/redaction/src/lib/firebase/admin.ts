@@ -66,9 +66,14 @@ export async function sendFcmToToken(
       body: payload.body,
       url: absoluteUrl,
     },
+    android: {
+      priority: 'high',
+    },
     webpush: {
       fcmOptions: { link: absoluteUrl },
       notification: {
+        title: payload.title,
+        body: payload.body,
         icon: `${appOrigin}/logo.png`,
         badge: `${appOrigin}/logo.png`,
       },

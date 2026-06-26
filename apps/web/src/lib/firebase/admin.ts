@@ -49,13 +49,25 @@ export async function sendFcmToToken(
 
   await getMessaging(app).send({
     token,
+    notification: {
+      title: payload.title,
+      body: payload.body,
+    },
     data: {
       title: payload.title,
       body: payload.body,
       url: absoluteUrl,
     },
+    android: {
+      priority: 'high',
+    },
     webpush: {
       fcmOptions: { link: absoluteUrl },
+      notification: {
+        title: payload.title,
+        body: payload.body,
+        icon: `${siteUrl}/icons/icon-192.png`,
+      },
     },
   });
 }

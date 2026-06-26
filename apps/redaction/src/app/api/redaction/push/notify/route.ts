@@ -19,6 +19,12 @@ export async function POST(request: Request) {
       url: body.url ?? '/comments',
     });
 
+    if (result.sent === 0 && result.failed === 0) {
+      console.warn(
+        '[push/notify] Aucune notification envoyée (Firebase non configuré ou aucun abonné FCM)'
+      );
+    }
+
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Notification impossible';

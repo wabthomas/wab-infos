@@ -1,4 +1,9 @@
 import { registerSiteServiceWorker } from '@/lib/pwa/register-site-sw';
+import {
+  isNativeCapacitorApp,
+  subscribeViaCapacitorPush,
+  syncCapacitorPushIfGranted,
+} from '@/lib/push/capacitor-native';
 import { isFirebaseClientConfigured, requestFcmToken } from '@/lib/firebase/client';
 
 export async function waitForServiceWorker(timeoutMs = 8000): Promise<ServiceWorkerRegistration | null> {
@@ -29,11 +34,30 @@ export async function subscribeToPushNotifications(): Promise<{
   reason: 'unsupported' | 'denied' | 'firebase_missing' | 'sw_unavailable' | 'invalid_token' | 'server_error';
   message?: string;
 }> {
-  if (
-    typeof window === 'undefined' ||
-    !('serviceWorker' in navigator) ||
-    !('Notification' in window)
-  ) {
+  if (typeof window === 'undefined') {
+    return { ok: false, reason: 'unsupported' };
+  }
+
+  if (await isNativeCapacitorApp()) {
+    const native = await subscribeViaCapacitorPush();
+    if (!native.ok) {
+      return {
+        ok: false,
+        reason:
+          native.reason === 'denied'
+            ? 'denied'
+            : native.reason === 'unsupported'
+              ? 'unsupported'
+              : native.reason === 'server_error'
+                ? 'server_error'
+                : 'invalid_token',
+        message: native.message,
+      };
+    }
+    return { ok: true };
+  }
+
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) {
     return { ok: false, reason: 'unsupported' };
   }
 
@@ -79,12 +103,17 @@ export async function subscribeToPushNotifications(): Promise<{
 }
 
 export async function syncPushSubscriptionIfGranted(): Promise<boolean> {
-  if (
-    typeof window === 'undefined' ||
-    !('serviceWorker' in navigator) ||
-    Notification.permission !== 'granted' ||
-    !(await isFirebaseClientConfigured())
-  ) {
+  if (typeof window === 'undefined') return false;
+
+  if (await isNativeCapacitorApp()) {
+    return syncCapacitorPushIfGranted();
+  }
+
+  if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') {
+    return false;
+  }
+
+  if (!(await isFirebaseClientConfigured())) {
     return false;
   }
 
