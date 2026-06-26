@@ -8,7 +8,7 @@ export default async function RedactionDashboardPage() {
   const user = await requireRedactionUser();
   const [{ author, canDeleteAnyArticle }, articles] = await Promise.all([
     getEditorProfile(user),
-    listEditorArticles(user, 'all'),
+    listEditorArticles(user, 'all', { omitContent: true }),
   ]);
   const stats = computeEditorStats(articles);
   const latest = articles.slice(0, 5);

@@ -1,5 +1,15 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+/** Garder en sync avec packages/shared/src/capacitor-nav.ts */
+const CAPACITOR_ALLOW_NAVIGATION = [
+  'wab-infos.com',
+  '*.wab-infos.com',
+  'redaction.app.wab-infos.com',
+  'cms.app.wab-infos.com',
+  'app.wab-infos.com',
+  'wp.wab-infos.com',
+];
+
 /**
  * En prod, l'APK charge le site (SSR Next.js) via server.url.
  * Définir CAPACITOR_SERVER_URL=https://wab-infos.com avant cap sync.
@@ -25,6 +35,8 @@ const config: CapacitorConfig = {
           url: serverUrl,
           cleartext: serverUrl.startsWith('http://'),
           androidScheme: serverUrl.startsWith('https') ? 'https' : 'http',
+          // Rédaction / CMS : rester dans la WebView, ne pas ouvrir Chrome
+          allowNavigation: [...CAPACITOR_ALLOW_NAVIGATION],
         },
       }
     : {}),

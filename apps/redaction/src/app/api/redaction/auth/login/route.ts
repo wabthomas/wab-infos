@@ -5,6 +5,7 @@ import {
   REDACTION_COOKIE_MAX_AGE,
   REDACTION_COOKIE_MAX_AGE_SESSION,
 } from '@/lib/redaction/config';
+import { redactionCookieOptions } from '@/lib/redaction/cookie-options';
 import { loginRedactionUser, RedactionAuthError } from '@/lib/redaction/strapi-editor';
 
 export async function POST(request: Request) {
@@ -26,13 +27,11 @@ export async function POST(request: Request) {
     const jar = await cookies();
     const maxAge = body.remember !== false ? REDACTION_COOKIE_MAX_AGE : REDACTION_COOKIE_MAX_AGE_SESSION;
 
-    jar.set(REDACTION_COOKIE, jwt, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge,
-    });
+    jar.set(
+      REDACTION_COOKIE,
+      jwt,
+      redactionCookieOptions(maxAge, request.headers.get('x-forwarded-proto'))
+    );
 
     return NextResponse.json({ user });
   } catch (err) {

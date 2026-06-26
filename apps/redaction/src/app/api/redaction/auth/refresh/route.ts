@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import {
   REDACTION_COOKIE,
   REDACTION_COOKIE_MAX_AGE,
 } from '@/lib/redaction/config';
+import { redactionCookieOptions } from '@/lib/redaction/cookie-options';
 import { RedactionAuthError, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 
 export async function POST() {
@@ -15,13 +16,15 @@ export async function POST() {
       return NextResponse.json({ error: 'Non connecté' }, { status: 401 });
     }
 
-    jar.set(REDACTION_COOKIE, jwt, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: REDACTION_COOKIE_MAX_AGE,
-    });
+    const headerList = await headers();
+    jar.set(
+      REDACTION_COOKIE,
+      jwt,
+      redactionCookieOptions(
+        REDACTION_COOKIE_MAX_AGE,
+        headerList.get('x-forwarded-proto')
+      )
+    );
 
     return NextResponse.json({ user });
   } catch (err) {

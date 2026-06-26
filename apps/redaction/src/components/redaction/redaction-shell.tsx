@@ -55,6 +55,7 @@ function NavItem({
   return (
     <Link
       href={href}
+      prefetch
       className={cn(
         'relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 transition-colors',
         active
@@ -81,11 +82,24 @@ export function RedactionShell({ children, authorName }: RedactionShellProps) {
   const [pendingComments, setPendingComments] = useState(0);
 
   useEffect(() => {
-    fetch('/api/redaction/comments/count')
-      .then((r) => r.json())
-      .then((d: { count?: number }) => setPendingComments(d.count ?? 0))
-      .catch(() => undefined);
-  }, [pathname]);
+    let cancelled = false;
+
+    const loadCount = () => {
+      fetch('/api/redaction/comments/count')
+        .then((r) => r.json())
+        .then((d: { count?: number }) => {
+          if (!cancelled) setPendingComments(d.count ?? 0);
+        })
+        .catch(() => undefined);
+    };
+
+    loadCount();
+    const interval = window.setInterval(loadCount, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     void touchRedactionSession();

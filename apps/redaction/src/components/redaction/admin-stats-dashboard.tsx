@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -97,20 +97,34 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
+function tabPanelClass(active: boolean): string {
+  return cn('space-y-4', !active && 'hidden');
+}
+
 export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   type StatsScope = 'mine' | 'site';
   const [scope, setScope] = useState<StatsScope>(isSuperAdmin ? 'site' : 'mine');
   const [tab, setTab] = useState<TabId>('traffic');
   const [days, setDays] = useState<AdminStatsRange>(30);
   const [data, setData] = useState<AdminAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const cacheRef = useRef<Map<string, AdminAnalytics>>(new Map());
 
   const isSiteScope = scope === 'site';
   const tabs = isSiteScope ? SITE_TABS : AUTHOR_TABS;
 
   const load = useCallback(async (range: AdminStatsRange, activeScope: StatsScope) => {
-    setLoading(true);
+    const cacheKey = `${activeScope}-${range}`;
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached) {
+      setData(cached);
+      setInitialLoading(false);
+    } else {
+      setInitialLoading(true);
+    }
+    setRefreshing(true);
     setError('');
     try {
       const endpoint =
@@ -120,12 +134,15 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
       const res = await fetch(endpoint);
       const body = (await res.json()) as { analytics?: AdminAnalytics; error?: string };
       if (!res.ok) throw new Error(body.error ?? 'Chargement impossible');
-      setData(body.analytics ?? null);
+      const analytics = body.analytics ?? null;
+      if (analytics) cacheRef.current.set(cacheKey, analytics);
+      setData(analytics);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur');
-      setData(null);
+      if (!cached) setData(null);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -139,12 +156,51 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
     }
   }, [tab, tabs]);
 
-  const trafficChart =
-    data?.traffic.map((p, index) => ({
-      label: formatStatsDate(p.date),
-      publications: p.value,
-      commentaires: data.trends.comments[index]?.value ?? 0,
-    })) ?? [];
+  const trafficChart = useMemo(
+    () =>
+      data?.traffic.map((p, index) => ({
+        label: formatStatsDate(p.date),
+        publications: p.value,
+        commentaires: data.trends.comments[index]?.value ?? 0,
+      })) ?? [],
+    [data]
+  );
+
+  const trendsArticlesChart = useMemo(
+    () =>
+      data?.trends.articles.map((p) => ({
+        label: formatStatsDate(p.date),
+        value: p.value,
+      })) ?? [],
+    [data]
+  );
+
+  const trendsCommentsChart = useMemo(
+    () =>
+      data?.trends.comments.map((p) => ({
+        label: formatStatsDate(p.date),
+        value: p.value,
+      })) ?? [],
+    [data]
+  );
+
+  const subscribersGrowthChart = useMemo(
+    () =>
+      data?.subscribers.growth.map((p) => ({
+        label: formatStatsDate(p.date),
+        value: p.value,
+      })) ?? [],
+    [data]
+  );
+
+  const topCategoriesChart = useMemo(
+    () =>
+      data?.topCategories.map((c) => ({
+        name: c.name.length > 18 ? `${c.name.slice(0, 18)}…` : c.name,
+        vues: c.value,
+      })) ?? [],
+    [data]
+  );
 
   return (
     <div className="space-y-4 pb-8">
@@ -227,16 +283,21 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
         </div>
       </div>
 
-      {loading ? (
+      {initialLoading && !data ? (
         <div className="flex min-h-[40vh] items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      ) : error ? (
+      ) : error && !data ? (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600">
           {error}
         </div>
       ) : data ? (
-        <>
+        <div className={cn('relative space-y-4', refreshing && 'opacity-80')}>
+          {refreshing ? (
+            <div className="pointer-events-none absolute right-0 top-0 z-10">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             <KpiCard
               icon={Eye}
@@ -284,8 +345,7 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
             </p>
           )}
 
-          {tab === 'traffic' && (
-            <div className="space-y-4">
+          <div className={tabPanelClass(tab === 'traffic')}>
               <ChartCard title="Publications et commentaires">
                 <div className="h-56 w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -335,20 +395,13 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
                   ))}
                 </ol>
               </ChartCard>
-            </div>
-          )}
+          </div>
 
-          {tab === 'trends' && (
-            <div className="space-y-4">
+          <div className={tabPanelClass(tab === 'trends')}>
               <ChartCard title="Publications">
                 <div className="h-48 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={data.trends.articles.map((p) => ({
-                        label: formatStatsDate(p.date),
-                        value: p.value,
-                      }))}
-                    >
+                    <BarChart data={trendsArticlesChart}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="label" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} width={28} />
@@ -362,12 +415,7 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
               <ChartCard title="Commentaires reçus">
                 <div className="h-48 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={data.trends.comments.map((p) => ({
-                        label: formatStatsDate(p.date),
-                        value: p.value,
-                      }))}
-                    >
+                    <BarChart data={trendsCommentsChart}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="label" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} width={28} />
@@ -395,11 +443,9 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
                   value={formatNumber(data.summary.views)}
                 />
               </div>
-            </div>
-          )}
+          </div>
 
-          {tab === 'subscribers' && (
-            <div className="space-y-4">
+          <div className={tabPanelClass(tab === 'subscribers')}>
               <div className="grid grid-cols-2 gap-3">
                 <KpiCard
                   icon={Rss}
@@ -416,12 +462,7 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
               <ChartCard title="Nouveaux abonnés">
                 <div className="h-48 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={data.subscribers.growth.map((p) => ({
-                        label: formatStatsDate(p.date),
-                        value: p.value,
-                      }))}
-                    >
+                    <LineChart data={subscribersGrowthChart}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis dataKey="label" tick={{ fontSize: 10 }} />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} width={28} />
@@ -465,24 +506,16 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
                   </div>
                 </ChartCard>
               )}
-            </div>
-          )}
+          </div>
 
-          {tab === 'referrers' && (
-            <div className="space-y-4">
+          <div className={tabPanelClass(tab === 'referrers')}>
               <p className="text-sm text-muted-foreground">
                 Répartition des vues par rubrique (proxy des sources de trafic interne).
               </p>
               <ChartCard title="Rubriques les plus consultées">
                 <div className="h-56 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      layout="vertical"
-                      data={data.topCategories.map((c) => ({
-                        name: c.name.length > 18 ? `${c.name.slice(0, 18)}…` : c.name,
-                        vues: c.value,
-                      }))}
-                    >
+                    <BarChart layout="vertical" data={topCategoriesChart}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis type="number" tick={{ fontSize: 10 }} />
                       <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={88} />
@@ -511,11 +544,9 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
                   ))}
                 </ul>
               </ChartCard>
-            </div>
-          )}
+          </div>
 
-          {tab === 'countries' && (
-            <div className="space-y-4">
+          <div className={tabPanelClass(tab === 'countries')}>
               {data.dataSources.geoEstimated && (
                 <p className="text-sm text-muted-foreground">
                   Estimation indicative basée sur le profil audience RDC. Pour des données précises,
@@ -540,11 +571,9 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
                   </ResponsiveContainer>
                 </div>
               </ChartCard>
-            </div>
-          )}
+          </div>
 
-          {tab === 'comments' && (
-            <div className="space-y-4">
+          <div className={tabPanelClass(tab === 'comments')}>
               <div className="grid grid-cols-3 gap-2">
                 <KpiCard
                   icon={MessageSquare}
@@ -588,9 +617,8 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
                   </ResponsiveContainer>
                 </div>
               </ChartCard>
-            </div>
-          )}
-        </>
+          </div>
+        </div>
       ) : null}
     </div>
   );

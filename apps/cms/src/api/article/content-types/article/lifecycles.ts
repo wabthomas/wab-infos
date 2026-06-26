@@ -56,7 +56,7 @@ function slugifyTitle(title: string): string {
     .slice(0, 80);
 }
 
-const GENERIC_SLUGS = new Set(['article', 'articles', 'post', 'nouveau', 'brouillon']);
+const GENERIC_SLUGS = new Set(['article', 'articles', 'post', 'nouveau', 'brouillon', 'sans-titre']);
 
 function ensureArticleSlug(data: Record<string, unknown>, isUpdate: boolean) {
   const title = typeof data.title === 'string' ? data.title.trim() : '';

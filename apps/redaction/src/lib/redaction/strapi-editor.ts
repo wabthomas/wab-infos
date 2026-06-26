@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import qs from 'qs';
 import { getStrapiUrl, REDACTION_COOKIE } from '@/lib/redaction/config';
@@ -232,13 +233,13 @@ export async function verifyRedactionUser(jwt: string): Promise<RedactionUser | 
   }
 }
 
-export async function requireRedactionUser(): Promise<RedactionUser> {
+export const requireRedactionUser = cache(async (): Promise<RedactionUser> => {
   const jwt = await getRedactionJwt();
   if (!jwt) throw new RedactionAuthError('Non connecté');
   const user = await verifyRedactionUser(jwt);
   if (!user) throw new RedactionAuthError('Session expirée');
   return user;
-}
+});
 
 export function isRedactionSuperAdmin(user: RedactionUser): boolean {
   return user.role === 'admin';
@@ -355,7 +356,7 @@ function mapArticle(entity: StrapiEntity): RedactionArticle {
   };
 }
 
-async function resolveAuthorForUser(user: RedactionUser): Promise<RedactionAuthor> {
+const resolveAuthorForUser = cache(async (user: RedactionUser): Promise<RedactionAuthor> => {
   const response = await strapiFetch<{ data: StrapiEntity[] }>('/authors', {
     filters: { email: { $eqi: user.email } },
     pagination: { pageSize: 1 },
@@ -393,9 +394,9 @@ async function resolveAuthorForUser(user: RedactionUser): Promise<RedactionAutho
     name: created.data.name as string,
     slug: created.data.slug as string,
   };
-}
+});
 
-export async function getEditorProfile(user: RedactionUser): Promise<{
+export const getEditorProfile = cache(async function getEditorProfile(user: RedactionUser): Promise<{
   user: RedactionUser;
   author: RedactionAuthor;
   isSuperAdmin: boolean;
@@ -410,26 +411,81 @@ export async function getEditorProfile(user: RedactionUser): Promise<{
     canAssignAuthor: canAssignArticleAuthor(user),
     canDeleteAnyArticle: canDeleteAnyArticle(user),
   };
+});
+
+const PLACEHOLDER_TITLE = 'Sans titre';
+
+function isPlaceholderTitle(title: string | undefined): boolean {
+  return !title?.trim() || title.trim().toLowerCase() === PLACEHOLDER_TITLE.toLowerCase();
+}
+
+function isGenericSlug(slug: string | undefined): boolean {
+  if (!slug?.trim()) return true;
+  return ['article', 'articles', 'post', 'nouveau', 'brouillon', 'sans-titre'].includes(
+    slug.trim().toLowerCase()
+  );
+}
+
+function generateArticleSlug(title: string): string {
+  const base = slugify(title).slice(0, 100);
+  return base || `article-${Date.now().toString(36)}`;
+}
+
+function resolveArticleSlug(
+  existing: { slug?: string; title?: string },
+  newTitle: string
+): string {
+  const title = newTitle.trim();
+  if (isGenericSlug(existing.slug)) return generateArticleSlug(title);
+  if (
+    isPlaceholderTitle(existing.title) &&
+    !isPlaceholderTitle(title) &&
+    existing.slug?.trim().toLowerCase() === slugify(PLACEHOLDER_TITLE)
+  ) {
+    return generateArticleSlug(title);
+  }
+  return existing.slug!.trim();
 }
 
 export async function listEditorArticles(
   user: RedactionUser,
-  status?: 'draft' | 'published' | 'scheduled' | 'all'
+  status?: 'draft' | 'published' | 'scheduled' | 'all',
+  options?: { omitContent?: boolean }
 ): Promise<RedactionArticle[]> {
   const author = await resolveAuthorForUser(user);
 
   const authorFilter = { author: { documentId: { $eq: author.documentId } } };
-  const populate = {
-    category: true,
-    secondaryCategories: true,
-    tags: true,
-    featuredImage: true,
-    author: true,
-  };
+  const populate = options?.omitContent
+    ? { category: true, featuredImage: true }
+    : {
+        category: true,
+        secondaryCategories: true,
+        tags: true,
+        featuredImage: true,
+        author: true,
+      };
   const listParams = {
     populate,
     sort: ['updatedAt:desc'] as string[],
     pagination: { pageSize: 100 },
+    ...(options?.omitContent
+      ? {
+          fields: [
+            'title',
+            'slug',
+            'excerpt',
+            'status',
+            'isBreaking',
+            'isFeatured',
+            'viewCount',
+            'readingTime',
+            'publishedAt',
+            'wpPublishedAt',
+            'scheduledAt',
+            'updatedAt',
+          ],
+        }
+      : {}),
   };
 
   const fetchPublished = (extraFilters?: Record<string, unknown>) =>
@@ -522,16 +578,6 @@ export async function getEditorArticle(
   }
 
   return null;
-}
-
-function isGenericSlug(slug: string | undefined): boolean {
-  if (!slug?.trim()) return true;
-  return ['article', 'articles', 'post', 'nouveau', 'brouillon'].includes(slug.trim().toLowerCase());
-}
-
-function generateArticleSlug(title: string): string {
-  const base = slugify(title).slice(0, 100);
-  return base || `article-${Date.now().toString(36)}`;
 }
 
 const TAG_STOP_WORDS = new Set([
@@ -833,7 +879,7 @@ export async function updateEditorArticle(
 
   const title = payload.title?.trim() || existing.title;
   const excerpt = payload.excerpt?.trim() || existing.excerpt;
-  const slug = isGenericSlug(existing.slug) ? generateArticleSlug(title) : existing.slug;
+  const slug = resolveArticleSlug(existing, title);
 
   const publishing = saveMode?.strapiStatus === 'published';
   const tagIds = publishing
@@ -876,14 +922,19 @@ export async function publishDueScheduledArticles(): Promise<{
   const documentIds: string[] = [];
 
   for (const article of response.data) {
+    const title = (article.title as string | undefined)?.trim() ?? '';
+    const existingSlug = (article.slug as string | undefined)?.trim() ?? '';
+    const publishData: Record<string, unknown> = {
+      status: 'published',
+      scheduledAt: null,
+    };
+    if (title && (isGenericSlug(existingSlug) || existingSlug === slugify(PLACEHOLDER_TITLE))) {
+      publishData.slug = generateArticleSlug(title);
+    }
+
     await strapiFetch(`/articles/${article.documentId}?status=published`, undefined, {
       method: 'PUT',
-      body: JSON.stringify({
-        data: {
-          status: 'published',
-          scheduledAt: null,
-        },
-      }),
+      body: JSON.stringify({ data: publishData }),
     });
     documentIds.push(article.documentId);
   }

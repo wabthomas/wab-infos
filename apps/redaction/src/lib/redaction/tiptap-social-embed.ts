@@ -28,7 +28,18 @@ export const SocialEmbed = Node.create({
   },
 
   parseHTML() {
-    return [{ tag: 'div[data-social-embed]' }];
+    return [
+      {
+        tag: 'div[data-social-embed]',
+        getAttrs: (element) => {
+          if (!(element instanceof HTMLElement)) return {};
+          const platform = element.getAttribute('data-social-embed') ?? 'twitter';
+          const iframe = element.querySelector('iframe');
+          const embedUrl = iframe?.getAttribute('src') ?? null;
+          return { platform, embedUrl, url: embedUrl };
+        },
+      },
+    ];
   },
 
   renderHTML({ HTMLAttributes }) {

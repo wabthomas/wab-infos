@@ -10,6 +10,7 @@ import { GoogleTagManagerBody, GoogleTagManagerHead } from '@/components/google/
 import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
 import { getAdsenseConfig } from '@/lib/adsense-config.server';
 import { generateWebsiteJsonLd } from '@/lib/seo';
+import { resolveRedactionUrl } from '@wab-infos/shared';
 import './globals.css';
 
 const strapiOrigin = (
@@ -17,6 +18,8 @@ const strapiOrigin = (
   process.env.STRAPI_URL ||
   'https://cms.app.wab-infos.com'
 ).replace(/\/$/, '');
+
+const redactionOrigin = resolveRedactionUrl(process.env.NEXT_PUBLIC_REDACTION_URL).replace(/\/$/, '');
 
 const googleFontsUrl =
   'https://fonts.googleapis.com/css2?' +
@@ -105,6 +108,8 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href={strapiOrigin} />
         <link rel="dns-prefetch" href={strapiOrigin} />
+        <link rel="preconnect" href={redactionOrigin} />
+        <link rel="dns-prefetch" href={redactionOrigin} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://pagead2.googlesyndication.com" />

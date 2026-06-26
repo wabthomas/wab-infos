@@ -23,6 +23,8 @@
     "build:web:pack": "npm run build:web && npm run pack:web-build",
     "reader-android:sync": "npm run cap:sync --workspace=apps/reader-android",
     "reader-android:open": "npm run cap:open --workspace=apps/reader-android",
+    "reader-android:icons": "node scripts/reader-android-icons.mjs",
+    "reader-android:release": "node scripts/reader-android-release.mjs",
     "build:cms": "node scripts/build-cms-production.mjs",
     "build:cms:direct": "npm run build --prefix apps/cms",
     "start:web": "npm run start --workspace=apps/web",

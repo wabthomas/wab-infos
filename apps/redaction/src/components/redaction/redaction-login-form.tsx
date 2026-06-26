@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
@@ -16,6 +16,31 @@ export function RedactionLoginForm() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/redaction/auth/me', { credentials: 'same-origin' })
+      .then((res) => {
+        if (!cancelled && res.ok) router.replace('/');
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setCheckingSession(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
+        <p className="text-sm text-muted-foreground">Chargement de l&apos;espace rédaction…</p>
+      </div>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,12 +52,32 @@ export function RedactionLoginForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, password, remember }),
+        credentials: 'same-origin',
       });
-      const data = (await res.json()) as { error?: string };
+
+      let data: { error?: string } = {};
+      try {
+        data = (await res.json()) as { error?: string };
+      } catch {
+        setError('Réponse serveur invalide');
+        return;
+      }
+
       if (!res.ok) {
         setError(data.error ?? 'Connexion impossible');
         return;
       }
+
+      const meRes = await fetch('/api/redaction/auth/me', { credentials: 'same-origin' });
+      if (!meRes.ok) {
+        setError(
+          window.location.protocol === 'http:'
+            ? 'Session non enregistrée. Ouvrez https://redaction.app.wab-infos.com (cadenas) et réessayez.'
+            : 'Session non enregistrée. Videz les cookies du site et réessayez.'
+        );
+        return;
+      }
+
       router.replace('/');
       router.refresh();
     } catch {

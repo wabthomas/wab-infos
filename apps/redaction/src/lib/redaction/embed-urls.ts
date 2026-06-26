@@ -8,6 +8,10 @@ export interface ParsedEmbed {
   embedUrl: string;
 }
 
+export function youtubeWatchUrl(youtubeId: string): string {
+  return `https://www.youtube.com/watch?v=${youtubeId}`;
+}
+
 export function parseYoutubeId(url: string): string | null {
   const trimmed = url.trim();
   const patterns = [
@@ -35,7 +39,9 @@ export function parseEmbedUrl(raw: string): ParsedEmbed | null {
     };
   }
 
-  const tweetMatch = url.match(/(?:twitter\.com|x\.com)\/[^/?#]+\/status\/(\d+)/i);
+  const tweetMatch = url.match(
+    /(?:twitter\.com|x\.com|mobile\.twitter\.com)\/[^/?#]+\/status\/(\d+)/i
+  );
   if (tweetMatch?.[1]) {
     return {
       platform: 'twitter',

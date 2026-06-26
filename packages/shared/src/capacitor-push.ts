@@ -1,3 +1,5 @@
+import { navigateInApp, resolvePublicHttpsUrl } from './capacitor-nav';
+
 export type NativePushResult =
   | { ok: true }
   | {
@@ -133,7 +135,7 @@ export async function setupCapacitorPushListeners(): Promise<void> {
     if (!rawUrl || typeof window === 'undefined') return;
 
     if (rawUrl.startsWith('http')) {
-      window.location.href = rawUrl;
+      void navigateInApp(resolvePublicHttpsUrl(rawUrl, rawUrl));
       return;
     }
 

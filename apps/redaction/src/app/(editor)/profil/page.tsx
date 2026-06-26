@@ -8,7 +8,7 @@ export default async function RedactionProfilePage() {
   const user = await requireRedactionUser();
   const [{ author }, articles] = await Promise.all([
     getEditorProfile(user),
-    listEditorArticles(user, 'all'),
+    listEditorArticles(user, 'all', { omitContent: true }),
   ]);
   const stats = computeEditorStats(articles);
 

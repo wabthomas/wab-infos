@@ -23,7 +23,7 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import { parseEmbedUrl } from '@/lib/redaction/embed-urls';
+import { parseEmbedUrl, youtubeWatchUrl } from '@/lib/redaction/embed-urls';
 import { BlockChrome } from '@/lib/redaction/tiptap-block-chrome';
 import { SocialEmbed } from '@/lib/redaction/tiptap-social-embed';
 import { ArticleEditorToolbar } from '@/components/redaction/article-editor-toolbar';
@@ -209,14 +209,27 @@ export function ArticleRichEditor({
       setError('Lien non reconnu (YouTube, X/Twitter ou Facebook).');
       return;
     }
+    let ok = false;
     if (parsed.platform === 'youtube' && parsed.youtubeId) {
-      editor.commands.setYoutubeVideo({ src: parsed.youtubeId });
+      ok = editor
+        .chain()
+        .focus()
+        .setYoutubeVideo({ src: youtubeWatchUrl(parsed.youtubeId) })
+        .run();
     } else {
-      editor.commands.setSocialEmbed({
-        platform: parsed.platform,
-        url: parsed.url,
-        embedUrl: parsed.embedUrl,
-      });
+      ok = editor
+        .chain()
+        .focus()
+        .setSocialEmbed({
+          platform: parsed.platform,
+          url: parsed.url,
+          embedUrl: parsed.embedUrl,
+        })
+        .run();
+    }
+    if (!ok) {
+      setError('Impossible d’insérer cette vidéo ou intégration.');
+      return;
     }
     closeSheet();
   }, [closeSheet, editor, inputValue]);
