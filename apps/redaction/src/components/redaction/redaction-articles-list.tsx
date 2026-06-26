@@ -1,11 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import type { RedactionArticle } from '@/lib/redaction/types';
-import { getRedactionArticleStatusLabel } from '@/lib/redaction/status-label';
-import { formatArticleDate, getArticleDisplayDate } from '@/lib/utils';
+import { ArticleListItem } from '@/components/redaction/article-list-item';
 import { cn } from '@/lib/utils';
 
 type Filter = 'all' | 'published' | 'draft' | 'scheduled';
@@ -39,14 +37,14 @@ export function RedactionArticlesList() {
     <div className="space-y-4">
       <h1 className="font-display text-2xl font-bold">Mes articles</h1>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {(['all', 'published', 'scheduled', 'draft'] as const).map((f) => (
           <button
             key={f}
             type="button"
             onClick={() => setFilter(f)}
             className={cn(
-              'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+              'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
               filter === f
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground'
@@ -73,22 +71,10 @@ export function RedactionArticlesList() {
         <ul className="space-y-2">
           {articles.map((article) => (
             <li key={article.documentId}>
-              <Link
-                href={`/articles/${article.documentId}/edit`}
-                className="block rounded-xl border border-border bg-card p-4"
-              >
-                <p className="font-semibold leading-snug">{article.title}</p>
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  {article.category?.name ?? 'Sans rubrique'}
-                  {' · '}
-                  {getRedactionArticleStatusLabel(article.status)}
-                  {' · '}
-                  {formatArticleDate(getArticleDisplayDate(article))}
-                </p>
-                {article.viewCount > 0 && (
-                  <p className="mt-1 text-xs font-medium text-primary">{article.viewCount} vues</p>
-                )}
-              </Link>
+              <ArticleListItem
+                article={article}
+                onDeleted={(id) => setArticles((list) => list.filter((a) => a.documentId !== id))}
+              />
             </li>
           ))}
         </ul>

@@ -5,18 +5,20 @@ import {
   ArticleInContentAd,
   ArticleMidAd,
 } from '@/components/ads/adsense';
+import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { countArticleParagraphs, splitHtmlAtParagraphs } from '@/lib/article-content';
-import { siteConfig } from '@/config/site';
 
 interface ArticleBodyWithAdsProps {
   html: string;
 }
 
 export function ArticleBodyWithAds({ html }: ArticleBodyWithAdsProps) {
+  const { slots } = useAdsenseConfig();
+
   const { segments, showInContent, showMid } = useMemo(() => {
     const paragraphCount = countArticleParagraphs(html);
-    const hasInContent = Boolean(siteConfig.adsenseSlots.articleInContent);
-    const hasMid = Boolean(siteConfig.adsenseSlots.articleMid);
+    const hasInContent = Boolean(slots.articleInContent?.trim());
+    const hasMid = Boolean(slots.articleMid?.trim());
 
     if (paragraphCount < 3 || (!hasInContent && !hasMid)) {
       return { segments: [html], showInContent: false, showMid: false };
@@ -32,7 +34,7 @@ export function ArticleBodyWithAds({ html }: ArticleBodyWithAdsProps) {
       showInContent: hasInContent && parts.length > 1,
       showMid: hasMid && parts.length > 2,
     };
-  }, [html]);
+  }, [html, slots.articleInContent, slots.articleMid]);
 
   return (
     <div className="prose-article">

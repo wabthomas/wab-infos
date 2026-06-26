@@ -124,6 +124,7 @@ npm install --workspace=apps/web --include=optional --include=dev
 
 echo "→ Config Firebase service worker (public/firebase-messaging-config.js)"
 npm run pwa:fcm --workspace=apps/web || true
+npm run pwa:fcm --workspace=apps/redaction || true
 
 echo "→ Lien Strapi monorepo"
 node scripts/setup-strapi-link.js

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { siteConfig } from '@/config/site';
+import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
+import { pushAdsenseSlot, waitForAdsenseScript } from '@/lib/adsense-loader';
 import { cn } from '@/lib/utils';
 
 type AdFormat = 'auto' | 'rectangle' | 'horizontal' | 'vertical' | 'fluid';
@@ -15,12 +16,6 @@ interface AdSenseProps {
   style?: React.CSSProperties;
   lazy?: boolean;
   label?: string;
-}
-
-declare global {
-  interface Window {
-    adsbygoogle?: unknown[];
-  }
 }
 
 function resolveSlot(slot?: string): string | undefined {
@@ -40,37 +35,52 @@ export function AdSense({
   const adRef = useRef<HTMLModElement>(null);
   const loaded = useRef(false);
   const resolvedSlot = resolveSlot(slot);
-  const client = siteConfig.adsenseClient;
+  const { client } = useAdsenseConfig();
 
   useEffect(() => {
     if (!client || !resolvedSlot || loaded.current) return;
+    let cancelled = false;
+    let observer: IntersectionObserver | null = null;
 
-    const loadAd = () => {
+    const fillAd = async () => {
       try {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-        loaded.current = true;
+        await waitForAdsenseScript();
       } catch {
-        // AdSense pas encore chargé
+        return;
+      }
+
+      for (let attempt = 0; attempt < 24 && !cancelled && !loaded.current; attempt += 1) {
+        if (pushAdsenseSlot()) {
+          loaded.current = true;
+          observer?.disconnect();
+          return;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 150));
       }
     };
 
     if (!lazy) {
-      loadAd();
-      return;
+      void fillAd();
+      return () => {
+        cancelled = true;
+      };
     }
 
-    const observer = new IntersectionObserver(
+    observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          loadAd();
-          observer.disconnect();
+          void fillAd();
         }
       },
-      { rootMargin: '200px' }
+      { rootMargin: '240px' }
     );
 
     if (adRef.current) observer.observe(adRef.current);
-    return () => observer.disconnect();
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+    };
   }, [client, lazy, resolvedSlot]);
 
   if (!client || !resolvedSlot) {
@@ -102,7 +112,11 @@ export function AdSense({
       <ins
         ref={adRef}
         className="adsbygoogle block"
-        style={{ display: 'block', textAlign: layout === 'in-article' ? 'center' : undefined, ...style }}
+        style={{
+          display: 'block',
+          textAlign: layout === 'in-article' ? 'center' : undefined,
+          ...style,
+        }}
         data-ad-client={client}
         data-ad-slot={resolvedSlot}
         data-ad-format={format}
@@ -114,8 +128,9 @@ export function AdSense({
 }
 
 export function HeaderAd() {
-  const headerSlot = siteConfig.adsenseSlots.header?.trim();
-  if (!siteConfig.adsenseClient || !headerSlot) return null;
+  const { client, slots } = useAdsenseConfig();
+  const headerSlot = slots.header?.trim();
+  if (!client || !headerSlot) return null;
 
   return (
     <div className="container mx-auto hidden px-4 py-2 md:block">
@@ -125,65 +140,50 @@ export function HeaderAd() {
 }
 
 export function SidebarAd() {
-  const sidebarSlot = siteConfig.adsenseSlots.sidebar?.trim();
-  if (!siteConfig.adsenseClient || !sidebarSlot) return null;
+  const { client, slots } = useAdsenseConfig();
+  const sidebarSlot = slots.sidebar?.trim();
+  if (!client || !sidebarSlot) return null;
 
   return (
     <div className="sticky top-20 hidden lg:block">
-      <AdSense
-        slot={sidebarSlot}
-        format="vertical"
-        className="mb-6"
-        label="sidebar"
-      />
+      <AdSense slot={sidebarSlot} format="vertical" className="mb-6" label="sidebar" />
     </div>
   );
 }
 
 export function ArticleTopAd() {
-  const slot = siteConfig.adsenseSlots.articleTop?.trim();
-  if (!siteConfig.adsenseClient || !slot) return null;
+  const { client, slots } = useAdsenseConfig();
+  const slot = slots.articleTop?.trim();
+  if (!client || !slot) return null;
 
-  return (
-    <AdSense
-      slot={slot}
-      format="horizontal"
-      lazy={false}
-      label="article-top"
-    />
-  );
+  return <AdSense slot={slot} format="horizontal" lazy={false} label="article-top" />;
 }
 
 /** Format « In-article » AdSense — à placer entre les paragraphes */
 export function ArticleInContentAd() {
+  const { client, slots } = useAdsenseConfig();
+  const slot = slots.articleInContent?.trim();
+  if (!client || !slot) return null;
+
   return (
-    <AdSense
-      slot={siteConfig.adsenseSlots.articleInContent}
-      format="fluid"
-      layout="in-article"
-      label="article-in-content"
-    />
+    <AdSense slot={slot} format="fluid" layout="in-article" label="article-in-content" />
   );
 }
 
 export function ArticleMidAd() {
-  return (
-    <AdSense
-      slot={siteConfig.adsenseSlots.articleMid}
-      format="rectangle"
-      label="article-mid"
-    />
-  );
+  const { client, slots } = useAdsenseConfig();
+  const slot = slots.articleMid?.trim();
+  if (!client || !slot) return null;
+
+  return <AdSense slot={slot} format="rectangle" label="article-mid" />;
 }
 
 export function ArticleBottomAd() {
-  return (
-    <AdSense
-      slot={siteConfig.adsenseSlots.articleBottom}
-      format="horizontal"
-      label="article-bottom"
-    />
-  );
+  const { client, slots } = useAdsenseConfig();
+  const slot = slots.articleBottom?.trim();
+  if (!client || !slot) return null;
+
+  return <AdSense slot={slot} format="horizontal" label="article-bottom" />;
 }
 
 /** @deprecated Utiliser ArticleBottomAd */
@@ -192,17 +192,13 @@ export function InArticleAd() {
 }
 
 export function StickyMobileAd() {
-  if (!siteConfig.adsenseClient || !siteConfig.adsenseSlots.mobileSticky) return null;
+  const { client, slots } = useAdsenseConfig();
+  const slot = slots.mobileSticky?.trim();
+  if (!client || !slot) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
-      <AdSense
-        slot={siteConfig.adsenseSlots.mobileSticky}
-        format="horizontal"
-        lazy={false}
-        className="my-0"
-        label="mobile-sticky"
-      />
+      <AdSense slot={slot} format="horizontal" lazy={false} className="my-0" label="mobile-sticky" />
     </div>
   );
 }

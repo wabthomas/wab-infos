@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getFirebaseVapidKey } from '@/lib/firebase/config';
+import { getFirebaseClientConfig, getFirebaseVapidKey } from '@/lib/firebase/config';
 
 export async function GET() {
-  const publicKey = getFirebaseVapidKey();
-  if (!publicKey) {
+  const config = getFirebaseClientConfig();
+  const vapidKey = getFirebaseVapidKey();
+
+  if (!config || !vapidKey) {
     return NextResponse.json({ error: 'Firebase non configuré' }, { status: 503 });
   }
-  return NextResponse.json({ publicKey, vapidKey: publicKey });
+
+  return NextResponse.json({
+    ...config,
+    vapidKey,
+    publicKey: vapidKey,
+  });
 }

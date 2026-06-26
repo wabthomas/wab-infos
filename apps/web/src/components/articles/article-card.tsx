@@ -58,7 +58,7 @@ export function ArticleCard({
                   {article.category.name}
                 </span>
               )}
-              <h2 className="font-display text-xl font-bold leading-snug transition-colors group-hover:text-primary">
+              <h2 className="font-headline text-lg font-bold leading-snug transition-colors group-hover:text-primary md:text-xl">
                 {article.title}
               </h2>
               <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
@@ -98,7 +98,7 @@ export function ArticleCard({
                   </span>
                 )}
               </div>
-              <h2 className="font-display text-2xl font-bold leading-tight text-white drop-shadow-sm md:text-3xl lg:text-4xl">
+              <h2 className="font-headline text-xl font-bold leading-tight text-white drop-shadow-sm md:text-2xl lg:text-3xl">
                 {article.title}
               </h2>
               <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80">
@@ -144,7 +144,7 @@ export function ArticleCard({
             </Link>
           )}
           <Link href={href}>
-            <h3 className="font-display line-clamp-3 text-sm font-semibold leading-snug transition-colors group-hover:text-primary md:text-base">
+            <h3 className="font-headline line-clamp-3 text-sm font-bold leading-snug transition-colors group-hover:text-primary md:text-base">
               {article.title}
             </h3>
           </Link>
@@ -195,7 +195,7 @@ export function ArticleCard({
               {article.category.name}
             </span>
           )}
-          <h3 className="font-display line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-primary sm:line-clamp-3 sm:text-base md:text-lg">
+          <h3 className="font-headline line-clamp-2 text-sm font-bold leading-snug transition-colors group-hover:text-primary sm:line-clamp-3 sm:text-base md:text-lg">
             {article.title}
           </h3>
           {showExcerpt && article.excerpt && (

@@ -6,12 +6,11 @@ const OFFLINE_HTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"
 
 const SERVER_DOWN_STATUSES = new Set([502, 503, 504]);
 
-function isRedactionWindow(client) {
+function isRedactionAppClient(client) {
   try {
-    const path = new URL(client.url).pathname;
-    return path === '/redaction' || path.startsWith('/redaction/');
+    return new URL(client.url).origin === self.location.origin;
   } catch {
-    return client.url.includes('/redaction');
+    return true;
   }
 }
 
@@ -77,24 +76,28 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/redaction';
+  const rawUrl = event.notification.data?.url || '/comments';
+  const targetUrl = rawUrl.startsWith('http')
+    ? rawUrl
+    : `${self.location.origin}${rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`}`;
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {
-        if ('focus' in client && isRedactionWindow(client)) {
+        if ('focus' in client && isRedactionAppClient(client)) {
           if ('navigate' in client) {
-            return client.navigate(url).then((c) => (c ? c.focus() : client.focus()));
+            return client.navigate(targetUrl).then((c) => (c ? c.focus() : client.focus()));
           }
           return client.focus();
         }
       }
-      return clients.openWindow(url);
+      return clients.openWindow(targetUrl);
     })
   );
 });
 
 self.FCM_NOTIFICATION_TAG = 'wab-redaction-notification';
-self.FCM_DEFAULT_URL = '/redaction';
+self.FCM_DEFAULT_URL = '/comments';
 try {
   importScripts('/fcm-background.js');
 } catch (error) {

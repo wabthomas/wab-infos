@@ -3,7 +3,8 @@
 import { Suspense, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Script from 'next/script';
-import { siteConfig } from '@/config/site';
+import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
+import { markAdsenseScriptLoaded } from '@/lib/adsense-loader';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
@@ -13,15 +14,18 @@ const AUTH_ONLY_PREFIXES = ['/connexion'];
 
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { client } = useAdsenseConfig();
 
   return (
     <>
-      {siteConfig.adsenseClient ? (
+      {client ? (
         <Script
+          id="adsense-script"
           async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${siteConfig.adsenseClient}`}
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`}
           crossOrigin="anonymous"
-          strategy="lazyOnload"
+          strategy="afterInteractive"
+          onLoad={markAdsenseScriptLoaded}
         />
       ) : null}
       <Header menuOpen={menuOpen} onMenuOpenChange={setMenuOpen} />

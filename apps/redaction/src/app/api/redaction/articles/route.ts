@@ -27,16 +27,34 @@ export async function POST(request: Request) {
   try {
     const user = await requireRedactionUser();
     const body = (await request.json()) as ArticleEditorPayload;
-    const excerpt = body.excerpt?.trim() || excerptFromContent(body.content ?? '', 170);
+    const content = body.content?.trim() || '<p></p>';
+    const excerpt =
+      body.excerpt?.trim() || excerptFromContent(content, 170) || body.title?.trim().slice(0, 170);
 
-    if (!body.title?.trim() || !excerpt || !body.content?.trim()) {
-      return NextResponse.json({ error: 'Titre, chapô et contenu requis' }, { status: 400 });
-    }
-    if (!body.categoryDocumentIds?.length) {
-      return NextResponse.json({ error: 'Au moins une rubrique est requise' }, { status: 400 });
+    if (body.draftOnly) {
+      if (!body.title?.trim() && !body.content?.trim()) {
+        return NextResponse.json({ error: 'Titre ou contenu requis pour le brouillon' }, { status: 400 });
+      }
+      if (!body.categoryDocumentIds?.length) {
+        return NextResponse.json({ error: 'Au moins une rubrique est requise' }, { status: 400 });
+      }
+    } else {
+      if (!body.title?.trim() || !excerpt || !content.replace(/<[^>]+>/g, '').trim()) {
+        return NextResponse.json({ error: 'Titre, chapô et contenu requis' }, { status: 400 });
+      }
+      if (!body.categoryDocumentIds?.length) {
+        return NextResponse.json({ error: 'Au moins une rubrique est requise' }, { status: 400 });
+      }
     }
 
-    const article = await createEditorArticle(user, { ...body, excerpt });
+    const article = await createEditorArticle(user, {
+      ...body,
+      content,
+      excerpt: excerpt || 'Brouillon',
+      draftOnly: body.draftOnly ?? false,
+      publish: body.draftOnly ? false : body.publish,
+      scheduledAt: body.draftOnly ? null : body.scheduledAt,
+    });
     return NextResponse.json({ article }, { status: 201 });
   } catch (err) {
     if (err instanceof RedactionAuthError) {

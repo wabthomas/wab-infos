@@ -60,6 +60,8 @@ const checks = [
     required: true,
   },
   { label: 'PUSH_SEND_ON_PUBLISH (web)', ok: env.PUSH_SEND_ON_PUBLISH === 'true', required: false },
+  { label: 'SOCIAL_FOLLOWERS (au moins 1)', ok: ['WHATSAPP', 'FACEBOOK', 'X', 'YOUTUBE', 'TIKTOK'].some((p) => isSet(`SOCIAL_FOLLOWERS_${p}`)), required: false },
+  { label: 'YOUTUBE_API_KEY (Nous suivre / TV)', ok: isSet('YOUTUBE_API_KEY'), required: false },
 ];
 
 console.log(`\n📋 Vérification ${path.relative(process.cwd(), envPath)}\n`);

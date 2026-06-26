@@ -242,19 +242,23 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
               icon={Eye}
               label="Vues cumulées"
               value={formatNumber(data.summary.views)}
-              hint="Total Strapi (tous articles publiés)"
+              hint={isSiteScope ? 'Total Strapi (tous articles publiés)' : 'Mes articles publiés'}
             />
             <KpiCard
               icon={MessageSquare}
-              label="Commentaires"
+              label={`Commentaires (${days} j)`}
               value={formatNumber(data.summary.comments)}
-              hint={`${data.summary.pendingComments} en attente · période ${days} j`}
+              hint={
+                data.summary.pendingComments > 0
+                  ? `${data.summary.pendingComments} en attente au total (toutes périodes)`
+                  : undefined
+              }
             />
             <KpiCard
               icon={TrendingUp}
-              label="Publiés"
+              label={`Publiés (${days} j)`}
               value={formatNumber(data.summary.published)}
-              hint={`${data.summary.publishedTotal} au total`}
+              hint={`${data.summary.publishedTotal} publiés au total`}
             />
             {isSiteScope ? (
               <KpiCard

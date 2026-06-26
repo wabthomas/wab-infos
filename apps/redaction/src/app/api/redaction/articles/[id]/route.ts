@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+  deleteEditorArticle,
   getEditorArticle,
   RedactionAuthError,
   requireRedactionUser,
@@ -40,6 +41,22 @@ export async function PUT(request: Request, context: RouteContext) {
       return NextResponse.json({ error: err.message }, { status: 401 });
     }
     const message = err instanceof Error ? err.message : 'Mise à jour impossible';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  try {
+    const user = await requireRedactionUser();
+    const { id } = await context.params;
+    await deleteEditorArticle(user, id);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    if (err instanceof RedactionAuthError) {
+      const status = err.message.includes('supprim') ? 403 : 401;
+      return NextResponse.json({ error: err.message }, { status });
+    }
+    const message = err instanceof Error ? err.message : 'Suppression impossible';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

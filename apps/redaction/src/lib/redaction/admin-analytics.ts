@@ -66,9 +66,17 @@ async function strapiList<T>(path: string, params: Record<string, unknown>): Pro
   return items;
 }
 
-async function strapiCount(path: string, filters?: Record<string, unknown>): Promise<number> {
+async function strapiCount(
+  path: string,
+  filters?: Record<string, unknown>,
+  options?: { publicationStatus?: 'draft' | 'published' }
+): Promise<number> {
   const query = qs.stringify(
-    { filters, pagination: { pageSize: 1 } },
+    {
+      filters,
+      pagination: { pageSize: 1 },
+      ...(options?.publicationStatus ? { status: options.publicationStatus } : {}),
+    },
     { encodeValuesOnly: true }
   );
   const res = await fetch(`${getStrapiUrl()}/api${path}?${query}`, {
@@ -120,6 +128,40 @@ function topNamedValues(
     .map(([name, value]) => ({ name, value }));
 }
 
+function scopedArticleFilters(authorDocumentId?: string): Record<string, unknown> {
+  if (!authorDocumentId) return {};
+  return { author: { documentId: { $eq: authorDocumentId } } };
+}
+
+async function countUniqueAuthorArticles(authorDocumentId: string): Promise<number> {
+  const filters = scopedArticleFilters(authorDocumentId);
+  const [publishedRows, draftRows] = await Promise.all([
+    strapiList<{ documentId: string }>('/articles', {
+      filters,
+      status: 'published',
+      fields: ['documentId'],
+    }),
+    strapiList<{ documentId: string }>('/articles', {
+      filters,
+      status: 'draft',
+      fields: ['documentId'],
+    }),
+  ]);
+
+  return new Set([...publishedRows, ...draftRows].map((row) => row.documentId)).size;
+}
+
+function countPublishedInRange(
+  articles: StrapiArticleRow[],
+  from: Date,
+  to: Date
+): number {
+  return articles.filter((article) => {
+    if (!article.publishedAt) return false;
+    const published = parseISO(article.publishedAt);
+    return !Number.isNaN(published.getTime()) && isWithinInterval(published, { start: from, end: to });
+  }).length;
+}
 function commentFiltersForScope(
   authorDocumentId: string | undefined,
   extra?: Record<string, unknown>
@@ -150,18 +192,7 @@ async function buildRedactionAnalytics(
   const to = endOfDay(new Date());
   const from = startOfDay(subDays(to, days - 1));
 
-  const articleFilters: Record<string, unknown> = { status: { $eq: 'published' } };
-  if (authorDocumentId) {
-    articleFilters.author = { documentId: { $eq: authorDocumentId } };
-  }
-
-  const rangePublishedFilter = {
-    ...articleFilters,
-    publishedAt: {
-      $gte: from.toISOString(),
-      $lte: to.toISOString(),
-    },
-  };
+  const articleFilters = scopedArticleFilters(authorDocumentId);
 
   const commentRangeFilter = commentFiltersForScope(authorDocumentId, {
     createdAt: { $gte: from.toISOString(), $lte: to.toISOString() },
@@ -176,8 +207,6 @@ async function buildRedactionAnalytics(
     subscribers,
     pushSubscribers,
     totalArticles,
-    publishedTotal,
-    publishedInRange,
     activeSubscribers,
     unsubscribedSubscribers,
   ] = await Promise.all([
@@ -210,15 +239,15 @@ async function buildRedactionAnalytics(
         }),
     isAuthorScope ? Promise.resolve(0) : strapiCount('/reader-push-subscriptions'),
     authorDocumentId
-      ? strapiCount('/articles', { author: { documentId: { $eq: authorDocumentId } } })
-      : strapiCount('/articles'),
-    strapiCount('/articles', articleFilters),
-    strapiCount('/articles', rangePublishedFilter),
+      ? countUniqueAuthorArticles(authorDocumentId)
+      : strapiCount('/articles', undefined, { publicationStatus: 'published' }),
     isAuthorScope ? Promise.resolve(0) : strapiCount('/subscribers', { status: { $eq: 'active' } }),
     isAuthorScope ? Promise.resolve(0) : strapiCount('/subscribers', { status: { $eq: 'unsubscribed' } }),
   ]);
 
   const totalViews = articleMetrics.reduce((sum, article) => sum + (article.viewCount ?? 0), 0);
+  const publishedTotal = articleMetrics.length;
+  const publishedInRange = countPublishedInRange(articleMetrics, from, to);
 
   const commentDates = commentsInRange.map((c) => ({ date: c.createdAt }));
   const publicationsTimeline = countByDate(

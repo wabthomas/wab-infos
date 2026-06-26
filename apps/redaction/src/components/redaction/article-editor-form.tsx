@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Loader2,
@@ -22,7 +22,9 @@ import {
 import { touchRedactionSession } from '@/lib/redaction/touch-session';
 import { ArticleRichEditor } from '@/components/redaction/article-rich-editor';
 import { ArticleEditorSettingsSheet } from '@/components/redaction/article-editor-settings-sheet';
+import { ArticlePublishSheet } from '@/components/redaction/article-publish-sheet';
 import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
+import type { RedactionAuthor } from '@/lib/redaction/types';
 
 export interface ArticleEditorValues {
   title: string;
@@ -38,6 +40,7 @@ export interface ArticleEditorValues {
   featuredImageAlt?: string;
   isBreaking: boolean;
   scheduledAt?: string;
+  authorDocumentId?: string;
 }
 
 function toDatetimeLocal(iso?: string): string {
@@ -61,20 +64,36 @@ function createSnapshot(values: ArticleEditorValues, scheduledAt: string): strin
 function buildSavePayload(
   values: ArticleEditorValues,
   scheduledAt: string,
-  mode: 'draft' | 'publish' | 'schedule'
+  mode: 'draft' | 'publish' | 'schedule',
+  options?: { partialDraft?: boolean; defaultCategoryId?: string }
 ): ArticleEditorPayload | null {
-  const excerpt = values.excerpt.trim() || excerptFromContent(values.content, 170);
   const hasContent = Boolean(stripHtml(values.content));
+  const hasTitle = Boolean(values.title.trim());
+  const isDraft = mode === 'draft' || options?.partialDraft;
 
-  if (!values.title.trim() || !hasContent || !values.categoryDocumentIds.length) {
+  let categoryIds = values.categoryDocumentIds;
+  if (!categoryIds.length && options?.defaultCategoryId) {
+    categoryIds = [options.defaultCategoryId];
+  }
+
+  if (isDraft) {
+    if (!hasTitle && !hasContent) return null;
+    if (!categoryIds.length) return null;
+  } else if (!hasTitle || !hasContent || !categoryIds.length) {
     return null;
   }
 
+  const content = hasContent ? values.content : '<p></p>';
+  const excerpt =
+    values.excerpt.trim() ||
+    excerptFromContent(content, 170) ||
+    (hasTitle ? values.title.trim().slice(0, 170) : 'Brouillon');
+
   const payload: ArticleEditorPayload = {
-    title: values.title,
+    title: hasTitle ? values.title : 'Sans titre',
     excerpt,
-    content: values.content,
-    categoryDocumentIds: values.categoryDocumentIds,
+    content,
+    categoryDocumentIds: categoryIds,
     featuredImageId: values.featuredImageId ?? null,
     isBreaking: values.isBreaking,
     publish: mode === 'publish',
@@ -83,6 +102,12 @@ function buildSavePayload(
         ? new Date(scheduledAt).toISOString()
         : null,
   };
+
+  if (isDraft) {
+    payload.draftOnly = true;
+    payload.publish = false;
+    payload.scheduledAt = null;
+  }
 
   if (values.tagNames.length) payload.tagNames = values.tagNames;
 
@@ -95,6 +120,10 @@ function buildSavePayload(
   const canonicalUrl = values.canonicalUrl?.trim();
   if (canonicalUrl) payload.canonicalUrl = canonicalUrl;
 
+  if (mode !== 'draft' && values.authorDocumentId) {
+    payload.authorDocumentId = values.authorDocumentId;
+  }
+
   return payload;
 }
 
@@ -105,7 +134,11 @@ interface ArticleEditorFormProps {
 }
 
 export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEditorFormProps) {
+  const router = useRouter();
   const [categories, setCategories] = useState<RedactionCategory[]>([]);
+  const [authors, setAuthors] = useState<RedactionAuthor[]>([]);
+  const [canAssignAuthor, setCanAssignAuthor] = useState(false);
+  const [currentAuthorName, setCurrentAuthorName] = useState('');
   const excerptTouchedRef = useRef(Boolean(initial?.excerpt?.trim()));
   const seoTitleTouchedRef = useRef(Boolean(initial?.seoTitle?.trim()));
   const seoDescriptionTouchedRef = useRef(Boolean(initial?.seoDescription?.trim()));
@@ -127,9 +160,11 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     featuredImageUrl: initial?.featuredImageUrl,
     featuredImageAlt: initial?.featuredImageAlt ?? '',
     isBreaking: initial?.isBreaking ?? false,
+    authorDocumentId: initial?.authorDocumentId,
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState<'draft' | 'publish' | 'schedule' | null>(null);
+  const [publishSheetMode, setPublishSheetMode] = useState<'publish' | 'schedule' | null>(null);
   const [savingFeaturedAlt, setSavingFeaturedAlt] = useState(false);
   const [scheduledAt, setScheduledAt] = useState(toDatetimeLocal(initial?.scheduledAt));
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -140,6 +175,42 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const headerRef = useRef<HTMLElement>(null);
   const [headerHeight, setHeaderHeight] = useState(56);
   const [keyboardInset, setKeyboardInset] = useState(0);
+
+  useEffect(() => {
+    void fetch('/api/redaction/media?page=1&pageSize=36').catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void fetch('/api/redaction/auth/me')
+      .then((r) => r.json())
+      .then(
+        (data: {
+          author?: RedactionAuthor;
+          isSuperAdmin?: boolean;
+          canAssignAuthor?: boolean;
+        }) => {
+          if (data.author?.name) setCurrentAuthorName(data.author.name);
+          if (data.author?.documentId && !initial?.authorDocumentId) {
+            setValues((v) => ({
+              ...v,
+              authorDocumentId: v.authorDocumentId ?? data.author!.documentId,
+            }));
+          }
+          setCanAssignAuthor(Boolean(data.canAssignAuthor ?? data.isSuperAdmin));
+        }
+      )
+      .catch(() => undefined);
+  }, [initial?.authorDocumentId]);
+
+  useEffect(() => {
+    if (!canAssignAuthor) return;
+    void fetch('/api/redaction/authors')
+      .then((r) => r.json())
+      .then((data: { authors?: RedactionAuthor[] }) => {
+        if (data.authors?.length) setAuthors(data.authors);
+      })
+      .catch(() => undefined);
+  }, [canAssignAuthor]);
 
   useEffect(() => {
     document.documentElement.classList.add('redaction-writing');
@@ -215,7 +286,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       .catch(() => setError('Impossible de charger les rubriques'));
   }, [values.categoryDocumentIds.length]);
 
-  const primaryCategoryId = values.categoryDocumentIds[0] ?? '';
+  const primaryCategoryId = values.categoryDocumentIds[0] ?? categories[0]?.documentId ?? '';
   const primaryCategoryName =
     categories.find((c) => c.documentId === primaryCategoryId)?.name ?? 'Rubrique';
 
@@ -233,50 +304,92 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     return result;
   }
 
-  const performAutosave = useCallback(async () => {
-    if (saving || autosaveInFlight.current) return;
+  const persistDraft = useCallback(
+    async (options?: {
+      keepalive?: boolean;
+      silent?: boolean;
+      manual?: boolean;
+    }): Promise<string | null> => {
+      if (
+        (saving && !options?.manual) ||
+        (autosaveInFlight.current && !options?.keepalive && !options?.manual)
+      ) {
+        return null;
+      }
 
-    const snapshot = createSnapshot(values, scheduledAt);
-    if (snapshot === lastSavedSnapshot.current) return;
+      const snapshot = createSnapshot(values, scheduledAt);
+      if (snapshot === lastSavedSnapshot.current) return activeDocumentId ?? null;
 
-    const payload = buildSavePayload(values, scheduledAt, 'draft');
-    if (!payload) return;
-
-    autosaveInFlight.current = true;
-    setAutosaveStatus('saving');
-
-    try {
-      const id = activeDocumentId;
-      const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
-      const res = await fetch(url, {
-        method: id ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      const payload = buildSavePayload(values, scheduledAt, 'draft', {
+        partialDraft: true,
+        defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
       });
-      const data = (await res.json()) as { article?: { documentId: string }; error?: string };
-      if (!res.ok || !data.article?.documentId) {
-        throw new Error(data.error ?? 'Sauvegarde automatique impossible');
+      if (!payload) return null;
+
+      if (options?.keepalive) {
+        const id = activeDocumentId;
+        const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
+        void fetch(url, {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        });
+        return id ?? null;
       }
 
-      const savedId = data.article.documentId;
-      lastSavedSnapshot.current = snapshot;
-      clearArticleDraft(id);
-      clearArticleDraft(savedId);
-
-      if (!id) {
-        setActiveDocumentId(savedId);
-        window.history.replaceState(null, '', `/articles/${savedId}/edit`);
+      if (!options?.keepalive) {
+        autosaveInFlight.current = true;
+        if (!options?.silent) setAutosaveStatus('saving');
       }
 
-      void touchRedactionSession();
-      setAutosaveStatus('saved');
-      window.setTimeout(() => setAutosaveStatus('idle'), 3000);
-    } catch {
-      setAutosaveStatus('error');
-    } finally {
-      autosaveInFlight.current = false;
-    }
-  }, [activeDocumentId, saving, scheduledAt, values]);
+      try {
+        const id = activeDocumentId;
+        const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
+        const res = await fetch(url, {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: options?.keepalive,
+        });
+        const data = (await res.json()) as { article?: { documentId: string }; error?: string };
+        if (!res.ok || !data.article?.documentId) {
+          if (!options?.keepalive) throw new Error(data.error ?? 'Sauvegarde impossible');
+          return null;
+        }
+
+        const savedId = data.article.documentId;
+        lastSavedSnapshot.current = snapshot;
+        clearArticleDraft(id);
+        clearArticleDraft(savedId);
+
+        if (!id) {
+          setActiveDocumentId(savedId);
+          window.history.replaceState(null, '', `/articles/${savedId}/edit`);
+        }
+
+        if (!options?.keepalive) {
+          void touchRedactionSession();
+          if (!options?.silent) {
+            setAutosaveStatus('saved');
+            window.setTimeout(() => setAutosaveStatus('idle'), 3000);
+          }
+        }
+
+        return savedId;
+      } catch {
+        if (!options?.keepalive && !options?.silent) setAutosaveStatus('error');
+        return null;
+      } finally {
+        if (!options?.keepalive) autosaveInFlight.current = false;
+      }
+    },
+    [activeDocumentId, categories, primaryCategoryId, saving, scheduledAt, values]
+  );
+
+  const performAutosave = useCallback(async () => {
+    await persistDraft();
+  }, [persistDraft]);
 
   useEffect(() => {
     const snapshot = createSnapshot(values, scheduledAt);
@@ -288,13 +401,48 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
 
     const serverTimer = window.setTimeout(() => {
       void performAutosave();
-    }, 20000);
+    }, 8000);
 
     return () => {
       window.clearTimeout(localTimer);
       window.clearTimeout(serverTimer);
     };
   }, [values, scheduledAt, activeDocumentId, performAutosave]);
+
+  useEffect(() => {
+    const flushOnHide = () => {
+      if (document.visibilityState !== 'hidden') return;
+      saveArticleDraft(values, scheduledAt, activeDocumentId);
+      void persistDraft({ keepalive: true, silent: true });
+    };
+
+    const flushOnUnload = () => {
+      saveArticleDraft(values, scheduledAt, activeDocumentId);
+      void persistDraft({ keepalive: true, silent: true });
+    };
+
+    document.addEventListener('visibilitychange', flushOnHide);
+    window.addEventListener('pagehide', flushOnUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', flushOnHide);
+      window.removeEventListener('pagehide', flushOnUnload);
+    };
+  }, [activeDocumentId, persistDraft, scheduledAt, values]);
+
+  async function handleBack() {
+    await persistDraft({ silent: true });
+    router.push('/articles');
+  }
+
+  function setPrimaryCategory(categoryId: string) {
+    setValues((current) => {
+      const rest = current.categoryDocumentIds.filter((id) => id !== categoryId);
+      return {
+        ...current,
+        categoryDocumentIds: [categoryId, ...rest],
+      };
+    });
+  }
 
   function toggleCategory(categoryId: string) {
     setValues((current) => {
@@ -361,7 +509,20 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     setSaving(mode);
     setMenuOpen(false);
 
-    const payload = buildSavePayload(values, scheduledAt, mode);
+    if (mode === 'draft') {
+      const savedId = await persistDraft({ manual: true });
+      if (!savedId) {
+        setError('Ajoutez un titre ou du contenu pour enregistrer le brouillon');
+      } else {
+        onSuccess?.(savedId, mode);
+      }
+      setSaving(null);
+      return;
+    }
+
+    const payload = buildSavePayload(values, scheduledAt, mode, {
+      defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
+    });
     if (!payload) {
       setError('Titre, contenu et rubrique requis');
       setSaving(null);
@@ -385,7 +546,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       clearArticleDraft(savedId);
       void touchRedactionSession();
 
-      if (!id && mode === 'draft') {
+      if (!id) {
         setActiveDocumentId(savedId);
         window.history.replaceState(null, '', `/articles/${savedId}/edit`);
       }
@@ -408,13 +569,14 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         className="fixed inset-x-0 top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur pt-[max(0.5rem,env(safe-area-inset-top))]"
       >
         <div className="flex items-center gap-2 px-3 py-2.5">
-          <Link
-            href="/articles"
+          <button
+            type="button"
+            onClick={() => void handleBack()}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted"
             aria-label="Retour"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Link>
+          </button>
 
           <button
             type="button"
@@ -521,7 +683,15 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           <button
             type="button"
             disabled={!!saving}
-            onClick={() => save(primaryMode)}
+            onClick={() => {
+              const payload = buildSavePayload(values, scheduledAt, primaryMode);
+              if (!payload) {
+                setError('Titre, contenu et rubrique requis');
+                return;
+              }
+              setError('');
+              setPublishSheetMode(primaryMode);
+            }}
             className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-60"
           >
             {saving === primaryMode ? (
@@ -578,6 +748,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         categories={categories}
         selectedCategoryIds={values.categoryDocumentIds}
         onToggleCategory={toggleCategory}
+        onSetPrimaryCategory={setPrimaryCategory}
         excerpt={values.excerpt}
         onExcerptChange={(excerpt) => {
           excerptTouchedRef.current = true;
@@ -620,6 +791,26 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         scheduledAt={scheduledAt}
         onScheduledAtChange={setScheduledAt}
         minScheduleDate={toDatetimeLocal(new Date().toISOString())}
+      />
+
+      <ArticlePublishSheet
+        open={publishSheetMode !== null}
+        mode={publishSheetMode ?? 'publish'}
+        saving={saving === publishSheetMode}
+        categories={categories}
+        primaryCategoryId={primaryCategoryId}
+        onPrimaryCategoryChange={setPrimaryCategory}
+        canAssignAuthor={canAssignAuthor}
+        authors={authors}
+        authorDocumentId={values.authorDocumentId ?? ''}
+        onAuthorChange={(id) => setValues((v) => ({ ...v, authorDocumentId: id }))}
+        currentAuthorName={currentAuthorName}
+        scheduledAt={scheduledAt}
+        onClose={() => setPublishSheetMode(null)}
+        onConfirm={() => {
+          if (!publishSheetMode) return;
+          void save(publishSheetMode).finally(() => setPublishSheetMode(null));
+        }}
       />
 
       <MediaLibrarySheet

@@ -1,10 +1,12 @@
-export type RedactionUserRole = 'author' | 'admin';
+export type RedactionUserRole = 'author' | 'editor' | 'admin';
 
 export interface RedactionUser {
   id: number;
   email: string;
   username: string;
   role: RedactionUserRole;
+  /** Nom du rôle Strapi (users-permissions ou admin panel) */
+  strapiRoleName?: string;
 }
 
 export type AdminStatsRange = 7 | 30 | 90 | 365;
@@ -32,6 +34,7 @@ export interface AdminAnalyticsSummary {
   subscribers: number;
   pushSubscribers: number;
   pendingComments: number;
+  /** En attente de modération — toutes périodes, hors filtre de dates */
 }
 
 export interface AdminAnalytics {
@@ -106,6 +109,7 @@ export interface RedactionArticle {
   secondaryCategories?: RedactionCategory[];
   tagNames?: string[];
   featuredImage?: { id: number; url: string; alternativeText?: string };
+  author?: RedactionAuthor;
 }
 
 export interface RedactionStats {
@@ -145,6 +149,10 @@ export interface ArticleEditorPayload {
   isBreaking?: boolean;
   publish?: boolean;
   scheduledAt?: string | null;
+  /** Sauvegarde automatique — ne jamais publier ni planifier */
+  draftOnly?: boolean;
+  /** Publication — attribuer à un autre rédacteur (admin uniquement) */
+  authorDocumentId?: string | null;
 }
 
 export interface FcmSubscriptionPayload {
@@ -154,6 +162,7 @@ export interface FcmSubscriptionPayload {
 export interface RedactionMediaItem {
   id: number;
   url: string;
+  previewUrl?: string;
   name: string;
   alternativeText?: string | null;
   caption?: string | null;

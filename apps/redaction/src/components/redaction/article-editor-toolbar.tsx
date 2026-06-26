@@ -55,12 +55,19 @@ function Btn({
   );
 }
 
+function headingToolbarLabel(editor: Editor): string {
+  if (editor.isActive('heading', { level: 2 })) return 'T2';
+  if (editor.isActive('heading', { level: 3 })) return 'T3';
+  return 'Aa';
+}
+
 export interface ArticleEditorToolbarProps {
   editor: Editor;
   uploading?: boolean;
   showDismissKeyboard?: boolean;
   onDismissKeyboard?: () => void;
   onBlocksClick: () => void;
+  onHeadingClick: () => void;
   onImageClick: () => void;
   onLinkClick: () => void;
   onEmbedClick: () => void;
@@ -73,6 +80,7 @@ export function ArticleEditorToolbar({
   showDismissKeyboard,
   onDismissKeyboard,
   onBlocksClick,
+  onHeadingClick,
   onImageClick,
   onLinkClick,
   onEmbedClick,
@@ -133,11 +141,14 @@ export function ArticleEditorToolbar({
         <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden />
 
         <Btn
-          label="Titre"
-          active={editor.isActive('heading', { level: 2 })}
-          onClick={() => withOptionalFocus(editor).toggleHeading({ level: 2 }).run()}
+          label="Style de titre"
+          active={editor.isActive('heading')}
+          onClick={onHeadingClick}
         >
-          <Heading2 className="h-[18px] w-[18px]" strokeWidth={2.5} />
+          <span className="flex items-center gap-0.5 text-[11px] font-bold leading-none">
+            <Heading2 className="h-4 w-4" strokeWidth={2.5} />
+            {headingToolbarLabel(editor)}
+          </span>
         </Btn>
         <Btn
           label="Citation"

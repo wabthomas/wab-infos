@@ -1,5 +1,12 @@
 import type { NextConfig } from 'next';
 import path from 'path';
+import { loadEnvConfig } from '@next/env';
+
+// Monorepo : charger .env racine puis apps/web/.env.local (priorité au web)
+const appDir = __dirname;
+const monorepoRoot = path.join(appDir, '../..');
+loadEnvConfig(monorepoRoot);
+loadEnvConfig(appDir);
 
 const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
 const wpUploadsOrigin =

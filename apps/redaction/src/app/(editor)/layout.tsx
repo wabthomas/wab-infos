@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { RedactionShell } from '@/components/redaction/redaction-shell';
-import { RedactionPushSetup } from '@/components/redaction/redaction-push-setup';
+import { RedactionPushBanner, RedactionPushSetup } from '@/components/redaction/redaction-push-setup';
 import { getEditorProfile, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 
 export default async function RedactionEditorLayout({

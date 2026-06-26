@@ -67,12 +67,124 @@ async function verifyUsersPermissionsUser(jwt: string): Promise<RedactionUser | 
   if (!res.ok) return null;
   const user = (await res.json()) as { id: number; email: string; username: string };
   if (!user.email) return null;
+
+  const strapiRoleName = await fetchUsersPermissionsRoleName(user.id, jwt);
+  return mapUsersPermissionsToRedactionUser(user, strapiRoleName);
+}
+
+function normalizeStrapiRoleName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+const SUPER_ADMIN_ROLE_NAMES = new Set(
+  [
+    'super admin',
+    'superadmin',
+    'super-admin',
+    'strapi-super-admin',
+    'administrateur',
+    ...(process.env.REDACTION_SUPER_ADMIN_ROLES?.split(',').map((s) => s.trim()).filter(Boolean) ??
+      []),
+  ].map(normalizeStrapiRoleName)
+);
+
+const EDITOR_ROLE_NAMES = new Set(
+  [
+    'editor',
+    'editeur',
+    'éditeur',
+    'strapi-editor',
+    'redacteur',
+    'rédacteur',
+    ...(process.env.REDACTION_EDITOR_ROLES?.split(',').map((s) => s.trim()).filter(Boolean) ??
+      []),
+  ].map(normalizeStrapiRoleName)
+);
+
+function isSuperAdminStrapiRoleName(roleName?: string): boolean {
+  if (!roleName) return false;
+  return SUPER_ADMIN_ROLE_NAMES.has(normalizeStrapiRoleName(roleName));
+}
+
+function isEditorStrapiRoleName(roleName?: string): boolean {
+  if (!roleName) return false;
+  return EDITOR_ROLE_NAMES.has(normalizeStrapiRoleName(roleName));
+}
+
+function mapUsersPermissionsToRedactionUser(
+  user: { id: number; email: string; username: string },
+  strapiRoleName?: string
+): RedactionUser {
+  let role: RedactionUser['role'] = 'author';
+  if (isSuperAdminStrapiRoleName(strapiRoleName)) {
+    role = 'admin';
+  } else if (isEditorStrapiRoleName(strapiRoleName)) {
+    role = 'editor';
+  }
+
   return {
     id: user.id,
     email: user.email.toLowerCase(),
     username: user.username,
-    role: 'author',
+    role,
+    strapiRoleName,
   };
+}
+
+function mapAdminPanelToRedactionUser(
+  admin: { id: number; email: string; username: string },
+  strapiRoleNames: string[]
+): RedactionUser {
+  const normalized = strapiRoleNames.map(normalizeStrapiRoleName);
+  let role: RedactionUser['role'] = 'admin';
+
+  if (normalized.some((name) => SUPER_ADMIN_ROLE_NAMES.has(name))) {
+    role = 'admin';
+  } else if (normalized.some((name) => EDITOR_ROLE_NAMES.has(name))) {
+    role = 'editor';
+  } else if (normalized.length > 0) {
+    role = 'editor';
+  }
+
+  return {
+    id: admin.id,
+    email: admin.email.toLowerCase(),
+    username: admin.username,
+    role,
+    strapiRoleName: strapiRoleNames.join(', ') || undefined,
+  };
+}
+
+async function fetchUsersPermissionsRoleName(
+  userId: number,
+  jwt?: string
+): Promise<string | undefined> {
+  try {
+    const response = await strapiFetch<{
+      role?: { name?: string };
+    }>(`/users/${userId}`, { populate: { role: true } });
+    if (response.role?.name) return response.role.name;
+  } catch {
+    // token API ou populate indisponible — repli JWT ci-dessous
+  }
+
+  if (!jwt) return undefined;
+
+  try {
+    const res = await fetch(`${getStrapiUrl()}/api/users/me?populate=role`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return undefined;
+    const body = (await res.json()) as { role?: { name?: string } };
+    return body.role?.name;
+  } catch {
+    return undefined;
+  }
 }
 
 async function verifyAdminUser(jwt: string): Promise<RedactionUser | null> {
@@ -89,18 +201,24 @@ async function verifyAdminUser(jwt: string): Promise<RedactionUser | null> {
       firstname?: string;
       lastname?: string;
       username?: string;
+      roles?: Array<{ name?: string; code?: string }>;
     };
   };
   const admin = body.data;
   if (!admin?.email) return null;
 
   const displayName = [admin.firstname, admin.lastname].filter(Boolean).join(' ').trim();
-  return {
-    id: admin.id,
-    email: admin.email.toLowerCase(),
-    username: admin.username || displayName || admin.email.split('@')[0],
-    role: 'admin',
-  };
+  const roleNames =
+    admin.roles?.map((role) => role.name || role.code || '').filter(Boolean) ?? [];
+
+  return mapAdminPanelToRedactionUser(
+    {
+      id: admin.id,
+      email: admin.email,
+      username: admin.username || displayName || admin.email.split('@')[0],
+    },
+    roleNames
+  );
 }
 
 export async function verifyRedactionUser(jwt: string): Promise<RedactionUser | null> {
@@ -122,6 +240,11 @@ export async function requireRedactionUser(): Promise<RedactionUser> {
 }
 
 export function isRedactionSuperAdmin(user: RedactionUser): boolean {
+  return user.role === 'admin';
+}
+
+/** Peut publier au nom d'un autre rédacteur (rôle Super Admin Strapi uniquement). */
+export function canAssignArticleAuthor(user: RedactionUser): boolean {
   return user.role === 'admin';
 }
 
@@ -209,6 +332,15 @@ function mapArticle(entity: StrapiEntity): RedactionArticle {
           alternativeText: featuredImage.alternativeText as string | undefined,
         }
       : undefined,
+    author: (() => {
+      const authorEntity = entity.author as StrapiEntity | null | undefined;
+      if (!authorEntity?.documentId) return undefined;
+      return {
+        documentId: authorEntity.documentId,
+        name: authorEntity.name as string,
+        slug: authorEntity.slug as string,
+      };
+    })(),
   };
 }
 
@@ -256,9 +388,15 @@ export async function getEditorProfile(user: RedactionUser): Promise<{
   user: RedactionUser;
   author: RedactionAuthor;
   isSuperAdmin: boolean;
+  canAssignAuthor: boolean;
 }> {
   const author = await resolveAuthorForUser(user);
-  return { user, author, isSuperAdmin: isRedactionSuperAdmin(user) };
+  return {
+    user,
+    author,
+    isSuperAdmin: isRedactionSuperAdmin(user),
+    canAssignAuthor: canAssignArticleAuthor(user),
+  };
 }
 
 export async function listEditorArticles(
@@ -356,7 +494,10 @@ export async function getEditorArticle(
       });
 
       const articleAuthor = response.data.author as StrapiEntity | undefined;
-      if (articleAuthor?.documentId !== author.documentId) {
+      if (
+        !isRedactionSuperAdmin(user) &&
+        articleAuthor?.documentId !== author.documentId
+      ) {
         throw new RedactionAuthError('Accès refusé à cet article');
       }
 
@@ -469,6 +610,10 @@ function resolveArticleSaveMode(payload: Partial<ArticleEditorPayload>): {
   customStatus: RedactionArticle['status'];
   scheduledAt: string | null;
 } | null {
+  if (payload.draftOnly) {
+    return { strapiStatus: 'draft', customStatus: 'draft', scheduledAt: null };
+  }
+
   if (payload.publish === undefined && payload.scheduledAt === undefined) {
     return null;
   }
@@ -554,17 +699,90 @@ function buildArticleData(
   return data;
 }
 
+export async function listRedactionAuthors(user: RedactionUser): Promise<RedactionAuthor[]> {
+  if (!canAssignArticleAuthor(user)) {
+    throw new RedactionAuthError('Accès réservé aux super administrateurs');
+  }
+
+  const response = await strapiFetch<{ data: StrapiEntity[] }>('/authors', {
+    sort: ['name:asc'],
+    pagination: { pageSize: 100 },
+  });
+
+  return response.data.map((item) => ({
+    documentId: item.documentId,
+    name: item.name as string,
+    slug: item.slug as string,
+  }));
+}
+
+async function resolveAuthorByDocumentId(documentId: string): Promise<RedactionAuthor | null> {
+  try {
+    const response = await strapiFetch<{ data: StrapiEntity }>(`/authors/${documentId}`);
+    const entity = response.data;
+    if (!entity?.documentId) return null;
+    return {
+      documentId: entity.documentId,
+      name: entity.name as string,
+      slug: entity.slug as string,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function resolveAuthorForArticleSave(
+  user: RedactionUser,
+  payload: Partial<ArticleEditorPayload>,
+  saveMode: ReturnType<typeof resolveArticleSaveMode> | null
+): Promise<RedactionAuthor> {
+  const ownAuthor = await resolveAuthorForUser(user);
+  const publishing =
+    saveMode?.strapiStatus === 'published' || saveMode?.customStatus === 'scheduled';
+  const requestedAuthorId = payload.authorDocumentId?.trim();
+
+  if (!publishing || !requestedAuthorId || requestedAuthorId === ownAuthor.documentId) {
+    return ownAuthor;
+  }
+
+  if (!canAssignArticleAuthor(user)) {
+    return ownAuthor;
+  }
+
+  const targetAuthor = await resolveAuthorByDocumentId(requestedAuthorId);
+  if (!targetAuthor) {
+    throw new RedactionAuthError('Rédacteur introuvable');
+  }
+
+  return targetAuthor;
+}
+
+export async function deleteEditorArticle(
+  user: RedactionUser,
+  documentId: string
+): Promise<void> {
+  const article = await getEditorArticle(user, documentId);
+  if (!article) throw new RedactionAuthError('Article introuvable');
+  if (isLiveRedactionArticle(article)) {
+    throw new RedactionAuthError('Seuls les brouillons peuvent être supprimés');
+  }
+
+  await strapiFetch(`/articles/${documentId}`, undefined, { method: 'DELETE' });
+}
+
 export async function createEditorArticle(
   user: RedactionUser,
   payload: ArticleEditorPayload
 ): Promise<RedactionArticle> {
-  const author = await resolveAuthorForUser(user);
   const slug = generateArticleSlug(payload.title);
-  const saveMode = resolveArticleSaveMode(payload) ?? {
-    strapiStatus: 'draft' as const,
-    customStatus: 'draft' as const,
-    scheduledAt: null,
-  };
+  const saveMode = payload.draftOnly
+    ? { strapiStatus: 'draft' as const, customStatus: 'draft' as const, scheduledAt: null }
+    : resolveArticleSaveMode(payload) ?? {
+        strapiStatus: 'draft' as const,
+        customStatus: 'draft' as const,
+        scheduledAt: null,
+      };
+  const author = await resolveAuthorForArticleSave(user, payload, saveMode);
   const tagIds =
     saveMode.strapiStatus === 'published'
       ? await syncArticleTags({
@@ -594,10 +812,11 @@ export async function updateEditorArticle(
   const existing = await getEditorArticle(user, documentId);
   if (!existing) throw new RedactionAuthError('Article introuvable');
 
-  const author = await resolveAuthorForUser(user);
-  const saveMode = resolveArticleSaveMode(payload);
-  const statusParam =
-    saveMode?.strapiStatus ?? (existing?.status === 'published' ? 'published' : 'draft');
+  const saveMode = payload.draftOnly
+    ? { strapiStatus: 'draft' as const, customStatus: 'draft' as const, scheduledAt: null }
+    : resolveArticleSaveMode(payload);
+  const author = await resolveAuthorForArticleSave(user, payload, saveMode);
+  const statusParam = saveMode?.strapiStatus ?? 'draft';
 
   const title = payload.title?.trim() || existing.title;
   const excerpt = payload.excerpt?.trim() || existing.excerpt;
@@ -726,9 +945,21 @@ export async function uploadEditorImage(
 }
 
 function mapUploadFile(raw: Record<string, unknown>): RedactionMediaItem {
+  const formats = raw.formats as
+    | {
+        thumbnail?: { url?: string };
+        small?: { url?: string };
+        medium?: { url?: string };
+      }
+    | undefined;
+  const url = raw.url as string;
+  const previewUrl =
+    formats?.thumbnail?.url ?? formats?.small?.url ?? formats?.medium?.url ?? url;
+
   return {
     id: raw.id as number,
-    url: raw.url as string,
+    url,
+    previewUrl,
     name: (raw.name as string) ?? '',
     alternativeText: raw.alternativeText as string | null | undefined,
     caption: raw.caption as string | null | undefined,
@@ -774,7 +1005,7 @@ export async function listEditorMedia(options?: {
 
   const res = await fetch(`${getStrapiUrl()}/api/upload/files?${query}`, {
     headers: apiTokenHeaders(),
-    cache: 'no-store',
+    next: { revalidate: 60 },
   });
 
   if (!res.ok) {
@@ -848,14 +1079,11 @@ async function loginUsersPermissionsUser(
 
   if (!res.ok || !data.jwt || !data.user?.email) return null;
 
+  const strapiRoleName = await fetchUsersPermissionsRoleName(data.user.id, data.jwt);
+
   return {
     jwt: data.jwt,
-    user: {
-      id: data.user.id,
-      email: data.user.email.toLowerCase(),
-      username: data.user.username,
-      role: 'author',
-    },
+    user: mapUsersPermissionsToRedactionUser(data.user, strapiRoleName),
   };
 }
 

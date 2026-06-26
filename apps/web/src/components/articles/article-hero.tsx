@@ -117,7 +117,7 @@ export function ArticleHero({
                 {categoryName}
               </Link>
             </div>
-            <h1 className="font-display text-2xl font-bold leading-snug">{article.title}</h1>
+            <h1 className="font-headline text-xl font-bold leading-snug md:text-2xl">{article.title}</h1>
             <div className="mt-3">{metaRow()}</div>
             <ArticleShareButtons url={articleUrl} title={article.title} className="mt-4" />
           </div>
@@ -135,7 +135,7 @@ export function ArticleHero({
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-8">
             {badges}
-            <h1 className="font-display text-3xl font-bold leading-tight text-white drop-shadow-sm lg:text-4xl">
+            <h1 className="font-headline text-2xl font-bold leading-tight text-white drop-shadow-sm lg:text-3xl">
               {article.title}
             </h1>
             <div className="mt-3">{metaRow(true)}</div>

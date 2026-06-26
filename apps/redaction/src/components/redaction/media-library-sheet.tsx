@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import { Camera, FolderOpen, ImagePlus, Loader2, Search, Upload, X } from 'lucide-react';
 import type { RedactionMediaItem } from '@/lib/redaction/types';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
@@ -13,6 +12,10 @@ interface MediaLibrarySheetProps {
   onClose: () => void;
   onSelect: (media: RedactionMediaItem) => void;
   title?: string;
+}
+
+function mediaPreviewSrc(item: RedactionMediaItem): string {
+  return getStrapiMediaUrl(item.previewUrl ?? item.url) ?? item.previewUrl ?? item.url;
 }
 
 export function MediaLibrarySheet({
@@ -34,6 +37,7 @@ export function MediaLibrarySheet({
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const cacheRef = useRef<Map<string, RedactionMediaItem[]>>(new Map());
 
   useEffect(() => {
     if (!open) return;
@@ -41,42 +45,52 @@ export function MediaLibrarySheet({
     return () => window.clearTimeout(timer);
   }, [open, search]);
 
-  const loadPage = useCallback(
-    async (targetPage: number, append: boolean) => {
-      if (targetPage === 1) setLoading(true);
-      else setLoadingMore(true);
-      setError('');
+  const loadPage = useCallback(async (targetPage: number, append: boolean, query: string) => {
+    const cacheKey = `${query}|${targetPage}`;
+    const cached = cacheRef.current.get(cacheKey);
 
-      try {
-        const params = new URLSearchParams({
-          page: String(targetPage),
-          pageSize: '24',
-        });
-        if (debouncedSearch) params.set('q', debouncedSearch);
-
-        const res = await fetch(`/api/redaction/media?${params}`);
-        const data = (await res.json()) as {
-          items?: RedactionMediaItem[];
-          pageCount?: number;
-          error?: string;
-        };
-
-        if (!res.ok) throw new Error(data.error ?? 'Chargement impossible');
-
-        setPage(targetPage);
-        setPageCount(data.pageCount ?? 1);
-        setItems((prev) =>
-          append ? [...prev, ...(data.items ?? [])] : (data.items ?? [])
-        );
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erreur');
-      } finally {
+    if (targetPage === 1 && !append) {
+      if (cached?.length) {
+        setItems(cached);
+        setPage(1);
         setLoading(false);
-        setLoadingMore(false);
+      } else {
+        setLoading(true);
       }
-    },
-    [debouncedSearch]
-  );
+    } else if (targetPage > 1) {
+      setLoadingMore(true);
+    }
+
+    setError('');
+
+    try {
+      const params = new URLSearchParams({
+        page: String(targetPage),
+        pageSize: '36',
+      });
+      if (query) params.set('q', query);
+
+      const res = await fetch(`/api/redaction/media?${params}`);
+      const data = (await res.json()) as {
+        items?: RedactionMediaItem[];
+        pageCount?: number;
+        error?: string;
+      };
+
+      if (!res.ok) throw new Error(data.error ?? 'Chargement impossible');
+
+      const nextItems = data.items ?? [];
+      cacheRef.current.set(cacheKey, nextItems);
+      setPage(targetPage);
+      setPageCount(data.pageCount ?? 1);
+      setItems((prev) => (append ? [...prev, ...nextItems] : nextItems));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -84,14 +98,12 @@ export function MediaLibrarySheet({
     setSearch('');
     setDebouncedSearch('');
     setPage(1);
-    void loadPage(1, false);
-  }, [open, loadPage]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    setPage(1);
-    void loadPage(1, false);
-  }, [debouncedSearch, open, loadPage]);
+    void loadPage(1, false, debouncedSearch);
+  }, [open, debouncedSearch, loadPage]);
 
   useEffect(() => {
     if (!open || tab !== 'library' || loading || loadingMore) return;
@@ -103,15 +115,15 @@ export function MediaLibrarySheet({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
-          void loadPage(page + 1, true);
+          void loadPage(page + 1, true, debouncedSearch);
         }
       },
-      { rootMargin: '200px' }
+      { rootMargin: '240px' }
     );
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [open, tab, loading, loadingMore, page, pageCount, loadPage]);
+  }, [open, tab, loading, loadingMore, page, pageCount, loadPage, debouncedSearch]);
 
   async function uploadFile(file: File) {
     setUploading(true);
@@ -129,9 +141,11 @@ export function MediaLibrarySheet({
       const media: RedactionMediaItem = {
         id: data.media.id,
         url: data.media.url,
+        previewUrl: data.media.url,
         name: data.media.name ?? file.name,
         mime: file.type,
       };
+      cacheRef.current.clear();
       onSelect(media);
       onClose();
     } catch (err) {
@@ -211,7 +225,7 @@ export function MediaLibrarySheet({
             />
           </div>
 
-          {loading ? (
+          {loading && items.length === 0 ? (
             <div className="flex flex-1 items-center justify-center">
               <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
             </div>
@@ -230,8 +244,8 @@ export function MediaLibrarySheet({
           ) : (
             <div className="flex-1 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {items.map((item, index) => {
-                  const src = getStrapiMediaUrl(item.url) ?? item.url;
+                {items.map((item) => {
+                  const src = mediaPreviewSrc(item);
                   return (
                     <button
                       key={item.id}
@@ -242,15 +256,13 @@ export function MediaLibrarySheet({
                       }}
                       className="group relative aspect-square overflow-hidden rounded-xl bg-muted ring-offset-2 active:ring-2 active:ring-primary"
                     >
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         src={src}
                         alt={item.alternativeText ?? item.name}
-                        fill
-                        className="object-cover transition-transform group-active:scale-105"
-                        sizes="120px"
-                        unoptimized
-                        priority={index < 9}
-                        loading={index < 9 ? 'eager' : 'lazy'}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover transition-transform group-active:scale-105"
                       />
                     </button>
                   );

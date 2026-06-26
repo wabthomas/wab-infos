@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { PenLine, FileText, Eye, Zap, CalendarClock } from 'lucide-react';
 import { getEditorProfile, computeEditorStats, listEditorArticles, requireRedactionUser } from '@/lib/redaction/strapi-editor';
-import { getRedactionArticleStatusLabel } from '@/lib/redaction/status-label';
-import { formatArticleDate, getArticleDisplayDate, cn } from '@/lib/utils';
+import { ArticleListItem } from '@/components/redaction/article-list-item';
+import { cn } from '@/lib/utils';
 
 export default async function RedactionDashboardPage() {
   const user = await requireRedactionUser();
@@ -77,25 +77,7 @@ export default async function RedactionDashboardPage() {
           )}
           {latest.map((article) => (
             <li key={article.documentId}>
-              <Link
-                href={`/articles/${article.documentId}/edit`}
-                className="block rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/30"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="line-clamp-2 font-semibold leading-snug">{article.title}</p>
-                  {article.isBreaking && (
-                    <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
-                      Flash
-                    </span>
-                  )}
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {getRedactionArticleStatusLabel(article.status)}
-                  {' · '}
-                  {formatArticleDate(getArticleDisplayDate(article))}
-                  {article.viewCount > 0 && ` · ${article.viewCount} vues`}
-                </p>
-              </Link>
+              <ArticleListItem article={article} />
             </li>
           ))}
         </ul>

@@ -8,10 +8,27 @@ import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import Youtube from '@tiptap/extension-youtube';
-import { Braces, Heading2, ImageIcon, List, Loader2, Quote, SeparatorHorizontal, Video, X } from 'lucide-react';
+import {
+  Braces,
+  Heading2,
+  Heading3,
+  ImageIcon,
+  Link2,
+  List,
+  ListOrdered,
+  Loader2,
+  Pilcrow,
+  Quote,
+  SeparatorHorizontal,
+  Video,
+  X,
+} from 'lucide-react';
 import { parseEmbedUrl } from '@/lib/redaction/embed-urls';
+import { BlockChrome } from '@/lib/redaction/tiptap-block-chrome';
 import { SocialEmbed } from '@/lib/redaction/tiptap-social-embed';
 import { ArticleEditorToolbar } from '@/components/redaction/article-editor-toolbar';
+import { ArticleHeadingPicker } from '@/components/redaction/article-heading-picker';
+import { EditorBlockToolbar } from '@/components/redaction/editor-block-toolbar';
 
 interface ArticleRichEditorProps {
   value: string;
@@ -23,6 +40,7 @@ interface ArticleRichEditorProps {
 
 type SheetMode = 'link' | 'embed' | null;
 type BlockMode = 'closed' | 'blocks';
+type HeadingMode = 'closed' | 'open';
 
 export function ArticleRichEditor({
   value,
@@ -33,6 +51,7 @@ export function ArticleRichEditor({
 }: ArticleRichEditorProps) {
   const [sheet, setSheet] = useState<SheetMode>(null);
   const [blockSheet, setBlockSheet] = useState<BlockMode>('closed');
+  const [headingSheet, setHeadingSheet] = useState<HeadingMode>('closed');
   const [inputValue, setInputValue] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -81,11 +100,12 @@ export function ArticleRichEditor({
       }),
       SocialEmbed,
       Placeholder.configure({ placeholder: editorPlaceholder }),
+      BlockChrome,
     ],
     content: value || '',
     editorProps: {
       attributes: {
-        class: 'redaction-editor-prose jetpack-editor-body outline-none',
+        class: 'redaction-editor-prose jetpack-editor-body jetpack-blocks outline-none',
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -150,6 +170,24 @@ export function ArticleRichEditor({
   const closeBlockSheet = useCallback(() => {
     setBlockSheet('closed');
   }, []);
+
+  const closeHeadingSheet = useCallback(() => {
+    setHeadingSheet('closed');
+  }, []);
+
+  const openHeadingSheet = useCallback(() => {
+    closeSheet();
+    closeBlockSheet();
+    setHeadingSheet((value) => (value === 'open' ? 'closed' : 'open'));
+  }, [closeBlockSheet, closeSheet]);
+
+  const insertBlock = useCallback(
+    (action: () => void) => {
+      action();
+      closeBlockSheet();
+    },
+    [closeBlockSheet]
+  );
 
   const applyLink = useCallback(() => {
     if (!editor) return;
@@ -217,9 +255,15 @@ export function ArticleRichEditor({
     );
   }
 
+  const sheetBottom =
+    toolbarBottom > 0
+      ? toolbarBottom + (headingSheet === 'open' ? 52 : 0)
+      : undefined;
+
   return (
     <>
       <EditorContent editor={editor} />
+      <EditorBlockToolbar editor={editor} onHeadingClick={openHeadingSheet} />
 
       <input
         ref={fileRef}
@@ -237,7 +281,7 @@ export function ArticleRichEditor({
         <div
           className="fixed inset-x-0 z-[70] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
           style={{
-            bottom: toolbarBottom > 0 ? toolbarBottom : undefined,
+            bottom: sheetBottom,
             paddingBottom: toolbarBottom > 0 ? '0.75rem' : 'max(0.75rem, env(safe-area-inset-bottom))',
           }}
         >
@@ -322,7 +366,67 @@ export function ArticleRichEditor({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-xs font-medium">
+            <div className="grid max-h-[42dvh] grid-cols-3 gap-2 overflow-y-auto text-center text-xs font-medium">
+              <button
+                type="button"
+                onClick={() =>
+                  insertBlock(() => editor.chain().focus().setParagraph().run())
+                }
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <Pilcrow className="mx-auto mb-1 h-5 w-5" />
+                Paragraphe
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertBlock(() => editor.chain().focus().setHeading({ level: 2 }).run())
+                }
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <Heading2 className="mx-auto mb-1 h-5 w-5" />
+                Titre 2
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertBlock(() => editor.chain().focus().setHeading({ level: 3 }).run())
+                }
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <Heading3 className="mx-auto mb-1 h-5 w-5" />
+                Titre 3
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertBlock(() => editor.chain().focus().toggleBulletList().run())
+                }
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <List className="mx-auto mb-1 h-5 w-5" />
+                Liste
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertBlock(() => editor.chain().focus().toggleOrderedList().run())
+                }
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <ListOrdered className="mx-auto mb-1 h-5 w-5" />
+                Liste num.
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertBlock(() => editor.chain().focus().toggleBlockquote().run())
+                }
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <Quote className="mx-auto mb-1 h-5 w-5" />
+                Citation
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -336,43 +440,9 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  editor.chain().focus().toggleHeading({ level: 2 }).run();
-                  closeBlockSheet();
-                }}
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <Heading2 className="mx-auto mb-1 h-5 w-5" />
-                Intertitre
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  editor.chain().focus().toggleBlockquote().run();
-                  closeBlockSheet();
-                }}
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <Quote className="mx-auto mb-1 h-5 w-5" />
-                Citation
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  editor.chain().focus().toggleBulletList().run();
-                  closeBlockSheet();
-                }}
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <List className="mx-auto mb-1 h-5 w-5" />
-                Liste
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  editor.chain().focus().setHorizontalRule().run();
-                  closeBlockSheet();
-                }}
+                onClick={() =>
+                  insertBlock(() => editor.chain().focus().setHorizontalRule().run())
+                }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
                 <SeparatorHorizontal className="mx-auto mb-1 h-5 w-5" />
@@ -381,9 +451,9 @@ export function ArticleRichEditor({
               <button
                 type="button"
                 onClick={() => {
+                  closeBlockSheet();
                   setInputValue('');
                   setSheet('embed');
-                  closeBlockSheet();
                 }}
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
@@ -393,9 +463,23 @@ export function ArticleRichEditor({
               <button
                 type="button"
                 onClick={() => {
-                  editor.chain().focus().insertContent('<p>[shortcode]</p>').run();
                   closeBlockSheet();
+                  const prev = editor.getAttributes('link').href as string | undefined;
+                  setInputValue(prev ?? '');
+                  setSheet('link');
                 }}
+                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
+              >
+                <Link2 className="mx-auto mb-1 h-5 w-5" />
+                Lien
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  insertBlock(() =>
+                    editor.chain().focus().insertContent('<p>[shortcode]</p>').run()
+                  )
+                }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
                 <Braces className="mx-auto mb-1 h-5 w-5" />
@@ -404,6 +488,15 @@ export function ArticleRichEditor({
             </div>
           </div>
         </div>
+      )}
+
+      {headingSheet === 'open' && (
+        <ArticleHeadingPicker
+          editor={editor}
+          open
+          onClose={closeHeadingSheet}
+          bottomOffset={toolbarBottom > 0 ? toolbarBottom + 52 : undefined}
+        />
       )}
 
       <div
@@ -421,17 +514,21 @@ export function ArticleRichEditor({
             onDismissKeyboard={dismissKeyboard}
             onBlocksClick={() => {
               closeSheet();
+              closeHeadingSheet();
               setBlockSheet((value) => (value === 'blocks' ? 'closed' : 'blocks'));
             }}
+            onHeadingClick={openHeadingSheet}
             onImageClick={() => fileRef.current?.click()}
             onLinkClick={() => {
               closeBlockSheet();
+              closeHeadingSheet();
               const prev = editor.getAttributes('link').href as string | undefined;
               setInputValue(prev ?? '');
               setSheet('link');
             }}
             onEmbedClick={() => {
               closeBlockSheet();
+              closeHeadingSheet();
               setInputValue('');
               setSheet('embed');
             }}

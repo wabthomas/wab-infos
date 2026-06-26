@@ -12,6 +12,7 @@ interface ArticleEditorSettingsSheetProps {
   categories: RedactionCategory[];
   selectedCategoryIds: string[];
   onToggleCategory: (id: string) => void;
+  onSetPrimaryCategory: (id: string) => void;
   excerpt: string;
   onExcerptChange: (v: string) => void;
   tagNames: string[];
@@ -79,6 +80,7 @@ export function ArticleEditorSettingsSheet({
   categories,
   selectedCategoryIds,
   onToggleCategory,
+  onSetPrimaryCategory,
   excerpt,
   onExcerptChange,
   tagNames,
@@ -169,7 +171,8 @@ export function ArticleEditorSettingsSheet({
             </summary>
             <div className="border-t border-border px-3 pb-3 pt-2">
               <p className="mb-2 text-xs text-muted-foreground">
-                La première rubrique cochée devient la rubrique principale du site.
+                La rubrique principale détermine l’URL sur le site. Utilisez « Principale » ou
+                réordonnez via la publication.
               </p>
               <div className="overflow-hidden rounded-lg border border-border">
                 {categories.map((category) => {
@@ -177,32 +180,46 @@ export function ArticleEditorSettingsSheet({
                   const primary = selectedCategoryIds[0] === category.documentId;
 
                   return (
-                    <button
+                    <div
                       key={category.documentId}
-                      type="button"
-                      onClick={() => onToggleCategory(category.documentId)}
-                      className="flex w-full items-center gap-3 border-b border-border px-3 py-3 text-left last:border-b-0 active:bg-muted/50"
+                      className="flex items-center gap-2 border-b border-border px-3 py-3 last:border-b-0"
                     >
-                      <span
-                        className={cn(
-                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
-                          checked
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border bg-background'
-                        )}
+                      <button
+                        type="button"
+                        onClick={() => onToggleCategory(category.documentId)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
                       >
-                        {checked && <Check className="h-3.5 w-3.5" />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold">{category.name}</span>
-                        {primary && (
-                          <span className="mt-0.5 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                            Principale
-                          </span>
-                        )}
-                      </span>
-                      <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-                    </button>
+                        <span
+                          className={cn(
+                            'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border',
+                            checked
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-background'
+                          )}
+                        >
+                          {checked && <Check className="h-3.5 w-3.5" />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold">{category.name}</span>
+                          {primary && (
+                            <span className="mt-0.5 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                              Principale
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                      {checked && !primary ? (
+                        <button
+                          type="button"
+                          onClick={() => onSetPrimaryCategory(category.documentId)}
+                          className="shrink-0 rounded-lg border border-border px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-primary"
+                        >
+                          Principale
+                        </button>
+                      ) : (
+                        <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                      )}
+                    </div>
                   );
                 })}
               </div>

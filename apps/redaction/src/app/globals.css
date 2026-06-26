@@ -56,7 +56,90 @@ body {
   font-family: var(--font-playfair), Georgia, serif;
   font-size: 1.35rem;
   font-weight: 700;
-  margin: 1.25rem 0 0.5rem;
+  margin: 0;
+}
+
+.redaction-editor-prose h3 {
+  font-family: var(--font-playfair), Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.jetpack-blocks .editor-block-card {
+  position: relative;
+  margin: 0.5rem 0;
+  padding: 0.75rem 0.75rem 0.75rem 2.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  background: hsl(var(--card));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.jetpack-blocks .editor-block-card:focus-within {
+  border-color: hsl(var(--primary) / 0.45);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.08);
+}
+
+.jetpack-blocks .editor-block-card > p,
+.jetpack-blocks .editor-block-card > h2,
+.jetpack-blocks .editor-block-card > h3,
+.jetpack-blocks .editor-block-card > blockquote,
+.jetpack-blocks .editor-block-card > ul,
+.jetpack-blocks .editor-block-card > ol,
+.jetpack-blocks .editor-block-card > hr {
+  margin: 0;
+}
+
+.jetpack-blocks .editor-block-card blockquote {
+  margin: 0;
+}
+
+.jetpack-blocks .editor-block-card img,
+.jetpack-blocks .editor-block-card .article-inline-image,
+.jetpack-blocks .editor-block-card [data-youtube-video],
+.jetpack-blocks .editor-block-card .social-embed {
+  margin: 0;
+}
+
+.editor-block-toolbar {
+  position: fixed;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border-radius: 0.625rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--background) / 0.96);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.editor-block-toolbar__type {
+  min-width: 4.5rem;
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+}
+
+.editor-block-toolbar__btn {
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.editor-block-toolbar__btn:active:not(:disabled) {
+  background: hsl(var(--muted));
 }
 
 .redaction-editor-prose blockquote {

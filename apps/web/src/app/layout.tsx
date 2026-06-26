@@ -6,6 +6,8 @@ import { AppShell } from '@/components/layout/app-shell';
 import { PwaSetup } from '@/components/pwa/pwa-setup';
 import { PwaSplash } from '@/components/pwa/pwa-splash';
 import { GoogleTagManagerBody, GoogleTagManagerHead } from '@/components/google/google-tag-manager';
+import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
+import { getAdsenseConfig } from '@/lib/adsense-config.server';
 import { generateWebsiteJsonLd } from '@/lib/seo';
 import './globals.css';
 
@@ -17,6 +19,7 @@ const strapiOrigin = (
 
 const googleFontsUrl =
   'https://fonts.googleapis.com/css2?' +
+  'family=Roboto:wght@500;700&' +
   'family=Inter:wght@400;500;600;700&' +
   'family=JetBrains+Mono:wght@400;500&' +
   'family=Oswald:wght@500;600;700&' +
@@ -94,6 +97,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const websiteJsonLd = generateWebsiteJsonLd();
+  const adsenseConfig = getAdsenseConfig();
 
   return (
     <html lang="fr" suppressHydrationWarning className="h-full">
@@ -102,6 +106,8 @@ export default function RootLayout({
         <link rel="dns-prefetch" href={strapiOrigin} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
+        <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
         <link href={googleFontsUrl} rel="stylesheet" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />
@@ -154,7 +160,9 @@ export default function RootLayout({
         <div id="app-root" className="flex min-h-full flex-1 flex-col">
           <PwaSetup />
           <ThemeProvider>
-            <AppShell>{children}</AppShell>
+            <AdsenseConfigProvider config={adsenseConfig}>
+              <AppShell>{children}</AppShell>
+            </AdsenseConfigProvider>
           </ThemeProvider>
         </div>
       </body>

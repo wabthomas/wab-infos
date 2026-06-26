@@ -16,7 +16,7 @@
     "dev:cms": "cd apps/cms && npm run develop",
     "build": "npm run build --workspace=apps/web",
     "build:web": "npm run build --workspace=apps/web",
-    "build:redaction": "npm run build --workspace=apps/redaction",
+    "build:redaction": "npm run pwa:fcm --workspace=apps/redaction && npm run build --workspace=apps/redaction",
     "build:redaction:pack": "npm run build:redaction && npm run pack:redaction-build",
     "build:web:low-mem": "npm run build:low-mem --workspace=apps/web",
     "build:web:pack": "npm run build:web && npm run pack:web-build",

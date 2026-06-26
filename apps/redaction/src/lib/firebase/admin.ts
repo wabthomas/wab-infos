@@ -35,6 +35,14 @@ export interface FcmNotificationPayload {
   url: string;
 }
 
+function getRedactionAppOrigin(): string {
+  return (
+    process.env.NEXT_PUBLIC_REDACTION_URL ||
+    process.env.REDACTION_APP_URL ||
+    'http://localhost:3001'
+  ).replace(/\/$/, '');
+}
+
 export async function sendFcmToToken(
   token: string,
   payload: FcmNotificationPayload
@@ -42,13 +50,17 @@ export async function sendFcmToToken(
   const app = ensureFirebaseAdmin();
   if (!app) throw new Error('Firebase Admin non configuré');
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const appOrigin = getRedactionAppOrigin();
   const absoluteUrl = payload.url.startsWith('http')
     ? payload.url
-    : `${siteUrl}${payload.url}`;
+    : `${appOrigin}${payload.url.startsWith('/') ? payload.url : `/${payload.url}`}`;
 
   await getMessaging(app).send({
     token,
+    notification: {
+      title: payload.title,
+      body: payload.body,
+    },
     data: {
       title: payload.title,
       body: payload.body,
@@ -56,6 +68,10 @@ export async function sendFcmToToken(
     },
     webpush: {
       fcmOptions: { link: absoluteUrl },
+      notification: {
+        icon: `${appOrigin}/logo.png`,
+        badge: `${appOrigin}/logo.png`,
+      },
     },
   });
 }

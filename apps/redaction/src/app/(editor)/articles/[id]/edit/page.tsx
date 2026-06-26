@@ -33,6 +33,7 @@ export default async function RedactionEditArticlePage({ params }: PageProps) {
         featuredImageAlt: article.featuredImage?.alternativeText,
         isBreaking: article.isBreaking,
         scheduledAt: article.scheduledAt,
+        authorDocumentId: article.author?.documentId,
       }}
     />
   );
