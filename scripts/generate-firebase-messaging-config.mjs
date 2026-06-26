@@ -1,14 +1,17 @@
 /**
- * Génère public/firebase-messaging-config.js depuis .env.local
- * Usage : node scripts/generate-firebase-messaging-config.mjs
+ * Génère public/firebase-messaging-config.js (web ou redaction) depuis les variables d'environnement.
+ * Ne pas committer le fichier généré (voir .gitignore).
+ *
+ * Usage : node scripts/generate-firebase-messaging-config.mjs [apps/web|apps/redaction]
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const envPath = path.join(root, '.env.local');
-const outPath = path.join(root, 'public', 'firebase-messaging-config.js');
+const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const appRel = process.argv[2] || 'apps/web';
+const appDir = path.join(repoRoot, appRel);
+const outPath = path.join(appDir, 'public', 'firebase-messaging-config.js');
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {};
@@ -31,7 +34,12 @@ function loadEnvFile(filePath) {
   return env;
 }
 
-const env = { ...process.env, ...loadEnvFile(envPath) };
+const fileEnv = {
+  ...loadEnvFile(path.join(repoRoot, '.env')),
+  ...loadEnvFile(path.join(repoRoot, '.env.local')),
+  ...loadEnvFile(path.join(appDir, '.env.local')),
+};
+const env = { ...fileEnv, ...process.env };
 
 const config = {
   apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim() || '',
@@ -46,11 +54,17 @@ if (storageBucket) {
   config.storageBucket = storageBucket;
 }
 
-const content = `/** Généré par npm run pwa:fcm — ne pas éditer à la main. */
+const content = `/** Généré par npm run pwa:fcm — ne pas éditer ni committer. */
 self.FIREBASE_CONFIG = ${JSON.stringify(config, null, 2)};
 `;
 
+fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, content, 'utf8');
 
 const ok = Boolean(config.apiKey && config.projectId);
-console.log(ok ? `✓ ${path.relative(root, outPath)}` : `⚠ ${path.relative(root, outPath)} (Firebase incomplet dans .env.local)`);
+const relOut = path.relative(repoRoot, outPath);
+console.log(
+  ok
+    ? `✓ ${relOut}`
+    : `⚠ ${relOut} (Firebase incomplet — définir NEXT_PUBLIC_FIREBASE_* dans .env.local)`
+);

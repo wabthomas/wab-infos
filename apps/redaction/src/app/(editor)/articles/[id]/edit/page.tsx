@@ -34,6 +34,8 @@ export default async function RedactionEditArticlePage({ params }: PageProps) {
         isBreaking: article.isBreaking,
         scheduledAt: article.scheduledAt,
         authorDocumentId: article.author?.documentId,
+        publishedAt: article.publishedAt,
+        articleStatus: article.status,
       }}
     />
   );

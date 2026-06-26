@@ -11,13 +11,20 @@ import { formatArticleDate, getArticleDisplayDate } from '@/lib/utils';
 interface ArticleListItemProps {
   article: RedactionArticle;
   showViews?: boolean;
+  canDeleteAny?: boolean;
   onDeleted?: (documentId: string) => void;
 }
 
-export function ArticleListItem({ article, showViews = true, onDeleted }: ArticleListItemProps) {
+export function ArticleListItem({
+  article,
+  showViews = true,
+  canDeleteAny = false,
+  onDeleted,
+}: ArticleListItemProps) {
   const publicUrl = getPublicArticleUrl(article);
   const [deleting, setDeleting] = useState(false);
-  const canDelete = article.status === 'draft' && !article.publishedAt;
+  const isDraft = article.status === 'draft' && !article.publishedAt;
+  const canDelete = canDeleteAny || isDraft;
 
   async function shareArticle() {
     if (!publicUrl) return;
@@ -33,10 +40,13 @@ export function ArticleListItem({ article, showViews = true, onDeleted }: Articl
     }
   }
 
-  async function deleteDraft() {
+  async function deleteArticle() {
     if (!canDelete || deleting) return;
+    const label = article.title || 'Sans titre';
     const confirmed = window.confirm(
-      `Supprimer le brouillon « ${article.title || 'Sans titre' } » ? Cette action est irréversible.`
+      isDraft
+        ? `Supprimer le brouillon « ${label} » ? Cette action est irréversible.`
+        : `Supprimer définitivement l'article « ${label} » ? Cette action est irréversible.`
     );
     if (!confirmed) return;
 
@@ -112,7 +122,7 @@ export function ArticleListItem({ article, showViews = true, onDeleted }: Articl
         {canDelete ? (
           <button
             type="button"
-            onClick={() => void deleteDraft()}
+            onClick={() => void deleteArticle()}
             disabled={deleting}
             className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 active:bg-red-100 disabled:opacity-60 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
           >

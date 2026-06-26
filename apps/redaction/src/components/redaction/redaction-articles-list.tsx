@@ -20,10 +20,20 @@ export function RedactionArticlesList() {
   const [filter, setFilter] = useState<Filter>(() => parseFilter(searchParams.get('filter')));
   const [articles, setArticles] = useState<RedactionArticle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canDeleteAny, setCanDeleteAny] = useState(false);
 
   useEffect(() => {
     setFilter(parseFilter(searchParams.get('filter')));
   }, [searchParams]);
+
+  useEffect(() => {
+    void fetch('/api/redaction/auth/me')
+      .then((r) => r.json())
+      .then((data: { canDeleteAnyArticle?: boolean }) => {
+        setCanDeleteAny(Boolean(data.canDeleteAnyArticle));
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -73,6 +83,7 @@ export function RedactionArticlesList() {
             <li key={article.documentId}>
               <ArticleListItem
                 article={article}
+                canDeleteAny={canDeleteAny}
                 onDeleted={(id) => setArticles((list) => list.filter((a) => a.documentId !== id))}
               />
             </li>

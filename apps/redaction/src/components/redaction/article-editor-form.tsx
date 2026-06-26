@@ -41,6 +41,8 @@ export interface ArticleEditorValues {
   isBreaking: boolean;
   scheduledAt?: string;
   authorDocumentId?: string;
+  publishedAt?: string;
+  articleStatus?: 'draft' | 'published' | 'scheduled' | 'archived';
 }
 
 function toDatetimeLocal(iso?: string): string {
@@ -138,6 +140,8 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const [categories, setCategories] = useState<RedactionCategory[]>([]);
   const [authors, setAuthors] = useState<RedactionAuthor[]>([]);
   const [canAssignAuthor, setCanAssignAuthor] = useState(false);
+  const [canDeleteAny, setCanDeleteAny] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [currentAuthorName, setCurrentAuthorName] = useState('');
   const excerptTouchedRef = useRef(Boolean(initial?.excerpt?.trim()));
   const seoTitleTouchedRef = useRef(Boolean(initial?.seoTitle?.trim()));
@@ -188,6 +192,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           author?: RedactionAuthor;
           isSuperAdmin?: boolean;
           canAssignAuthor?: boolean;
+          canDeleteAnyArticle?: boolean;
         }) => {
           if (data.author?.name) setCurrentAuthorName(data.author.name);
           if (data.author?.documentId && !initial?.authorDocumentId) {
@@ -197,6 +202,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             }));
           }
           setCanAssignAuthor(Boolean(data.canAssignAuthor ?? data.isSuperAdmin));
+          setCanDeleteAny(Boolean(data.canDeleteAnyArticle ?? data.isSuperAdmin));
         }
       )
       .catch(() => undefined);
@@ -432,6 +438,39 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   async function handleBack() {
     await persistDraft({ silent: true });
     router.push('/articles');
+  }
+
+  const isDraftArticle =
+    !initial?.publishedAt &&
+    (initial?.articleStatus === 'draft' || initial?.articleStatus === undefined);
+  const canDeleteArticle =
+    Boolean(activeDocumentId) && (canDeleteAny || isDraftArticle);
+
+  async function deleteArticle() {
+    if (!activeDocumentId || !canDeleteArticle || deleting) return;
+    const label = values.title.trim() || 'Sans titre';
+    const confirmed = window.confirm(
+      isDraftArticle
+        ? `Supprimer le brouillon « ${label} » ? Cette action est irréversible.`
+        : `Supprimer définitivement l'article « ${label} » ? Cette action est irréversible.`
+    );
+    if (!confirmed) return;
+
+    setMenuOpen(false);
+    setDeleting(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/redaction/articles/${activeDocumentId}`, {
+        method: 'DELETE',
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Suppression impossible');
+      router.push('/articles');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Suppression impossible');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function setPrimaryCategory(categoryId: string) {
@@ -675,6 +714,16 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
                   >
                     {saving === 'draft' ? 'Enregistrement…' : 'Enregistrer brouillon'}
                   </button>
+                  {canDeleteArticle ? (
+                    <button
+                      type="button"
+                      disabled={!!saving || deleting}
+                      onClick={() => void deleteArticle()}
+                      className="flex w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 active:bg-red-50 disabled:opacity-50 dark:active:bg-red-950/40"
+                    >
+                      {deleting ? 'Suppression…' : 'Supprimer l’article'}
+                    </button>
+                  ) : null}
                 </div>
               </>
             )}

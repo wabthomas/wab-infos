@@ -12,6 +12,8 @@ build/
 .env.*.local
 apps/cms/.env
 apps/web/.env.local
+apps/web/public/firebase-messaging-config.js
+apps/redaction/public/firebase-messaging-config.js
 
 # Strapi
 apps/cms/.tmp/

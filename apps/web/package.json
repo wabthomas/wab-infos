@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "node scripts/build-production.mjs",
+    "dev": "npm run pwa:fcm && next dev",
+    "build": "npm run pwa:fcm && node scripts/build-production.mjs",
     "build:low-mem": "node scripts/build-production.mjs --low-mem",
     "typecheck": "tsc --noEmit",
     "build:direct": "next build --webpack",
@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint",
     "pwa:icons": "node scripts/generate-pwa-icons.mjs",
-    "pwa:fcm": "node scripts/generate-firebase-messaging-config.mjs",
+    "pwa:fcm": "node ../../scripts/generate-firebase-messaging-config.mjs apps/web",
     "og:image": "node scripts/generate-og-image.mjs",
     "check:env": "node scripts/check-web-env.mjs"
   },

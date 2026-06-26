@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001",
+    "dev": "npm run pwa:fcm && next dev -p 3001",
     "build": "npm run pwa:fcm && next build",
     "start": "next start -p 3001 -H 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
-    "pwa:fcm": "node scripts/generate-firebase-messaging-config.mjs"
+    "pwa:fcm": "node ../../scripts/generate-firebase-messaging-config.mjs apps/redaction"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4",

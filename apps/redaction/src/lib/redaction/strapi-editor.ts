@@ -87,6 +87,7 @@ const SUPER_ADMIN_ROLE_NAMES = new Set(
     'super-admin',
     'strapi-super-admin',
     'administrateur',
+    'admin',
     ...(process.env.REDACTION_SUPER_ADMIN_ROLES?.split(',').map((s) => s.trim()).filter(Boolean) ??
       []),
   ].map(normalizeStrapiRoleName)
@@ -248,6 +249,16 @@ export function canAssignArticleAuthor(user: RedactionUser): boolean {
   return user.role === 'admin';
 }
 
+/** Peut supprimer n'importe quel article (publié, planifié, brouillon). */
+export function canDeleteAnyArticle(user: RedactionUser): boolean {
+  return user.role === 'admin';
+}
+
+export function canDeleteArticle(user: RedactionUser, article: RedactionArticle): boolean {
+  if (canDeleteAnyArticle(user)) return true;
+  return article.status === 'draft' && !isLiveRedactionArticle(article);
+}
+
 export async function requireRedactionSuperAdmin(): Promise<RedactionUser> {
   const user = await requireRedactionUser();
   if (!isRedactionSuperAdmin(user)) {
@@ -389,6 +400,7 @@ export async function getEditorProfile(user: RedactionUser): Promise<{
   author: RedactionAuthor;
   isSuperAdmin: boolean;
   canAssignAuthor: boolean;
+  canDeleteAnyArticle: boolean;
 }> {
   const author = await resolveAuthorForUser(user);
   return {
@@ -396,6 +408,7 @@ export async function getEditorProfile(user: RedactionUser): Promise<{
     author,
     isSuperAdmin: isRedactionSuperAdmin(user),
     canAssignAuthor: canAssignArticleAuthor(user),
+    canDeleteAnyArticle: canDeleteAnyArticle(user),
   };
 }
 
@@ -763,7 +776,7 @@ export async function deleteEditorArticle(
 ): Promise<void> {
   const article = await getEditorArticle(user, documentId);
   if (!article) throw new RedactionAuthError('Article introuvable');
-  if (isLiveRedactionArticle(article)) {
+  if (!canDeleteArticle(user, article)) {
     throw new RedactionAuthError('Seuls les brouillons peuvent être supprimés');
   }
 

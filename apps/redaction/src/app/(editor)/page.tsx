@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 export default async function RedactionDashboardPage() {
   const user = await requireRedactionUser();
-  const [{ author }, articles] = await Promise.all([
+  const [{ author, canDeleteAnyArticle }, articles] = await Promise.all([
     getEditorProfile(user),
     listEditorArticles(user, 'all'),
   ]);
@@ -77,7 +77,7 @@ export default async function RedactionDashboardPage() {
           )}
           {latest.map((article) => (
             <li key={article.documentId}>
-              <ArticleListItem article={article} />
+              <ArticleListItem article={article} canDeleteAny={canDeleteAnyArticle} />
             </li>
           ))}
         </ul>
