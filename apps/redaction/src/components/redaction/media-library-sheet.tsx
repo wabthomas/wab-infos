@@ -7,6 +7,11 @@ import { cn, getStrapiMediaUrl } from '@/lib/utils';
 
 type LibraryTab = 'library' | 'upload';
 
+interface MediaPageCache {
+  items: RedactionMediaItem[];
+  pageCount: number;
+}
+
 interface MediaLibrarySheetProps {
   open: boolean;
   onClose: () => void;
@@ -37,7 +42,7 @@ export function MediaLibrarySheet({
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const cacheRef = useRef<Map<string, RedactionMediaItem[]>>(new Map());
+  const cacheRef = useRef<Map<string, MediaPageCache>>(new Map());
 
   useEffect(() => {
     if (!open) return;
@@ -49,14 +54,17 @@ export function MediaLibrarySheet({
     const cacheKey = `${query}|${targetPage}`;
     const cached = cacheRef.current.get(cacheKey);
 
+    if (targetPage === 1 && !append && cached) {
+      setItems(cached.items);
+      setPage(1);
+      setPageCount(cached.pageCount);
+      setLoading(false);
+      setError('');
+      return;
+    }
+
     if (targetPage === 1 && !append) {
-      if (cached?.length) {
-        setItems(cached);
-        setPage(1);
-        setLoading(false);
-      } else {
-        setLoading(true);
-      }
+      setLoading(true);
     } else if (targetPage > 1) {
       setLoadingMore(true);
     }
@@ -80,9 +88,10 @@ export function MediaLibrarySheet({
       if (!res.ok) throw new Error(data.error ?? 'Chargement impossible');
 
       const nextItems = data.items ?? [];
-      cacheRef.current.set(cacheKey, nextItems);
+      const nextPageCount = data.pageCount ?? 1;
+      cacheRef.current.set(cacheKey, { items: nextItems, pageCount: nextPageCount });
       setPage(targetPage);
-      setPageCount(data.pageCount ?? 1);
+      setPageCount(nextPageCount);
       setItems((prev) => (append ? [...prev, ...nextItems] : nextItems));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur');
