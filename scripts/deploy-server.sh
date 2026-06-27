@@ -207,6 +207,20 @@ else
 fi
 
 echo ""
+echo "→ Vérification builds Next.js"
+if [ -f "$APP_DIR/apps/web/.next/BUILD_ID" ]; then
+  echo "   web: OK (BUILD_ID=$(cat "$APP_DIR/apps/web/.next/BUILD_ID"))"
+else
+  echo "   ⚠️  web: MANQUE apps/web/.next → risque 503 sur wab-infos.com"
+fi
+if [ -f "$APP_DIR/apps/redaction/.next/BUILD_ID" ]; then
+  echo "   redaction: OK (BUILD_ID=$(cat "$APP_DIR/apps/redaction/.next/BUILD_ID"))"
+else
+  echo "   ⚠️  redaction: MANQUE apps/redaction/.next → 503 sur redaction.app.wab-infos.com"
+  echo "      Uploadez redaction-next-build.tar.gz puis : npm run unpack:redaction-build"
+fi
+
+echo ""
 echo "✅ Déploiement terminé."
 echo "   Site: vérifier https://app.wab-infos.com"
 echo "   Rédaction: vérifier https://redaction.app.wab-infos.com"
