@@ -159,35 +159,34 @@ export function ContentSidebar({
               </Link>
             )}
           </div>
-          <div
-            className={
-              articlesGridOnMobile
-                ? 'grid grid-cols-2 gap-3 p-2 lg:grid-cols-1 lg:gap-0 lg:divide-y lg:divide-border lg:p-1'
-                : 'divide-y divide-border p-1'
-            }
-          >
-            {sidebarArticles.map((article, index) =>
-              articlesGridOnMobile ? (
-                <div key={article.id} className="min-w-0 lg:contents">
-                  <div className="lg:hidden">
-                    <ArticleCard article={article} showExcerpt={false} />
-                  </div>
-                  <div className="hidden lg:block">
-                    <SidebarArticleItem
-                      article={article}
-                      rank={articlesTitle.toLowerCase().includes('lus') ? index + 1 : undefined}
-                    />
-                  </div>
-                </div>
-              ) : (
+          {articlesGridOnMobile ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 p-2 lg:hidden">
+                {sidebarArticles.map((article) => (
+                  <ArticleCard key={article.id} article={article} showExcerpt={false} />
+                ))}
+              </div>
+              <div className="hidden divide-y divide-border p-1 lg:block">
+                {sidebarArticles.map((article, index) => (
+                  <SidebarArticleItem
+                    key={article.id}
+                    article={article}
+                    rank={articlesTitle.toLowerCase().includes('lus') ? index + 1 : undefined}
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="divide-y divide-border p-1">
+              {sidebarArticles.map((article, index) => (
                 <SidebarArticleItem
                   key={article.id}
                   article={article}
                   rank={articlesTitle.toLowerCase().includes('lus') ? index + 1 : undefined}
                 />
-              )
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

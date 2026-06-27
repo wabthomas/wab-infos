@@ -1,6 +1,8 @@
 import { shareNativePage } from '@wab-infos/shared';
 
-export async function sharePage(title: string, url: string): Promise<'shared' | 'copied' | 'cancelled'> {
+export type SharePageResult = 'shared' | 'copied' | 'cancelled' | 'failed';
+
+export async function sharePage(title: string, url: string): Promise<SharePageResult> {
   const native = await shareNativePage(title, url);
   if (native === 'shared' || native === 'cancelled') return native;
 
@@ -15,10 +17,14 @@ export async function sharePage(title: string, url: string): Promise<'shared' | 
     }
   }
 
+  if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+    return 'failed';
+  }
+
   try {
     await navigator.clipboard.writeText(url);
     return 'copied';
   } catch {
-    return 'cancelled';
+    return 'failed';
   }
 }
