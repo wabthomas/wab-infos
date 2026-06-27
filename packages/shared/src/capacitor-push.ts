@@ -12,6 +12,16 @@ export type CapacitorPushPermission = 'granted' | 'denied' | 'prompt';
 
 const FCM_TOKEN_STORAGE_KEY = 'wab-fcm-token';
 
+function getCachedFcmToken(): string | null {
+  try {
+    const cached = localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
+    if (!cached || cached.length < 20) return null;
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
 export interface CapacitorPushInitOptions {
   subscribePath: string;
   platform?: 'android' | 'ios';
@@ -67,9 +77,9 @@ async function postNativeToken(
 }
 
 async function repostCachedToken(subscribePath: string, platform: 'android' | 'ios'): Promise<void> {
+  const cached = getCachedFcmToken();
+  if (!cached) return;
   try {
-    const cached = localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
-    if (!cached || cached.length < 20) return;
     await postNativeToken(subscribePath, cached, platform);
   } catch {
     // ignore
@@ -217,17 +227,27 @@ export async function subscribeViaCapacitorPush(
       resolve(result);
     };
 
-    const timer = window.setTimeout(async () => {
-      const cached = localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
-      if (cached && cached.length >= 20) {
-        finish(await postNativeToken(options.subscribePath, cached, platform));
-        return;
-      }
-      finish({
-        ok: false,
-        reason: 'invalid_token',
-        message: 'Délai dépassé — vérifiez google-services.json et Firebase Android.',
-      });
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const cached = getCachedFcmToken();
+          if (cached) {
+            finish(await postNativeToken(options.subscribePath, cached, platform));
+            return;
+          }
+          finish({
+            ok: false,
+            reason: 'invalid_token',
+            message: 'Délai dépassé — vérifiez google-services.json et Firebase Android.',
+          });
+        } catch {
+          finish({
+            ok: false,
+            reason: 'invalid_token',
+            message: 'Impossible de finaliser l’abonnement push.',
+          });
+        }
+      })();
     }, 20_000);
 
     const registrationListener = PushNotifications.addListener('registration', (token) => {
@@ -258,8 +278,8 @@ export async function syncCapacitorPushIfGranted(
     platform: options.platform,
   });
 
-  const cached = localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
-  if (cached && cached.length >= 20) {
+  const cached = getCachedFcmToken();
+  if (cached) {
     const repost = await postNativeToken(options.subscribePath, cached, options.platform ?? 'android');
     if (repost.ok) return true;
   }
