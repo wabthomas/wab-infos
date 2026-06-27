@@ -14,6 +14,7 @@ export async function sharePage(title: string, url: string): Promise<SharePageRe
       if (error instanceof DOMException && error.name === 'AbortError') {
         return 'cancelled';
       }
+      console.warn('[sharePage] navigator.share failed, trying clipboard fallback', error);
     }
   }
 
