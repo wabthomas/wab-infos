@@ -5,13 +5,12 @@ import {
   isNativeCapacitorApp,
   setupCapacitorPushListeners,
   subscribeViaCapacitorPush,
-  syncCapacitorPushIfGranted,
 } from '@/lib/push/capacitor-native';
 
 const NATIVE_PUSH_PROMPT_KEY = 'wab-native-push-prompted';
 
 /**
- * Sur l'APK Wab-infos : écoute les clics notification + propose l'abonnement push lecteur natif.
+ * Sur l'APK Wab-infos : enregistre le token FCM lecteur + écoute les notifications.
  */
 export function NativePushSetup() {
   useEffect(() => {
@@ -26,7 +25,6 @@ export function NativePushSetup() {
       const permission = await PushNotifications.checkPermissions();
 
       if (permission.receive === 'granted') {
-        await syncCapacitorPushIfGranted();
         return;
       }
 

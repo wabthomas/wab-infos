@@ -2,17 +2,24 @@
 
 import {
   getCapacitorPushPermission,
+  initCapacitorPush,
   isNativeCapacitorApp,
-  setupCapacitorPushListeners,
   subscribeViaCapacitorPush as subscribeCapacitorPush,
   syncCapacitorPushIfGranted as syncCapacitorPush,
   type NativePushResult,
 } from '@wab-infos/shared';
 
 export type { NativePushResult };
-export { getCapacitorPushPermission, isNativeCapacitorApp, setupCapacitorPushListeners };
+export { getCapacitorPushPermission, isNativeCapacitorApp };
 
 const EDITOR_SUBSCRIBE_PATH = '/api/redaction/push/subscribe';
+
+export async function setupCapacitorPushListeners(): Promise<void> {
+  await initCapacitorPush({
+    subscribePath: EDITOR_SUBSCRIBE_PATH,
+    platform: 'android',
+  });
+}
 
 export async function subscribeEditorViaCapacitorPush(): Promise<NativePushResult> {
   return subscribeCapacitorPush({

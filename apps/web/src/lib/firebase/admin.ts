@@ -60,6 +60,10 @@ export async function sendFcmToToken(
     },
     android: {
       priority: 'high',
+      notification: {
+        channelId: 'wab_infos_news',
+        sound: 'default',
+      },
     },
     webpush: {
       fcmOptions: { link: absoluteUrl },

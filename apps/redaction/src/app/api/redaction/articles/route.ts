@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import {
   createEditorArticle,
+  isLiveRedactionArticle,
   listEditorArticles,
   RedactionAuthError,
   requireRedactionUser,
 } from '@/lib/redaction/strapi-editor';
+import { triggerReaderPushOnPublish } from '@/lib/redaction/trigger-reader-push';
 import type { ArticleEditorPayload } from '@/lib/redaction/types';
 import { excerptFromContent } from '@/lib/utils';
 
@@ -55,6 +57,9 @@ export async function POST(request: Request) {
       publish: body.draftOnly ? false : body.publish,
       scheduledAt: body.draftOnly ? null : body.scheduledAt,
     });
+    if (body.publish && !body.draftOnly && isLiveRedactionArticle(article)) {
+      void triggerReaderPushOnPublish(article.slug);
+    }
     return NextResponse.json({ article }, { status: 201 });
   } catch (err) {
     if (err instanceof RedactionAuthError) {

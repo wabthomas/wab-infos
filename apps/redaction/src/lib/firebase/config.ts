@@ -38,6 +38,10 @@ export function isFirebaseConfigured(): boolean {
   return Boolean(getFirebaseClientConfig() && getFirebaseVapidKey() && getFirebaseServiceAccount());
 }
 
+export function isFirebaseAdminConfigured(): boolean {
+  return Boolean(getFirebaseServiceAccount());
+}
+
 interface ServiceAccount {
   projectId: string;
   clientEmail: string;

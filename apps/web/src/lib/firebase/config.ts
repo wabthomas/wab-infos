@@ -38,6 +38,11 @@ export function isFirebaseConfigured(): boolean {
   return Boolean(getFirebaseClientConfig() && getFirebaseVapidKey() && getFirebaseServiceAccount());
 }
 
+/** Envoi FCM via Firebase Admin (APK natif) — ne nécessite pas la clé VAPID web. */
+export function isFirebaseAdminConfigured(): boolean {
+  return Boolean(getFirebaseServiceAccount());
+}
+
 interface ServiceAccount {
   projectId: string;
   clientEmail: string;

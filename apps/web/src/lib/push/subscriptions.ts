@@ -113,7 +113,7 @@ export async function listReaderPushSubscriptions(): Promise<StoredReaderSubscri
       }
     );
 
-    all.push(...response.data);
+    all.push(...(response.data ?? []));
     const pageCount = response.meta?.pagination?.pageCount ?? 1;
     if (page >= pageCount) break;
     page++;

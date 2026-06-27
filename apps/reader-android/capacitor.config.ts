@@ -23,10 +23,18 @@ const config: CapacitorConfig = {
   webDir: 'www',
   android: {
     allowMixedContent: false,
+    appendUserAgent: ' WabInfosNative/1.0',
   },
   plugins: {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    SplashScreen: {
+      launchAutoHide: false,
+      launchShowDuration: 0,
+      backgroundColor: '#ffffff',
+      androidSplashResourceName: 'splash',
+      showSpinner: false,
     },
   },
   ...(serverUrl

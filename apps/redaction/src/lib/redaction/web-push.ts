@@ -5,7 +5,7 @@ import {
   isInvalidFcmTokenError,
   sendFcmToToken,
 } from '@/lib/firebase/admin';
-import { isFirebaseConfigured } from '@/lib/firebase/config';
+import { isFirebaseAdminConfigured } from '@/lib/firebase/config';
 
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
 
@@ -95,7 +95,7 @@ export async function notifyAllEditors(payload: {
   body: string;
   url: string;
 }): Promise<{ sent: number; failed: number }> {
-  if (!isFirebaseConfigured() || !ensureFirebaseAdmin()) {
+  if (!isFirebaseAdminConfigured() || !ensureFirebaseAdmin()) {
     return { sent: 0, failed: 0 };
   }
 

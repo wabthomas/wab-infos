@@ -10,6 +10,7 @@ build/
 .env
 .env.local
 .env.*.local
+*-firebase-adminsdk-*.json
 apps/cms/.env
 apps/web/.env.local
 apps/web/public/firebase-messaging-config.js
@@ -46,7 +47,10 @@ npm-debug.log*
 # Build artefacts (upload manuel serveur)
 web-next-build.tar.gz
 web-next-build-*.tar.gz
+redaction-next-build.tar.gz
+redaction-next-build-*.tar.gz
 cms-build.tar.gz
+apps/web/public/downloads/*.apk
 
 # WordPress import
 scripts/wordpress-import/data/

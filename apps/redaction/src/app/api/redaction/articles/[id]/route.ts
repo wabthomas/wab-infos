@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import {
   deleteEditorArticle,
   getEditorArticle,
+  isLiveRedactionArticle,
   RedactionAuthError,
   requireRedactionUser,
   updateEditorArticle,
 } from '@/lib/redaction/strapi-editor';
+import { triggerReaderPushOnPublish } from '@/lib/redaction/trigger-reader-push';
 import type { ArticleEditorPayload } from '@/lib/redaction/types';
 
 interface RouteContext {
@@ -35,6 +37,9 @@ export async function PUT(request: Request, context: RouteContext) {
     const { id } = await context.params;
     const body = (await request.json()) as Partial<ArticleEditorPayload>;
     const article = await updateEditorArticle(user, id, body);
+    if (body.publish && isLiveRedactionArticle(article)) {
+      void triggerReaderPushOnPublish(article.slug);
+    }
     return NextResponse.json({ article });
   } catch (err) {
     if (err instanceof RedactionAuthError) {

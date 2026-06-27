@@ -22,13 +22,7 @@ export function needsSafariForIosInstall(): boolean {
   return /crios|fxios|edgios|FBAN|FBAV|Instagram|Line\//i.test(ua) || !/safari/i.test(ua);
 }
 
-export function isStandalonePwa(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
+export { isStandalonePwa, NATIVE_APP_UA_MARKER } from '@/lib/pwa/launch-splash';
 
 export function inferPwaVariantFromPath(pathname: string): PwaVariant {
   if (pathname === '/redaction/login' || pathname.startsWith('/redaction/login')) {

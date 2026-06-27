@@ -11,11 +11,7 @@ import {
   persistPwaVariantFromPath,
   type PwaVariant,
 } from '@/lib/pwa/detect';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
+import { isAndroidDevice, isNativeCapacitorApp, isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
 
 interface PwaInstallBannerProps {
   variant: PwaVariant;
@@ -28,24 +24,38 @@ const COPY = {
     title: 'Installer Wab-infos',
     subtitle: 'Accès rapide à l’actualité depuis votre écran d’accueil.',
     iosTitle: 'Ajouter Wab-infos à l’écran d’accueil',
+    androidTitle: 'Installer l’app Wab-infos',
+    androidSubtitle: 'Notifications en direct et accès rapide à l’actualité.',
   },
   redaction: {
     title: 'Installer l’app rédaction',
     subtitle: 'Publiez depuis votre mobile en un geste.',
     iosTitle: 'Ajouter l’app rédaction à l’écran d’accueil',
+    androidTitle: 'Installer l’app Wab-infos',
+    androidSubtitle: 'Notifications rédaction et publication depuis votre mobile.',
   },
 } as const;
 
+function DismissButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="shrink-0 text-muted-foreground" aria-label="Fermer">
+      <X className="h-4 w-4" />
+    </button>
+  );
+}
+
 export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBannerProps) {
   const [mounted, setMounted] = useState(false);
-  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [inNativeApp, setInNativeApp] = useState(false);
   const [ios, setIos] = useState(false);
+  const [android, setAndroid] = useState(false);
   const [needsSafari, setNeedsSafari] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const dismissKey = PWA_INSTALL_DISMISS[variant];
   const labels = COPY[variant];
+  const apkUrl = siteConfig.androidApkUrl;
 
   useEffect(() => {
     setMounted(true);
@@ -55,7 +65,14 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
       // ignore
     }
 
-    if (isStandalonePwa()) return;
+    if (isStandalonePwa() || isNativeCapacitorFromUserAgent()) {
+      setInNativeApp(true);
+      return;
+    }
+
+    void isNativeCapacitorApp().then((native) => {
+      if (native) setInNativeApp(true);
+    });
 
     if (isIosDevice()) {
       setIos(true);
@@ -63,21 +80,9 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
       return;
     }
 
-    function onInstallPrompt(e: Event) {
-      e.preventDefault();
-      setInstallEvent(e as BeforeInstallPromptEvent);
+    if (isAndroidDevice()) {
+      setAndroid(true);
     }
-
-    function onAppInstalled() {
-      persistPwaVariantFromPath(window.location.pathname);
-    }
-
-    window.addEventListener('beforeinstallprompt', onInstallPrompt);
-    window.addEventListener('appinstalled', onAppInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onInstallPrompt);
-      window.removeEventListener('appinstalled', onAppInstalled);
-    };
   }, [dismissKey]);
 
   function dismiss() {
@@ -87,16 +92,6 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
     } catch {
       // ignore
     }
-  }
-
-  async function install() {
-    if (!installEvent) return;
-    await installEvent.prompt();
-    const choice = await installEvent.userChoice;
-    if (choice.outcome === 'accepted') {
-      persistPwaVariantFromPath(window.location.pathname);
-    }
-    setInstallEvent(null);
   }
 
   async function copyPageLink() {
@@ -109,7 +104,7 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
     }
   }
 
-  if (!mounted || dismissed || isStandalonePwa()) return null;
+  if (!mounted || dismissed || isStandalonePwa() || inNativeApp) return null;
 
   const shellClass =
     placement === 'fixed'
@@ -118,24 +113,26 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
 
   let content: React.ReactNode = null;
 
-  if (installEvent) {
+  if (android && apkUrl) {
     content = (
       <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-card p-4 shadow-lg">
-        <Download className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">{labels.title}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{labels.subtitle}</p>
-          <button
-            type="button"
-            onClick={install}
-            className="mt-3 h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground"
+          <p className="text-sm font-semibold text-foreground">{labels.androidTitle}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{labels.androidSubtitle}</p>
+          <a
+            href={apkUrl}
+            download
+            className="mt-3 inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground"
           >
-            Installer
-          </button>
+            <Download className="h-4 w-4" />
+            Télécharger l&apos;app
+          </a>
+          <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+            Autorisez l&apos;installation depuis cette source si Android le demande.
+          </p>
         </div>
-        <button type="button" onClick={dismiss} className="text-muted-foreground" aria-label="Fermer">
-          <X className="h-4 w-4" />
-        </button>
+        <DismissButton onClick={dismiss} />
       </div>
     );
   } else if (ios) {
@@ -182,31 +179,11 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
                 </li>
               </ol>
             </div>
-            <button type="button" onClick={dismiss} className="text-muted-foreground" aria-label="Fermer">
-              <X className="h-4 w-4" />
-            </button>
+            <DismissButton onClick={dismiss} />
           </div>
         </div>
       );
     }
-  } else if (placement === 'fixed') {
-    content = (
-      <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-lg">
-        <Smartphone className="h-5 w-5 shrink-0 text-primary" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">{labels.title}</p>
-          <p className="text-xs text-muted-foreground">{labels.subtitle}</p>
-        </div>
-        <button
-          type="button"
-          onClick={dismiss}
-          className="shrink-0 text-muted-foreground"
-          aria-label="Fermer"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-    );
   }
 
   if (!content) return null;

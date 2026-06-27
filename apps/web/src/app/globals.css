@@ -514,6 +514,102 @@ html.pwa-launching body {
 }
 
 .pwa-splash--out {
-  animation: pwa-splash-fade-out 0.35s ease-out forwards;
+  animation: pwa-splash-fade-out 0.42s ease-out forwards;
   pointer-events: none;
+}
+
+/* Écran de lancement — PWA iOS + APK Android */
+.app-launch-splash {
+  color-scheme: light;
+}
+
+.app-launch-splash__glow {
+  position: absolute;
+  width: min(88vw, 22rem);
+  height: min(88vw, 22rem);
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(196 30 58 / 0.12) 0%, rgb(196 30 58 / 0.04) 45%, transparent 70%);
+  animation: app-launch-glow-pulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.app-launch-splash-logo-wrap {
+  position: relative;
+  z-index: 1;
+}
+
+.app-launch-splash-logo {
+  filter: drop-shadow(0 8px 24px rgb(196 30 58 / 0.12));
+}
+
+.app-launch-splash-tagline {
+  position: relative;
+  z-index: 1;
+}
+
+.app-launch-splash-loader {
+  position: relative;
+  z-index: 1;
+}
+
+.app-launch-splash-progress-track {
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgb(196 30 58 / 0.12);
+}
+
+.app-launch-splash-progress-bar {
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(196 30 58 / 0.35), var(--primary), rgb(196 30 58 / 0.35));
+  animation: app-launch-progress-slide 1.35s ease-in-out infinite;
+}
+
+.app-launch-splash-dots span {
+  animation: app-launch-dot-bounce 1.2s ease-in-out infinite;
+}
+
+.app-launch-splash-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.app-launch-splash-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes app-launch-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes app-launch-progress-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+@keyframes app-launch-dot-bounce {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
 }

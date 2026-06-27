@@ -5,14 +5,14 @@ import {
   sendFcmToToken,
   type FcmNotificationPayload,
 } from '@/lib/firebase/admin';
-import { isFirebaseConfigured } from '@/lib/firebase/config';
+import { isFirebaseAdminConfigured } from '@/lib/firebase/config';
 
 export type PushNotificationPayload = FcmNotificationPayload;
 
 export async function sendPushToReaders(
   payload: PushNotificationPayload
 ): Promise<{ sent: number; failed: number }> {
-  if (!isFirebaseConfigured() || !ensureFirebaseAdmin()) {
+  if (!isFirebaseAdminConfigured() || !ensureFirebaseAdmin()) {
     return { sent: 0, failed: 0 };
   }
 

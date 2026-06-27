@@ -139,7 +139,7 @@ export default function RootLayout({
         )}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;if(s){document.documentElement.classList.add('pwa-launching');}}catch(e){}})();`,
+            __html: `(function(){try{var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;var n=/WabInfosNative/i.test(navigator.userAgent);if(s||n){document.documentElement.classList.add('pwa-launching');}}catch(e){}})();`,
           }}
         />
         <script
@@ -149,8 +149,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col antialiased">
         <GoogleTagManagerBody />
-        <div id="pwa-splash-bootstrap" className="pwa-splash-bootstrap" aria-hidden suppressHydrationWarning>
-          <div className="pwa-splash-logo-wrap">
+        <div id="pwa-splash-bootstrap" className="pwa-splash-bootstrap app-launch-splash" aria-hidden suppressHydrationWarning>
+          <div className="app-launch-splash__glow" aria-hidden />
+          <div className="pwa-splash-logo-wrap app-launch-splash-logo-wrap">
             {/* img natif : affichage immédiat avant hydratation React */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -158,8 +159,21 @@ export default function RootLayout({
               alt=""
               width={512}
               height={512}
-              className="pwa-splash-logo"
+              className="pwa-splash-logo app-launch-splash-logo"
             />
+          </div>
+          <div className="app-launch-splash-loader mt-10 flex w-[min(72vw,16rem)] flex-col items-center gap-3">
+            <div className="app-launch-splash-progress-track" aria-hidden>
+              <div className="app-launch-splash-progress-bar" />
+            </div>
+            <p className="app-launch-splash-status text-[11px] font-medium tracking-wide text-neutral-500">
+              Chargement
+              <span className="app-launch-splash-dots" aria-hidden>
+                <span>.</span>
+                <span>.</span>
+                <span>.</span>
+              </span>
+            </p>
           </div>
         </div>
         <PwaSplash />

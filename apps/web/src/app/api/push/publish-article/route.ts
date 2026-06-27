@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
     const result = await publishArticlePush(slug);
     return NextResponse.json(result);
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Publish failed';
     console.error('[push/publish-article]', error);
-    return NextResponse.json({ error: 'Publish failed' }, { status: 500 });
+    return NextResponse.json({ ok: false, reason: 'error', message }, { status: 500 });
   }
 }

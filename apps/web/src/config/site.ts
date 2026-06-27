@@ -33,6 +33,8 @@ export const siteConfig = {
   googleSiteVerification: process.env.GOOGLE_SITE_VERIFICATION || '',
   /** Reader Revenue Manager / Subscribe with Google (CMS Sync) */
   swgProductId: process.env.NEXT_PUBLIC_GOOGLE_SWG_PRODUCT_ID || '',
+  /** URL de téléchargement APK Android (apps/reader-android release) */
+  androidApkUrl: process.env.NEXT_PUBLIC_ANDROID_APK_URL || '/downloads/wab-infos.apk',
 } as const;
 
 /** Informations éditoriales (Google News Publisher Center, pages légales) */
