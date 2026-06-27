@@ -208,20 +208,32 @@ fi
 
 echo ""
 echo "→ Vérification builds Next.js"
+DEPLOY_ISSUES=0
 if [ -f "$APP_DIR/apps/web/.next/BUILD_ID" ]; then
   echo "   web: OK (BUILD_ID=$(cat "$APP_DIR/apps/web/.next/BUILD_ID"))"
 else
   echo "   ⚠️  web: MANQUE apps/web/.next → risque 503 sur wab-infos.com"
+  echo "      Uploadez web-next-build.tar.gz puis : npm run unpack:web-build"
+  DEPLOY_ISSUES=1
 fi
 if [ -f "$APP_DIR/apps/redaction/.next/BUILD_ID" ]; then
   echo "   redaction: OK (BUILD_ID=$(cat "$APP_DIR/apps/redaction/.next/BUILD_ID"))"
 else
   echo "   ⚠️  redaction: MANQUE apps/redaction/.next → 503 sur redaction.app.wab-infos.com"
   echo "      Uploadez redaction-next-build.tar.gz puis : npm run unpack:redaction-build"
+  DEPLOY_ISSUES=1
 fi
 
 echo ""
-echo "✅ Déploiement terminé."
+if [ "$DEPLOY_ISSUES" -eq 0 ]; then
+  echo "✅ Déploiement terminé."
+else
+  echo "❌ Déploiement incomplet — corrigez les builds manquants avant de redémarrer Node.js."
+fi
 echo "   Site: vérifier https://app.wab-infos.com"
 echo "   Rédaction: vérifier https://redaction.app.wab-infos.com"
 echo "   CMS:  vérifier https://cms.app.wab-infos.com/admin"
+
+if [ "$DEPLOY_ISSUES" -ne 0 ]; then
+  exit 1
+fi
