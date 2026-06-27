@@ -33,6 +33,7 @@ export function ArticleSidebar({
       categoryColor={categoryColor}
       currentCategorySlug={categorySlug}
       excludeArticleSlugs={excludeArticleSlugs}
+      articlesGridOnMobile
     />
   );
 }

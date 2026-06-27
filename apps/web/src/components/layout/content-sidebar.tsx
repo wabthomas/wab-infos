@@ -7,6 +7,7 @@ import { LiveNewsTimeline } from '@/components/home/live-news-timeline';
 import { NewsletterSignup } from '@/components/home/newsletter-signup';
 import { PushAlertsSignup } from '@/components/home/push-alerts-signup';
 import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
+import { ArticleCard } from '@/components/articles/article-card';
 import { SidebarAd } from '@/components/ads/adsense';
 import { getYoutubeThumbnailUrl } from '@/lib/seo';
 import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
@@ -80,6 +81,8 @@ export interface ContentSidebarProps {
   currentCategorySlug?: string;
   showCategories?: boolean;
   showTvPromo?: boolean;
+  /** Grille 2 colonnes sur mobile pour les articles (ex. sidebar article) */
+  articlesGridOnMobile?: boolean;
 }
 
 function dedupeArticles(articles: Article[], excludeSlugs: Set<string>, limit: number): Article[] {
@@ -111,6 +114,7 @@ export function ContentSidebar({
   currentCategorySlug,
   showCategories = false,
   showTvPromo = true,
+  articlesGridOnMobile = false,
 }: ContentSidebarProps) {
   const excludedSlugs = new Set([
     ...excludeArticleSlugs,
@@ -155,14 +159,34 @@ export function ContentSidebar({
               </Link>
             )}
           </div>
-          <div className="divide-y divide-border p-1">
-            {sidebarArticles.map((article, index) => (
-              <SidebarArticleItem
-                key={article.id}
-                article={article}
-                rank={articlesTitle.toLowerCase().includes('lus') ? index + 1 : undefined}
-              />
-            ))}
+          <div
+            className={
+              articlesGridOnMobile
+                ? 'grid grid-cols-2 gap-3 p-2 lg:grid-cols-1 lg:gap-0 lg:divide-y lg:divide-border lg:p-1'
+                : 'divide-y divide-border p-1'
+            }
+          >
+            {sidebarArticles.map((article, index) =>
+              articlesGridOnMobile ? (
+                <div key={article.id} className="min-w-0 lg:contents">
+                  <div className="lg:hidden">
+                    <ArticleCard article={article} showExcerpt={false} />
+                  </div>
+                  <div className="hidden lg:block">
+                    <SidebarArticleItem
+                      article={article}
+                      rank={articlesTitle.toLowerCase().includes('lus') ? index + 1 : undefined}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <SidebarArticleItem
+                  key={article.id}
+                  article={article}
+                  rank={articlesTitle.toLowerCase().includes('lus') ? index + 1 : undefined}
+                />
+              )
+            )}
           </div>
         </div>
       )}

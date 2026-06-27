@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@capacitor/core": "^6.0.5",
-    "@capacitor/push-notifications": "^6.0.5"
+    "@capacitor/push-notifications": "^6.0.5",
+    "@capacitor/share": "^6.0.3"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

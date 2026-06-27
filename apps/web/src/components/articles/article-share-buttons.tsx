@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Check, Copy, Link2, Share2 } from 'lucide-react';
+import { sharePage } from '@/lib/share';
 import { cn } from '@/lib/utils';
 
 interface ArticleShareButtonsProps {
@@ -97,12 +98,10 @@ export function ArticleShareButtons({ url, title, className, variant = 'default'
   }, [url]);
 
   const nativeShare = useCallback(async () => {
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({ title, url });
-      } catch {
-        /* user cancelled */
-      }
+    const result = await sharePage(title, url);
+    if (result === 'copied') {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
     }
   }, [title, url]);
 
