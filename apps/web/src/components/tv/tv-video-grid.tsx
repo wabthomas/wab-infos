@@ -4,6 +4,7 @@ import { getVideoPagePath } from '@/config/site';
 import { YouTubeEmbed } from '@/components/tv/youtube-embed';
 import { getYoutubeThumbnailUrl } from '@/lib/seo';
 import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
+import { VideoViewCount } from '@/components/tv/video-view-count';
 
 interface TvVideoGridProps {
   videos: Video[];
@@ -61,6 +62,7 @@ export function TvVideoGrid({
                   })}
                 </time>
               )}
+              <VideoViewCount count={video.viewCount} className="mt-1.5" />
             </div>
           </article>
         );

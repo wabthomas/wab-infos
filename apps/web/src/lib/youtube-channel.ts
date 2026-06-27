@@ -8,6 +8,7 @@ export interface YoutubeChannelVideo {
   publishedAt: string;
   link: string;
   description?: string;
+  viewCount?: number;
 }
 
 export interface ChannelLiveStatus {
@@ -206,6 +207,92 @@ export async function getYoutubeVideoFromApi(videoId: string): Promise<{
 export function isValidVideoPublishedAt(publishedAt: string | undefined): publishedAt is string {
   if (!publishedAt) return false;
   return !Number.isNaN(Date.parse(publishedAt));
+}
+
+/** Affichage compact du nombre de vues YouTube (fr-FR). */
+export function formatYoutubeViewCount(count: number): string {
+  if (!Number.isFinite(count) || count < 0) return '';
+  if (count >= 1_000_000) {
+    const millions = count / 1_000_000;
+    const rounded = millions >= 10 ? Math.round(millions) : Math.round(millions * 10) / 10;
+    return `${rounded.toLocaleString('fr-FR')} M vues`;
+  }
+  if (count >= 10_000) {
+    return `${Math.round(count / 1000).toLocaleString('fr-FR')} k vues`;
+  }
+  if (count >= 1_000) {
+    const thousands = Math.round((count / 1000) * 10) / 10;
+    return `${thousands.toLocaleString('fr-FR')} k vues`;
+  }
+  return `${count.toLocaleString('fr-FR')} vue${count > 1 ? 's' : ''}`;
+}
+
+export async function getYoutubeVideoStatistics(videoIds: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey || !videoIds.length) return map;
+
+  const unique = [...new Set(videoIds.filter((id) => /^[a-zA-Z0-9_-]{11}$/.test(id)))];
+  if (!unique.length) return map;
+
+  for (let offset = 0; offset < unique.length; offset += 50) {
+    const batch = unique.slice(offset, offset + 50);
+    try {
+      const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+      url.searchParams.set('part', 'statistics');
+      url.searchParams.set('id', batch.join(','));
+      url.searchParams.set('key', apiKey);
+
+      const response = await fetch(url, { next: { revalidate: 600 } });
+      if (!response.ok) continue;
+
+      const data = (await response.json()) as {
+        items?: { id: string; statistics?: { viewCount?: string } }[];
+      };
+
+      for (const item of data.items ?? []) {
+        const views = Number(item.statistics?.viewCount);
+        if (item.id && Number.isFinite(views)) {
+          map.set(item.id, views);
+        }
+      }
+    } catch {
+      // ignore batch errors
+    }
+  }
+
+  return map;
+}
+
+export async function getYoutubeVideoViewCount(videoId: string): Promise<number | undefined> {
+  const stats = await getYoutubeVideoStatistics([videoId]);
+  return stats.get(videoId);
+}
+
+export async function enrichVideosWithViewCounts<T extends { youtubeId: string; viewCount?: number }>(
+  videos: T[]
+): Promise<T[]> {
+  if (!videos.length) return videos;
+  const stats = await getYoutubeVideoStatistics(videos.map((video) => video.youtubeId));
+  if (!stats.size) return videos;
+
+  return videos.map((video) => {
+    const viewCount = stats.get(video.youtubeId);
+    return viewCount != null ? { ...video, viewCount } : video;
+  });
+}
+
+export async function enrichYoutubeChannelVideos(
+  videos: YoutubeChannelVideo[]
+): Promise<YoutubeChannelVideo[]> {
+  if (!videos.length) return videos;
+  const stats = await getYoutubeVideoStatistics(videos.map((video) => video.videoId));
+  if (!stats.size) return videos;
+
+  return videos.map((video) => {
+    const viewCount = stats.get(video.videoId);
+    return viewCount != null ? { ...video, viewCount } : video;
+  });
 }
 
 export async function resolveVideoByYoutubeId(youtubeId: string): Promise<Video | null> {

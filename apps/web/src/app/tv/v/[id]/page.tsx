@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { YouTubeEmbed } from '@/components/tv/youtube-embed';
 import { VideoDescription } from '@/components/tv/video-description';
+import { VideoViewCount } from '@/components/tv/video-view-count';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { ContentSidebar } from '@/components/layout/content-sidebar';
 import { siteConfig, getVideoPagePath } from '@/config/site';
@@ -16,8 +17,10 @@ import { getLiveFeed } from '@/lib/sidebar-data';
 import {
   getChannelRecentVideos,
   getTvTabVideos,
+  getYoutubeVideoViewCount,
   resolveVideoByYoutubeId,
   isValidVideoPublishedAt,
+  enrichVideosWithViewCounts,
   youtubeVideoToTvVideo,
 } from '@/lib/youtube-channel';
 
@@ -45,7 +48,9 @@ async function getSidebarVideos(currentId: string) {
   try {
     const strapiVideos = await getTvTabVideos('replay', channelId);
     if (strapiVideos.length > 0) {
-      return strapiVideos.filter((video) => video.youtubeId !== currentId);
+      return enrichVideosWithViewCounts(
+        strapiVideos.filter((video) => video.youtubeId !== currentId)
+      );
     }
   } catch {
     // repli YouTube
@@ -54,19 +59,22 @@ async function getSidebarVideos(currentId: string) {
   if (!channelId) return [];
 
   const recent = await getChannelRecentVideos(channelId, 8);
-  return recent
-    .filter((entry) => entry.videoId !== currentId)
-    .map((entry) => youtubeVideoToTvVideo(entry, 'replay'));
+  return enrichVideosWithViewCounts(
+    recent
+      .filter((entry) => entry.videoId !== currentId)
+      .map((entry) => youtubeVideoToTvVideo(entry, 'replay'))
+  );
 }
 
 export default async function VideoWatchPage({ params }: PageProps) {
   const { id } = await params;
   if (!YOUTUBE_ID_PATTERN.test(id)) notFound();
 
-  const [video, liveFeed, sidebarVideos] = await Promise.all([
+  const [video, liveFeed, sidebarVideos, viewCount] = await Promise.all([
     resolveVideoByYoutubeId(id),
     getLiveFeed(4),
     getSidebarVideos(id),
+    getYoutubeVideoViewCount(id),
   ]);
 
   if (!video) notFound();
@@ -125,6 +133,7 @@ export default async function VideoWatchPage({ params }: PageProps) {
                       })}
                     </time>
                   )}
+                  <VideoViewCount count={viewCount ?? video.viewCount} className="mt-2 text-sm" />
                 </header>
 
                 {video.description && (

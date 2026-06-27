@@ -6,10 +6,12 @@ import { getVideoPagePath, siteConfig } from '@/config/site';
 import {
   getChannelLiveStatus,
   getChannelRecentVideos,
+  enrichYoutubeChannelVideos,
   type ChannelLiveStatus,
   type YoutubeChannelVideo,
 } from '@/lib/youtube-channel';
 import { formatRelativeDate } from '@/lib/utils';
+import { VideoViewCount } from '@/components/tv/video-view-count';
 
 function VideoListItem({ video, index }: { video: YoutubeChannelVideo; index: number }) {
   const thumb = `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`;
@@ -44,6 +46,7 @@ function VideoListItem({ video, index }: { video: YoutubeChannelVideo; index: nu
         >
           {formatRelativeDate(video.publishedAt)}
         </time>
+        <VideoViewCount count={video.viewCount} className="mt-0.5 text-white/45" />
       </div>
     </Link>
   );
@@ -52,10 +55,12 @@ function VideoListItem({ video, index }: { video: YoutubeChannelVideo; index: nu
 export async function HomeVideoSection() {
   const channelId = siteConfig.youtubeChannelId;
 
-  const [liveStatus, videos]: [ChannelLiveStatus, YoutubeChannelVideo[]] = await Promise.all([
+  const [liveStatus, rawVideos]: [ChannelLiveStatus, YoutubeChannelVideo[]] = await Promise.all([
     channelId ? getChannelLiveStatus(channelId) : Promise.resolve({ isLive: false }),
     channelId ? getChannelRecentVideos(channelId, 5) : Promise.resolve([]),
   ]);
+
+  const videos = await enrichYoutubeChannelVideos(rawVideos);
 
   if (!videos.length) return null;
 
@@ -135,11 +140,16 @@ export async function HomeVideoSection() {
               En direct
             </p>
           ) : featuredPublishedAt ? (
-            <time dateTime={featuredPublishedAt} className="mt-1 block text-xs text-white/50">
-              {isShowingLive
-                ? `En direct — ${formatRelativeDate(featuredPublishedAt)}`
-                : formatRelativeDate(featuredPublishedAt)}
-            </time>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+              <time dateTime={featuredPublishedAt} className="text-xs text-white/50">
+                {isShowingLive
+                  ? `En direct — ${formatRelativeDate(featuredPublishedAt)}`
+                  : formatRelativeDate(featuredPublishedAt)}
+              </time>
+              {!isShowingLive && featured.viewCount != null ? (
+                <VideoViewCount count={featured.viewCount} className="text-white/45" />
+              ) : null}
+            </div>
           ) : null}
         </div>
 

@@ -10,6 +10,7 @@ import {
   getChannelLiveStatus,
   getChannelRecentVideos,
   getTvTabVideos,
+  enrichVideosWithViewCounts,
   type ChannelLiveStatus,
 } from '@/lib/youtube-channel';
 
@@ -55,7 +56,7 @@ export default async function TVPage({
   let videos: Video[] = [];
 
   if (tab !== 'live') {
-    videos = await getTvTabVideos(tab as Video['type'], channelId);
+    videos = await enrichVideosWithViewCounts(await getTvTabVideos(tab as Video['type'], channelId));
   }
 
   const liveJsonLd =

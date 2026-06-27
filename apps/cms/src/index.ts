@@ -37,6 +37,18 @@ async function verifyReaderPushContentType(strapi: Core.Strapi) {
   }
 }
 
+async function verifyYoutubePushLogContentType(strapi: Core.Strapi) {
+  try {
+    await strapi.documents('api::youtube-push-log.youtube-push-log').findFirst();
+    strapi.log.info('[push] Content-type youtube-push-log OK');
+  } catch {
+    strapi.log.error(
+      '[push] Content-type youtube-push-log introuvable. ' +
+        'Rebuild CMS requis pour les alertes vidéo YouTube.'
+    );
+  }
+}
+
 async function seedDemoContent(strapi: Core.Strapi) {
   const existingArticle = await strapi.documents('api::article.article').findFirst();
 
@@ -128,11 +140,12 @@ export default {
     await seedCategories(strapi);
     await seedDemoContent(strapi);
     await verifyReaderPushContentType(strapi);
+    await verifyYoutubePushLogContentType(strapi);
     strapi.log.info(
       'Wab-infos CMS pret. Activez les permissions Public dans Admin > Settings > Users & Permissions > Roles > Public'
     );
     strapi.log.info(
-      'Token API (alertes push lecteurs) : Settings > API Tokens > cocher reader-push-subscription (find, create, update, delete)'
+      'Token API (alertes push lecteurs) : Settings > API Tokens > cocher reader-push-subscription et youtube-push-log (find, create)'
     );
     strapi.log.info(
       'App redaction : Public > Auth > callback (local) ; Authenticated > User > me ; creer des Users pour les journalistes'

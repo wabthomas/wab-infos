@@ -10,6 +10,7 @@ import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { SidebarAd } from '@/components/ads/adsense';
 import { getYoutubeThumbnailUrl } from '@/lib/seo';
 import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
+import { VideoViewCount } from '@/components/tv/video-view-count';
 import { formatRelativeDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +19,7 @@ const navCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
 const SIDEBAR_LIST_LIMIT = 4;
 
 interface SidebarVideoItemProps {
-  video: Pick<Video, 'youtubeId' | 'title' | 'publishedAt'>;
+  video: Pick<Video, 'youtubeId' | 'title' | 'publishedAt' | 'viewCount'>;
   index?: number;
 }
 
@@ -58,6 +59,7 @@ function SidebarVideoItem({ video, index }: SidebarVideoItemProps) {
             {formatRelativeDate(video.publishedAt)}
           </time>
         )}
+        <VideoViewCount count={video.viewCount} className="mt-0.5" />
       </div>
     </article>
   );

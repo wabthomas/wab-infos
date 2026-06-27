@@ -81,6 +81,8 @@ export interface Video {
   thumbnail?: StrapiMedia;
   publishedAt: string;
   duration?: string;
+  /** Nombre de vues YouTube (API Data v3, si disponible) */
+  viewCount?: number;
   show?: Show;
 }
 
