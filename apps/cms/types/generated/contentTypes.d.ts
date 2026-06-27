@@ -718,6 +718,36 @@ export interface ApiReaderPushSubscriptionReaderPushSubscription
   };
 }
 
+export interface ApiYoutubePushLogYoutubePushLog extends Struct.CollectionTypeSchema {
+  collectionName: 'youtube_push_logs';
+  info: {
+    displayName: 'Log push vid\u00E9o YouTube';
+    pluralName: 'youtube-push-logs';
+    singularName: 'youtube-push-log';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::youtube-push-log.youtube-push-log'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    sentAt: Schema.Attribute.DateTime;
+    title: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    youtubeId: Schema.Attribute.String & Schema.Attribute.Required & Schema.Attribute.Unique;
+  };
+}
+
 export interface ApiShowShow extends Struct.CollectionTypeSchema {
   collectionName: 'shows';
   info: {
@@ -1217,6 +1247,7 @@ declare module '@strapi/strapi' {
       'api::comment.comment': ApiCommentComment;
       'api::editor-push-subscription.editor-push-subscription': ApiEditorPushSubscriptionEditorPushSubscription;
       'api::reader-push-subscription.reader-push-subscription': ApiReaderPushSubscriptionReaderPushSubscription;
+      'api::youtube-push-log.youtube-push-log': ApiYoutubePushLogYoutubePushLog;
       'api::show.show': ApiShowShow;
       'api::subscriber.subscriber': ApiSubscriberSubscriber;
       'api::tag.tag': ApiTagTag;
