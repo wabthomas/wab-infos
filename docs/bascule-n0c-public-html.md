@@ -7,6 +7,7 @@ D'après votre panneau **Domaines** :
 | **wab-infos.com** | `~/public_html` | Domaine principal — **vide** → **500** |
 | **app.wab-infos.com** | `~/app` | **Next.js** (Node.js) ✅ |
 | **cms.app.wab-infos.com** | `~/cms` | **Strapi** ✅ |
+| **redaction.app.wab-infos.com** | `~/redaction` (ou auto N0C) | **App rédaction** (Node.js) |
 | **wp.wab-infos.com** | `~/public_html/wp` | **WordPress** ✅ |
 
 ```

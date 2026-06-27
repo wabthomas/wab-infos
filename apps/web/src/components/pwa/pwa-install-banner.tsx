@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Download, ExternalLink, Share, Smartphone, X } from 'lucide-react';
+import Image from 'next/image';
+import { useCallback, useEffect, useState } from 'react';
+import { Download, ExternalLink, Share, X } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { PWA_INSTALL_DISMISS } from '@/lib/pwa/constants';
 import {
   isIosDevice,
   isStandalonePwa,
   needsSafariForIosInstall,
-  persistPwaVariantFromPath,
   type PwaVariant,
 } from '@/lib/pwa/detect';
 import { isAndroidDevice, isNativeCapacitorApp, isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
@@ -19,28 +19,150 @@ interface PwaInstallBannerProps {
   placement?: 'fixed' | 'inline';
 }
 
+/** Événement Chrome / Edge pour l’installation PWA */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 const COPY = {
   site: {
     title: 'Installer Wab-infos',
-    subtitle: 'Accès rapide à l’actualité depuis votre écran d’accueil.',
+    subtitle: 'Notifications en direct et accès rapide à l’actualité.',
+    androidTitle: 'Installer Wab-infos',
+    androidSubtitle: 'Choisissez l’application web (PWA) ou l’APK Android.',
     iosTitle: 'Ajouter Wab-infos à l’écran d’accueil',
-    androidTitle: 'Installer l’app Wab-infos',
-    androidSubtitle: 'Notifications en direct et accès rapide à l’actualité.',
   },
   redaction: {
     title: 'Installer l’app rédaction',
     subtitle: 'Publiez depuis votre mobile en un geste.',
-    iosTitle: 'Ajouter l’app rédaction à l’écran d’accueil',
     androidTitle: 'Installer l’app Wab-infos',
     androidSubtitle: 'Notifications rédaction et publication depuis votre mobile.',
+    iosTitle: 'Ajouter l’app rédaction à l’écran d’accueil',
   },
 } as const;
+
+const APP_ICON = '/icons/icon-192.png';
 
 function DismissButton({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="shrink-0 text-muted-foreground" aria-label="Fermer">
       <X className="h-4 w-4" />
     </button>
+  );
+}
+
+function AppLogo({ size = 48 }: { size?: number }) {
+  return (
+    <Image
+      src={APP_ICON}
+      alt=""
+      width={size}
+      height={size}
+      className="shrink-0 rounded-full ring-2 ring-primary/20"
+      aria-hidden
+    />
+  );
+}
+
+function AndroidSiteInstallBanner({
+  labels,
+  apkUrl,
+  onDismiss,
+}: {
+  labels: (typeof COPY)['site'];
+  apkUrl: string;
+  onDismiss: () => void;
+}) {
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [pwaHint, setPwaHint] = useState(false);
+  const [installingPwa, setInstallingPwa] = useState(false);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+      setPwaHint(false);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const installPwa = useCallback(async () => {
+    if (!installPrompt) {
+      setPwaHint(true);
+      return;
+    }
+
+    setInstallingPwa(true);
+    try {
+      await installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') onDismiss();
+      setInstallPrompt(null);
+    } catch {
+      setPwaHint(true);
+    } finally {
+      setInstallingPwa(false);
+    }
+  }, [installPrompt, onDismiss]);
+
+  return (
+    <div className="rounded-xl border border-primary/30 bg-card p-4 shadow-lg">
+      <div className="flex items-start gap-3">
+        <AppLogo />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">{labels.androidTitle}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{labels.androidSubtitle}</p>
+        </div>
+        <DismissButton onClick={onDismiss} />
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => void installPwa()}
+          disabled={installingPwa}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {installingPwa ? 'Installation…' : 'Installer l’app (PWA)'}
+        </button>
+
+        {apkUrl ? (
+          <a
+            href={apkUrl}
+            download
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 text-sm font-semibold text-foreground"
+          >
+            <Download className="h-4 w-4" />
+            Télécharger l’APK
+          </a>
+        ) : null}
+
+        {pwaHint ? (
+          <p className="rounded-lg bg-muted/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+            Dans Chrome : menu <strong className="text-foreground">⋮</strong> →{' '}
+            <strong className="text-foreground">Installer l&apos;application</strong> ou{' '}
+            <strong className="text-foreground">Ajouter à l&apos;écran d&apos;accueil</strong>.
+          </p>
+        ) : null}
+
+        {apkUrl ? (
+          <p className="text-[10px] leading-relaxed text-muted-foreground">
+            APK : autorisez l&apos;installation depuis cette source si Android le demande.
+          </p>
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="mt-3 w-full text-center text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
+      >
+        Continuer sur le site
+      </button>
+    </div>
   );
 }
 
@@ -113,10 +235,12 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
 
   let content: React.ReactNode = null;
 
-  if (android && apkUrl) {
+  if (android && variant === 'site') {
+    content = <AndroidSiteInstallBanner labels={labels} apkUrl={apkUrl} onDismiss={dismiss} />;
+  } else if (android && apkUrl) {
     content = (
       <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-card p-4 shadow-lg">
-        <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <AppLogo />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground">{labels.androidTitle}</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{labels.androidSubtitle}</p>
@@ -131,6 +255,13 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
           <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
             Autorisez l&apos;installation depuis cette source si Android le demande.
           </p>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="mt-3 block w-full text-center text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Continuer sur le site
+          </button>
         </div>
         <DismissButton onClick={dismiss} />
       </div>
@@ -139,14 +270,19 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
     if (needsSafari) {
       content = (
         <div className="rounded-xl border border-amber-500/40 bg-card p-4 shadow-lg">
-          <p className="text-sm font-semibold text-foreground">Ouvrir dans Safari</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Sur iPhone, l&apos;installation ne fonctionne qu&apos;avec <strong>Safari</strong>.
-          </p>
+          <div className="flex items-start gap-3">
+            <AppLogo />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground">Ouvrir dans Safari</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Sur iPhone, l&apos;installation ne fonctionne qu&apos;avec <strong>Safari</strong>.
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={copyPageLink}
-            className="mt-3 inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
           >
             <ExternalLink className="h-4 w-4" />
             {copied ? 'Lien copié' : 'Copier le lien'}
@@ -154,9 +290,9 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
           <button
             type="button"
             onClick={dismiss}
-            className="mt-2 block w-full text-center text-xs text-muted-foreground"
+            className="mt-3 w-full text-center text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
           >
-            Plus tard
+            Continuer sur le site
           </button>
         </div>
       );
@@ -164,7 +300,7 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
       content = (
         <div className="rounded-xl border border-border bg-card p-4 shadow-lg">
           <div className="flex items-start gap-3">
-            <Share className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <AppLogo />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-foreground">{labels.iosTitle}</p>
               <ol className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
@@ -181,6 +317,13 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
             </div>
             <DismissButton onClick={dismiss} />
           </div>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="mt-3 w-full text-center text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Continuer sur le site
+          </button>
         </div>
       );
     }

@@ -1,0 +1,21 @@
+# redaction.app.wab-infos.com → app Next.js rédaction (Passenger / N0C)
+#
+# Si le panneau Node.js ne peut pas créer l'app automatiquement :
+# 1. Vérifier le domaine redaction.app.wab-infos.com → racine ~/redaction (ou ~/app-redaction)
+# 2. Créer ~/redaction/.htaccess avec ce bloc (ADAPTER /home/anvvbzrr/)
+#
+# Prérequis : build extrait dans ~/wab-infos/apps/redaction/.next (BUILD_ID présent)
+
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/anvvbzrr/wab-infos/apps/redaction"
+PassengerBaseURI "/"
+PassengerNodejs "/home/anvvbzrr/nodevenv/wab-infos/apps/redaction/20/bin/node"
+PassengerAppType node
+PassengerStartupFile server.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+# Si nodevenv redaction n'existe pas encore, utiliser celui de web (temporaire) :
+# PassengerNodejs "/home/anvvbzrr/nodevenv/wab-infos/apps/web/20/bin/node"
+#
+# Puis dans N0C → Node.js → « Installer module NPM » sur l'app rédaction
+# ou : cd ~/wab-infos && npm install && npm install --prefix apps/redaction

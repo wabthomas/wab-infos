@@ -157,8 +157,77 @@ Les lecteurs peuvent commenter en bas de chaque article. Les commentaires arrive
 ```bash
 npm run dev:web
 npm run dev:cms
+npm run dev:redaction
 ```
 
 Créer un utilisateur test dans Strapi admin, puis :
 
-`http://localhost:3000/redaction/login`
+`http://localhost:3001/login`
+
+## Déploiement PlanetHoster (N0C)
+
+L’app rédaction est **séparée** du site public (`apps/web`). Un build `.next` valide ne suffit pas : **Passenger** doit pointer vers `apps/redaction/server.js`.
+
+### Symptômes
+
+| Test SSH | HTTPS |
+|----------|-------|
+| `node server.js` → `Next.js rédaction ready` | `503` sur redaction.app |
+
+→ Problème de **domaine / Passenger**, pas de build.
+
+### 1. Application Node.js (panneau N0C)
+
+**Langues → Node.js → Créer une application** (ou modifier si elle existe) :
+
+| Champ | Valeur |
+|-------|--------|
+| URL | `redaction.app.wab-infos.com` |
+| Racine | `/home/anvvbzrr/wab-infos/apps/redaction` |
+| Fichier de démarrage | `server.js` |
+| Version Node | 20 |
+
+Cliquer **Créer** puis **Redémarrer**. Utiliser **Installer module NPM** une fois.
+
+### 2. Racine document du sous-domaine
+
+**Domaines** → `redaction.app.wab-infos.com` → racine document, par ex. `~/redaction`.
+
+Le panneau Node.js y écrit en général le bloc Passenger dans `~/redaction/.htaccess`. Sinon, copier le modèle :
+
+`deploy/public_html/passenger-redaction.htaccess.example`
+
+### 3. Build sur le serveur
+
+```bash
+cd ~/wab-infos
+git pull origin main
+npm install
+npm run pwa:fcm --prefix apps/redaction
+
+# Archive uploadée depuis le PC :
+rm -rf apps/redaction/.next
+tar -xzf redaction-next-build.tar.gz -C apps/redaction
+test -f apps/redaction/.next/BUILD_ID && echo OK
+```
+
+> Si `npm install --workspace=apps/redaction` échoue (« No workspaces found »), rester à la racine `~/wab-infos` pour `npm install`, puis `npm install --prefix apps/redaction --include=dev`.
+
+**Important (503)** : Passenger utilise le **nodevenv rédaction** (`~/nodevenv/wab-infos/apps/redaction/20/`). Sans `next` dedans, l’app crash au démarrage. Vérifier :
+
+```bash
+cd ~/wab-infos/apps/redaction
+~/nodevenv/wab-infos/apps/redaction/20/bin/node -e "require('next'); console.log('OK')"
+```
+
+Si erreur → **N0C → Langues → Node.js → app rédaction → Installer module NPM**, puis Redémarrer.
+
+### 4. Vérification
+
+```bash
+curl -sI https://redaction.app.wab-infos.com/login | head -1
+# HTTP/2 200
+```
+
+Debug Passenger : voir `docs/depannage-nodejs-5000.md` (sections 4–5).
+

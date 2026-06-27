@@ -122,9 +122,15 @@ rm -rf apps/web/node_modules apps/web/.next
 # typescript (skip en low-mem) mais compile-css exige tailwind/postcss (désormais en dependencies).
 npm install --workspace=apps/web --include=optional --include=dev
 
+echo "→ npm install (redaction — requis pour Passenger / nodevenv rédaction)"
+if ! npm install --workspace=apps/redaction --include=dev 2>/dev/null; then
+  echo "   fallback: npm install --prefix apps/redaction"
+  npm install --prefix apps/redaction --include=dev
+fi
+
 echo "→ Config Firebase service worker (public/firebase-messaging-config.js)"
 npm run pwa:fcm --workspace=apps/web || true
-npm run pwa:fcm --workspace=apps/redaction || true
+npm run pwa:fcm --prefix apps/redaction || npm run pwa:fcm --workspace=apps/redaction || true
 
 echo "→ Lien Strapi monorepo"
 node scripts/setup-strapi-link.js
@@ -222,6 +228,17 @@ else
   echo "   ⚠️  redaction: MANQUE apps/redaction/.next → 503 sur redaction.app.wab-infos.com"
   echo "      Uploadez redaction-next-build.tar.gz puis : npm run unpack:redaction-build"
   DEPLOY_ISSUES=1
+fi
+
+RED_NODE="${NODE_BIN:-$HOME/nodevenv/wab-infos/apps/redaction/20/bin/node}"
+if [ -x "$RED_NODE" ]; then
+  if ( cd "$APP_DIR/apps/redaction" && "$RED_NODE" -e "require('next')" ) 2>/dev/null; then
+    echo "   redaction nodevenv: OK (next installé)"
+  else
+    echo "   ⚠️  redaction nodevenv: MANQUE next — N0C « Installer module NPM » sur l'app rédaction"
+    echo "      ou : cd ~/wab-infos && npm install --prefix apps/redaction --include=dev"
+    DEPLOY_ISSUES=1
+  fi
 fi
 
 echo ""
