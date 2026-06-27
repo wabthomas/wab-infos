@@ -32,7 +32,7 @@ export async function publishNewYoutubeVideoPushes(): Promise<PublishYoutubeVide
   }
 
   if (!isFirebaseAdminConfigured()) {
-    return { ok: false, skipped: true, reason: 'firebase_not_configured' };
+    return { ok: true, skipped: true, reason: 'firebase_not_configured' };
   }
 
   const subscriptions = await listReaderPushSubscriptions();
