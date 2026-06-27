@@ -70,7 +70,7 @@ function AndroidSiteInstallBanner({
   apkUrl,
   onDismiss,
 }: {
-  labels: (typeof COPY)['site'];
+  labels: Pick<(typeof COPY)['site'], 'androidTitle' | 'androidSubtitle'>;
   apkUrl: string;
   onDismiss: () => void;
 }) {
@@ -236,7 +236,7 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
   let content: React.ReactNode = null;
 
   if (android && variant === 'site') {
-    content = <AndroidSiteInstallBanner labels={labels} apkUrl={apkUrl} onDismiss={dismiss} />;
+    content = <AndroidSiteInstallBanner labels={COPY.site} apkUrl={apkUrl} onDismiss={dismiss} />;
   } else if (android && apkUrl) {
     content = (
       <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-card p-4 shadow-lg">
