@@ -63,6 +63,42 @@ function createSnapshot(values: ArticleEditorValues, scheduledAt: string): strin
   return JSON.stringify({ values, scheduledAt });
 }
 
+function isNetworkSaveError(err: unknown): boolean {
+  if (err instanceof TypeError) {
+    return err.message === 'Failed to fetch' || err.message.includes('NetworkError');
+  }
+  return false;
+}
+
+function formatSaveError(err: unknown): string {
+  if (isNetworkSaveError(err)) {
+    return 'Connexion interrompue. Vérifiez votre réseau puis réessayez.';
+  }
+  if (err instanceof Error) return err.message;
+  return 'Erreur';
+}
+
+async function recoverPublishAfterNetworkError(
+  documentId: string,
+  mode: 'publish' | 'schedule'
+): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/redaction/articles/${documentId}`);
+    if (!res.ok) return false;
+    const data = (await res.json()) as {
+      article?: { status?: string; publishedAt?: string; scheduledAt?: string };
+    };
+    const article = data.article;
+    if (!article) return false;
+    if (mode === 'publish') {
+      return article.status === 'published' || Boolean(article.publishedAt);
+    }
+    return article.status === 'scheduled' && Boolean(article.scheduledAt);
+  } catch {
+    return false;
+  }
+}
+
 function buildSavePayload(
   values: ArticleEditorValues,
   scheduledAt: string,
@@ -148,6 +184,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const seoDescriptionTouchedRef = useRef(Boolean(initial?.seoDescription?.trim()));
   const lastSavedSnapshot = useRef<string | null>(null);
   const autosaveInFlight = useRef(false);
+  const saveChainRef = useRef<Promise<unknown>>(Promise.resolve());
   const [editor, setEditor] = useState<Editor | null>(null);
   const [activeDocumentId, setActiveDocumentId] = useState(documentId);
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -179,6 +216,19 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const headerRef = useRef<HTMLElement>(null);
   const [headerHeight, setHeaderHeight] = useState(56);
   const [keyboardInset, setKeyboardInset] = useState(0);
+
+  const enqueueSave = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
+    const run = saveChainRef.current.then(operation, operation);
+    saveChainRef.current = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  }, []);
+
+  const waitForPendingSaves = useCallback(async () => {
+    await saveChainRef.current;
+  }, []);
 
   useEffect(() => {
     void fetch('/api/redaction/media?page=1&pageSize=36').catch(() => undefined);
@@ -316,10 +366,13 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       silent?: boolean;
       manual?: boolean;
     }): Promise<string | null> => {
-      if (
-        (saving && !options?.manual) ||
-        (autosaveInFlight.current && !options?.keepalive && !options?.manual)
-      ) {
+      if (saving && !options?.manual) {
+        return null;
+      }
+
+      if (options?.manual) {
+        await waitForPendingSaves();
+      } else if (autosaveInFlight.current && !options?.keepalive) {
         return null;
       }
 
@@ -344,53 +397,61 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         return id ?? null;
       }
 
-      if (!options?.keepalive) {
+      return enqueueSave(async () => {
+        const snapshot = createSnapshot(values, scheduledAt);
+        if (snapshot === lastSavedSnapshot.current) return activeDocumentId ?? null;
+
+        const currentPayload = buildSavePayload(values, scheduledAt, 'draft', {
+          partialDraft: true,
+          defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
+        });
+        if (!currentPayload) return null;
+
         autosaveInFlight.current = true;
         if (!options?.silent) setAutosaveStatus('saving');
-      }
 
-      try {
-        const id = activeDocumentId;
-        const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
-        const res = await fetch(url, {
-          method: id ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          keepalive: options?.keepalive,
-        });
-        const data = (await res.json()) as { article?: { documentId: string }; error?: string };
-        if (!res.ok || !data.article?.documentId) {
-          if (!options?.keepalive) throw new Error(data.error ?? 'Sauvegarde impossible');
-          return null;
-        }
+        try {
+          const id = activeDocumentId;
+          const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
+          const res = await fetch(url, {
+            method: id ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentPayload),
+          });
+          const data = (await res.json()) as { article?: { documentId: string }; error?: string };
+          if (!res.ok || !data.article?.documentId) {
+            throw new Error(data.error ?? 'Sauvegarde impossible');
+          }
 
-        const savedId = data.article.documentId;
-        lastSavedSnapshot.current = snapshot;
-        clearArticleDraft(id);
-        clearArticleDraft(savedId);
+          const savedId = data.article.documentId;
+          lastSavedSnapshot.current = snapshot;
+          clearArticleDraft(id);
+          clearArticleDraft(savedId);
 
-        if (!id) {
-          setActiveDocumentId(savedId);
-          window.history.replaceState(null, '', `/articles/${savedId}/edit`);
-        }
+          if (!id) {
+            setActiveDocumentId(savedId);
+            window.history.replaceState(null, '', `/articles/${savedId}/edit`);
+          }
 
-        if (!options?.keepalive) {
           void touchRedactionSession();
           if (!options?.silent) {
             setAutosaveStatus('saved');
             window.setTimeout(() => setAutosaveStatus('idle'), 3000);
           }
-        }
 
-        return savedId;
-      } catch {
-        if (!options?.keepalive && !options?.silent) setAutosaveStatus('error');
-        return null;
-      } finally {
-        if (!options?.keepalive) autosaveInFlight.current = false;
-      }
+          return savedId;
+        } catch (err) {
+          if (!options?.silent) setAutosaveStatus('error');
+          if (!options?.silent && options?.manual) {
+            throw err;
+          }
+          return null;
+        } finally {
+          autosaveInFlight.current = false;
+        }
+      });
     },
-    [activeDocumentId, categories, primaryCategoryId, saving, scheduledAt, values]
+    [activeDocumentId, categories, enqueueSave, primaryCategoryId, saving, scheduledAt, values, waitForPendingSaves]
   );
 
   const performAutosave = useCallback(async () => {
@@ -549,13 +610,18 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     setMenuOpen(false);
 
     if (mode === 'draft') {
-      const savedId = await persistDraft({ manual: true });
-      if (!savedId) {
-        setError('Ajoutez un titre ou du contenu pour enregistrer le brouillon');
-      } else {
-        onSuccess?.(savedId, mode);
+      try {
+        const savedId = await persistDraft({ manual: true });
+        if (!savedId) {
+          setError('Ajoutez un titre ou du contenu pour enregistrer le brouillon');
+        } else {
+          onSuccess?.(savedId, mode);
+        }
+      } catch (err) {
+        setError(formatSaveError(err));
+      } finally {
+        setSaving(null);
       }
-      setSaving(null);
       return;
     }
 
@@ -568,31 +634,46 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       return;
     }
 
-    try {
-      const id = activeDocumentId;
-      const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
-      const res = await fetch(url, {
-        method: id ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = (await res.json()) as { article?: { documentId: string }; error?: string };
-      if (!res.ok) throw new Error(data.error ?? 'Enregistrement impossible');
+    await waitForPendingSaves();
 
-      const savedId = data.article!.documentId;
+    try {
+      const savedId = await enqueueSave(async () => {
+        const id = activeDocumentId;
+        const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
+        const res = await fetch(url, {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = (await res.json()) as { article?: { documentId: string }; error?: string };
+        if (!res.ok || !data.article?.documentId) {
+          throw new Error(data.error ?? 'Enregistrement impossible');
+        }
+        return data.article.documentId;
+      });
+
       lastSavedSnapshot.current = createSnapshot(values, scheduledAt);
-      clearArticleDraft(id);
+      clearArticleDraft(activeDocumentId);
       clearArticleDraft(savedId);
       void touchRedactionSession();
 
-      if (!id) {
+      if (!activeDocumentId) {
         setActiveDocumentId(savedId);
         window.history.replaceState(null, '', `/articles/${savedId}/edit`);
       }
 
       onSuccess?.(savedId, mode);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur');
+      const documentId = activeDocumentId;
+      if (documentId && isNetworkSaveError(err)) {
+        const recovered = await recoverPublishAfterNetworkError(documentId, mode);
+        if (recovered) {
+          lastSavedSnapshot.current = createSnapshot(values, scheduledAt);
+          onSuccess?.(documentId, mode);
+          return;
+        }
+      }
+      setError(formatSaveError(err));
     } finally {
       setSaving(null);
     }

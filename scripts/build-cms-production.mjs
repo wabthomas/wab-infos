@@ -38,6 +38,16 @@ try {
   process.exit(1);
 }
 
+try {
+  require.resolve('@vitejs/plugin-react-swc', { paths: [cmsDir] });
+} catch {
+  console.error(
+    '[cms-build] @vitejs/plugin-react-swc manquant (requis pour le panel admin Strapi).\n' +
+      '  → Lancez : npm install --prefix apps/cms'
+  );
+  process.exit(1);
+}
+
 const result = spawnSync(process.execPath, [strapiBin, 'build'], {
   cwd: cmsDir,
   env: process.env,

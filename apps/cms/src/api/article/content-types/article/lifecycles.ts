@@ -18,10 +18,7 @@ export default {
       documentId?: string;
     };
   }) {
-    await triggerRevalidation('article', event.result);
-    await triggerNewsletter(event.result);
-    await triggerSocialPublish(event.result);
-    await triggerPushPublish(event.result);
+    runArticlePublishSideEffects(event.result);
   },
   async afterUpdate(event: {
     result: {
@@ -36,10 +33,7 @@ export default {
       documentId?: string;
     };
   }) {
-    await triggerRevalidation('article', event.result);
-    await triggerNewsletter(event.result);
-    await triggerSocialPublish(event.result);
-    await triggerPushPublish(event.result);
+    runArticlePublishSideEffects(event.result);
   },
   async afterDelete() {
     await triggerRevalidation('article');
@@ -70,6 +64,33 @@ function ensureArticleSlug(data: Record<string, unknown>, isUpdate: boolean) {
 
   const base = slugifyTitle(title);
   data.slug = base || `article-${Date.now().toString(36)}`;
+}
+
+/** Ne pas bloquer la réponse Strapi (newsletter, push, etc. peuvent être lents). */
+function runArticlePublishSideEffects(result: {
+  slug?: string;
+  status?: string;
+  newsletterSentAt?: string | null;
+  facebookPostedAt?: string | null;
+  xPostedAt?: string | null;
+  pushSentAt?: string | null;
+  publishedAt?: string | null;
+  wpPublishedAt?: string | null;
+  documentId?: string;
+  category?: { slug?: string };
+}) {
+  void triggerRevalidation('article', result).catch((err) => {
+    console.error('[article] revalidation failed:', err);
+  });
+  void triggerNewsletter(result).catch((err) => {
+    console.error('[article] newsletter trigger failed:', err);
+  });
+  void triggerSocialPublish(result).catch((err) => {
+    console.error('[article] social trigger failed:', err);
+  });
+  void triggerPushPublish(result).catch((err) => {
+    console.error('[article] push trigger failed:', err);
+  });
 }
 
 async function triggerRevalidation(

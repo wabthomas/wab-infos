@@ -37,7 +37,7 @@ export async function PUT(request: Request, context: RouteContext) {
     const { id } = await context.params;
     const body = (await request.json()) as Partial<ArticleEditorPayload>;
     const article = await updateEditorArticle(user, id, body);
-    if (body.publish && isLiveRedactionArticle(article)) {
+    if (body.publish && !body.draftOnly && isLiveRedactionArticle(article)) {
       void triggerReaderPushOnPublish(article.slug);
     }
     return NextResponse.json({ article });

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "npm run pwa:fcm && next dev -p 3001",
-    "build": "npm run pwa:fcm && next build",
+    "build": "npm run pwa:fcm && npm run clean:next && next build",
+    "clean:next": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
     "start": "next start -p 3001 -H 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",

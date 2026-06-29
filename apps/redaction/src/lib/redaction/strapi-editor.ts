@@ -295,7 +295,9 @@ function resolveArticleStatus(entity: StrapiEntity): RedactionArticle['status'] 
 }
 
 export function isLiveRedactionArticle(article: RedactionArticle): boolean {
-  return article.status === 'published' || Boolean(article.publishedAt);
+  // Seul publishedAt garantit une publication Strapi (draft & publish).
+  // Le champ custom status peut valoir "published" sur un brouillon non publié.
+  return Boolean(article.publishedAt);
 }
 
 function mapArticle(entity: StrapiEntity): RedactionArticle {
@@ -871,11 +873,14 @@ export async function updateEditorArticle(
   const existing = await getEditorArticle(user, documentId);
   if (!existing) throw new RedactionAuthError('Article introuvable');
 
-  const saveMode = payload.draftOnly
-    ? { strapiStatus: 'draft' as const, customStatus: 'draft' as const, scheduledAt: null }
-    : resolveArticleSaveMode(payload);
+  const isDraftOnly = Boolean(payload.draftOnly);
+  const saveMode = isDraftOnly ? null : resolveArticleSaveMode(payload);
   const author = await resolveAuthorForArticleSave(user, payload, saveMode);
-  const statusParam = saveMode?.strapiStatus ?? 'draft';
+  // Autosave / brouillon : toujours la version draft (?status=published publierait l'article).
+  const statusParam: 'draft' | 'published' = isDraftOnly
+    ? 'draft'
+    : (saveMode?.strapiStatus ??
+      (isLiveRedactionArticle(existing) ? 'published' : 'draft'));
 
   const title = payload.title?.trim() || existing.title;
   const excerpt = payload.excerpt?.trim() || existing.excerpt;

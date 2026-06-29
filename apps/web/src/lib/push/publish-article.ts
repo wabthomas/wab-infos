@@ -19,6 +19,7 @@ export interface PublishArticlePushResult {
 interface PushArticle {
   documentId: string;
   title: string;
+  seoTitle?: string;
   slug: string;
   excerpt: string;
   status: string;
@@ -122,7 +123,7 @@ export async function publishArticlePush(slug: string): Promise<PublishArticlePu
     }
 
     const { sent, failed } = await sendPushToReaders({
-      title: article.title,
+      title: article.seoTitle?.trim() || article.title,
       body,
       url: article.articleUrl,
     });
