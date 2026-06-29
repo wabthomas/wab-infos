@@ -7,7 +7,10 @@
     "cap:sync": "cap sync android && node ../../scripts/patch-capacitor-settings.mjs",
     "cap:open": "cap open android",
     "cap:run": "cap run android",
-    "android:debug": "npm run cap:sync && npm run cap:run"
+    "android:debug": "npm run cap:sync && npm run cap:run",
+    "icons": "node ../../scripts/reader-android-icons.mjs",
+    "release": "node ../../scripts/reader-android-release.mjs",
+    "copy-apk": "node ../../scripts/copy-apk-to-web.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.5",

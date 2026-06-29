@@ -2,6 +2,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com';
 
 export const siteConfig = {
   name: process.env.NEXT_PUBLIC_SITE_NAME || 'Wab-infos',
+  tagline: "S'informer pour mieux s'armer !",
   description:
     process.env.NEXT_PUBLIC_SITE_DESCRIPTION ||
     'Actualités RDC, politique, économie, sports et international. Wab-infos, votre source d\'information fiable.',

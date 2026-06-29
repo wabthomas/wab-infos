@@ -13,10 +13,12 @@ import {
 } from '@/lib/pwa/launch-splash';
 import { isNativeCapacitorApp } from '@wab-infos/shared';
 
-const SPLASH_MS_PWA = 1500;
-const SPLASH_MS_NATIVE_MIN = 1800;
+const SPLASH_MS_PWA = 1200;
+const SPLASH_MS_NATIVE_MIN = 1000;
 const SPLASH_MS_NATIVE_MAX = 12000;
-const FADE_OUT_MS = 420;
+const FADE_OUT_MS = 320;
+
+const SPLASH_LOGO = '/brand-icon.png';
 
 function hideBootstrapSplash() {
   document.getElementById('pwa-splash-bootstrap')?.classList.add('pwa-splash-bootstrap--done');
@@ -29,9 +31,8 @@ function finishAppLaunch() {
 }
 
 export function PwaSplash() {
-  const [phase, setPhase] = useState<'hidden' | 'in' | 'out'>('hidden');
-  const [tagline, setTagline] = useState<string | null>(null);
-  const [statusText, setStatusText] = useState('Chargement');
+  const [phase, setPhase] = useState<'hidden' | 'visible' | 'out'>('hidden');
+  const [tagline, setTagline] = useState<string>(siteConfig.tagline);
 
   useLayoutEffect(() => {
     let cancelled = false;
@@ -50,18 +51,16 @@ export function PwaSplash() {
 
       persistPwaVariantFromPath(window.location.pathname);
       const variant = getPwaVariant();
-      setTagline(variant === 'redaction' ? 'Rédaction' : siteConfig.name);
-      setPhase('in');
+      setTagline(variant === 'redaction' ? 'Rédaction Wab-infos' : siteConfig.tagline);
+      setPhase('visible');
 
       const minMs = asyncNative ? SPLASH_MS_NATIVE_MIN : SPLASH_MS_PWA;
       const maxWaitMs = asyncNative ? SPLASH_MS_NATIVE_MAX : 5000;
       const startedAt = performance.now();
 
       if (asyncNative) {
-        setStatusText('Connexion');
         await waitForPageReady(maxWaitMs);
         if (cancelled) return;
-        setStatusText('Presque prêt');
       }
 
       const elapsed = performance.now() - startedAt;
@@ -90,41 +89,30 @@ export function PwaSplash() {
 
   return (
     <div
-      className={`app-launch-splash pwa-splash fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-white ${
-        phase === 'out' ? 'pwa-splash--out app-launch-splash--out' : ''
+      className={`app-launch-splash pwa-splash fixed inset-0 z-[10000] flex flex-col items-center justify-center px-6 ${
+        phase === 'out' ? 'pwa-splash--out' : ''
       }`}
       aria-hidden="true"
       role="presentation"
     >
-      <div className="app-launch-splash__glow" aria-hidden />
-      <div className="pwa-splash-logo-wrap app-launch-splash-logo-wrap">
+      <div className="app-launch-splash-logo-wrap">
         <Image
-          src="/icons/icon-512.png"
+          src={SPLASH_LOGO}
           alt={siteConfig.name}
           width={512}
           height={512}
-          className="pwa-splash-logo app-launch-splash-logo"
+          className="app-launch-splash-logo"
           priority
         />
       </div>
-      {tagline && (
-        <p className="pwa-splash-tagline app-launch-splash-tagline mt-5 text-[10px] font-bold uppercase tracking-[0.22em] text-primary">
-          {tagline}
+      <p className="app-launch-splash-tagline mt-6 max-w-xs text-center text-sm font-medium leading-snug text-white/95">
+        {tagline}
+      </p>
+      {phase === 'visible' && (
+        <p className="app-launch-splash-status mt-8 text-[11px] font-medium tracking-wide text-white/70">
+          Chargement…
         </p>
       )}
-      <div className="app-launch-splash-loader mt-10 flex w-[min(72vw,16rem)] flex-col items-center gap-3">
-        <div className="app-launch-splash-progress-track" aria-hidden>
-          <div className="app-launch-splash-progress-bar" />
-        </div>
-        <p className="app-launch-splash-status text-[11px] font-medium tracking-wide text-neutral-500">
-          {statusText}
-          <span className="app-launch-splash-dots" aria-hidden>
-            <span>.</span>
-            <span>.</span>
-            <span>.</span>
-          </span>
-        </p>
-      </div>
     </div>
   );
 }

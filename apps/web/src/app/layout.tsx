@@ -139,31 +139,20 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col antialiased">
         <GoogleTagManagerBody />
         <div id="pwa-splash-bootstrap" className="pwa-splash-bootstrap app-launch-splash" aria-hidden suppressHydrationWarning>
-          <div className="app-launch-splash__glow" aria-hidden />
-          <div className="pwa-splash-logo-wrap app-launch-splash-logo-wrap">
+          <div className="app-launch-splash-logo-wrap">
             {/* img natif : affichage immédiat avant hydratation React */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/icons/icon-512.png"
+              src="/brand-icon.png"
               alt=""
               width={512}
               height={512}
-              className="pwa-splash-logo app-launch-splash-logo"
+              className="app-launch-splash-logo"
             />
           </div>
-          <div className="app-launch-splash-loader mt-10 flex w-[min(72vw,16rem)] flex-col items-center gap-3">
-            <div className="app-launch-splash-progress-track" aria-hidden>
-              <div className="app-launch-splash-progress-bar" />
-            </div>
-            <p className="app-launch-splash-status text-[11px] font-medium tracking-wide text-neutral-500">
-              Chargement
-              <span className="app-launch-splash-dots" aria-hidden>
-                <span>.</span>
-                <span>.</span>
-                <span>.</span>
-              </span>
-            </p>
-          </div>
+          <p className="app-launch-splash-tagline mt-6 max-w-xs text-center text-sm font-medium leading-snug text-white/95">
+            S&apos;informer pour mieux s&apos;armer !
+          </p>
         </div>
         <PwaSplash />
         <div id="app-root" className="flex min-h-full flex-1 flex-col">

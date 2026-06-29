@@ -24,6 +24,13 @@ const sync = spawnSync('npm', ['run', 'cap:sync', '--workspace=apps/reader-andro
 });
 if (sync.status !== 0) process.exit(sync.status ?? 1);
 
+const patch = spawnSync('node', ['scripts/patch-capacitor-settings.mjs'], {
+  cwd: root,
+  stdio: 'inherit',
+  shell: true,
+});
+if (patch.status !== 0) process.exit(patch.status ?? 1);
+
 const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
 const build = spawnSync(gradlew, ['assembleRelease'], {
   cwd: androidDir,

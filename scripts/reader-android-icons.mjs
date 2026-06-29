@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Génère les icônes Android à partir du logo app (apps/reader-android/assets/app-icon.png).
+ * Génère les icônes Android à partir du logo circulaire (brand-icon).
  * Usage : npm run reader-android:icons
  */
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
@@ -9,10 +9,13 @@ import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const BRAND_RED = '#C41E3A';
 const logoSrc =
-  [join(root, 'apps/reader-android/assets/app-icon.png'), join(root, 'apps/web/public/logo.png')].find(
-    (p) => existsSync(p)
-  ) ?? join(root, 'apps/reader-android/assets/app-icon.png');
+  [
+    join(root, 'apps/web/public/brand-icon.png'),
+    join(root, 'apps/reader-android/assets/app-icon.png'),
+    join(root, 'apps/web/public/logo.png'),
+  ].find((p) => existsSync(p)) ?? join(root, 'apps/web/public/brand-icon.png');
 const assetsDir = join(root, 'apps/reader-android/assets');
 const iconDest = join(assetsDir, 'icon.png');
 
@@ -32,9 +35,9 @@ const result = spawnSync(
     'generate',
     '--android',
     '--iconBackgroundColor',
-    '#FFFFFF',
+    BRAND_RED,
     '--splashBackgroundColor',
-    '#FFFFFF',
+    BRAND_RED,
   ],
   {
     cwd: join(root, 'apps/reader-android'),
