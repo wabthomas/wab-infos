@@ -11,6 +11,7 @@ import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
 import { getAdsenseConfig } from '@/lib/adsense-config.server';
 import { generateWebsiteJsonLd } from '@/lib/seo';
 import { resolveRedactionUrl } from '@wab-infos/shared';
+import { fontVariables } from '@/lib/fonts';
 import './globals.css';
 
 const strapiOrigin = (
@@ -20,15 +21,6 @@ const strapiOrigin = (
 ).replace(/\/$/, '');
 
 const redactionOrigin = resolveRedactionUrl(process.env.NEXT_PUBLIC_REDACTION_URL).replace(/\/$/, '');
-
-const googleFontsUrl =
-  'https://fonts.googleapis.com/css2?' +
-  'family=Roboto:wght@500;700&' +
-  'family=Inter:wght@400;500;600;700&' +
-  'family=JetBrains+Mono:wght@400;500&' +
-  'family=Oswald:wght@500;600;700&' +
-  'family=Playfair+Display:wght@400;600;700&' +
-  'display=swap';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -104,17 +96,14 @@ export default function RootLayout({
   const adsenseConfig = getAdsenseConfig();
 
   return (
-    <html lang="fr" suppressHydrationWarning className="h-full">
+    <html lang="fr" suppressHydrationWarning className={`h-full ${fontVariables}`}>
       <head>
         <link rel="preconnect" href={strapiOrigin} />
         <link rel="dns-prefetch" href={strapiOrigin} />
         <link rel="preconnect" href={redactionOrigin} />
         <link rel="dns-prefetch" href={redactionOrigin} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
         <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
-        <link href={googleFontsUrl} rel="stylesheet" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />

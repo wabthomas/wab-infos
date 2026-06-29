@@ -8,6 +8,7 @@ interface ArticleImageProps {
   fill?: boolean;
   priority?: boolean;
   sizes?: string;
+  quality?: number;
 }
 
 export function ArticleImage({
@@ -17,6 +18,7 @@ export function ArticleImage({
   fill = true,
   priority = false,
   sizes,
+  quality,
 }: ArticleImageProps) {
   if (!src) {
     return (
@@ -41,7 +43,7 @@ export function ArticleImage({
       className={className}
       priority={priority}
       sizes={sizes}
-      quality={90}
+      quality={quality ?? (priority ? 85 : 75)}
     />
   );
 }

@@ -26,6 +26,9 @@ import { ArticlePublishSheet } from '@/components/redaction/article-publish-shee
 import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
 import type { RedactionAuthor } from '@/lib/redaction/types';
 
+const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+const DRAFT_SAVE_HEADERS = { ...JSON_HEADERS, 'X-Redaction-Draft': '1' } as const;
+
 export interface ArticleEditorValues {
   title: string;
   excerpt: string;
@@ -390,7 +393,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
         void fetch(url, {
           method: id ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: DRAFT_SAVE_HEADERS,
           body: JSON.stringify(payload),
           keepalive: true,
         });
@@ -415,7 +418,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
           const res = await fetch(url, {
             method: id ? 'PUT' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: DRAFT_SAVE_HEADERS,
             body: JSON.stringify(currentPayload),
           });
           const data = (await res.json()) as { article?: { documentId: string }; error?: string };
@@ -642,7 +645,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
         const res = await fetch(url, {
           method: id ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: JSON_HEADERS,
           body: JSON.stringify(payload),
         });
         const data = (await res.json()) as { article?: { documentId: string }; error?: string };

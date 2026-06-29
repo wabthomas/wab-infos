@@ -1,11 +1,13 @@
-/** Article publié (champ custom ou draftAndPublish Strapi) */
+/** Article réellement publié dans Strapi (draft & publish + champ custom). */
 export function isArticlePublished(article: {
   status?: string;
   publishedAt?: string | null;
 }): boolean {
-  if (article.status === 'archived') return false;
-  if (article.status === 'published') return true;
-  return Boolean(article.publishedAt);
+  if (!article.publishedAt) return false;
+  if (article.status === 'archived' || article.status === 'draft' || article.status === 'scheduled') {
+    return false;
+  }
+  return article.status === 'published';
 }
 
 /** Publication récente (< 48 h) — évite envois massifs à l'import */

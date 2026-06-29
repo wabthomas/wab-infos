@@ -34,6 +34,8 @@
     "import:wordpress": "npm run import --workspace=@wab-infos/wordpress-import --",
     "import:images": "npm run backfill-images --workspace=@wab-infos/wordpress-import --",
     "import:meta": "npm run backfill-meta --workspace=@wab-infos/wordpress-import --",
+    "optimize:media": "npm run optimize --workspace=@wab-infos/media-optimize --",
+    "optimize:media:dry-run": "npm run dry-run --workspace=@wab-infos/media-optimize --",
     "db:start": "powershell -ExecutionPolicy Bypass -File scripts/start-postgres.ps1",
     "setup:cms": "node scripts/setup-strapi-link.js",
     "postinstall": "node scripts/setup-strapi-link.js",

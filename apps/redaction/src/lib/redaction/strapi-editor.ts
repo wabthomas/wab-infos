@@ -280,18 +280,20 @@ function resolveArticleStatus(entity: StrapiEntity): RedactionArticle['status'] 
   const publishedAt = entity.publishedAt as string | undefined;
   const scheduledAt = entity.scheduledAt as string | undefined;
 
-  if (publishedAt) {
+  if (raw === 'archived') return 'archived';
+
+  if (!publishedAt) {
     if (raw === 'scheduled' && scheduledAt && new Date(scheduledAt).getTime() > Date.now()) {
       return 'scheduled';
     }
-    return 'published';
+    return 'draft';
   }
 
   if (raw === 'scheduled' && scheduledAt && new Date(scheduledAt).getTime() > Date.now()) {
     return 'scheduled';
   }
 
-  return raw;
+  return 'published';
 }
 
 export function isLiveRedactionArticle(article: RedactionArticle): boolean {
@@ -666,6 +668,62 @@ function normalizeEditorContent(text: string): string {
   return trimmed.replace(/\r\n/g, '\n');
 }
 
+/**
+ * Force brouillon si l'éditeur envoie l'en-tête X-Redaction-Draft (autosave).
+ */
+export function applyDraftSaveHeader(
+  payload: Partial<ArticleEditorPayload>,
+  request: Request
+): Partial<ArticleEditorPayload> {
+  if (request.headers.get('x-redaction-draft') !== '1') return payload;
+  return { ...payload, draftOnly: true, publish: false };
+}
+
+function isFutureSchedule(payload: Partial<ArticleEditorPayload>): boolean {
+  const at = payload.scheduledAt?.trim();
+  if (!at || payload.publish === true) return false;
+  return new Date(at).getTime() > Date.now();
+}
+
+export function isExplicitEditorPublish(payload: Partial<ArticleEditorPayload>): boolean {
+  return payload.publish === true && payload.draftOnly !== true;
+}
+
+/**
+ * Normalise les intentions de sauvegarde : autosave et brouillons ne doivent jamais publier.
+ * POST sans publication/planification explicite → brouillon uniquement.
+ */
+export function normalizeEditorSavePayload<T extends Partial<ArticleEditorPayload>>(
+  payload: T,
+  options?: { defaultToDraft?: boolean; isUpdate?: boolean }
+): T {
+  if (isExplicitEditorPublish(payload)) {
+    return { ...payload, draftOnly: false, publish: true };
+  }
+
+  if (isFutureSchedule(payload)) {
+    return {
+      ...payload,
+      draftOnly: false,
+      publish: false,
+    };
+  }
+
+  const isDraftIntent =
+    payload.draftOnly === true || (options?.defaultToDraft === true && !isExplicitEditorPublish(payload));
+
+  if (isDraftIntent) {
+    return {
+      ...payload,
+      draftOnly: true,
+      publish: false,
+      ...(options?.isUpdate ? {} : { scheduledAt: null }),
+    };
+  }
+
+  return payload;
+}
+
 function resolveArticleSaveMode(payload: Partial<ArticleEditorPayload>): {
   strapiStatus: 'draft' | 'published';
   customStatus: RedactionArticle['status'];
@@ -835,21 +893,22 @@ export async function createEditorArticle(
   user: RedactionUser,
   payload: ArticleEditorPayload
 ): Promise<RedactionArticle> {
-  const slug = generateArticleSlug(payload.title);
-  const saveMode = payload.draftOnly
+  const normalized = normalizeEditorSavePayload(payload, { defaultToDraft: true });
+  const slug = generateArticleSlug(normalized.title);
+  const saveMode = normalized.draftOnly
     ? { strapiStatus: 'draft' as const, customStatus: 'draft' as const, scheduledAt: null }
-    : resolveArticleSaveMode(payload) ?? {
+    : resolveArticleSaveMode(normalized) ?? {
         strapiStatus: 'draft' as const,
         customStatus: 'draft' as const,
         scheduledAt: null,
       };
-  const author = await resolveAuthorForArticleSave(user, payload, saveMode);
+  const author = await resolveAuthorForArticleSave(user, normalized, saveMode);
   const tagIds =
     saveMode.strapiStatus === 'published'
       ? await syncArticleTags({
-          title: payload.title,
-          excerpt: payload.excerpt,
-          tagNames: payload.tagNames,
+          title: normalized.title,
+          excerpt: normalized.excerpt,
+          tagNames: normalized.tagNames,
         })
       : undefined;
   const endpoint =
@@ -858,7 +917,7 @@ export async function createEditorArticle(
   const response = await strapiFetch<{ data: StrapiEntity }>(endpoint, undefined, {
     method: 'POST',
     body: JSON.stringify({
-      data: buildArticleData(payload, author, slug, saveMode, tagIds),
+      data: buildArticleData(normalized, author, slug, saveMode, tagIds),
     }),
   });
 
@@ -870,28 +929,29 @@ export async function updateEditorArticle(
   documentId: string,
   payload: Partial<ArticleEditorPayload>
 ): Promise<RedactionArticle> {
+  const normalized = normalizeEditorSavePayload(payload, { isUpdate: true });
   const existing = await getEditorArticle(user, documentId);
   if (!existing) throw new RedactionAuthError('Article introuvable');
 
-  const isDraftOnly = Boolean(payload.draftOnly);
-  const saveMode = isDraftOnly ? null : resolveArticleSaveMode(payload);
-  const author = await resolveAuthorForArticleSave(user, payload, saveMode);
+  const isDraftOnly = Boolean(normalized.draftOnly);
+  const saveMode = isDraftOnly ? null : resolveArticleSaveMode(normalized);
+  const author = await resolveAuthorForArticleSave(user, normalized, saveMode);
   // Autosave / brouillon : toujours la version draft (?status=published publierait l'article).
   const statusParam: 'draft' | 'published' = isDraftOnly
     ? 'draft'
     : (saveMode?.strapiStatus ??
       (isLiveRedactionArticle(existing) ? 'published' : 'draft'));
 
-  const title = payload.title?.trim() || existing.title;
-  const excerpt = payload.excerpt?.trim() || existing.excerpt;
-  const slug = resolveArticleSlug(existing, title);
+  const title = normalized.title?.trim() || existing.title;
+  const excerpt = normalized.excerpt?.trim() || existing.excerpt;
+  const slug = isDraftOnly ? undefined : resolveArticleSlug(existing, title);
 
   const publishing = saveMode?.strapiStatus === 'published';
   const tagIds = publishing
     ? await syncArticleTags({
         title,
         excerpt,
-        tagNames: payload.tagNames ?? existing.tagNames,
+        tagNames: normalized.tagNames ?? existing.tagNames,
       })
     : undefined;
 
@@ -901,7 +961,7 @@ export async function updateEditorArticle(
     {
       method: 'PUT',
       body: JSON.stringify({
-        data: buildArticleData(payload, author, slug, saveMode, tagIds),
+        data: buildArticleData(normalized, author, slug, saveMode, tagIds),
       }),
     }
   );

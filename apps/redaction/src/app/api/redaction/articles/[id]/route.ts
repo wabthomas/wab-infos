@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import {
+  applyDraftSaveHeader,
   deleteEditorArticle,
   getEditorArticle,
+  isExplicitEditorPublish,
   isLiveRedactionArticle,
+  normalizeEditorSavePayload,
   RedactionAuthError,
   requireRedactionUser,
   updateEditorArticle,
@@ -35,9 +38,13 @@ export async function PUT(request: Request, context: RouteContext) {
   try {
     const user = await requireRedactionUser();
     const { id } = await context.params;
-    const body = (await request.json()) as Partial<ArticleEditorPayload>;
+    const raw = applyDraftSaveHeader(
+      (await request.json()) as Partial<ArticleEditorPayload>,
+      request
+    );
+    const body = normalizeEditorSavePayload(raw, { isUpdate: true });
     const article = await updateEditorArticle(user, id, body);
-    if (body.publish && !body.draftOnly && isLiveRedactionArticle(article)) {
+    if (isExplicitEditorPublish(body) && isLiveRedactionArticle(article)) {
       void triggerReaderPushOnPublish(article.slug);
     }
     return NextResponse.json({ article });

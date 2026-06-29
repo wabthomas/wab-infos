@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { StrapiMedia } from '@wab-infos/shared';
+import { optimizeArticleHtmlImages } from '@/lib/optimize-article-images';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -155,20 +156,23 @@ export function formatArticleContent(content: string): string {
   const rewritten = rewriteWordPressContent(content);
   if (!rewritten.trim()) return '';
 
+  let html: string;
   if (/<(?:p|div|h[1-6]|ul|ol|blockquote|figure)\b/i.test(rewritten)) {
-    return rewritten;
+    html = rewritten;
+  } else {
+    html = rewritten
+      .split(/\n{2,}/)
+      .map((p) => {
+        const trimmed = p.trim();
+        if (!trimmed) return '';
+        const body = escapeHtml(trimmed).replace(/\n/g, '<br>');
+        return `<p>${body}</p>`;
+      })
+      .filter(Boolean)
+      .join('');
   }
 
-  return rewritten
-    .split(/\n{2,}/)
-    .map((p) => {
-      const trimmed = p.trim();
-      if (!trimmed) return '';
-      const body = escapeHtml(trimmed).replace(/\n/g, '<br>');
-      return `<p>${body}</p>`;
-    })
-    .filter(Boolean)
-    .join('');
+  return optimizeArticleHtmlImages(html);
 }
 
 export function getStrapiMediaUrl(url?: string): string | null {

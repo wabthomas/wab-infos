@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { optimizeUploadImage } from '@/lib/redaction/optimize-upload-image';
 import {
   RedactionAuthError,
   requireRedactionUser,
@@ -19,7 +20,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Image uniquement' }, { status: 400 });
     }
 
-    const media = await uploadEditorImage(user, file);
+    const optimized = await optimizeUploadImage(file);
+    const media = await uploadEditorImage(user, optimized);
     return NextResponse.json({ media });
   } catch (err) {
     if (err instanceof RedactionAuthError) {

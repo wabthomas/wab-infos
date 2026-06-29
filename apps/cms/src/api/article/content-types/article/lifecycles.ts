@@ -18,7 +18,9 @@ export default {
       documentId?: string;
     };
   }) {
-    runArticlePublishSideEffects(event.result);
+    if (isPublishedArticle(event.result)) {
+      runArticlePublishSideEffects(event.result);
+    }
   },
   async afterUpdate(event: {
     result: {
@@ -33,7 +35,9 @@ export default {
       documentId?: string;
     };
   }) {
-    runArticlePublishSideEffects(event.result);
+    if (isPublishedArticle(event.result)) {
+      runArticlePublishSideEffects(event.result);
+    }
   },
   async afterDelete() {
     await triggerRevalidation('article');
@@ -124,9 +128,11 @@ function isPublishedArticle(result: {
   status?: string;
   publishedAt?: string | null;
 }): boolean {
-  if (result.status === 'archived') return false;
-  if (result.status === 'published') return true;
-  return Boolean(result.publishedAt);
+  if (!result.publishedAt) return false;
+  if (result.status === 'archived' || result.status === 'draft' || result.status === 'scheduled') {
+    return false;
+  }
+  return result.status === 'published';
 }
 
 async function triggerNewsletter(result: {
@@ -197,7 +203,7 @@ async function triggerSocialPublish(result: {
   wpPublishedAt?: string | null;
 }) {
   if (process.env.SOCIAL_SEND_ON_PUBLISH !== 'true') return;
-  if (!result.slug || result.status !== 'published') return;
+  if (!result.slug || !isPublishedArticle(result)) return;
   if (result.facebookPostedAt && result.xPostedAt) return;
 
   const effectiveDate = result.wpPublishedAt || result.publishedAt;

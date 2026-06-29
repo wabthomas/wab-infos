@@ -10,7 +10,7 @@ import { HomeVideoSection } from '@/components/home/home-video-section';
 import { LiveNewsTimeline } from '@/components/home/live-news-timeline';
 import { NewsletterSignup } from '@/components/home/newsletter-signup';
 import { PushAlertsSignup } from '@/components/home/push-alerts-signup';
-import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
+import { HomeTopCategorySection } from '@/components/home/home-top-category-section';
 import { SectionHeader } from '@/components/ui/section-header';
 import { categories } from '@/config/site';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
@@ -19,6 +19,7 @@ import { getTopReadArticles } from '@/lib/sidebar-data';
 import { getBreakingNews, getArticles, getArticlesByCategories } from '@/lib/strapi';
 import { compareArticlesByDateDesc, resolveArticleImageUrl } from '@/lib/utils';
 import { generateHomeMetadata } from '@/lib/seo';
+import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import Link from 'next/link';
 
 export const metadata: Metadata = generateHomeMetadata();
@@ -125,6 +126,17 @@ export default async function HomePage() {
             {topCategories.map((cat) => {
               const catArticles = (articlesByCategory[cat.slug] ?? []).slice(0, 4);
               if (!catArticles.length) return null;
+
+              if (cat.slug === 'actualite' || cat.slug === 'economie') {
+                return (
+                  <HomeTopCategorySection
+                    key={cat.slug}
+                    category={cat}
+                    articles={catArticles}
+                    variant={cat.slug === 'economie' ? 'economie' : 'actualite'}
+                  />
+                );
+              }
 
               return (
                 <section key={cat.slug}>

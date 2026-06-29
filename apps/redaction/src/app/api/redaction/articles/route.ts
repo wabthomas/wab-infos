@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import {
+  applyDraftSaveHeader,
   createEditorArticle,
+  isExplicitEditorPublish,
   isLiveRedactionArticle,
   listEditorArticles,
+  normalizeEditorSavePayload,
   RedactionAuthError,
   requireRedactionUser,
 } from '@/lib/redaction/strapi-editor';
@@ -28,10 +31,22 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireRedactionUser();
-    const body = (await request.json()) as ArticleEditorPayload;
-    const content = body.content?.trim() || '<p></p>';
+    const raw = applyDraftSaveHeader(
+      (await request.json()) as ArticleEditorPayload,
+      request
+    );
+    const content = raw.content?.trim() || '<p></p>';
     const excerpt =
-      body.excerpt?.trim() || excerptFromContent(content, 170) || body.title?.trim().slice(0, 170);
+      raw.excerpt?.trim() || excerptFromContent(content, 170) || raw.title?.trim().slice(0, 170);
+
+    const body = normalizeEditorSavePayload(
+      {
+        ...raw,
+        content,
+        excerpt: excerpt || 'Brouillon',
+      },
+      { defaultToDraft: true }
+    );
 
     if (body.draftOnly) {
       if (!body.title?.trim() && !body.content?.trim()) {
@@ -49,15 +64,8 @@ export async function POST(request: Request) {
       }
     }
 
-    const article = await createEditorArticle(user, {
-      ...body,
-      content,
-      excerpt: excerpt || 'Brouillon',
-      draftOnly: body.draftOnly ?? false,
-      publish: body.draftOnly ? false : body.publish,
-      scheduledAt: body.draftOnly ? null : body.scheduledAt,
-    });
-    if (body.publish && !body.draftOnly && isLiveRedactionArticle(article)) {
+    const article = await createEditorArticle(user, body as ArticleEditorPayload);
+    if (isExplicitEditorPublish(body) && isLiveRedactionArticle(article)) {
       void triggerReaderPushOnPublish(article.slug);
     }
     return NextResponse.json({ article }, { status: 201 });
