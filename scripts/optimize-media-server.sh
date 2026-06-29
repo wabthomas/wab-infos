@@ -16,7 +16,10 @@ setup_node_path() {
 
   if [ -n "${NODE_BIN:-}" ] && [ -x "$NODE_BIN" ]; then
     export PATH="$(dirname "$NODE_BIN"):$PATH"
-    return 0
+    if command -v npm >/dev/null 2>&1; then
+      echo "→ Node: $(node -v) — npm: $(command -v npm)"
+      return 0
+    fi
   fi
 
   local bin dir
