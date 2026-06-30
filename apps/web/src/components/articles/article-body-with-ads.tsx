@@ -2,12 +2,13 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
-import {
-  ArticleInContentAd,
-  ArticleMidAd,
-} from '@/components/ads/adsense';
+import { ArticleInContentAd } from '@/components/ads/adsense';
 import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { countArticleParagraphs, splitHtmlAtParagraphs } from '@/lib/article-content';
+
+/** Une seule pub in-article, après le 4e paragraphe, pour les textes longs. */
+const MIN_PARAGRAPHS_FOR_IN_ARTICLE_AD = 8;
+const IN_ARTICLE_AD_AFTER_PARAGRAPH = 4;
 
 interface ArticleBodyWithAdsProps {
   html: string;
@@ -21,38 +22,34 @@ export function ArticleBodyWithAds({ html }: ArticleBodyWithAdsProps) {
     if (isNativeCapacitorFromUserAgent()) setNativeApp(true);
   }, []);
 
-  const { segments, showInContent, showMid } = useMemo(() => {
+  const { segments, showInContent } = useMemo(() => {
     if (nativeApp) {
-      return { segments: [html], showInContent: false, showMid: false };
+      return { segments: [html], showInContent: false };
     }
 
     const paragraphCount = countArticleParagraphs(html);
     const hasInContent = Boolean(slots.articleInContent?.trim());
-    const hasMid = Boolean(slots.articleMid?.trim());
 
-    if (paragraphCount < 3 || (!hasInContent && !hasMid)) {
-      return { segments: [html], showInContent: false, showMid: false };
+    if (
+      !hasInContent ||
+      paragraphCount < MIN_PARAGRAPHS_FOR_IN_ARTICLE_AD
+    ) {
+      return { segments: [html], showInContent: false };
     }
 
-    const breakpoints: number[] = [];
-    if (hasInContent && paragraphCount >= 3) breakpoints.push(2);
-    if (hasMid && paragraphCount >= 6) breakpoints.push(5);
-
-    const parts = splitHtmlAtParagraphs(html, breakpoints);
+    const parts = splitHtmlAtParagraphs(html, [IN_ARTICLE_AD_AFTER_PARAGRAPH]);
     return {
       segments: parts,
-      showInContent: hasInContent && parts.length > 1,
-      showMid: hasMid && parts.length > 2,
+      showInContent: parts.length > 1,
     };
-  }, [html, slots.articleInContent, slots.articleMid, nativeApp]);
+  }, [html, slots.articleInContent, nativeApp]);
 
   return (
     <div className="prose-article">
       {segments.map((segment, index) => (
         <Fragment key={index}>
           <div dangerouslySetInnerHTML={{ __html: segment }} />
-          {index === 0 && showInContent && <ArticleInContentAd />}
-          {index === 1 && showMid && <ArticleMidAd />}
+          {index === 0 && showInContent ? <ArticleInContentAd /> : null}
         </Fragment>
       ))}
     </div>

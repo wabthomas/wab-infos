@@ -14,8 +14,6 @@ import {
 } from '@/components/articles/article-page-async';
 import {
   ArticleBottomAd,
-  ArticleTopAd,
-  StickyMobileAd,
 } from '@/components/ads/adsense';
 import { ArticleBodyWithAds } from '@/components/articles/article-body-with-ads';
 import { siteConfig, resolveArticleCategorySlug, resolveCategoryMeta, isValidCategorySlug } from '@/config/site';
@@ -111,8 +109,6 @@ export default async function ArticlePage({ params }: PageProps) {
               articleUrl={articleUrl}
             />
 
-            <ArticleTopAd />
-
             <ArticleBodyWithAds html={formatArticleContent(article.content)} />
 
             <ArticleBottomAd />
@@ -154,8 +150,6 @@ export default async function ArticlePage({ params }: PageProps) {
           </Suspense>
         </div>
       </article>
-
-      <StickyMobileAd />
 
       <MobileArticleBottomBar
         documentId={article.documentId}

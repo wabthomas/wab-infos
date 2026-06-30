@@ -157,7 +157,7 @@ export function ArticleTopAd() {
   const slot = slots.articleTop?.trim();
   if (!client || !slot) return null;
 
-  return <AdSense slot={slot} format="horizontal" lazy={false} label="article-top" />;
+  return <AdSense slot={slot} format="horizontal" lazy label="article-top" />;
 }
 
 /** Format « In-article » AdSense — à placer entre les paragraphes */
@@ -167,7 +167,7 @@ export function ArticleInContentAd() {
   if (!client || !slot) return null;
 
   return (
-    <AdSense slot={slot} format="fluid" layout="in-article" label="article-in-content" />
+    <AdSense slot={slot} format="fluid" layout="in-article" lazy label="article-in-content" />
   );
 }
 
@@ -184,7 +184,7 @@ export function ArticleBottomAd() {
   const slot = slots.articleBottom?.trim();
   if (!client || !slot) return null;
 
-  return <AdSense slot={slot} format="horizontal" label="article-bottom" />;
+  return <AdSense slot={slot} format="horizontal" lazy label="article-bottom" />;
 }
 
 /** @deprecated Utiliser ArticleBottomAd */
