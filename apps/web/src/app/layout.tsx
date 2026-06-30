@@ -145,12 +145,13 @@ export default function RootLayout({
             <img
               src="/brand-icon.png"
               alt=""
-              width={512}
-              height={512}
+              width={256}
+              height={256}
               className="app-launch-splash-logo"
             />
           </div>
-          <p className="app-launch-splash-tagline mt-6 max-w-xs text-center text-sm font-medium leading-snug text-white/95">
+          <p className="app-launch-splash-title">Wab-infos</p>
+          <p className="app-launch-splash-tagline max-w-xs text-center text-sm font-medium leading-snug text-white/90">
             S&apos;informer pour mieux s&apos;armer !
           </p>
         </div>

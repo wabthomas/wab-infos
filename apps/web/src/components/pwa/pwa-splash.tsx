@@ -32,6 +32,7 @@ function finishAppLaunch() {
 
 export function PwaSplash() {
   const [phase, setPhase] = useState<'hidden' | 'visible' | 'out'>('hidden');
+  const [title, setTitle] = useState(siteConfig.name);
   const [tagline, setTagline] = useState<string>(siteConfig.tagline);
 
   useLayoutEffect(() => {
@@ -51,7 +52,13 @@ export function PwaSplash() {
 
       persistPwaVariantFromPath(window.location.pathname);
       const variant = getPwaVariant();
-      setTagline(variant === 'redaction' ? 'Rédaction Wab-infos' : siteConfig.tagline);
+      if (variant === 'redaction') {
+        setTitle('Rédaction');
+        setTagline(siteConfig.name);
+      } else {
+        setTitle(siteConfig.name);
+        setTagline(siteConfig.tagline);
+      }
       setPhase('visible');
 
       const minMs = asyncNative ? SPLASH_MS_NATIVE_MIN : SPLASH_MS_PWA;
@@ -99,13 +106,16 @@ export function PwaSplash() {
         <Image
           src={SPLASH_LOGO}
           alt={siteConfig.name}
-          width={512}
-          height={512}
+          width={256}
+          height={256}
           className="app-launch-splash-logo"
           priority
+          sizes="104px"
+          quality={85}
         />
       </div>
-      <p className="app-launch-splash-tagline mt-6 max-w-xs text-center text-sm font-medium leading-snug text-white/95">
+      <p className="app-launch-splash-title">{title}</p>
+      <p className="app-launch-splash-tagline max-w-xs text-center text-sm font-medium leading-snug text-white/90">
         {tagline}
       </p>
       {phase === 'visible' && (

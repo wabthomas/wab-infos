@@ -51,4 +51,11 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
+const splash = spawnSync('node', ['scripts/reader-android-splash.mjs'], {
+  cwd: root,
+  stdio: 'inherit',
+  shell: true,
+});
+if (splash.status !== 0) process.exit(splash.status ?? 1);
+
 console.log('[icons] Icônes Android générées. Puis : npm run reader-android:sync');

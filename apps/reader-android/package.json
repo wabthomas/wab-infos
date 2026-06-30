@@ -9,7 +9,9 @@
     "cap:run": "cap run android",
     "android:debug": "npm run cap:sync && npm run cap:run",
     "icons": "node ../../scripts/reader-android-icons.mjs",
+    "splash": "node ../../scripts/reader-android-splash.mjs",
     "release": "node ../../scripts/reader-android-release.mjs",
+    "bundle": "node ../../scripts/reader-android-bundle.mjs",
     "copy-apk": "node ../../scripts/copy-apk-to-web.mjs"
   },
   "dependencies": {
