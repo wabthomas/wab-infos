@@ -222,6 +222,8 @@ cd ~/wab-infos/apps/redaction
 
 Si erreur → **N0C → Langues → Node.js → app rédaction → Installer module NPM**, puis Redémarrer.
 
+> Si npm ne marche toujours pas en SSH ou après le bouton N0C : voir **[depannage-noc-npm.md](./depannage-noc-npm.md)** et lancer `bash scripts/noc-npm-install.sh redaction`.
+
 ### 4. Vérification
 
 ```bash

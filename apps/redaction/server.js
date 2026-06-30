@@ -2,6 +2,7 @@
 
 const http = require('http');
 const { parse } = require('url');
+require('../../scripts/setup-monorepo-node-path.cjs').setupMonorepoNodePath(__dirname);
 const next = require('next');
 
 process.chdir(__dirname);
