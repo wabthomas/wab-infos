@@ -6,6 +6,7 @@ const publicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000
 
 const nextConfig: NextConfig = {
   // Pas de output: 'standalone' — incompatible avec server.js (PlanetHoster / Passenger)
+  serverExternalPackages: ['sharp'],
   turbopack: {
     root: path.join(__dirname, '../..'),
   },

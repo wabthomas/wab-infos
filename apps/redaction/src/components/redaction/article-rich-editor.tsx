@@ -24,6 +24,9 @@ import {
   X,
 } from 'lucide-react';
 import { parseEmbedUrl, youtubeWatchUrl } from '@/lib/redaction/embed-urls';
+import { readApiJsonResponse } from '@/lib/redaction/api-response';
+import { compressClientImage } from '@/lib/redaction/compress-client-image';
+import { IMAGE_UPLOAD_ACCEPT } from '@/lib/redaction/image-upload-accept';
 import { BlockChrome } from '@/lib/redaction/tiptap-block-chrome';
 import { SocialEmbed } from '@/lib/redaction/tiptap-social-embed';
 import { ArticleEditorToolbar } from '@/components/redaction/article-editor-toolbar';
@@ -240,10 +243,11 @@ export function ArticleRichEditor({
       setUploading(true);
       setError('');
       try {
+        const prepared = await compressClientImage(file);
         const form = new FormData();
-        form.append('file', file);
+        form.append('file', prepared);
         const res = await fetch('/api/redaction/upload', { method: 'POST', body: form });
-        const data = (await res.json()) as { media?: { url: string }; error?: string };
+        const data = await readApiJsonResponse<{ media?: { url: string }; error?: string }>(res);
         if (!res.ok) throw new Error(data.error ?? 'Upload échoué');
         const src = data.media!.url.startsWith('http')
           ? data.media!.url
@@ -281,7 +285,7 @@ export function ArticleRichEditor({
       <input
         ref={fileRef}
         type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
+        accept={IMAGE_UPLOAD_ACCEPT}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

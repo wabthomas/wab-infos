@@ -1057,11 +1057,24 @@ export async function uploadEditorImage(
     cache: 'no-store',
   });
 
+  const text = await res.text();
   if (!res.ok) {
-    throw new Error(`Upload échoué (${res.status})`);
+    let detail = text.replace(/\s+/g, ' ').trim().slice(0, 200);
+    try {
+      const json = JSON.parse(text) as { error?: { message?: string }; message?: string };
+      detail = json.error?.message ?? json.message ?? detail;
+    } catch {
+      // corps HTML ou texte brut
+    }
+    throw new Error(detail ? `Upload Strapi échoué : ${detail}` : `Upload échoué (${res.status})`);
   }
 
-  const data = (await res.json()) as { id: number; url: string }[];
+  let data: { id: number; url: string }[];
+  try {
+    data = JSON.parse(text) as { id: number; url: string }[];
+  } catch {
+    throw new Error('Réponse Strapi invalide après upload');
+  }
   const media = data[0];
   if (!media?.id) throw new Error('Upload sans identifiant');
 

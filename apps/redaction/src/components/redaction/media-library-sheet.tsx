@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, FolderOpen, ImagePlus, Loader2, Search, Upload, X } from 'lucide-react';
 import type { RedactionMediaItem } from '@/lib/redaction/types';
+import { readApiJsonResponse } from '@/lib/redaction/api-response';
+import { compressClientImage } from '@/lib/redaction/compress-client-image';
+import { IMAGE_UPLOAD_ACCEPT } from '@/lib/redaction/image-upload-accept';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
 
 type LibraryTab = 'library' | 'upload';
@@ -79,11 +82,11 @@ export function MediaLibrarySheet({
       if (query) params.set('q', query);
 
       const res = await fetch(`/api/redaction/media?${params}`);
-      const data = (await res.json()) as {
+      const data = await readApiJsonResponse<{
         items?: RedactionMediaItem[];
         pageCount?: number;
         error?: string;
-      };
+      }>(res);
 
       if (!res.ok) throw new Error(data.error ?? 'Chargement impossible');
 
@@ -138,13 +141,14 @@ export function MediaLibrarySheet({
     setUploading(true);
     setError('');
     try {
+      const prepared = await compressClientImage(file);
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', prepared);
       const res = await fetch('/api/redaction/upload', { method: 'POST', body: form });
-      const data = (await res.json()) as {
+      const data = await readApiJsonResponse<{
         media?: { id: number; url: string; name?: string };
         error?: string;
-      };
+      }>(res);
       if (!res.ok || !data.media) throw new Error(data.error ?? 'Upload échoué');
 
       const media: RedactionMediaItem = {
@@ -328,13 +332,14 @@ export function MediaLibrarySheet({
           <input
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
+            accept={IMAGE_UPLOAD_ACCEPT}
             className="hidden"
             onChange={handleFileChange}
           />
           <input
             ref={cameraRef}
             type="file"
+            accept={IMAGE_UPLOAD_ACCEPT}
             capture="environment"
             className="hidden"
             onChange={handleFileChange}
