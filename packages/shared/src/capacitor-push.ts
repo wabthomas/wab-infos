@@ -86,6 +86,29 @@ async function repostCachedToken(subscribePath: string, platform: 'android' | 'i
   }
 }
 
+async function ensureLocalNotificationPermissions(): Promise<void> {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const permission = await LocalNotifications.checkPermissions();
+    if (permission.display !== 'granted') {
+      await LocalNotifications.requestPermissions();
+    }
+  } catch {
+    // plugin optionnel
+  }
+}
+
+function handleNotificationTap(rawUrl: string | undefined): void {
+  if (!rawUrl || typeof window === 'undefined') return;
+
+  if (rawUrl.startsWith('http')) {
+    void navigateInApp(resolvePublicHttpsUrl(rawUrl, rawUrl));
+    return;
+  }
+
+  window.location.href = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+}
+
 async function ensureCapacitorPushListeners(): Promise<void> {
   if (!(await isNativeCapacitorApp())) return;
 
@@ -105,11 +128,9 @@ async function ensureCapacitorPushListeners(): Promise<void> {
     void (async () => {
       try {
         const { LocalNotifications } = await import('@capacitor/local-notifications');
+        await ensureLocalNotificationPermissions();
         const permission = await LocalNotifications.checkPermissions();
-        if (permission.display !== 'granted') {
-          const requested = await LocalNotifications.requestPermissions();
-          if (requested.display !== 'granted') return;
-        }
+        if (permission.display !== 'granted') return;
 
         const data = notification.data as { title?: string; body?: string; url?: string } | undefined;
         const title =
@@ -123,29 +144,32 @@ async function ensureCapacitorPushListeners(): Promise<void> {
               id: Math.floor(Math.random() * 1_000_000),
               title,
               body,
+              sound: 'default',
               extra: { url: data?.url },
               channelId: 'wab_infos_news',
             },
           ],
         });
       } catch {
-        // LocalNotifications optional — notification système si app en arrière-plan
+        // FCM affiche la notification si l'app est en arrière-plan
       }
     })();
   });
 
   await PushNotifications.addListener('pushNotificationActionPerformed', (event) => {
     const data = event.notification.data as { url?: string } | undefined;
-    const rawUrl = data?.url;
-    if (!rawUrl || typeof window === 'undefined') return;
-
-    if (rawUrl.startsWith('http')) {
-      void navigateInApp(resolvePublicHttpsUrl(rawUrl, rawUrl));
-      return;
-    }
-
-    window.location.href = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+    handleNotificationTap(data?.url);
   });
+
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    await LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+      const extra = event.notification.extra as { url?: string } | undefined;
+      handleNotificationTap(extra?.url);
+    });
+  } catch {
+    // ignore
+  }
 }
 
 /** Initialise les écouteurs push + enregistre le token FCM côté serveur. */
@@ -164,6 +188,7 @@ export async function initCapacitorPush(options: CapacitorPushInitOptions): Prom
   const permission = await PushNotifications.checkPermissions();
 
   if (permission.receive === 'granted') {
+    await ensureLocalNotificationPermissions();
     await repostCachedToken(options.subscribePath, activePlatform);
     await PushNotifications.register();
   }
@@ -208,6 +233,7 @@ export async function subscribeViaCapacitorPush(
     if (permission.receive !== 'granted') {
       return { ok: false, reason: 'denied' };
     }
+    await ensureLocalNotificationPermissions();
   } else {
     const permission = await PushNotifications.checkPermissions();
     if (permission.receive !== 'granted') {

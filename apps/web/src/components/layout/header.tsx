@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Menu, Tv, X } from 'lucide-react';
 import { categories, siteConfig } from '@/config/site';
+import { isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
 import { SiteLogo } from '@/components/brand/site-logo';
 import { HeaderAuthLink } from '@/components/layout/header-auth-link';
 import { HeaderSearch } from '@/components/layout/header-search';
@@ -93,7 +94,8 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
     if (!scrollEl) return;
 
     const activeLink = scrollEl.querySelector<HTMLElement>('[data-rubric-active="true"]');
-    activeLink?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    const scrollBehavior = isNativeCapacitorFromUserAgent() ? 'auto' : 'smooth';
+    activeLink?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: scrollBehavior });
   }, [pathname]);
 
   return (
@@ -129,7 +131,10 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
       <header
         ref={mainBarRef}
         className={cn(
-          'z-50 w-full border-b border-border bg-background transition-shadow duration-200 supports-[backdrop-filter]:bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm',
+          'z-50 w-full border-b border-border bg-background transition-shadow duration-200',
+          isNativeCapacitorFromUserAgent()
+            ? 'bg-background'
+            : 'supports-[backdrop-filter]:bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm',
           isPinned
             ? 'fixed top-0 left-0 right-0 shadow-md'
             : 'relative shadow-[0_1px_0_0_rgba(0,0,0,0.04)]'

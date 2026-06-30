@@ -136,10 +136,27 @@ export function calculateReadingTime(content: string): number {
 }
 
 export function rewriteWordPressContent(html: string): string {
-  return html.replace(
+  let out = html.replace(
     /https?:\/\/wab-infos\.com\/wp-content\/uploads\//gi,
     '/wp-content/uploads/'
   );
+
+  const internalOrigins = [
+    'https://wab-infos.com',
+    'https://www.wab-infos.com',
+    'https://app.wab-infos.com',
+    'http://localhost:3000',
+  ];
+
+  for (const origin of internalOrigins) {
+    const escaped = origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(
+      new RegExp(`href=(["'])${escaped}(/[^"'#?]+)\\1`, 'gi'),
+      'href=$1$2$1'
+    );
+  }
+
+  return out;
 }
 
 /** Échappe les caractères réservés HTML dans du texte brut. */

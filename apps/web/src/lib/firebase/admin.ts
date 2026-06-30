@@ -60,9 +60,12 @@ export async function sendFcmToToken(
     },
     android: {
       priority: 'high',
+      ttl: 86400,
       notification: {
         channelId: 'wab_infos_news',
         sound: 'default',
+        defaultSound: true,
+        defaultVibrateTimings: true,
       },
     },
     webpush: {

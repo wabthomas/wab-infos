@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
 import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { pushAdsenseSlot, waitForAdsenseScript } from '@/lib/adsense-loader';
 import { cn } from '@/lib/utils';
@@ -193,8 +194,14 @@ export function InArticleAd() {
 
 export function StickyMobileAd() {
   const { client, slots } = useAdsenseConfig();
+  const [hideOnNative, setHideOnNative] = useState(false);
+
+  useEffect(() => {
+    if (isNativeCapacitorFromUserAgent()) setHideOnNative(true);
+  }, []);
+
   const slot = slots.mobileSticky?.trim();
-  if (!client || !slot) return null;
+  if (hideOnNative || !client || !slot) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">

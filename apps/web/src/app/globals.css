@@ -518,3 +518,17 @@ html.pwa-launching body {
   position: relative;
   z-index: 1;
 }
+
+/* APK Capacitor — scroll plus fluide, moins de jank compositing */
+html.native-capacitor {
+  overscroll-behavior-y: none;
+}
+
+html.native-capacitor body {
+  -webkit-overflow-scrolling: touch;
+}
+
+html.native-capacitor .prose-article img {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}

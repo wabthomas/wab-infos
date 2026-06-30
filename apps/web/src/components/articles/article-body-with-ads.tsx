@@ -1,6 +1,7 @@
 'use client';
 
-import { Fragment, useMemo } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
 import {
   ArticleInContentAd,
   ArticleMidAd,
@@ -14,8 +15,17 @@ interface ArticleBodyWithAdsProps {
 
 export function ArticleBodyWithAds({ html }: ArticleBodyWithAdsProps) {
   const { slots } = useAdsenseConfig();
+  const [nativeApp, setNativeApp] = useState(false);
+
+  useEffect(() => {
+    if (isNativeCapacitorFromUserAgent()) setNativeApp(true);
+  }, []);
 
   const { segments, showInContent, showMid } = useMemo(() => {
+    if (nativeApp) {
+      return { segments: [html], showInContent: false, showMid: false };
+    }
+
     const paragraphCount = countArticleParagraphs(html);
     const hasInContent = Boolean(slots.articleInContent?.trim());
     const hasMid = Boolean(slots.articleMid?.trim());
@@ -34,7 +44,7 @@ export function ArticleBodyWithAds({ html }: ArticleBodyWithAdsProps) {
       showInContent: hasInContent && parts.length > 1,
       showMid: hasMid && parts.length > 2,
     };
-  }, [html, slots.articleInContent, slots.articleMid]);
+  }, [html, slots.articleInContent, slots.articleMid, nativeApp]);
 
   return (
     <div className="prose-article">
