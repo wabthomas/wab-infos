@@ -136,7 +136,7 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
             ? 'bg-background'
             : 'supports-[backdrop-filter]:bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm',
           isPinned
-            ? 'fixed top-0 left-0 right-0 shadow-md'
+            ? 'native-safe-top fixed left-0 right-0 shadow-md'
             : 'relative shadow-[0_1px_0_0_rgba(0,0,0,0.04)]'
         )}
       >

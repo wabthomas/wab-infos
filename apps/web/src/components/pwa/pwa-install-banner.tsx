@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
-import { Download, ExternalLink, Share, X } from 'lucide-react';
+import { Download, ExternalLink, Smartphone, X } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { PWA_INSTALL_DISMISS } from '@/lib/pwa/constants';
 import {
@@ -20,6 +20,10 @@ interface PwaInstallBannerProps {
   variant: PwaVariant;
   /** fixed = bandeau flottant site ; inline = dans le flux (login rédaction) */
   placement?: 'fixed' | 'inline';
+  /** banner = panneau visible ; fab = bouton flottant qui ouvre le panneau */
+  display?: 'banner' | 'fab';
+  /** Délai avant affichage du bouton fab (ms) */
+  showAfterMs?: number;
 }
 
 /** Événement Chrome / Edge pour l’installation PWA */
@@ -172,7 +176,12 @@ function AndroidSiteInstallBanner({
   );
 }
 
-export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBannerProps) {
+export function PwaInstallBanner({
+  variant,
+  placement = 'inline',
+  display = 'banner',
+  showAfterMs = 3000,
+}: PwaInstallBannerProps) {
   const [mounted, setMounted] = useState(false);
   const [installCheckDone, setInstallCheckDone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -182,6 +191,8 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
   const [android, setAndroid] = useState(false);
   const [needsSafari, setNeedsSafari] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [fabVisible, setFabVisible] = useState(display !== 'fab');
+  const [fabOpen, setFabOpen] = useState(false);
 
   const dismissKey = PWA_INSTALL_DISMISS[variant];
   const labels = COPY[variant];
@@ -230,8 +241,16 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
     })();
   }, [dismissKey, variant]);
 
+  useEffect(() => {
+    if (display !== 'fab' || !installCheckDone || dismissed) return;
+
+    const timer = window.setTimeout(() => setFabVisible(true), showAfterMs);
+    return () => window.clearTimeout(timer);
+  }, [display, installCheckDone, dismissed, showAfterMs]);
+
   function dismiss() {
     setDismissed(true);
+    setFabOpen(false);
     try {
       sessionStorage.setItem(dismissKey, '1');
     } catch {
@@ -260,11 +279,6 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
   ) {
     return null;
   }
-
-  const shellClass =
-    placement === 'fixed'
-      ? 'fixed inset-x-3 bottom-[calc(3.75rem+env(safe-area-inset-bottom)+0.5rem)] z-40 md:inset-x-auto md:bottom-4 md:left-4 md:max-w-sm'
-      : '';
 
   let content: React.ReactNode = null;
 
@@ -363,6 +377,44 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
   }
 
   if (!content) return null;
+
+  if (display === 'fab') {
+    if (!fabVisible) return null;
+
+    const FabIcon = android ? Smartphone : Download;
+
+    return (
+      <div className="native-safe-bottom fixed bottom-[calc(3.75rem+env(safe-area-inset-bottom)+0.75rem)] right-3 z-40 md:bottom-5 md:right-5">
+        {fabOpen ? (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-40"
+              aria-label="Fermer"
+              onClick={() => setFabOpen(false)}
+            />
+            <div className="absolute bottom-full right-0 z-50 mb-2 w-[min(calc(100vw-1.5rem),20rem)]">
+              {content}
+            </div>
+          </>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setFabOpen((open) => !open)}
+          className="relative z-50 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95"
+          aria-label="Installer l'application"
+          aria-expanded={fabOpen}
+        >
+          <FabIcon className="h-5 w-5" />
+        </button>
+      </div>
+    );
+  }
+
+  const shellClass =
+    placement === 'fixed'
+      ? 'fixed inset-x-3 bottom-[calc(3.75rem+env(safe-area-inset-bottom)+0.5rem)] z-40 md:inset-x-auto md:bottom-4 md:left-4 md:max-w-sm'
+      : '';
 
   return <div className={shellClass}>{content}</div>;
 }

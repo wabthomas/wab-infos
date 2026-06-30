@@ -455,6 +455,12 @@ html.pwa-launching body {
   overflow: hidden;
 }
 
+html.pwa-launching .ad-container,
+html.pwa-launching .adsbygoogle,
+html.pwa-launching ins.adsbygoogle {
+  display: none !important;
+}
+
 .pwa-splash,
 .pwa-splash-bootstrap {
   color-scheme: light;
@@ -519,13 +525,27 @@ html.pwa-launching body {
   z-index: 1;
 }
 
-/* APK Capacitor — scroll plus fluide, moins de jank compositing */
+/* APK Capacitor — scroll plus fluide, respect barre de statut / navigation */
 html.native-capacitor {
+  --cap-safe-top: 0px;
+  --cap-safe-bottom: 0px;
   overscroll-behavior-y: none;
 }
 
 html.native-capacitor body {
   -webkit-overflow-scrolling: touch;
+}
+
+html.native-capacitor.cap-insets-ready body {
+  padding-top: var(--cap-safe-top);
+}
+
+html.native-capacitor.cap-insets-ready .native-safe-top {
+  top: var(--cap-safe-top) !important;
+}
+
+html.native-capacitor.cap-insets-ready .native-safe-bottom {
+  bottom: var(--cap-safe-bottom) !important;
 }
 
 html.native-capacitor .prose-article img {

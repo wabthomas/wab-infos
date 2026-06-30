@@ -36,6 +36,7 @@ export default async function RedactionEditArticlePage({ params }: PageProps) {
         authorDocumentId: article.author?.documentId,
         publishedAt: article.publishedAt,
         articleStatus: article.status,
+        viewCount: article.viewCount,
       }}
     />
   );

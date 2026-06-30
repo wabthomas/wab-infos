@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
+import { shouldShowAdsClient } from '@/lib/ads/should-show-ads';
 import { ArticleInContentAd, ArticleMidAd } from '@/components/ads/adsense';
 import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { countArticleParagraphs, splitHtmlAtParagraphs } from '@/lib/article-content';
@@ -34,14 +34,14 @@ interface ArticleBodyWithAdsProps {
 
 export function ArticleBodyWithAds({ html }: ArticleBodyWithAdsProps) {
   const { slots } = useAdsenseConfig();
-  const [nativeApp, setNativeApp] = useState(false);
+  const [adsEnabled, setAdsEnabled] = useState(true);
 
   useEffect(() => {
-    if (isNativeCapacitorFromUserAgent()) setNativeApp(true);
+    setAdsEnabled(shouldShowAdsClient());
   }, []);
 
   const { segments, adKinds } = useMemo(() => {
-    if (nativeApp) {
+    if (!adsEnabled) {
       return { segments: [html], adKinds: [] as (InArticleAdKind | null)[] };
     }
 
@@ -81,7 +81,7 @@ export function ArticleBodyWithAds({ html }: ArticleBodyWithAdsProps) {
       segments: parts,
       adKinds: [resolveAdKind(0, hasInContent, hasMid)],
     };
-  }, [html, slots.articleInContent, slots.articleMid, nativeApp]);
+  }, [adsEnabled, html, slots.articleInContent, slots.articleMid]);
 
   return (
     <div className="prose-article">

@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as 'draft' | 'published' | 'scheduled' | 'all' | null;
     const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
-    const pageSize = Math.min(50, Math.max(10, Number(searchParams.get('pageSize') ?? '20') || 20));
+    const pageSize = Math.min(50, Math.max(6, Number(searchParams.get('pageSize') ?? '6') || 6));
     const authorDocumentId = searchParams.get('author')?.trim() || undefined;
 
     const result = await listEditorArticles(user, status ?? 'all', {

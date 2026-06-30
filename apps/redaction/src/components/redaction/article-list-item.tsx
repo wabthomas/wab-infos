@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ExternalLink, EyeOff, Loader2, Pencil, Share2, Trash2, Upload } from 'lucide-react';
+import { ImageIcon } from 'lucide-react';
 import type { RedactionArticle } from '@/lib/redaction/types';
 import { getPublicArticleUrl } from '@/lib/redaction/article-public-url';
 import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
 import { getRedactionArticleStatusLabel } from '@/lib/redaction/status-label';
-import { formatArticleDate, getArticleDisplayDate } from '@/lib/utils';
+import { formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
+import { ArticleListOptionsMenu } from '@/components/redaction/article-list-options-menu';
 
 interface ArticleListItemProps {
   article: RedactionArticle;
@@ -29,8 +30,11 @@ export function ArticleListItem({
   onPublicationChange,
 }: ArticleListItemProps) {
   const publicUrl = getPublicArticleUrl(article);
+  const editHref = `/articles/${article.documentId}/edit`;
+  const thumbnailUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const [deleting, setDeleting] = useState(false);
   const [togglingPublication, setTogglingPublication] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const isDraft = article.status === 'draft' && !article.publishedAt;
   const isLive = isLiveRedactionArticle(article);
   const canDelete = canDeleteAny || isDraft;
@@ -105,110 +109,75 @@ export function ArticleListItem({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start justify-between gap-2">
-        <Link
-          href={`/articles/${article.documentId}/edit`}
-          className="min-w-0 flex-1 transition-colors active:text-primary"
-        >
-          <p className="line-clamp-2 font-semibold leading-snug">{article.title}</p>
-        </Link>
-        {article.isBreaking && (
-          <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
-            Flash
+    <div className="flex gap-3 rounded-xl border border-border bg-card p-3">
+      <Link
+        href={editHref}
+        className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border/60"
+        aria-label={`Modifier ${article.title}`}
+      >
+        {thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={thumbnailUrl}
+            alt={article.featuredImage?.alternativeText || article.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+            <ImageIcon className="h-6 w-6" aria-hidden />
           </span>
         )}
-      </div>
+      </Link>
 
-      <p className="mt-2 text-xs text-muted-foreground">
-        {showAuthor && article.author?.name ? (
-          <>
-            {article.author.name}
-            {' · '}
-          </>
-        ) : null}
-        {article.category?.name ?? 'Sans rubrique'}
-        {' · '}
-        {getRedactionArticleStatusLabel(article.status)}
-        {' · '}
-        {formatArticleDate(getArticleDisplayDate(article))}
-        {showViews && article.viewCount > 0 && ` · ${article.viewCount} vues`}
-      </p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <Link href={editHref} className="min-w-0 flex-1 transition-colors active:text-primary">
+            <p className="line-clamp-2 font-semibold leading-snug">{article.title}</p>
+          </Link>
+          {article.isBreaking ? (
+            <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+              Flash
+            </span>
+          ) : null}
+        </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Link
-          href={`/articles/${article.documentId}/edit`}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-semibold text-foreground active:bg-muted/80"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Modifier
-        </Link>
-        {canManagePublication && !isLive && article.status !== 'scheduled' ? (
-          <button
-            type="button"
-            onClick={() => void togglePublication(true)}
-            disabled={togglingPublication}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            {togglingPublication ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Upload className="h-3.5 w-3.5" />
-            )}
-            Publier
-          </button>
-        ) : null}
-        {canManagePublication && isLive ? (
-          <button
-            type="button"
-            onClick={() => void togglePublication(false)}
-            disabled={togglingPublication}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 disabled:opacity-60 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-          >
-            {togglingPublication ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <EyeOff className="h-3.5 w-3.5" />
-            )}
-            Dépublier
-          </button>
-        ) : null}
-        {publicUrl ? (
-          <>
-            <a
-              href={publicUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-semibold text-foreground active:bg-muted/80"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Voir
-            </a>
-            <button
-              type="button"
-              onClick={() => void shareArticle()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs font-semibold text-foreground active:bg-muted/80"
-            >
-              <Share2 className="h-3.5 w-3.5" />
-              Partager
-            </button>
-          </>
-        ) : null}
-        {canDelete ? (
-          <button
-            type="button"
-            onClick={() => void deleteArticle()}
-            disabled={deleting}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 active:bg-red-100 disabled:opacity-60 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300"
-          >
-            {deleting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="h-3.5 w-3.5" />
-            )}
-            Supprimer
-          </button>
-        ) : null}
+        <div className="mt-1 flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+            {showAuthor && article.author?.name ? (
+              <>
+                <span className="font-medium text-foreground">{article.author.name}</span>
+                <span className="mx-1.5">·</span>
+              </>
+            ) : null}
+            {article.category?.name ?? 'Sans rubrique'}
+            <span className="mx-1.5">·</span>
+            {getRedactionArticleStatusLabel(article.status)}
+            <span className="mx-1.5">·</span>
+            {formatArticleDate(getArticleDisplayDate(article))}
+            {showViews && article.viewCount > 0 ? (
+              <>
+                <span className="mx-1.5">·</span>
+                {article.viewCount.toLocaleString('fr-FR')} vues
+              </>
+            ) : null}
+          </p>
+          <ArticleListOptionsMenu
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            editHref={editHref}
+            publicUrl={publicUrl}
+            canDelete={canDelete}
+            canManagePublication={canManagePublication}
+            showPublish={!isLive && article.status !== 'scheduled'}
+            showUnpublish={isLive}
+            deleting={deleting}
+            togglingPublication={togglingPublication}
+            onPublish={() => void togglePublication(true)}
+            onUnpublish={() => void togglePublication(false)}
+            onShare={publicUrl ? () => void shareArticle() : undefined}
+            onDelete={() => void deleteArticle()}
+          />
+        </div>
       </div>
     </div>
   );

@@ -223,3 +223,31 @@ html.redaction-writing body {
   height: 0;
   pointer-events: none;
 }
+
+/* APK Capacitor — scroll fluide, dimensions écran, barre de statut */
+html.native-capacitor {
+  --cap-safe-top: 0px;
+  --cap-safe-bottom: 0px;
+  overscroll-behavior-y: none;
+}
+
+html.native-capacitor body {
+  -webkit-overflow-scrolling: touch;
+}
+
+html.native-capacitor.cap-insets-ready body {
+  padding-top: var(--cap-safe-top);
+}
+
+html.native-capacitor.cap-insets-ready .native-safe-top {
+  top: var(--cap-safe-top) !important;
+}
+
+html.native-capacitor.cap-insets-ready .native-safe-bottom {
+  bottom: var(--cap-safe-bottom) !important;
+}
+
+.native-safe-screen {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}

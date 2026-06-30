@@ -1,8 +1,9 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Script from 'next/script';
+import { shouldShowAdsClient } from '@/lib/ads/should-show-ads';
 import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { markAdsenseScriptLoaded } from '@/lib/adsense-loader';
 import { Header } from '@/components/layout/header';
@@ -15,10 +16,15 @@ const AUTH_ONLY_PREFIXES = ['/connexion'];
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { client } = useAdsenseConfig();
+  const [adsEnabled, setAdsEnabled] = useState(true);
+
+  useEffect(() => {
+    setAdsEnabled(shouldShowAdsClient());
+  }, []);
 
   return (
     <>
-      {client ? (
+      {client && adsEnabled ? (
         <Script
           id="adsense-script"
           async
@@ -48,13 +54,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage = AUTH_ONLY_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
-  const showSiteInstallBanner = true;
+  const isHomePage = pathname === '/';
 
   return (
     <>
-      {showSiteInstallBanner && (
-        <PwaInstallBanner variant="site" placement="fixed" />
-      )}
+      {isHomePage ? (
+        <PwaInstallBanner variant="site" display="fab" showAfterMs={3000} />
+      ) : null}
       {isAuthPage ? (
         <main className="min-h-screen">{children}</main>
       ) : (

@@ -1,0 +1,10 @@
+# À fusionner dans %USERPROFILE%\.ssh\config (Windows) ou ~/.ssh/config
+# Remplacer HostName et User par les valeurs du panneau N0C → SSH / Informations du compte
+
+Host wab-noc
+  HostName nodels64-eu.n0c.com
+  User votre_user_cpanel
+  Port 5022
+  IdentityFile ~/.ssh/wab-infos-noc
+  IdentitiesOnly yes
+  ServerAliveInterval 60

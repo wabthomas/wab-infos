@@ -8,8 +8,13 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.WebView;
+import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
@@ -21,13 +26,55 @@ public class MainActivity extends BridgeActivity {
         SplashScreen.installSplashScreen(this);
         createNewsNotificationChannel();
         super.onCreate(savedInstanceState);
+        configureSystemBars();
         tuneWebViewForScroll();
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        configureSystemBars();
         tuneWebViewForScroll();
+    }
+
+    private void configureSystemBars() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            getWindow().getAttributes().layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER;
+        }
+        applyWebViewSafeAreaInsets();
+    }
+
+    private void applyWebViewSafeAreaInsets() {
+        Bridge bridge = getBridge();
+        if (bridge == null) {
+            return;
+        }
+
+        WebView webView = bridge.getWebView();
+        if (webView == null) {
+            return;
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, windowInsets) -> {
+            Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            String script =
+                "(function(){"
+                    + "var r=document.documentElement;"
+                    + "r.style.setProperty('--cap-safe-top','"
+                    + systemBars.top
+                    + "px');"
+                    + "r.style.setProperty('--cap-safe-bottom','"
+                    + systemBars.bottom
+                    + "px');"
+                    + "r.classList.add('cap-insets-ready');"
+                    + "})();";
+            view.evaluateJavascript(script, null);
+            return windowInsets;
+        });
+        ViewCompat.requestApplyInsets(webView);
     }
 
     private void createNewsNotificationChannel() {

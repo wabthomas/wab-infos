@@ -13,6 +13,7 @@ import {
   resolveArticleCategorySlug,
   siteConfig,
 } from '@/config/site';
+import { resolveArticleOgImage } from '@/lib/og-image-url';
 import { getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
 
@@ -20,33 +21,9 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function toAbsoluteOgImageUrl(url: string): string {
-  if (url.startsWith('http')) return url;
-  const base = siteConfig.url.replace(/\/$/, '');
-  return url.startsWith('/') ? `${base}${url}` : `${base}/${url}`;
-}
-
 function collectArticleImages(article: Article): string[] {
-  const urls = new Set<string>();
-  const featured = article.featuredImage;
-
-  const add = (url?: string) => {
-    const resolved = getStrapiMediaUrl(url);
-    if (resolved) urls.add(toAbsoluteOgImageUrl(resolved));
-  };
-
-  add(featured?.url);
-  add(featured?.formats?.large?.url);
-  add(featured?.formats?.medium?.url);
-  add(featured?.formats?.small?.url);
-
-  if (urls.size === 0) urls.add(siteConfig.ogImage);
-
-  return [...urls];
-}
-
-function getFeaturedImageAlt(article: Article): string {
-  return article.featuredImage?.alternativeText || article.title;
+  const { url } = resolveArticleOgImage(article);
+  return [url];
 }
 
 export function getYoutubeThumbnailUrl(youtubeId: string, quality: 'maxres' | 'hq' = 'maxres'): string {
@@ -214,11 +191,17 @@ export function generateBroadcastEventJsonLd(options: {
 }
 
 export function generateArticleMetadata(article: Article, urlCategory?: string) {
-  const images = collectArticleImages(article);
-  const imageUrl = images[0];
-  const imageAlt = getFeaturedImageAlt(article);
+  const ogImage = resolveArticleOgImage(article);
   const url = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
   const displayDate = getArticleDisplayDate(article);
+
+  const imageMeta = {
+    url: ogImage.url,
+    alt: ogImage.alt,
+    ...(ogImage.width && ogImage.height
+      ? { width: ogImage.width, height: ogImage.height }
+      : { width: 1200, height: 630 }),
+  };
 
   return {
     title: article.seoTitle || article.title,
@@ -233,12 +216,7 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
       url,
       siteName: siteConfig.name,
       locale: siteConfig.locale,
-      images: images.map((img) => ({
-        url: img,
-        width: 1200,
-        height: 630,
-        alt: imageAlt,
-      })),
+      images: [imageMeta],
       publishedTime: displayDate,
       modifiedTime: article.updatedAt || displayDate,
       authors: article.author ? [article.author.name] : [siteConfig.publisher],
@@ -250,7 +228,7 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
       site: siteConfig.twitter,
       title: article.seoTitle || article.title,
       description: article.seoDescription || article.excerpt,
-      images: [imageUrl],
+      images: [ogImage.url],
     },
     robots: {
       index: true,

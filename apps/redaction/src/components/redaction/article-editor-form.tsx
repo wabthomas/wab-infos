@@ -5,15 +5,13 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Loader2,
-  MoreVertical,
   Redo2,
-  Settings2,
   Undo2,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { RedactionCategory, RedactionMediaItem } from '@/lib/redaction/types';
 import type { ArticleEditorPayload } from '@/lib/redaction/types';
-import { excerptFromContent, formatArticleContent, generateSeoDescription, generateSeoTitle, getStrapiMediaUrl, stripHtml } from '@/lib/utils';
+import { excerptFromContent, formatArticleContent, generateSeoDescription, generateSeoTitle, stripHtml } from '@/lib/utils';
 import {
   clearArticleDraft,
   loadArticleDraft,
@@ -22,6 +20,7 @@ import {
 import { touchRedactionSession } from '@/lib/redaction/touch-session';
 import { ArticleRichEditor } from '@/components/redaction/article-rich-editor';
 import { ArticleEditorSettingsSheet } from '@/components/redaction/article-editor-settings-sheet';
+import { ArticleEditorOptionsMenu } from '@/components/redaction/article-editor-options-menu';
 import { ArticlePublishSheet } from '@/components/redaction/article-publish-sheet';
 import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
 import type { RedactionAuthor } from '@/lib/redaction/types';
@@ -46,6 +45,7 @@ export interface ArticleEditorValues {
   authorDocumentId?: string;
   publishedAt?: string;
   articleStatus?: 'draft' | 'published' | 'scheduled' | 'archived';
+  viewCount?: number;
 }
 
 function toDatetimeLocal(iso?: string): string {
@@ -689,9 +689,9 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     <div className="jetpack-editor-screen fixed inset-0 flex flex-col bg-background">
       <header
         ref={headerRef}
-        className="fixed inset-x-0 top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur pt-[max(0.5rem,env(safe-area-inset-top))]"
+        className="native-safe-top fixed inset-x-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur pt-2"
       >
-        <div className="flex items-center gap-2 px-3 py-2.5">
+        <div className="flex items-center gap-1.5 px-3 py-2.5">
           <button
             type="button"
             onClick={() => void handleBack()}
@@ -721,97 +721,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             <Redo2 className="h-5 w-5" />
           </button>
 
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="min-w-0 flex-1 truncate rounded-full bg-muted/80 px-3 py-1.5 text-left text-xs font-semibold text-muted-foreground active:bg-muted"
-          >
-            {primaryCategoryName}
-            {values.categoryDocumentIds.length > 1 && (
-              <span className="ml-1.5">+{values.categoryDocumentIds.length - 1}</span>
-            )}
-            {values.isBreaking && (
-              <span className="ml-1.5 text-red-600">· Flash</span>
-            )}
-            {scheduledAt && (
-              <span className="ml-1.5 text-primary">· Planifié</span>
-            )}
-            {autosaveStatus === 'saving' && (
-              <span className="ml-1.5 text-muted-foreground">· …</span>
-            )}
-            {autosaveStatus === 'saved' && (
-              <span className="ml-1.5 text-green-600">· Sauvé</span>
-            )}
-            {autosaveStatus === 'error' && (
-              <span className="ml-1.5 text-amber-600">· Hors ligne</span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted"
-            aria-label="Réglages"
-          >
-            <Settings2 className="h-5 w-5" />
-          </button>
-
-          {values.featuredImageUrl ? (
-            <button
-              type="button"
-              onClick={() => setMediaLibraryOpen(true)}
-              className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border"
-              aria-label="Photo à la une"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={getStrapiMediaUrl(values.featuredImageUrl) ?? values.featuredImageUrl}
-                alt={values.featuredImageAlt ?? ''}
-                className="h-full w-full object-cover"
-              />
-            </button>
-          ) : null}
-
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((o) => !o)}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-foreground active:bg-muted"
-              aria-label="Plus d’actions"
-            >
-              <MoreVertical className="h-5 w-5" />
-            </button>
-            {menuOpen && (
-              <>
-                <button
-                  type="button"
-                  className="fixed inset-0 z-40"
-                  aria-label="Fermer le menu"
-                  onClick={() => setMenuOpen(false)}
-                />
-                <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg">
-                  <button
-                    type="button"
-                    disabled={!!saving}
-                    onClick={() => save('draft')}
-                    className="flex w-full px-4 py-2.5 text-left text-sm font-medium active:bg-muted disabled:opacity-50"
-                  >
-                    {saving === 'draft' ? 'Enregistrement…' : 'Enregistrer brouillon'}
-                  </button>
-                  {canDeleteArticle ? (
-                    <button
-                      type="button"
-                      disabled={!!saving || deleting}
-                      onClick={() => void deleteArticle()}
-                      className="flex w-full px-4 py-2.5 text-left text-sm font-medium text-red-600 active:bg-red-50 disabled:opacity-50 dark:active:bg-red-950/40"
-                    >
-                      {deleting ? 'Suppression…' : 'Supprimer l’article'}
-                    </button>
-                  ) : null}
-                </div>
-              </>
-            )}
-          </div>
+          <div className="min-w-0 flex-1" />
 
           <button
             type="button"
@@ -863,6 +773,71 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
               placeholder="Titre"
             />
           </label>
+
+          <div className="mt-2 flex items-center gap-2 border-b border-border/50 pb-3">
+            <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {currentAuthorName || 'Rédaction'}
+              </span>
+              {primaryCategoryName ? (
+                <>
+                  <span className="mx-1.5">·</span>
+                  <span>{primaryCategoryName}</span>
+                  {values.categoryDocumentIds.length > 1 ? (
+                    <span> +{values.categoryDocumentIds.length - 1}</span>
+                  ) : null}
+                </>
+              ) : null}
+              {(initial?.viewCount ?? 0) > 0 ? (
+                <>
+                  <span className="mx-1.5">·</span>
+                  <span>{initial?.viewCount?.toLocaleString('fr-FR')} vues</span>
+                </>
+              ) : null}
+              {values.isBreaking ? (
+                <>
+                  <span className="mx-1.5">·</span>
+                  <span className="font-semibold text-red-600">Flash</span>
+                </>
+              ) : null}
+              {scheduledAt && new Date(scheduledAt).getTime() > Date.now() ? (
+                <>
+                  <span className="mx-1.5">·</span>
+                  <span className="text-primary">Planifié</span>
+                </>
+              ) : null}
+              {autosaveStatus === 'saving' ? (
+                <>
+                  <span className="mx-1.5">·</span>
+                  <span>Enregistrement…</span>
+                </>
+              ) : null}
+              {autosaveStatus === 'saved' ? (
+                <>
+                  <span className="mx-1.5">·</span>
+                  <span className="text-green-600">Sauvé</span>
+                </>
+              ) : null}
+              {autosaveStatus === 'error' ? (
+                <>
+                  <span className="mx-1.5">·</span>
+                  <span className="text-amber-600">Hors ligne</span>
+                </>
+              ) : null}
+            </p>
+            <ArticleEditorOptionsMenu
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onOpenFeaturedImage={() => setMediaLibraryOpen(true)}
+              onSaveDraft={() => void save('draft')}
+              onDelete={() => void deleteArticle()}
+              savingDraft={saving === 'draft'}
+              deleting={deleting}
+              canDelete={canDeleteArticle}
+              hasFeaturedImage={Boolean(values.featuredImageUrl)}
+            />
+          </div>
 
           <div className="mt-3">
             <ArticleRichEditor

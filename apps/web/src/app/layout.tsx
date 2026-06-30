@@ -6,6 +6,7 @@ import { AppShell } from '@/components/layout/app-shell';
 import { PwaSetup } from '@/components/pwa/pwa-setup';
 import { NativeAppSetup } from '@/components/pwa/native-app-setup';
 import { NativeScrollManager } from '@/components/layout/native-scroll-manager';
+import { NativePullToRefresh } from '@/components/layout/native-pull-to-refresh';
 import { NativePushSetup } from '@/components/pwa/native-push-setup';
 import { PwaSplash } from '@/components/pwa/pwa-splash';
 import { GoogleTagManagerBody, GoogleTagManagerHead } from '@/components/google/google-tag-manager';
@@ -161,6 +162,7 @@ export default function RootLayout({
         <div id="app-root" className="flex min-h-full flex-1 flex-col">
           <NativeAppSetup />
           <NativeScrollManager />
+          <NativePullToRefresh />
           <PwaSetup />
           <NativePushSetup />
           <ThemeProvider>

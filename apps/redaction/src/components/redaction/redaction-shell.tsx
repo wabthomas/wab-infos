@@ -115,32 +115,36 @@ export function RedactionShell({ children, authorName }: RedactionShellProps) {
   }, []);
 
   if (writing) {
-    return <div className="fixed inset-0 z-50 bg-background">{children}</div>;
+    return (
+      <div className="native-safe-screen fixed inset-0 z-50 flex flex-col bg-background">
+        {children}
+      </div>
+    );
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))]">
+    <div className="native-safe-screen flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-background">
+      <header className="native-safe-top z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="mx-auto max-w-lg">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Rédaction</p>
           <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-lg flex-1 px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      <main className="mx-auto w-full max-w-lg flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch]">
         <RedactionPushBanner />
         {children}
       </main>
 
       <Link
         href="/nouveau"
-        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95"
+        className="native-safe-bottom fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95"
         aria-label="Écrire un article"
       >
         <PenLine className="h-6 w-6" />
       </Link>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))]">
+      <nav className="native-safe-bottom fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))]">
         <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
           {NAV_ITEMS.map(({ href, label, icon, ...rest }) => (
             <NavItem

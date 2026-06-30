@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
+import { shouldShowAdsClient } from '@/lib/ads/should-show-ads';
 import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { pushAdsenseSlot, waitForAdsenseScript } from '@/lib/adsense-loader';
 import { cn } from '@/lib/utils';
@@ -37,9 +37,14 @@ export function AdSense({
   const loaded = useRef(false);
   const resolvedSlot = resolveSlot(slot);
   const { client } = useAdsenseConfig();
+  const [adsEnabled, setAdsEnabled] = useState(true);
 
   useEffect(() => {
-    if (!client || !resolvedSlot || loaded.current) return;
+    setAdsEnabled(shouldShowAdsClient());
+  }, []);
+
+  useEffect(() => {
+    if (!adsEnabled || !client || !resolvedSlot || loaded.current) return;
     let cancelled = false;
     let observer: IntersectionObserver | null = null;
 
@@ -82,9 +87,9 @@ export function AdSense({
       cancelled = true;
       observer?.disconnect();
     };
-  }, [client, lazy, resolvedSlot]);
+  }, [adsEnabled, client, lazy, resolvedSlot]);
 
-  if (!client || !resolvedSlot) {
+  if (!adsEnabled || !client || !resolvedSlot) {
     if (process.env.NODE_ENV === 'production') return null;
     if (!resolvedSlot) return null;
 
@@ -194,14 +199,14 @@ export function InArticleAd() {
 
 export function StickyMobileAd() {
   const { client, slots } = useAdsenseConfig();
-  const [hideOnNative, setHideOnNative] = useState(false);
+  const [adsEnabled, setAdsEnabled] = useState(true);
 
   useEffect(() => {
-    if (isNativeCapacitorFromUserAgent()) setHideOnNative(true);
+    setAdsEnabled(shouldShowAdsClient());
   }, []);
 
   const slot = slots.mobileSticky?.trim();
-  if (hideOnNative || !client || !slot) return null;
+  if (!adsEnabled || !client || !slot) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">

@@ -10,6 +10,7 @@ build/
 .env
 .env.local
 .env.*.local
+deploy/.env.deploy
 *-firebase-adminsdk-*.json
 apps/cms/.env
 apps/web/.env.local

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { NativeAppSetup } from '@/components/pwa/native-app-setup';
 
 export const metadata: Metadata = {
   title: 'Rédaction',
@@ -33,7 +34,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/logo.png" />
       </head>
-      <body className="min-h-full antialiased">{children}</body>
+      <body className="min-h-full antialiased">
+        <NativeAppSetup />
+        {children}
+      </body>
     </html>
   );
 }

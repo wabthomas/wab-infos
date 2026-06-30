@@ -1,16 +1,15 @@
 import Link from 'next/link';
 import { BarChart3, FileText, MessageSquare, PenLine } from 'lucide-react';
-import { getEditorProfile, computeEditorStats, listEditorArticles, requireRedactionUser } from '@/lib/redaction/strapi-editor';
+import { getEditorProfile, getEditorStats, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 import { cn } from '@/lib/utils';
 import { ProfileLogoutButton } from '@/components/redaction/profile-logout-button';
 
 export default async function RedactionProfilePage() {
   const user = await requireRedactionUser();
-  const [{ author, isSuperAdmin }, { articles }] = await Promise.all([
+  const [{ author, isSuperAdmin }, stats] = await Promise.all([
     getEditorProfile(user),
-    listEditorArticles(user, 'all', { omitContent: true, paginate: false }),
+    getEditorStats(user),
   ]);
-  const stats = computeEditorStats(articles);
 
   return (
     <div className="space-y-6">

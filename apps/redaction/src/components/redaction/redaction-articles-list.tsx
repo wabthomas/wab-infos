@@ -69,7 +69,7 @@ export function RedactionArticlesList() {
         const params = new URLSearchParams({
           status: filter,
           page: String(targetPage),
-          pageSize: '20',
+          pageSize: '6',
         });
         if (isSuperAdmin && authorFilter) {
           params.set('author', authorFilter);
