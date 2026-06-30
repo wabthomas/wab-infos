@@ -6,9 +6,11 @@ import { ArticleInContentAd, ArticleMidAd } from '@/components/ads/adsense';
 import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { countArticleParagraphs, splitHtmlAtParagraphs } from '@/lib/article-content';
 
-/** Trois pubs in-article pour les textes longs (la pub de fin reste hors corps). */
+/** Longs articles : 3 pubs in-article. Courts (moins de 10 §) : 1 pub. La pub de fin reste hors corps. */
 const MIN_PARAGRAPHS_LONG_ARTICLE = 10;
-const AD_BREAKPOINTS = [3, 6, 9] as const;
+const MIN_PARAGRAPHS_FOR_AD = 2;
+const SHORT_AD_AFTER_PARAGRAPH = 3;
+const LONG_AD_BREAKPOINTS = [3, 6, 9] as const;
 
 type InArticleAdKind = 'in-content' | 'mid';
 
@@ -47,20 +49,38 @@ export function ArticleBodyWithAds({ html }: ArticleBodyWithAdsProps) {
     const hasInContent = Boolean(slots.articleInContent?.trim());
     const hasMid = Boolean(slots.articleMid?.trim());
 
-    if (paragraphCount < MIN_PARAGRAPHS_LONG_ARTICLE || (!hasInContent && !hasMid)) {
+    if (!hasInContent && !hasMid) {
       return { segments: [html], adKinds: [] as (InArticleAdKind | null)[] };
     }
 
-    const parts = splitHtmlAtParagraphs(html, [...AD_BREAKPOINTS]);
+    if (paragraphCount >= MIN_PARAGRAPHS_LONG_ARTICLE) {
+      const parts = splitHtmlAtParagraphs(html, [...LONG_AD_BREAKPOINTS]);
+      if (parts.length < 2) {
+        return { segments: [html], adKinds: [] as (InArticleAdKind | null)[] };
+      }
+
+      const kinds: (InArticleAdKind | null)[] = LONG_AD_BREAKPOINTS.map((_, index) =>
+        resolveAdKind(index, hasInContent, hasMid)
+      );
+
+      return { segments: parts, adKinds: kinds };
+    }
+
+    if (paragraphCount < MIN_PARAGRAPHS_FOR_AD) {
+      return { segments: [html], adKinds: [] as (InArticleAdKind | null)[] };
+    }
+
+    const shortBreakpoint =
+      paragraphCount < SHORT_AD_AFTER_PARAGRAPH ? paragraphCount : SHORT_AD_AFTER_PARAGRAPH;
+    const parts = splitHtmlAtParagraphs(html, [shortBreakpoint]);
     if (parts.length < 2) {
       return { segments: [html], adKinds: [] as (InArticleAdKind | null)[] };
     }
 
-    const kinds: (InArticleAdKind | null)[] = AD_BREAKPOINTS.map((_, index) =>
-      resolveAdKind(index, hasInContent, hasMid)
-    );
-
-    return { segments: parts, adKinds: kinds };
+    return {
+      segments: parts,
+      adKinds: [resolveAdKind(0, hasInContent, hasMid)],
+    };
   }, [html, slots.articleInContent, slots.articleMid, nativeApp]);
 
   return (
