@@ -155,6 +155,26 @@ export interface ArticleEditorPayload {
   authorDocumentId?: string | null;
 }
 
+export interface ListEditorArticlesOptions {
+  omitContent?: boolean;
+  page?: number;
+  pageSize?: number;
+  /** Filtre par rédacteur (super admin uniquement). */
+  authorDocumentId?: string;
+  /** Si false, retourne tous les articles (stats, export). */
+  paginate?: boolean;
+}
+
+export interface ListEditorArticlesResult {
+  articles: RedactionArticle[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    pageCount: number;
+  };
+}
+
 export interface FcmSubscriptionPayload {
   fcmToken: string;
 }

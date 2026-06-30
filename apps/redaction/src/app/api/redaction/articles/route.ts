@@ -18,8 +18,17 @@ export async function GET(request: Request) {
     const user = await requireRedactionUser();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as 'draft' | 'published' | 'scheduled' | 'all' | null;
-    const articles = await listEditorArticles(user, status ?? 'all');
-    return NextResponse.json({ articles });
+    const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+    const pageSize = Math.min(50, Math.max(10, Number(searchParams.get('pageSize') ?? '20') || 20));
+    const authorDocumentId = searchParams.get('author')?.trim() || undefined;
+
+    const result = await listEditorArticles(user, status ?? 'all', {
+      page,
+      pageSize,
+      authorDocumentId,
+      omitContent: true,
+    });
+    return NextResponse.json(result);
   } catch (err) {
     if (err instanceof RedactionAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });

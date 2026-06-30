@@ -6,9 +6,12 @@ import { Download, ExternalLink, Share, X } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { PWA_INSTALL_DISMISS } from '@/lib/pwa/constants';
 import {
+  detectInstalledPwa,
   isIosDevice,
   isStandalonePwa,
+  markPwaInstalled,
   needsSafariForIosInstall,
+  shouldHideInstallBanner,
   type PwaVariant,
 } from '@/lib/pwa/detect';
 import { isAndroidDevice, isNativeCapacitorApp, isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
@@ -99,7 +102,10 @@ function AndroidSiteInstallBanner({
     try {
       await installPrompt.prompt();
       const { outcome } = await installPrompt.userChoice;
-      if (outcome === 'accepted') onDismiss();
+      if (outcome === 'accepted') {
+        markPwaInstalled('site');
+        onDismiss();
+      }
       setInstallPrompt(null);
     } catch {
       setPwaHint(true);
@@ -168,8 +174,10 @@ function AndroidSiteInstallBanner({
 
 export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBannerProps) {
   const [mounted, setMounted] = useState(false);
+  const [installCheckDone, setInstallCheckDone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [inNativeApp, setInNativeApp] = useState(false);
+  const [alreadyInstalled, setAlreadyInstalled] = useState(false);
   const [ios, setIos] = useState(false);
   const [android, setAndroid] = useState(false);
   const [needsSafari, setNeedsSafari] = useState(false);
@@ -187,25 +195,40 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
       // ignore
     }
 
-    if (isStandalonePwa() || isNativeCapacitorFromUserAgent()) {
-      setInNativeApp(true);
+    if (shouldHideInstallBanner(variant)) {
+      setAlreadyInstalled(true);
+      setInstallCheckDone(true);
       return;
     }
 
-    void isNativeCapacitorApp().then((native) => {
-      if (native) setInNativeApp(true);
-    });
+    void (async () => {
+      try {
+        if (await isNativeCapacitorApp()) {
+          setInNativeApp(true);
+          return;
+        }
 
-    if (isIosDevice()) {
-      setIos(true);
-      setNeedsSafari(needsSafariForIosInstall());
-      return;
-    }
+        const installed = await detectInstalledPwa();
+        if (installed) {
+          markPwaInstalled(variant);
+          setAlreadyInstalled(true);
+          return;
+        }
 
-    if (isAndroidDevice()) {
-      setAndroid(true);
-    }
-  }, [dismissKey]);
+        if (isIosDevice()) {
+          setIos(true);
+          setNeedsSafari(needsSafariForIosInstall());
+          return;
+        }
+
+        if (isAndroidDevice()) {
+          setAndroid(true);
+        }
+      } finally {
+        setInstallCheckDone(true);
+      }
+    })();
+  }, [dismissKey, variant]);
 
   function dismiss() {
     setDismissed(true);
@@ -226,7 +249,17 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
     }
   }
 
-  if (!mounted || dismissed || isStandalonePwa() || inNativeApp) return null;
+  if (
+    !mounted ||
+    !installCheckDone ||
+    dismissed ||
+    isStandalonePwa() ||
+    isNativeCapacitorFromUserAgent() ||
+    inNativeApp ||
+    alreadyInstalled
+  ) {
+    return null;
+  }
 
   const shellClass =
     placement === 'fixed'

@@ -6,9 +6,9 @@ import { cn } from '@/lib/utils';
 
 export default async function RedactionDashboardPage() {
   const user = await requireRedactionUser();
-  const [{ author, canDeleteAnyArticle }, articles] = await Promise.all([
+  const [{ author, canDeleteAnyArticle, isSuperAdmin }, { articles }] = await Promise.all([
     getEditorProfile(user),
-    listEditorArticles(user, 'all', { omitContent: true }),
+    listEditorArticles(user, 'all', { omitContent: true, paginate: false }),
   ]);
   const stats = computeEditorStats(articles);
   const latest = articles.slice(0, 5);
@@ -77,7 +77,12 @@ export default async function RedactionDashboardPage() {
           )}
           {latest.map((article) => (
             <li key={article.documentId}>
-              <ArticleListItem article={article} canDeleteAny={canDeleteAnyArticle} />
+              <ArticleListItem
+                article={article}
+                canDeleteAny={canDeleteAnyArticle}
+                showAuthor={isSuperAdmin}
+                canManagePublication={isSuperAdmin}
+              />
             </li>
           ))}
         </ul>

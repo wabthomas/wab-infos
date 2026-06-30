@@ -6,9 +6,9 @@ import { ProfileLogoutButton } from '@/components/redaction/profile-logout-butto
 
 export default async function RedactionProfilePage() {
   const user = await requireRedactionUser();
-  const [{ author }, articles] = await Promise.all([
+  const [{ author, isSuperAdmin }, { articles }] = await Promise.all([
     getEditorProfile(user),
-    listEditorArticles(user, 'all', { omitContent: true }),
+    listEditorArticles(user, 'all', { omitContent: true, paginate: false }),
   ]);
   const stats = computeEditorStats(articles);
 
@@ -33,7 +33,11 @@ export default async function RedactionProfilePage() {
       </section>
 
       <nav className="space-y-2">
-        <ProfileLink href="/articles" icon={FileText} label="Mes articles" />
+        <ProfileLink
+          href="/articles"
+          icon={FileText}
+          label={isSuperAdmin ? 'Tous les articles' : 'Mes articles'}
+        />
         <ProfileLink href="/stats" icon={BarChart3} label="Statistiques" />
         <ProfileLink href="/comments" icon={MessageSquare} label="Commentaires" />
         <ProfileLink href="/nouveau" icon={PenLine} label="Nouvel article" />

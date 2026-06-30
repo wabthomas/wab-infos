@@ -2,7 +2,13 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { persistPwaVariantFromPath } from '@/lib/pwa/detect';
+import {
+  getPwaVariant,
+  inferPwaVariantFromPath,
+  isStandalonePwa,
+  markPwaInstalled,
+  persistPwaVariantFromPath,
+} from '@/lib/pwa/detect';
 import { registerSiteServiceWorker } from '@/lib/pwa/register-site-sw';
 
 export function PwaSetup() {
@@ -17,8 +23,16 @@ export function PwaSetup() {
   }, [pathname]);
 
   useEffect(() => {
+    if (isStandalonePwa()) {
+      markPwaInstalled(getPwaVariant());
+    }
+  }, []);
+
+  useEffect(() => {
     function onAppInstalled() {
+      const variant = inferPwaVariantFromPath(window.location.pathname);
       persistPwaVariantFromPath(window.location.pathname);
+      markPwaInstalled(variant);
     }
 
     window.addEventListener('appinstalled', onAppInstalled);

@@ -5,6 +5,8 @@ import { getStrapiUrl, REDACTION_COOKIE } from '@/lib/redaction/config';
 import type {
   ArticleEditorPayload,
   FcmSubscriptionPayload,
+  ListEditorArticlesOptions,
+  ListEditorArticlesResult,
   RedactionArticle,
   RedactionAuthor,
   RedactionCategory,
@@ -14,6 +16,9 @@ import type {
   RedactionUser,
 } from '@/lib/redaction/types';
 import { calculateReadingTime, generateSeoDescription, generateSeoTitle, slugify } from '@/lib/utils';
+import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
+
+export { isLiveRedactionArticle };
 
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
 
@@ -23,6 +28,11 @@ interface StrapiEntity {
   id: number;
   documentId: string;
   [key: string]: unknown;
+}
+
+interface StrapiListResponse<T = StrapiEntity> {
+  data: T[];
+  meta: { pagination: { page: number; pageCount: number; total: number } };
 }
 
 function apiTokenHeaders(): HeadersInit {
@@ -296,12 +306,6 @@ function resolveArticleStatus(entity: StrapiEntity): RedactionArticle['status'] 
   return 'published';
 }
 
-export function isLiveRedactionArticle(article: RedactionArticle): boolean {
-  // Seul publishedAt garantit une publication Strapi (draft & publish).
-  // Le champ custom status peut valoir "published" sur un brouillon non publié.
-  return Boolean(article.publishedAt);
-}
-
 function mapArticle(entity: StrapiEntity): RedactionArticle {
   const category = entity.category as StrapiEntity | null | undefined;
   const secondaryCategories = (entity.secondaryCategories as StrapiEntity[] | null | undefined) ?? [];
@@ -406,14 +410,17 @@ export const getEditorProfile = cache(async function getEditorProfile(user: Reda
   isSuperAdmin: boolean;
   canAssignAuthor: boolean;
   canDeleteAnyArticle: boolean;
+  canManageAllArticles: boolean;
 }> {
   const author = await resolveAuthorForUser(user);
+  const isSuperAdmin = isRedactionSuperAdmin(user);
   return {
     user,
     author,
-    isSuperAdmin: isRedactionSuperAdmin(user),
+    isSuperAdmin,
     canAssignAuthor: canAssignArticleAuthor(user),
     canDeleteAnyArticle: canDeleteAnyArticle(user),
+    canManageAllArticles: isSuperAdmin,
   };
 });
 
@@ -451,16 +458,139 @@ function resolveArticleSlug(
   return existing.slug!.trim();
 }
 
+async function buildListAuthorFilter(
+  user: RedactionUser,
+  authorDocumentId?: string
+): Promise<Record<string, unknown>> {
+  if (isRedactionSuperAdmin(user)) {
+    if (authorDocumentId?.trim()) {
+      return { author: { documentId: { $eq: authorDocumentId.trim() } } };
+    }
+    return {};
+  }
+
+  const author = await resolveAuthorForUser(user);
+  return { author: { documentId: { $eq: author.documentId } } };
+}
+
+async function fetchAllArticleEntities(
+  listParams: Record<string, unknown>,
+  authorFilter: Record<string, unknown>,
+  publicationStatus: 'published' | 'draft',
+  extraFilters?: Record<string, unknown>
+): Promise<StrapiEntity[]> {
+  const pageSize = 100;
+  let page = 1;
+  const all: StrapiEntity[] = [];
+
+  while (true) {
+    const response = await strapiFetch<StrapiListResponse>('/articles', {
+      ...listParams,
+      filters: { ...authorFilter, ...extraFilters },
+      pagination: { page, pageSize },
+      status: publicationStatus,
+    });
+    all.push(...response.data);
+    const pageCount = response.meta?.pagination?.pageCount ?? 1;
+    if (page >= pageCount) break;
+    page += 1;
+  }
+
+  return all;
+}
+
+function filterArticlesByStatus(
+  articles: RedactionArticle[],
+  status: 'draft' | 'published' | 'scheduled' | 'all'
+): RedactionArticle[] {
+  if (status === 'published') {
+    return articles.filter(isLiveRedactionArticle);
+  }
+  if (status === 'scheduled') {
+    return articles.filter((article) => article.status === 'scheduled');
+  }
+  if (status === 'draft') {
+    return articles.filter(
+      (article) => article.status === 'draft' && !isLiveRedactionArticle(article)
+    );
+  }
+  return articles;
+}
+
+function sortArticlesByUpdated(articles: RedactionArticle[]): RedactionArticle[] {
+  return articles.sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+}
+
+async function mergeEditorArticles(
+  authorFilter: Record<string, unknown>,
+  listParams: Record<string, unknown>,
+  status: 'draft' | 'published' | 'scheduled' | 'all'
+): Promise<RedactionArticle[]> {
+  const sortByUpdated = (articles: RedactionArticle[]) => sortArticlesByUpdated(articles);
+
+  if (status === 'published') {
+    const published = await fetchAllArticleEntities(listParams, authorFilter, 'published');
+    return sortByUpdated(published.map(mapArticle).filter(isLiveRedactionArticle));
+  }
+
+  if (status === 'scheduled') {
+    const drafts = await fetchAllArticleEntities(
+      listParams,
+      authorFilter,
+      'draft',
+      { status: { $eq: 'scheduled' } }
+    );
+    return sortByUpdated(
+      drafts.map(mapArticle).filter((article) => article.status === 'scheduled')
+    );
+  }
+
+  if (status === 'draft') {
+    const [published, drafts] = await Promise.all([
+      fetchAllArticleEntities(listParams, authorFilter, 'published'),
+      fetchAllArticleEntities(listParams, authorFilter, 'draft', { status: { $eq: 'draft' } }),
+    ]);
+    const publishedIds = new Set(published.map((item) => item.documentId));
+    return sortByUpdated(
+      drafts
+        .filter((item) => !publishedIds.has(item.documentId))
+        .map(mapArticle)
+        .filter((article) => article.status === 'draft' && !isLiveRedactionArticle(article))
+    );
+  }
+
+  const [published, drafts] = await Promise.all([
+    fetchAllArticleEntities(listParams, authorFilter, 'published'),
+    fetchAllArticleEntities(listParams, authorFilter, 'draft'),
+  ]);
+  const publishedIds = new Set(published.map((item) => item.documentId));
+  const merged = new Map<string, RedactionArticle>();
+
+  for (const item of drafts) {
+    if (!publishedIds.has(item.documentId)) {
+      merged.set(item.documentId, mapArticle(item));
+    }
+  }
+  for (const item of published) {
+    merged.set(item.documentId, mapArticle(item));
+  }
+
+  return sortByUpdated([...merged.values()]);
+}
+
 export async function listEditorArticles(
   user: RedactionUser,
-  status?: 'draft' | 'published' | 'scheduled' | 'all',
-  options?: { omitContent?: boolean }
-): Promise<RedactionArticle[]> {
-  const author = await resolveAuthorForUser(user);
+  status: 'draft' | 'published' | 'scheduled' | 'all' = 'all',
+  options?: ListEditorArticlesOptions
+): Promise<ListEditorArticlesResult> {
+  const page = Math.max(1, options?.page ?? 1);
+  const pageSize = Math.min(50, Math.max(10, options?.pageSize ?? 20));
+  const authorFilter = await buildListAuthorFilter(user, options?.authorDocumentId);
 
-  const authorFilter = { author: { documentId: { $eq: author.documentId } } };
   const populate = options?.omitContent
-    ? { category: true, featuredImage: true }
+    ? { category: true, featuredImage: true, author: true }
     : {
         category: true,
         secondaryCategories: true,
@@ -471,7 +601,6 @@ export async function listEditorArticles(
   const listParams = {
     populate,
     sort: ['updatedAt:desc'] as string[],
-    pagination: { pageSize: 100 },
     ...(options?.omitContent
       ? {
           fields: [
@@ -492,65 +621,24 @@ export async function listEditorArticles(
       : {}),
   };
 
-  const fetchPublished = (extraFilters?: Record<string, unknown>) =>
-    strapiFetch<{ data: StrapiEntity[] }>('/articles', {
-      ...listParams,
-      filters: { ...authorFilter, ...extraFilters },
-      status: 'published',
-    });
+  const merged = await mergeEditorArticles(authorFilter, listParams, status ?? 'all');
+  const filtered = filterArticlesByStatus(merged, status ?? 'all');
+  const total = filtered.length;
 
-  const fetchDrafts = (extraFilters?: Record<string, unknown>) =>
-    strapiFetch<{ data: StrapiEntity[] }>('/articles', {
-      ...listParams,
-      filters: { ...authorFilter, ...extraFilters },
-      status: 'draft',
-    });
-
-  const sortByUpdated = (articles: RedactionArticle[]) =>
-    articles.sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-
-  if (status === 'published') {
-    const response = await fetchPublished();
-    return sortByUpdated(response.data.map(mapArticle).filter(isLiveRedactionArticle));
+  if (options?.paginate === false) {
+    return {
+      articles: filtered,
+      pagination: { page: 1, pageSize: total, total, pageCount: 1 },
+    };
   }
 
-  if (status === 'scheduled') {
-    const drafts = await fetchDrafts({ status: { $eq: 'scheduled' } });
-    return sortByUpdated(
-      drafts.data.map(mapArticle).filter((article) => article.status === 'scheduled')
-    );
-  }
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const articles = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  if (status === 'draft') {
-    const [published, drafts] = await Promise.all([
-      fetchPublished(),
-      fetchDrafts({ status: { $eq: 'draft' } }),
-    ]);
-    const publishedIds = new Set(published.data.map((item) => item.documentId));
-    return sortByUpdated(
-      drafts.data
-        .filter((item) => !publishedIds.has(item.documentId))
-        .map(mapArticle)
-        .filter((article) => article.status === 'draft' && !isLiveRedactionArticle(article))
-    );
-  }
-
-  const [published, drafts] = await Promise.all([fetchPublished(), fetchDrafts()]);
-  const publishedIds = new Set(published.data.map((item) => item.documentId));
-  const merged = new Map<string, RedactionArticle>();
-
-  for (const item of drafts.data) {
-    if (!publishedIds.has(item.documentId)) {
-      merged.set(item.documentId, mapArticle(item));
-    }
-  }
-  for (const item of published.data) {
-    merged.set(item.documentId, mapArticle(item));
-  }
-
-  return sortByUpdated([...merged.values()]);
+  return {
+    articles,
+    pagination: { page, pageSize, total, pageCount },
+  };
 }
 
 export async function getEditorArticle(
@@ -1019,8 +1107,59 @@ export function computeEditorStats(articles: RedactionArticle[]): RedactionStats
 }
 
 export async function getEditorStats(user: RedactionUser): Promise<RedactionStats> {
-  const articles = await listEditorArticles(user, 'all');
+  const { articles } = await listEditorArticles(user, 'all', {
+    omitContent: true,
+    paginate: false,
+  });
   return computeEditorStats(articles);
+}
+
+/** Publie ou dépublie un article (super admin — tous les rédacteurs). */
+export async function setEditorArticlePublication(
+  user: RedactionUser,
+  documentId: string,
+  publish: boolean
+): Promise<RedactionArticle> {
+  if (!isRedactionSuperAdmin(user)) {
+    throw new RedactionAuthError('Accès réservé aux super administrateurs');
+  }
+
+  const existing = await getEditorArticle(user, documentId);
+  if (!existing) throw new RedactionAuthError('Article introuvable');
+
+  if (publish) {
+    if (isLiveRedactionArticle(existing)) return existing;
+    if (!existing.category?.documentId) {
+      throw new RedactionAuthError('Rubrique requise pour publier');
+    }
+    const title = existing.title?.trim();
+    const excerpt = existing.excerpt?.trim();
+    const plainContent = existing.content?.replace(/<[^>]+>/g, '').trim();
+    if (!title || !excerpt || !plainContent) {
+      throw new RedactionAuthError('Titre, chapô et contenu requis pour publier');
+    }
+
+    return updateEditorArticle(user, documentId, {
+      title: existing.title,
+      excerpt: existing.excerpt,
+      content: existing.content,
+      categoryDocumentIds: [
+        existing.category.documentId,
+        ...(existing.secondaryCategories?.map((c) => c.documentId) ?? []),
+      ],
+      tagNames: existing.tagNames,
+      publish: true,
+      draftOnly: false,
+    });
+  }
+
+  if (!isLiveRedactionArticle(existing)) return existing;
+
+  await strapiFetch(`/articles/${documentId}/actions/unpublish`, undefined, { method: 'POST' });
+
+  const refreshed = await getEditorArticle(user, documentId);
+  if (!refreshed) throw new RedactionAuthError('Article introuvable après dépublication');
+  return refreshed;
 }
 
 export async function listEditorCategories(): Promise<RedactionCategory[]> {
