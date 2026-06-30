@@ -2,13 +2,29 @@
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
-import { ArticleInContentAd } from '@/components/ads/adsense';
+import { ArticleInContentAd, ArticleMidAd } from '@/components/ads/adsense';
 import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { countArticleParagraphs, splitHtmlAtParagraphs } from '@/lib/article-content';
 
-/** Une seule pub in-article, après le 4e paragraphe, pour les textes longs. */
-const MIN_PARAGRAPHS_FOR_IN_ARTICLE_AD = 8;
-const IN_ARTICLE_AD_AFTER_PARAGRAPH = 4;
+/** Trois pubs in-article pour les textes longs (la pub de fin reste hors corps). */
+const MIN_PARAGRAPHS_LONG_ARTICLE = 10;
+const AD_BREAKPOINTS = [3, 6, 9] as const;
+
+type InArticleAdKind = 'in-content' | 'mid';
+
+function resolveAdKind(
+  index: number,
+  hasInContent: boolean,
+  hasMid: boolean
+): InArticleAdKind | null {
+  const preferred: InArticleAdKind[] = ['in-content', 'mid', 'in-content'];
+  const choice = preferred[index];
+  if (choice === 'in-content' && hasInContent) return 'in-content';
+  if (choice === 'mid' && hasMid) return 'mid';
+  if (hasInContent) return 'in-content';
+  if (hasMid) return 'mid';
+  return null;
+}
 
 interface ArticleBodyWithAdsProps {
   html: string;
@@ -22,34 +38,38 @@ export function ArticleBodyWithAds({ html }: ArticleBodyWithAdsProps) {
     if (isNativeCapacitorFromUserAgent()) setNativeApp(true);
   }, []);
 
-  const { segments, showInContent } = useMemo(() => {
+  const { segments, adKinds } = useMemo(() => {
     if (nativeApp) {
-      return { segments: [html], showInContent: false };
+      return { segments: [html], adKinds: [] as (InArticleAdKind | null)[] };
     }
 
     const paragraphCount = countArticleParagraphs(html);
     const hasInContent = Boolean(slots.articleInContent?.trim());
+    const hasMid = Boolean(slots.articleMid?.trim());
 
-    if (
-      !hasInContent ||
-      paragraphCount < MIN_PARAGRAPHS_FOR_IN_ARTICLE_AD
-    ) {
-      return { segments: [html], showInContent: false };
+    if (paragraphCount < MIN_PARAGRAPHS_LONG_ARTICLE || (!hasInContent && !hasMid)) {
+      return { segments: [html], adKinds: [] as (InArticleAdKind | null)[] };
     }
 
-    const parts = splitHtmlAtParagraphs(html, [IN_ARTICLE_AD_AFTER_PARAGRAPH]);
-    return {
-      segments: parts,
-      showInContent: parts.length > 1,
-    };
-  }, [html, slots.articleInContent, nativeApp]);
+    const parts = splitHtmlAtParagraphs(html, [...AD_BREAKPOINTS]);
+    if (parts.length < 2) {
+      return { segments: [html], adKinds: [] as (InArticleAdKind | null)[] };
+    }
+
+    const kinds: (InArticleAdKind | null)[] = AD_BREAKPOINTS.map((_, index) =>
+      resolveAdKind(index, hasInContent, hasMid)
+    );
+
+    return { segments: parts, adKinds: kinds };
+  }, [html, slots.articleInContent, slots.articleMid, nativeApp]);
 
   return (
     <div className="prose-article">
       {segments.map((segment, index) => (
         <Fragment key={index}>
           <div dangerouslySetInnerHTML={{ __html: segment }} />
-          {index === 0 && showInContent ? <ArticleInContentAd /> : null}
+          {adKinds[index] === 'in-content' ? <ArticleInContentAd /> : null}
+          {adKinds[index] === 'mid' ? <ArticleMidAd /> : null}
         </Fragment>
       ))}
     </div>
