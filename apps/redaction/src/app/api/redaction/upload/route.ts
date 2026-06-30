@@ -16,7 +16,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Fichier requis' }, { status: 400 });
     }
 
-    if (!file.type.startsWith('image/')) {
+    const mime = file.type.toLowerCase();
+    if (mime && !mime.startsWith('image/') && mime !== 'application/octet-stream') {
       return NextResponse.json({ error: 'Image uniquement' }, { status: 400 });
     }
 

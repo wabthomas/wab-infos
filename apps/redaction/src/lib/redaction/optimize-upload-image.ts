@@ -15,7 +15,15 @@ export async function optimizeUploadImage(file: File): Promise<File> {
   }
 
   const input = Buffer.from(await file.arrayBuffer());
-  const meta = await sharp(input, { animated: true }).metadata();
+  let meta: sharp.Metadata;
+  try {
+    meta = await sharp(input, { animated: true }).metadata();
+  } catch {
+    throw new Error('Format d’image non reconnu');
+  }
+  if (!meta.format) {
+    throw new Error('Format d’image non reconnu');
+  }
   const isAnimated = (meta.pages ?? 1) > 1;
 
   if (isAnimated || meta.format === 'gif') {

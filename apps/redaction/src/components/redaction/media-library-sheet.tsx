@@ -328,14 +328,13 @@ export function MediaLibrarySheet({
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
             className="hidden"
             onChange={handleFileChange}
           />
           <input
             ref={cameraRef}
             type="file"
-            accept="image/*"
             capture="environment"
             className="hidden"
             onChange={handleFileChange}
