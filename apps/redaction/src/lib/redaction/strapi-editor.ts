@@ -57,12 +57,21 @@ async function strapiFetch<T>(
     cache: 'no-store',
   });
 
+  const text = await res.text();
+
   if (!res.ok) {
-    const text = await res.text();
     throw new Error(`Strapi ${res.status}: ${text.slice(0, 200)}`);
   }
 
-  return res.json() as Promise<T>;
+  if (!text.trim()) {
+    return {} as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Réponse Strapi invalide: ${text.slice(0, 120)}`);
+  }
 }
 
 export async function getRedactionJwt(): Promise<string | null> {
@@ -553,15 +562,28 @@ async function fetchPublishedDocumentIds(
   return ids;
 }
 
+/** Évite les requêtes $notIn énormes (timeout / URL trop longue sur gros catalogues). */
+const MAX_PUBLISHED_IDS_FOR_NOT_IN = 200;
+
+async function getPublishedIdsForExclusion(
+  authorFilter: Record<string, unknown>
+): Promise<Set<string> | null> {
+  const publishedCount = await getStrapiArticleTotal(authorFilter, 'published');
+  if (publishedCount > MAX_PUBLISHED_IDS_FOR_NOT_IN) return null;
+  return fetchPublishedDocumentIds(authorFilter);
+}
+
 async function fetchPublishedEngagementTotals(
   authorFilter: Record<string, unknown>
 ): Promise<{ totalViews: number; breakingCount: number }> {
+  const publishedCount = await getStrapiArticleTotal(authorFilter, 'published');
   const pageSize = 100;
+  const maxPages = publishedCount > 500 ? 5 : Math.ceil(publishedCount / pageSize) || 1;
   let page = 1;
   let totalViews = 0;
   let breakingCount = 0;
 
-  while (true) {
+  while (page <= maxPages) {
     const response = await strapiFetch<StrapiListResponse>('/articles', {
       filters: authorFilter,
       fields: ['viewCount', 'isBreaking', 'publishedAt'],
@@ -640,8 +662,8 @@ async function listEditorArticlesPage(
     };
   }
 
-  const publishedIds = await fetchPublishedDocumentIds(authorFilter);
-  const publishedIdList = [...publishedIds];
+  const publishedIds = await getPublishedIdsForExclusion(authorFilter);
+  const publishedIdList = publishedIds ? [...publishedIds] : [];
 
   if (status === 'draft') {
     const draftFilter: Record<string, unknown> = {
@@ -655,10 +677,12 @@ async function listEditorArticlesPage(
       pagination: { page, pageSize },
       status: 'draft',
     });
-    const articles = response.data
+    let articles = response.data
       .map(mapArticle)
       .filter((article) => article.status === 'draft' && !isLiveRedactionArticle(article));
-    const total = await getStrapiArticleTotal(authorFilter, 'draft', draftFilter);
+    const total = publishedIds
+      ? await getStrapiArticleTotal(authorFilter, 'draft', draftFilter)
+      : await getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'draft' } });
     return {
       articles,
       pagination: {
@@ -677,28 +701,35 @@ async function listEditorArticlesPage(
       authorFilter,
       'draft',
       windowSize,
-      publishedIdList.length > 0 ? { documentId: { $notIn: publishedIdList } } : {}
+      publishedIdList.length > 0
+        ? { documentId: { $notIn: publishedIdList }, status: { $eq: 'draft' } }
+        : { status: { $eq: 'draft' } }
     ),
   ]);
 
   const merged = new Map<string, RedactionArticle>();
   for (const item of draftEntities) {
-    if (!publishedIds.has(item.documentId)) {
-      merged.set(item.documentId, mapArticle(item));
-    }
+    if (publishedIds && publishedIds.has(item.documentId)) continue;
+    const article = mapArticle(item);
+    if (article.status !== 'draft' || isLiveRedactionArticle(article)) continue;
+    merged.set(item.documentId, article);
   }
   for (const item of pubEntities) {
     merged.set(item.documentId, mapArticle(item));
   }
 
   const sorted = sortArticlesByUpdated([...merged.values()]);
-  const [pubTotal, draftOnlyTotal] = await Promise.all([
+  const [pubTotal, draftTotal, scheduledTotal] = await Promise.all([
     getStrapiArticleTotal(authorFilter, 'published'),
-    getStrapiArticleTotal(authorFilter, 'draft', {
-      ...(publishedIdList.length > 0 ? { documentId: { $notIn: publishedIdList } } : {}),
-    }),
+    getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'draft' } }),
+    getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'scheduled' } }),
   ]);
-  const total = pubTotal + draftOnlyTotal;
+  const total = publishedIds
+    ? pubTotal +
+      (await getStrapiArticleTotal(authorFilter, 'draft', {
+        ...(publishedIdList.length > 0 ? { documentId: { $notIn: publishedIdList } } : {}),
+      }))
+    : pubTotal + draftTotal + scheduledTotal;
 
   return {
     articles: sorted.slice(start, start + pageSize),
@@ -1319,18 +1350,11 @@ export function computeEditorStats(articles: RedactionArticle[]): RedactionStats
 
 export async function getEditorStats(user: RedactionUser): Promise<RedactionStats> {
   const authorFilter = await buildListAuthorFilter(user);
-  const publishedIds = await fetchPublishedDocumentIds(authorFilter);
-  const publishedIdList = [...publishedIds];
-
-  const draftOnlyFilter: Record<string, unknown> = {
-    status: { $eq: 'draft' },
-    ...(publishedIdList.length > 0 ? { documentId: { $notIn: publishedIdList } } : {}),
-  };
 
   const [publishedCount, scheduledCount, draftCount, engagement] = await Promise.all([
     getStrapiArticleTotal(authorFilter, 'published'),
     getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'scheduled' } }),
-    getStrapiArticleTotal(authorFilter, 'draft', draftOnlyFilter),
+    getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'draft' } }),
     fetchPublishedEngagementTotals(authorFilter),
   ]);
 

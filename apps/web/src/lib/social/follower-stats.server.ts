@@ -7,6 +7,7 @@ import {
   type SocialFollowPlatform,
   type SocialFollowerEntry,
 } from '@/config/social-follow';
+import { getSiteSettings, getVisibleSocialLinks } from '@/lib/site-settings.server';
 import { socialConfig } from '@/lib/social/config';
 import { formatFollowerCount } from '@/lib/social/format-follower-count';
 
@@ -106,11 +107,28 @@ async function resolveFollowers(platform: SocialFollowPlatform): Promise<number 
 }
 
 async function loadSocialFollowerStats(): Promise<SocialFollowerEntry[]> {
+  const settings = await getSiteSettings();
+  const channels = getVisibleSocialLinks(settings).map((link) => ({
+    id: link.id,
+    label: link.label,
+    href: link.href,
+    handle: link.handle,
+    brandColor: link.brandColor,
+  }));
+
+  const source = channels.length > 0 ? channels : socialFollowChannels;
+
   const counts = await Promise.all(
-    socialFollowChannels.map(async (channel) => ({
-      ...channel,
-      followers: await resolveFollowers(channel.id),
-    }))
+    source.map(async (channel) => {
+      const manual = settings.socialLinks.find((l) => l.id === channel.id)?.followers;
+      if (manual != null && manual > 0) {
+        return { ...channel, followers: manual };
+      }
+      return {
+        ...channel,
+        followers: await resolveFollowers(channel.id),
+      };
+    })
   );
   return counts;
 }

@@ -224,30 +224,35 @@ html.redaction-writing body {
   pointer-events: none;
 }
 
-/* APK Capacitor — scroll fluide, dimensions écran, barre de statut */
+/* APK Capacitor — un seul conteneur de scroll (#redaction-main-scroll) */
 html.native-capacitor {
-  --cap-safe-top: 0px;
-  --cap-safe-bottom: 0px;
   overscroll-behavior-y: none;
 }
 
-html.native-capacitor body {
+html.native-capacitor:has(#redaction-main-scroll) {
+  height: 100%;
+}
+
+html.native-capacitor:has(#redaction-main-scroll) body {
+  height: 100%;
+  overflow: hidden;
+}
+
+html.native-capacitor #redaction-main-scroll {
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
 }
 
-html.native-capacitor.cap-insets-ready body {
-  padding-top: var(--cap-safe-top);
-}
+/* Desktop rédaction — scroll, sidebar et fond dashboard */
+@media (min-width: 1024px) {
+  .redaction-sidebar {
+    box-shadow: 1px 0 0 rgba(0, 0, 0, 0.04);
+  }
 
-html.native-capacitor.cap-insets-ready .native-safe-top {
-  top: var(--cap-safe-top) !important;
-}
-
-html.native-capacitor.cap-insets-ready .native-safe-bottom {
-  bottom: var(--cap-safe-bottom) !important;
-}
-
-.native-safe-screen {
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
+  .redaction-main-scroll {
+    scrollbar-gutter: stable;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--primary) 3%, transparent) 0%, transparent 12rem),
+      var(--background);
+  }
 }

@@ -18,6 +18,7 @@ import {
   saveArticleDraft,
 } from '@/lib/redaction/article-draft-storage';
 import { touchRedactionSession } from '@/lib/redaction/touch-session';
+import { readApiJsonResponse } from '@/lib/redaction/api-response';
 import { ArticleRichEditor } from '@/components/redaction/article-rich-editor';
 import { ArticleEditorSettingsSheet } from '@/components/redaction/article-editor-settings-sheet';
 import { ArticleEditorOptionsMenu } from '@/components/redaction/article-editor-options-menu';
@@ -527,7 +528,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       const res = await fetch(`/api/redaction/articles/${activeDocumentId}`, {
         method: 'DELETE',
       });
-      const data = (await res.json()) as { error?: string };
+      const data = await readApiJsonResponse<{ error?: string }>(res);
       if (!res.ok) throw new Error(data.error ?? 'Suppression impossible');
       router.push('/articles');
     } catch (err) {
@@ -689,7 +690,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     <div className="jetpack-editor-screen fixed inset-0 flex flex-col bg-background">
       <header
         ref={headerRef}
-        className="native-safe-top fixed inset-x-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur pt-2"
+        className="fixed inset-x-0 top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur pt-[max(0.5rem,env(safe-area-inset-top))]"
       >
         <div className="flex items-center gap-1.5 px-3 py-2.5">
           <button

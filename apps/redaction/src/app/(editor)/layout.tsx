@@ -10,12 +10,12 @@ export default async function RedactionEditorLayout({
 }) {
   try {
     const user = await requireRedactionUser();
-    const { author } = await getEditorProfile(user);
+    const { author, isSuperAdmin } = await getEditorProfile(user);
 
     return (
       <>
         <RedactionPushSetup />
-        <RedactionShell authorName={author.name}>
+        <RedactionShell authorName={author.name} isSuperAdmin={isSuperAdmin}>
           {children}
         </RedactionShell>
       </>

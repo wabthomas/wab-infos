@@ -24,6 +24,7 @@ import {
   generateBreadcrumbJsonLd,
 } from '@/lib/seo';
 import { getArticleBySlug } from '@/lib/strapi';
+import { getSiteSettings } from '@/lib/site-settings.server';
 import { formatArticleContent, resolveArticleImageUrl } from '@/lib/utils';
 import { GoogleSwgBasicScripts } from '@/components/google/swg-basic-scripts';
 import { MobileArticleBottomBar } from '@/components/layout/mobile-article-bottom-bar';
@@ -57,6 +58,8 @@ export default async function ArticlePage({ params }: PageProps) {
   }
 
   if (!article) notFound();
+
+  const siteSettings = await getSiteSettings();
 
   const articleCategorySlug = article.category?.slug;
   if (articleCategorySlug && articleCategorySlug !== category) {
@@ -107,6 +110,7 @@ export default async function ArticlePage({ params }: PageProps) {
               categoryColor={cat.color}
               categorySlug={categorySlug}
               articleUrl={articleUrl}
+              showViewCounts={siteSettings.showArticleViewCounts}
             />
 
             <ArticleBodyWithAds html={formatArticleContent(article.content)} />

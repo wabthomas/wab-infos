@@ -40,6 +40,8 @@ export async function hideNativeSplashScreen(fadeOutDuration = 350): Promise<voi
     if (!Capacitor.isNativePlatform()) return;
     const { SplashScreen } = await import('@capacitor/splash-screen');
     await SplashScreen.hide({ fadeOutDuration });
+    const { configureNativeAndroidStatusBar } = await import('@/lib/pwa/native-status-bar');
+    await configureNativeAndroidStatusBar();
   } catch {
     // plugin optionnel côté web
   }

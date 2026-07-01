@@ -28,6 +28,7 @@ export function RedactionArticlesList() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [canDeleteAny, setCanDeleteAny] = useState(false);
   const [authors, setAuthors] = useState<RedactionAuthor[]>([]);
+  const [showViews, setShowViews] = useState(true);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,6 +47,15 @@ export function RedactionArticlesList() {
           setCanDeleteAny(Boolean(data.canDeleteAnyArticle));
         }
       )
+      .catch(() => undefined);
+
+    void fetch('/api/redaction/site-settings')
+      .then((r) => r.json())
+      .then((data: { settings?: { showArticleViewCounts?: boolean } }) => {
+        if (data.settings) {
+          setShowViews(data.settings.showArticleViewCounts !== false);
+        }
+      })
       .catch(() => undefined);
   }, []);
 
@@ -110,13 +120,15 @@ export function RedactionArticlesList() {
     const node = loadMoreRef.current;
     if (!node || loading || loadingMore || page >= pageCount) return;
 
+    const scrollRoot = document.getElementById('redaction-main-scroll');
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
           void loadPage(page + 1, true);
         }
       },
-      { rootMargin: '200px' }
+      { root: scrollRoot, rootMargin: '200px' }
     );
 
     observer.observe(node);
@@ -128,26 +140,49 @@ export function RedactionArticlesList() {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="font-display text-2xl font-bold">
-          {isSuperAdmin ? 'Tous les articles' : 'Mes articles'}
-        </h1>
-        {total > 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            {total} article{total > 1 ? 's' : ''}
-          </p>
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold lg:text-3xl">
+            {isSuperAdmin ? 'Tous les articles' : 'Mes articles'}
+          </h1>
+          {total > 0 ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {total} article{total > 1 ? 's' : ''}
+            </p>
+          ) : null}
+        </div>
+
+        {isSuperAdmin && authors.length > 0 ? (
+          <div className="lg:w-64">
+            <label htmlFor="author-filter" className="sr-only">
+              Filtrer par rédacteur
+            </label>
+            <select
+              id="author-filter"
+              value={authorFilter}
+              onChange={(event) => setAuthorFilter(event.target.value)}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm lg:h-11"
+            >
+              <option value="">Tous les rédacteurs</option>
+              {authors.map((author) => (
+                <option key={author.documentId} value={author.documentId}>
+                  {author.name}
+                </option>
+              ))}
+            </select>
+          </div>
         ) : null}
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-2">
         {(['all', 'published', 'scheduled', 'draft'] as const).map((f) => (
           <button
             key={f}
             type="button"
             onClick={() => setFilter(f)}
             className={cn(
-              'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+              'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors lg:px-4 lg:py-2 lg:text-sm',
               filter === f
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground'
@@ -164,27 +199,6 @@ export function RedactionArticlesList() {
         ))}
       </div>
 
-      {isSuperAdmin && authors.length > 0 ? (
-        <div>
-          <label htmlFor="author-filter" className="sr-only">
-            Filtrer par rédacteur
-          </label>
-          <select
-            id="author-filter"
-            value={authorFilter}
-            onChange={(event) => setAuthorFilter(event.target.value)}
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
-          >
-            <option value="">Tous les rédacteurs</option>
-            {authors.map((author) => (
-              <option key={author.documentId} value={author.documentId}>
-                {author.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
       {loading ? (
         <p className="py-8 text-center text-sm text-muted-foreground">Chargement…</p>
       ) : articles.length === 0 ? (
@@ -199,6 +213,7 @@ export function RedactionArticlesList() {
                 article={article}
                 canDeleteAny={canDeleteAny}
                 showAuthor={isSuperAdmin}
+                showViews={showViews}
                 canManagePublication={isSuperAdmin}
                 onDeleted={(id) => {
                   setArticles((list) => list.filter((a) => a.documentId !== id));

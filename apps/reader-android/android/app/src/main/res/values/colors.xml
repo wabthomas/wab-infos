@@ -4,4 +4,6 @@
     <color name="colorPrimaryDark">#9E1830</color>
     <color name="colorAccent">#C41E3A</color>
     <color name="splash_background">#C41E3A</color>
+    <color name="statusBar">#111111</color>
+    <color name="navigationBar">#FFFFFF</color>
 </resources>

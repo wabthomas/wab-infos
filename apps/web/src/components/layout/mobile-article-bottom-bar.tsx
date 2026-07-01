@@ -71,7 +71,7 @@ export function MobileArticleBottomBar({
       <FollowUsSheet open={followOpen} onClose={() => setFollowOpen(false)} />
 
       <nav
-        className="native-safe-bottom fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_-4px_rgb(0_0_0/0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_-4px_rgb(0_0_0/0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 md:hidden"
         aria-label="Actions article"
       >
         <ul className="mx-auto grid h-[3.75rem] max-w-lg grid-cols-4">

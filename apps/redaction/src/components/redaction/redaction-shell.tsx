@@ -9,6 +9,7 @@ import {
   Home,
   MessageSquare,
   PenLine,
+  Settings,
   User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -32,12 +33,24 @@ function isNavActive(pathname: string, href: string, exact?: boolean): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function getDesktopPageTitle(pathname: string): string {
+  if (pathname === '/') return 'Tableau de bord';
+  if (pathname === '/articles' || pathname.startsWith('/articles/')) return 'Articles';
+  if (pathname === '/comments') return 'Commentaires';
+  if (pathname === '/stats') return 'Statistiques';
+  if (pathname === '/profil') return 'Profil';
+  if (pathname === '/parametres') return 'Paramètres du site';
+  if (pathname === '/nouveau') return 'Nouvel article';
+  return 'Rédaction';
+}
+
 interface RedactionShellProps {
   children: React.ReactNode;
   authorName?: string;
+  isSuperAdmin?: boolean;
 }
 
-function NavItem({
+function MobileNavItem({
   href,
   label,
   icon: Icon,
@@ -76,7 +89,47 @@ function NavItem({
   );
 }
 
-export function RedactionShell({ children, authorName }: RedactionShellProps) {
+function SidebarNavItem({
+  href,
+  label,
+  icon: Icon,
+  active,
+  badge,
+  pendingComments,
+}: {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  active: boolean;
+  badge?: boolean;
+  pendingComments?: number;
+}) {
+  return (
+    <Link
+      href={href}
+      prefetch
+      className={cn(
+        'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+        active
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+      )}
+    >
+      <Icon className={cn('h-5 w-5 shrink-0', active && 'text-primary')} />
+      <span className="flex-1 truncate">{label}</span>
+      {badge && (pendingComments ?? 0) > 0 ? (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
+          {(pendingComments ?? 0) > 99 ? '99+' : pendingComments}
+        </span>
+      ) : null}
+      {active ? (
+        <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+      ) : null}
+    </Link>
+  );
+}
+
+export function RedactionShell({ children, authorName, isSuperAdmin = false }: RedactionShellProps) {
   const pathname = usePathname();
   const writing = isWritingPage(pathname);
   const [pendingComments, setPendingComments] = useState(0);
@@ -115,39 +168,22 @@ export function RedactionShell({ children, authorName }: RedactionShellProps) {
   }, []);
 
   if (writing) {
-    return (
-      <div className="native-safe-screen fixed inset-0 z-50 flex flex-col bg-background">
-        {children}
-      </div>
-    );
+    return <div className="fixed inset-0 z-50 bg-background">{children}</div>;
   }
 
   return (
-    <div className="native-safe-screen flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-background">
-      <header className="native-safe-top z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="mx-auto max-w-lg">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Rédaction</p>
-          <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
+    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-background">
+      {/* Sidebar desktop */}
+      <aside className="redaction-sidebar hidden w-[260px] shrink-0 flex-col border-r border-border bg-card lg:flex">
+        <div className="border-b border-border px-5 py-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Wab-infos</p>
+          <p className="mt-0.5 font-display text-lg font-bold leading-tight">Rédaction</p>
+          <p className="mt-1.5 truncate text-sm text-muted-foreground">{authorName ?? 'Éditeur'}</p>
         </div>
-      </header>
 
-      <main className="mx-auto w-full max-w-lg flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch]">
-        <RedactionPushBanner />
-        {children}
-      </main>
-
-      <Link
-        href="/nouveau"
-        className="native-safe-bottom fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95"
-        aria-label="Écrire un article"
-      >
-        <PenLine className="h-6 w-6" />
-      </Link>
-
-      <nav className="native-safe-bottom fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
           {NAV_ITEMS.map(({ href, label, icon, ...rest }) => (
-            <NavItem
+            <SidebarNavItem
               key={href}
               href={href}
               label={label}
@@ -157,8 +193,82 @@ export function RedactionShell({ children, authorName }: RedactionShellProps) {
               pendingComments={pendingComments}
             />
           ))}
+          {isSuperAdmin ? (
+            <SidebarNavItem
+              href="/parametres"
+              label="Paramètres"
+              icon={Settings}
+              active={pathname === '/parametres'}
+            />
+          ) : null}
+        </nav>
+
+        <div className="border-t border-border p-4">
+          <Link
+            href="/nouveau"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 transition-transform hover:brightness-105 active:scale-[0.98]"
+          >
+            <PenLine className="h-4 w-4" />
+            Nouvel article
+          </Link>
         </div>
-      </nav>
+      </aside>
+
+      {/* Zone principale */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
+          <div className="mx-auto max-w-lg">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Rédaction</p>
+            <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
+          </div>
+        </header>
+
+        <header className="hidden shrink-0 border-b border-border bg-card/80 px-8 py-4 backdrop-blur lg:block">
+          <p className="font-display text-xl font-bold">{getDesktopPageTitle(pathname)}</p>
+        </header>
+
+        <main
+          id="redaction-main-scroll"
+          className="redaction-main-scroll mx-auto w-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] lg:max-w-6xl lg:px-8 lg:py-8 lg:pb-8"
+        >
+          <RedactionPushBanner />
+          {children}
+        </main>
+
+        {isSuperAdmin ? (
+          <Link
+            href="/parametres"
+            className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-4 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg lg:hidden"
+            aria-label="Paramètres du site"
+          >
+            <Settings className="h-5 w-5" />
+          </Link>
+        ) : null}
+
+        <Link
+          href="/nouveau"
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 lg:hidden"
+          aria-label="Écrire un article"
+        >
+          <PenLine className="h-6 w-6" />
+        </Link>
+
+        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:hidden">
+          <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
+            {NAV_ITEMS.map(({ href, label, icon, ...rest }) => (
+              <MobileNavItem
+                key={href}
+                href={href}
+                label={label}
+                icon={icon}
+                active={isNavActive(pathname, href, 'exact' in rest && rest.exact)}
+                badge={'badge' in rest && rest.badge}
+                pendingComments={pendingComments}
+              />
+            ))}
+          </div>
+        </nav>
+      </div>
     </div>
   );
 }

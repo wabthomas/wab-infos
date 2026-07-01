@@ -76,10 +76,14 @@ function AndroidSiteInstallBanner({
   labels,
   apkUrl,
   onDismiss,
+  pwaEnabled = true,
+  apkEnabled = true,
 }: {
   labels: Pick<(typeof COPY)['site'], 'androidTitle' | 'androidSubtitle'>;
   apkUrl: string;
   onDismiss: () => void;
+  pwaEnabled?: boolean;
+  apkEnabled?: boolean;
 }) {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [pwaHint, setPwaHint] = useState(false);
@@ -130,16 +134,18 @@ function AndroidSiteInstallBanner({
       </div>
 
       <div className="mt-4 flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => void installPwa()}
-          disabled={installingPwa}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-        >
-          {installingPwa ? 'Installation…' : 'Installer l’app (PWA)'}
-        </button>
+        {pwaEnabled ? (
+          <button
+            type="button"
+            onClick={() => void installPwa()}
+            disabled={installingPwa}
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {installingPwa ? 'Installation…' : 'Installer l’app (PWA)'}
+          </button>
+        ) : null}
 
-        {apkUrl ? (
+        {apkEnabled && apkUrl ? (
           <a
             href={apkUrl}
             download
@@ -150,7 +156,7 @@ function AndroidSiteInstallBanner({
           </a>
         ) : null}
 
-        {pwaHint ? (
+        {pwaEnabled && pwaHint ? (
           <p className="rounded-lg bg-muted/60 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
             Dans Chrome : menu <strong className="text-foreground">⋮</strong> →{' '}
             <strong className="text-foreground">Installer l&apos;application</strong> ou{' '}
@@ -158,7 +164,7 @@ function AndroidSiteInstallBanner({
           </p>
         ) : null}
 
-        {apkUrl ? (
+        {apkEnabled && apkUrl ? (
           <p className="text-[10px] leading-relaxed text-muted-foreground">
             APK : autorisez l&apos;installation depuis cette source si Android le demande.
           </p>
@@ -193,10 +199,35 @@ export function PwaInstallBanner({
   const [copied, setCopied] = useState(false);
   const [fabVisible, setFabVisible] = useState(display !== 'fab');
   const [fabOpen, setFabOpen] = useState(false);
+  const [siteBanner, setSiteBanner] = useState<{
+    pwaBannerEnabled: boolean;
+    pwaBannerVisible: boolean;
+    apkBannerEnabled: boolean;
+    apkBannerVisible: boolean;
+  } | null>(null);
 
   const dismissKey = PWA_INSTALL_DISMISS[variant];
   const labels = COPY[variant];
   const apkUrl = siteConfig.androidApkUrl;
+
+  useEffect(() => {
+    if (variant !== 'site') return;
+    void fetch('/api/site-settings', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data === 'object') {
+          setSiteBanner({
+            pwaBannerEnabled: data.pwaBannerEnabled !== false,
+            pwaBannerVisible: data.pwaBannerVisible !== false,
+            apkBannerEnabled: data.apkBannerEnabled !== false,
+            apkBannerVisible: data.apkBannerVisible !== false,
+          });
+        }
+      })
+      .catch(() => {
+        // défauts = tout activé
+      });
+  }, [variant]);
 
   useEffect(() => {
     setMounted(true);
@@ -268,6 +299,13 @@ export function PwaInstallBanner({
     }
   }
 
+  const bannerFlags = siteBanner ?? {
+    pwaBannerEnabled: true,
+    pwaBannerVisible: true,
+    apkBannerEnabled: true,
+    apkBannerVisible: true,
+  };
+
   if (
     !mounted ||
     !installCheckDone ||
@@ -280,10 +318,26 @@ export function PwaInstallBanner({
     return null;
   }
 
+  if (
+    variant === 'site' &&
+    (!bannerFlags.pwaBannerVisible ||
+      (!bannerFlags.pwaBannerEnabled && !bannerFlags.apkBannerEnabled))
+  ) {
+    return null;
+  }
+
   let content: React.ReactNode = null;
 
   if (android && variant === 'site') {
-    content = <AndroidSiteInstallBanner labels={COPY.site} apkUrl={apkUrl} onDismiss={dismiss} />;
+    content = (
+      <AndroidSiteInstallBanner
+        labels={COPY.site}
+        apkUrl={bannerFlags.apkBannerEnabled && bannerFlags.apkBannerVisible ? apkUrl : ''}
+        onDismiss={dismiss}
+        pwaEnabled={bannerFlags.pwaBannerEnabled}
+        apkEnabled={bannerFlags.apkBannerEnabled && bannerFlags.apkBannerVisible}
+      />
+    );
   } else if (android && apkUrl) {
     content = (
       <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-card p-4 shadow-lg">
@@ -314,65 +368,67 @@ export function PwaInstallBanner({
       </div>
     );
   } else if (ios) {
-    if (needsSafari) {
-      content = (
-        <div className="rounded-xl border border-amber-500/40 bg-card p-4 shadow-lg">
-          <div className="flex items-start gap-3">
-            <AppLogo />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">Ouvrir dans Safari</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Sur iPhone, l&apos;installation ne fonctionne qu&apos;avec <strong>Safari</strong>.
-              </p>
+    if (variant !== 'site' || bannerFlags.pwaBannerEnabled) {
+      if (needsSafari) {
+        content = (
+          <div className="rounded-xl border border-amber-500/40 bg-card p-4 shadow-lg">
+            <div className="flex items-start gap-3">
+              <AppLogo />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Ouvrir dans Safari</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Sur iPhone, l&apos;installation ne fonctionne qu&apos;avec <strong>Safari</strong>.
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={copyPageLink}
+              className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            >
+              <ExternalLink className="h-4 w-4" />
+              {copied ? 'Lien copié' : 'Copier le lien'}
+            </button>
+            <button
+              type="button"
+              onClick={dismiss}
+              className="mt-3 w-full text-center text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Continuer sur le site
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={copyPageLink}
-            className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
-          >
-            <ExternalLink className="h-4 w-4" />
-            {copied ? 'Lien copié' : 'Copier le lien'}
-          </button>
-          <button
-            type="button"
-            onClick={dismiss}
-            className="mt-3 w-full text-center text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
-          >
-            Continuer sur le site
-          </button>
-        </div>
-      );
-    } else {
-      content = (
-        <div className="rounded-xl border border-border bg-card p-4 shadow-lg">
-          <div className="flex items-start gap-3">
-            <AppLogo />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">{labels.iosTitle}</p>
-              <ol className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
-                <li>
-                  1. Touchez <strong className="text-foreground">Partager</strong> en bas de Safari
-                </li>
-                <li>
-                  2. <strong className="text-foreground">Sur l&apos;écran d&apos;accueil</strong>
-                </li>
-                <li>
-                  3. <strong className="text-foreground">Ajouter</strong>
-                </li>
-              </ol>
+        );
+      } else {
+        content = (
+          <div className="rounded-xl border border-border bg-card p-4 shadow-lg">
+            <div className="flex items-start gap-3">
+              <AppLogo />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">{labels.iosTitle}</p>
+                <ol className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                  <li>
+                    1. Touchez <strong className="text-foreground">Partager</strong> en bas de Safari
+                  </li>
+                  <li>
+                    2. <strong className="text-foreground">Sur l&apos;écran d&apos;accueil</strong>
+                  </li>
+                  <li>
+                    3. <strong className="text-foreground">Ajouter</strong>
+                  </li>
+                </ol>
+              </div>
+              <DismissButton onClick={dismiss} />
             </div>
-            <DismissButton onClick={dismiss} />
+            <button
+              type="button"
+              onClick={dismiss}
+              className="mt-3 w-full text-center text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
+            >
+              Continuer sur le site
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={dismiss}
-            className="mt-3 w-full text-center text-xs font-medium text-muted-foreground underline-offset-2 hover:underline"
-          >
-            Continuer sur le site
-          </button>
-        </div>
-      );
+        );
+      }
     }
   }
 
@@ -384,7 +440,7 @@ export function PwaInstallBanner({
     const FabIcon = android ? Smartphone : Download;
 
     return (
-      <div className="native-safe-bottom fixed bottom-[calc(3.75rem+env(safe-area-inset-bottom)+0.75rem)] right-3 z-40 md:bottom-5 md:right-5">
+      <div className="fixed bottom-[calc(3.75rem+env(safe-area-inset-bottom)+0.75rem)] right-3 z-40 md:bottom-5 md:right-5">
         {fabOpen ? (
           <>
             <button

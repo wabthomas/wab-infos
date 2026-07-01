@@ -48,6 +48,17 @@ try {
   process.exit(1);
 }
 
+const typegen = spawnSync(process.execPath, [strapiBin, 'ts:generate-types'], {
+  cwd: cmsDir,
+  env: process.env,
+  stdio: 'inherit',
+});
+
+if (typegen.status !== 0 || typegen.signal) {
+  console.error('[cms-build] Échec de la génération des types Strapi (ts:generate-types).');
+  process.exit(typegen.status ?? 1);
+}
+
 const result = spawnSync(process.execPath, [strapiBin, 'build'], {
   cwd: cmsDir,
   env: process.env,

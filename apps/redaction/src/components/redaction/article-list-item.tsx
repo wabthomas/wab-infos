@@ -5,9 +5,10 @@ import { useState } from 'react';
 import { ImageIcon } from 'lucide-react';
 import type { RedactionArticle } from '@/lib/redaction/types';
 import { getPublicArticleUrl } from '@/lib/redaction/article-public-url';
+import { readApiJsonResponse } from '@/lib/redaction/api-response';
 import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
 import { getRedactionArticleStatusLabel } from '@/lib/redaction/status-label';
-import { formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
+import { cn, formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 import { ArticleListOptionsMenu } from '@/components/redaction/article-list-options-menu';
 
 interface ArticleListItemProps {
@@ -16,6 +17,7 @@ interface ArticleListItemProps {
   showAuthor?: boolean;
   canDeleteAny?: boolean;
   canManagePublication?: boolean;
+  variant?: 'default' | 'comfortable';
   onDeleted?: (documentId: string) => void;
   onPublicationChange?: (documentId: string, article: RedactionArticle) => void;
 }
@@ -26,6 +28,7 @@ export function ArticleListItem({
   showAuthor = false,
   canDeleteAny = false,
   canManagePublication = false,
+  variant = 'default',
   onDeleted,
   onPublicationChange,
 }: ArticleListItemProps) {
@@ -68,7 +71,7 @@ export function ArticleListItem({
       const res = await fetch(`/api/redaction/articles/${article.documentId}`, {
         method: 'DELETE',
       });
-      const data = (await res.json()) as { error?: string };
+      const data = await readApiJsonResponse<{ error?: string }>(res);
       if (!res.ok) throw new Error(data.error ?? 'Suppression impossible');
       onDeleted?.(article.documentId);
     } catch (err) {
@@ -96,7 +99,7 @@ export function ArticleListItem({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publish }),
       });
-      const data = (await res.json()) as { article?: RedactionArticle; error?: string };
+      const data = await readApiJsonResponse<{ article?: RedactionArticle; error?: string }>(res);
       if (!res.ok || !data.article) {
         throw new Error(data.error ?? 'Action impossible');
       }
@@ -108,11 +111,21 @@ export function ArticleListItem({
     }
   }
 
+  const comfortable = variant === 'comfortable';
+
   return (
-    <div className="flex gap-3 rounded-xl border border-border bg-card p-3">
+    <div
+      className={cn(
+        'flex gap-3 rounded-xl border border-border bg-card p-3 transition-colors lg:hover:border-primary/20',
+        comfortable && 'lg:gap-4 lg:p-4'
+      )}
+    >
       <Link
         href={editHref}
-        className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border/60"
+        className={cn(
+          'relative shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border/60',
+          comfortable ? 'h-16 w-16 lg:h-[4.5rem] lg:w-[4.5rem]' : 'h-16 w-16'
+        )}
         aria-label={`Modifier ${article.title}`}
       >
         {thumbnailUrl ? (

@@ -10,6 +10,11 @@ import { fileURLToPath } from 'url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const androidDir = join(root, 'apps/reader-android/android');
 const keystoreProps = join(androidDir, 'keystore.properties');
+const releaseEnv = {
+  ...process.env,
+  CAPACITOR_SERVER_URL:
+    process.env.CAPACITOR_SERVER_URL?.trim() || 'https://wab-infos.com',
+};
 
 if (!existsSync(keystoreProps)) {
   console.error('[release] Fichier manquant : apps/reader-android/android/keystore.properties');
@@ -21,6 +26,7 @@ const sync = spawnSync('npm', ['run', 'cap:sync', '--workspace=apps/reader-andro
   cwd: root,
   stdio: 'inherit',
   shell: true,
+  env: releaseEnv,
 });
 if (sync.status !== 0) process.exit(sync.status ?? 1);
 
@@ -40,4 +46,12 @@ const build = spawnSync(gradlew, ['assembleRelease'], {
 
 if (build.status !== 0) process.exit(build.status ?? 1);
 
+console.log(`\n[release] CAPACITOR_SERVER_URL=${releaseEnv.CAPACITOR_SERVER_URL}`);
 console.log('\n[release] APK : apps/reader-android/android/app/build/outputs/apk/release/app-release.apk');
+
+const copyApk = spawnSync('node', ['scripts/copy-apk-to-web.mjs'], {
+  cwd: root,
+  stdio: 'inherit',
+  shell: true,
+});
+if (copyApk.status !== 0) process.exit(copyApk.status ?? 1);

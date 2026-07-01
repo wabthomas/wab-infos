@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AppShell } from '@/components/layout/app-shell';
 import { PwaSetup } from '@/components/pwa/pwa-setup';
 import { NativeAppSetup } from '@/components/pwa/native-app-setup';
+import { NativeAppUpdate } from '@/components/pwa/native-app-update';
 import { NativeScrollManager } from '@/components/layout/native-scroll-manager';
 import { NativePullToRefresh } from '@/components/layout/native-pull-to-refresh';
 import { NativePushSetup } from '@/components/pwa/native-push-setup';
@@ -88,6 +89,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
@@ -131,7 +133,7 @@ export default function RootLayout({
         )}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;var n=/WabInfosNative/i.test(navigator.userAgent);if(s||n){document.documentElement.classList.add('pwa-launching');}}catch(e){}})();`,
+            __html: `(function(){try{var n=/WabInfosNative/i.test(navigator.userAgent);var s=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;if(n){document.documentElement.classList.add('native-capacitor');}if(s||n){document.documentElement.classList.add('pwa-launching');}}catch(e){}})();`,
           }}
         />
         <script
@@ -165,6 +167,10 @@ export default function RootLayout({
           <NativePullToRefresh />
           <PwaSetup />
           <NativePushSetup />
+          <NativeAppUpdate
+            siteUrl={siteConfig.url}
+            versionManifestUrl={siteConfig.androidApkVersionUrl}
+          />
           <ThemeProvider>
             <AdsenseConfigProvider config={adsenseConfig}>
               <AppShell>{children}</AppShell>

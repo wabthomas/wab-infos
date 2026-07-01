@@ -131,12 +131,9 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
       <header
         ref={mainBarRef}
         className={cn(
-          'z-50 w-full border-b border-border bg-background transition-shadow duration-200',
-          isNativeCapacitorFromUserAgent()
-            ? 'bg-background'
-            : 'supports-[backdrop-filter]:bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm',
+          'z-50 w-full border-b border-border bg-background transition-shadow duration-200 supports-[backdrop-filter]:bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm',
           isPinned
-            ? 'native-safe-top fixed left-0 right-0 shadow-md'
+            ? 'fixed left-0 right-0 top-0 shadow-md'
             : 'relative shadow-[0_1px_0_0_rgba(0,0,0,0.04)]'
         )}
       >

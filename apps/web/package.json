@@ -21,6 +21,7 @@
     "@capacitor/local-notifications": "^6.0.0",
     "@capacitor/push-notifications": "^6.0.5",
     "@capacitor/splash-screen": "^6.0.4",
+    "@capacitor/status-bar": "^6.0.3",
     "@next/third-parties": "^16.2.9",
     "@tailwindcss/postcss": "^4",
     "@wab-infos/shared": "file:../../packages/shared",

@@ -20,7 +20,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@wab-infos/shared": ["../../packages/shared/src/index.ts"]
+      "@wab-infos/shared": ["../../packages/shared/src/index.ts"],
+      "@wab-infos/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": [

@@ -23,12 +23,14 @@ export function NativePullToRefresh() {
       pullingRef.current = false;
       pullRef.current = 0;
       setPull(0);
+      document.removeEventListener('touchmove', onTouchMove);
     }
 
     function onTouchStart(event: TouchEvent) {
       if (refreshing || window.scrollY > 2 || event.touches.length !== 1) return;
       startYRef.current = event.touches[0].clientY;
       pullingRef.current = true;
+      document.addEventListener('touchmove', onTouchMove, { passive: false });
     }
 
     function onTouchMove(event: TouchEvent) {
@@ -54,6 +56,7 @@ export function NativePullToRefresh() {
 
       const distance = pullRef.current;
       pullingRef.current = false;
+      document.removeEventListener('touchmove', onTouchMove);
 
       if (distance >= PULL_THRESHOLD && !refreshing) {
         setRefreshing(true);
@@ -71,7 +74,6 @@ export function NativePullToRefresh() {
     }
 
     document.addEventListener('touchstart', onTouchStart, { passive: true });
-    document.addEventListener('touchmove', onTouchMove, { passive: false });
     document.addEventListener('touchend', onTouchEnd);
     document.addEventListener('touchcancel', onTouchEnd);
 
@@ -90,8 +92,7 @@ export function NativePullToRefresh() {
 
   return (
     <div
-      className="native-ptr pointer-events-none fixed inset-x-0 z-[60] flex justify-center"
-      style={{ top: 'var(--cap-safe-top, 0px)' }}
+      className="native-ptr pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center"
       aria-hidden
     >
       <div

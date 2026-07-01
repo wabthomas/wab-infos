@@ -13,6 +13,7 @@ interface ArticleHeroProps {
   categoryColor: string;
   categorySlug: string;
   articleUrl: string;
+  showViewCounts?: boolean;
   className?: string;
 }
 
@@ -22,6 +23,7 @@ export function ArticleHero({
   categoryColor,
   categorySlug,
   articleUrl,
+  showViewCounts = true,
   className,
 }: ArticleHeroProps) {
   const imageUrl = resolveArticleImageUrl(article.featuredImage, 'hero');
@@ -61,12 +63,19 @@ export function ArticleHero({
           |
         </span>
         <span>{article.readingTime} min de lecture</span>
-        <ArticleViewCounter
-          documentId={article.documentId}
-          slug={article.slug}
-          categorySlug={categorySlug}
-          initialCount={article.viewCount}
-        />
+        {showViewCounts ? (
+          <>
+            <span aria-hidden className={onDark ? 'text-white/40' : 'text-muted-foreground/40'}>
+              |
+            </span>
+            <ArticleViewCounter
+              documentId={article.documentId}
+              slug={article.slug}
+              categorySlug={categorySlug}
+              initialCount={article.viewCount}
+            />
+          </>
+        ) : null}
       </div>
     </div>
   );

@@ -525,9 +525,8 @@ html.pwa-launching ins.adsbygoogle {
   z-index: 1;
 }
 
-/* APK Capacitor — scroll plus fluide, respect barre de statut / navigation */
+/* APK Capacitor — scroll fluide (barre de statut = native Android #111111) */
 html.native-capacitor {
-  --cap-safe-top: 0px;
   --cap-safe-bottom: 0px;
   overscroll-behavior-y: none;
 }
@@ -536,19 +535,11 @@ html.native-capacitor body {
   -webkit-overflow-scrolling: touch;
 }
 
-html.native-capacitor.cap-insets-ready body {
-  padding-top: var(--cap-safe-top);
-}
-
-html.native-capacitor.cap-insets-ready .native-safe-top {
-  top: var(--cap-safe-top) !important;
-}
-
 html.native-capacitor.cap-insets-ready .native-safe-bottom {
   bottom: var(--cap-safe-bottom) !important;
 }
 
+/* content-visibility peut faire planter le scroll WebView Android */
 html.native-capacitor .prose-article img {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 240px;
+  content-visibility: visible;
 }

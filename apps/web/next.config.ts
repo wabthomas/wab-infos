@@ -91,6 +91,13 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: '/downloads/apk-version.json',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=60, must-revalidate' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },

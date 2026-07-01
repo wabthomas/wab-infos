@@ -11,11 +11,15 @@ const CAPACITOR_ALLOW_NAVIGATION = [
 ];
 
 /**
- * En prod, l'APK charge le site (SSR Next.js) via server.url.
- * Définir CAPACITOR_SERVER_URL=https://wab-infos.com avant cap sync.
- * En dev local : CAPACITOR_SERVER_URL=http://10.0.2.2:3000 (émulateur Android)
+ * En prod, l'APK charge le site via server.url (défaut : https://wab-infos.com).
+ * Dev local émulateur : CAPACITOR_SERVER_URL=http://10.0.2.2:3000
+ * APK hors-ligne (www/) : CAPACITOR_SERVER_URL=local
  */
-const serverUrl = process.env.CAPACITOR_SERVER_URL?.trim();
+const rawServerUrl = process.env.CAPACITOR_SERVER_URL?.trim();
+const serverUrl =
+  rawServerUrl === 'local' || rawServerUrl === 'bundle-only'
+    ? undefined
+    : rawServerUrl || 'https://wab-infos.com';
 
 const config: CapacitorConfig = {
   appId: 'com.wabinfos.app',
@@ -35,6 +39,11 @@ const config: CapacitorConfig = {
       backgroundColor: '#C41E3A',
       androidSplashResourceName: 'splash',
       showSpinner: false,
+    },
+    StatusBar: {
+      style: 'DARK',
+      backgroundColor: '#111111',
+      overlaysWebView: false,
     },
   },
   ...(serverUrl
