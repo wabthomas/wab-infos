@@ -15,22 +15,35 @@ export function NativePullToRefresh() {
   const pullRef = useRef(0);
   const pullingRef = useRef(false);
   const startYRef = useRef(0);
+  const touchMoveAttachedRef = useRef(false);
 
   useEffect(() => {
     if (!isNativeCapacitorFromUserAgent()) return;
+
+    function attachTouchMove() {
+      if (touchMoveAttachedRef.current) return;
+      document.addEventListener('touchmove', onTouchMove, { passive: false });
+      touchMoveAttachedRef.current = true;
+    }
+
+    function detachTouchMove() {
+      if (!touchMoveAttachedRef.current) return;
+      document.removeEventListener('touchmove', onTouchMove);
+      touchMoveAttachedRef.current = false;
+    }
 
     function resetPull() {
       pullingRef.current = false;
       pullRef.current = 0;
       setPull(0);
-      document.removeEventListener('touchmove', onTouchMove);
+      detachTouchMove();
     }
 
     function onTouchStart(event: TouchEvent) {
       if (refreshing || window.scrollY > 2 || event.touches.length !== 1) return;
       startYRef.current = event.touches[0].clientY;
       pullingRef.current = true;
-      document.addEventListener('touchmove', onTouchMove, { passive: false });
+      attachTouchMove();
     }
 
     function onTouchMove(event: TouchEvent) {
@@ -56,7 +69,7 @@ export function NativePullToRefresh() {
 
       const distance = pullRef.current;
       pullingRef.current = false;
-      document.removeEventListener('touchmove', onTouchMove);
+      detachTouchMove();
 
       if (distance >= PULL_THRESHOLD && !refreshing) {
         setRefreshing(true);
@@ -79,7 +92,7 @@ export function NativePullToRefresh() {
 
     return () => {
       document.removeEventListener('touchstart', onTouchStart);
-      document.removeEventListener('touchmove', onTouchMove);
+      detachTouchMove();
       document.removeEventListener('touchend', onTouchEnd);
       document.removeEventListener('touchcancel', onTouchEnd);
     };

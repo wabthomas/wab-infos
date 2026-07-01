@@ -694,7 +694,7 @@ async function listEditorArticlesPage(
     };
   }
 
-  const [pubEntities, draftEntities] = await Promise.all([
+  const [pubEntities, draftEntities, scheduledEntities] = await Promise.all([
     fetchArticleEntitiesWindow(listParams, authorFilter, 'published', windowSize),
     fetchArticleEntitiesWindow(
       listParams,
@@ -705,6 +705,9 @@ async function listEditorArticlesPage(
         ? { documentId: { $notIn: publishedIdList }, status: { $eq: 'draft' } }
         : { status: { $eq: 'draft' } }
     ),
+    fetchArticleEntitiesWindow(listParams, authorFilter, 'draft', windowSize, {
+      status: { $eq: 'scheduled' },
+    }),
   ]);
 
   const merged = new Map<string, RedactionArticle>();
@@ -714,22 +717,30 @@ async function listEditorArticlesPage(
     if (article.status !== 'draft' || isLiveRedactionArticle(article)) continue;
     merged.set(item.documentId, article);
   }
+  for (const item of scheduledEntities) {
+    if (publishedIds && publishedIds.has(item.documentId)) continue;
+    const article = mapArticle(item);
+    if (article.status !== 'scheduled') continue;
+    merged.set(item.documentId, article);
+  }
   for (const item of pubEntities) {
     merged.set(item.documentId, mapArticle(item));
   }
 
   const sorted = sortArticlesByUpdated([...merged.values()]);
-  const [pubTotal, draftTotal, scheduledTotal] = await Promise.all([
+  const [pubTotal, draftTotal, scheduledTotal, draftOnlyTotal] = await Promise.all([
     getStrapiArticleTotal(authorFilter, 'published'),
     getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'draft' } }),
     getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'scheduled' } }),
+    publishedIds
+      ? getStrapiArticleTotal(authorFilter, 'draft', {
+          status: { $eq: 'draft' },
+          ...(publishedIdList.length > 0 ? { documentId: { $notIn: publishedIdList } } : {}),
+        })
+      : Promise.resolve(0),
   ]);
   const total = publishedIds
-    ? pubTotal +
-      (await getStrapiArticleTotal(authorFilter, 'draft', {
-        status: { $eq: 'draft' },
-        ...(publishedIdList.length > 0 ? { documentId: { $notIn: publishedIdList } } : {}),
-      }))
+    ? pubTotal + draftOnlyTotal + scheduledTotal
     : pubTotal + draftTotal + scheduledTotal;
 
   return {
