@@ -727,6 +727,7 @@ async function listEditorArticlesPage(
   const total = publishedIds
     ? pubTotal +
       (await getStrapiArticleTotal(authorFilter, 'draft', {
+        status: { $eq: 'draft' },
         ...(publishedIdList.length > 0 ? { documentId: { $notIn: publishedIdList } } : {}),
       }))
     : pubTotal + draftTotal + scheduledTotal;

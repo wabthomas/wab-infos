@@ -4,6 +4,7 @@
  * Usage : npm run reader-android:install
  */
 import { existsSync, readFileSync } from 'fs';
+import { homedir } from 'os';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
@@ -14,13 +15,38 @@ const apk = join(
   'apps/reader-android/android/app/build/outputs/apk/release/app-release.apk'
 );
 
-const adb =
-  process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT
-    ? join(
-        (process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT).replace(/\\/g, '/'),
-        'platform-tools/adb.exe'
-      )
-    : 'C:/Users/wabth/AppData/Local/Android/Sdk/platform-tools/adb.exe';
+function resolveAdbPath() {
+  const adbName = process.platform === 'win32' ? 'adb.exe' : 'adb';
+  const sdkRoot =
+    process.env.ANDROID_HOME?.trim() ||
+    process.env.ANDROID_SDK_ROOT?.trim() ||
+    process.env.ANDROID_SDK_HOME?.trim();
+
+  const candidates = [];
+
+  if (sdkRoot) {
+    candidates.push(join(sdkRoot, 'platform-tools', adbName));
+  }
+
+  if (process.platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA?.trim();
+    if (localAppData) {
+      candidates.push(join(localAppData, 'Android', 'Sdk', 'platform-tools', adbName));
+    }
+  } else if (process.platform === 'darwin') {
+    candidates.push(join(homedir(), 'Library', 'Android', 'sdk', 'platform-tools', adbName));
+  } else {
+    candidates.push(join(homedir(), 'Android', 'Sdk', 'platform-tools', adbName));
+  }
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+
+  return adbName;
+}
+
+const adb = resolveAdbPath();
 
 if (!existsSync(apk)) {
   console.error('[install] APK introuvable. Lancez : npm run reader-android:release');
