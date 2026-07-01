@@ -306,9 +306,9 @@ export function PwaInstallBanner({
     apkBannerVisible: true,
   };
 
-  const showSitePwaBanner =
-    bannerFlags.pwaBannerEnabled && bannerFlags.pwaBannerVisible;
-  const showSiteApkBanner =
+  // pwaBannerVisible = afficher le bandeau (interrupteur global du panneau site)
+  const showPwaInstallOption = bannerFlags.pwaBannerEnabled;
+  const showApkInstallOption =
     bannerFlags.apkBannerEnabled && bannerFlags.apkBannerVisible;
 
   if (
@@ -323,7 +323,11 @@ export function PwaInstallBanner({
     return null;
   }
 
-  if (variant === 'site' && !showSitePwaBanner && !showSiteApkBanner) {
+  if (
+    variant === 'site' &&
+    (!bannerFlags.pwaBannerVisible ||
+      (!bannerFlags.pwaBannerEnabled && !bannerFlags.apkBannerEnabled))
+  ) {
     return null;
   }
 
@@ -333,10 +337,10 @@ export function PwaInstallBanner({
     content = (
       <AndroidSiteInstallBanner
         labels={COPY.site}
-        apkUrl={showSiteApkBanner ? apkUrl : ''}
+        apkUrl={showApkInstallOption ? apkUrl : ''}
         onDismiss={dismiss}
-        pwaEnabled={showSitePwaBanner}
-        apkEnabled={showSiteApkBanner}
+        pwaEnabled={showPwaInstallOption}
+        apkEnabled={showApkInstallOption}
       />
     );
   } else if (android && apkUrl) {
@@ -369,7 +373,7 @@ export function PwaInstallBanner({
       </div>
     );
   } else if (ios) {
-    if (variant !== 'site' || showSitePwaBanner) {
+    if (variant !== 'site' || showPwaInstallOption) {
       if (needsSafari) {
         content = (
           <div className="rounded-xl border border-amber-500/40 bg-card p-4 shadow-lg">
