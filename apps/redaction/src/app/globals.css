@@ -51,7 +51,7 @@ body {
     radial-gradient(ellipse 60% 40% at 100% 0%, rgb(29 53 87 / 0.03), transparent);
 }
 
-.dark body {
+html.dark body {
   background-image:
     radial-gradient(ellipse 80% 50% at 50% -20%, rgb(230 57 70 / 0.08), transparent),
     radial-gradient(ellipse 60% 40% at 100% 0%, rgb(69 123 157 / 0.06), transparent);
@@ -327,7 +327,7 @@ html.native-capacitor #redaction-main-scroll {
     box-shadow: 1px 0 0 rgba(0, 0, 0, 0.04);
   }
 
-  .dark .redaction-sidebar {
+  html.dark .redaction-sidebar {
     box-shadow: 1px 0 0 rgba(255, 255, 255, 0.04);
   }
 
