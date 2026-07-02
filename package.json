@@ -40,6 +40,7 @@
     "optimize:media": "npm run optimize --workspace=@wab-infos/media-optimize --",
     "optimize:media:dry-run": "npm run dry-run --workspace=@wab-infos/media-optimize --",
     "optimize:media:server": "bash scripts/optimize-media-server.sh",
+    "optimize:media:remote": "powershell -ExecutionPolicy Bypass -File scripts/deploy-remote.ps1 exec -- \"cd ~/wab-infos && bash scripts/optimize-media-server.sh\"",
     "noc:install": "bash scripts/noc-npm-install.sh",
     "noc:install:redaction": "bash scripts/noc-npm-install.sh redaction",
     "noc:install:web": "bash scripts/noc-npm-install.sh web",

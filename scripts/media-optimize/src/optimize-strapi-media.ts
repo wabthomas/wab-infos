@@ -10,7 +10,8 @@
  * Variables : STRAPI_URL, STRAPI_API_TOKEN (depuis .env racine ou apps/cms/.env)
  *             ou --strapi-url=https://cms.app.wab-infos.com
  *
- * Strapi conserve hash + extension au replace → même format que l'original (pas de JPG→WebP).
+ * Convertit JPEG/PNG en WebP, redimensionne (max 1920px) et met à jour les URLs dans les articles.
+ * Options : --keep-format (pas de WebP), --skip-url-migrate, --reset-progress
  */
 
 import fs from 'node:fs';
@@ -19,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 import { optimizeImageBuffer } from './image-optimize.js';
+import { migrateContentUrls } from './migrate-content-urls.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../../..');
@@ -65,6 +67,8 @@ const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN || '';
 const DRY_RUN = args.includes('--dry-run');
 const FORCE = args.includes('--force');
 const RESET_PROGRESS = args.includes('--reset-progress');
+const KEEP_FORMAT = args.includes('--keep-format');
+const SKIP_URL_MIGRATE = args.includes('--skip-url-migrate');
 const LIMIT = Number(args.find((a) => a.startsWith('--limit='))?.split('=')[1] || 0) || Infinity;
 const SINGLE_ID = args.find((a) => a.startsWith('--id='))?.split('=')[1];
 const PAGE_SIZE = Number(args.find((a) => a.startsWith('--page-size='))?.split('=')[1] || 25);
@@ -92,6 +96,7 @@ interface ProgressState {
     skipped: number;
     failed: number;
     savedBytes: number;
+    articlesUpdated: number;
   };
 }
 
@@ -100,10 +105,15 @@ function loadProgress(): ProgressState {
     return {
       completedIds: [],
       failed: {},
-      stats: { scanned: 0, replaced: 0, skipped: 0, failed: 0, savedBytes: 0 },
+      stats: { scanned: 0, replaced: 0, skipped: 0, failed: 0, savedBytes: 0, articlesUpdated: 0 },
     };
   }
   return JSON.parse(fs.readFileSync(progressPath, 'utf-8')) as ProgressState;
+}
+
+function ensureProgressStats(state: ProgressState): ProgressState {
+  state.stats.articlesUpdated ??= 0;
+  return state;
 }
 
 function saveProgress(state: ProgressState) {
@@ -198,14 +208,24 @@ async function fetchFileById(id: number): Promise<StrapiFile | null> {
   }
 }
 
-async function replaceFile(file: StrapiFile, buffer: Buffer, mime: string): Promise<void> {
+function formatSizeKb(sizeKb: number): string {
+  if (sizeKb >= 1024) return `${(sizeKb / 1024).toFixed(1)} Mo`;
+  return `${Math.round(sizeKb)} Ko`;
+}
+
+async function replaceFile(
+  file: StrapiFile,
+  buffer: Buffer,
+  mime: string,
+  filename: string
+): Promise<StrapiFile> {
   const form = new FormData();
   form.append('files', buffer, {
-    filename: file.name,
+    filename,
     contentType: mime,
   });
 
-  const fileInfo: Record<string, string> = { name: file.name };
+  const fileInfo: Record<string, string> = { name: filename };
   if (file.alternativeText) fileInfo.alternativeText = file.alternativeText;
   if (file.caption) fileInfo.caption = file.caption;
   form.append('fileInfo', JSON.stringify(fileInfo));
@@ -223,12 +243,19 @@ async function replaceFile(file: StrapiFile, buffer: Buffer, mime: string): Prom
     const text = await res.text();
     throw new Error(`Replace ${file.id} (${res.status}): ${text.slice(0, 200)}`);
   }
+
+  const data = (await res.json()) as StrapiFile[] | StrapiFile;
+  const updated = Array.isArray(data) ? data[0] : data;
+  if (!updated?.id) {
+    throw new Error(`Replace ${file.id}: réponse invalide`);
+  }
+  return updated;
 }
 
 async function processFile(file: StrapiFile, state: ProgressState): Promise<void> {
   state.stats.scanned += 1;
 
-  const label = `#${file.id} ${file.name} (${(file.size * 1024).toFixed(0)} Ko)`;
+  const label = `#${file.id} ${file.name} (${formatSizeKb(file.size)})`;
 
   const res = await fetch(mediaUrl(file));
   if (!res.ok) {
@@ -236,7 +263,9 @@ async function processFile(file: StrapiFile, state: ProgressState): Promise<void
   }
 
   const original = Buffer.from(await res.arrayBuffer());
-  const optimized = await optimizeImageBuffer(original, file.mime);
+  const optimized = await optimizeImageBuffer(original, file.mime, file.name, {
+    webp: !KEEP_FORMAT,
+  });
 
   if (optimized.skipped) {
     console.info(`  ⊘ ${label} — ignoré (${optimized.reason})`);
@@ -255,9 +284,12 @@ async function processFile(file: StrapiFile, state: ProgressState): Promise<void
     return;
   }
 
+  const formatNote =
+    optimized.mime === 'image/webp' && file.mime !== 'image/webp' ? ' → webp' : '';
+
   if (DRY_RUN) {
     console.info(
-      `  ○ ${label} — ${(original.length / 1024).toFixed(0)} → ${(optimized.buffer.length / 1024).toFixed(0)} Ko (-${savingsPercent.toFixed(1)}%) [dry-run]`
+      `  ○ ${label} — ${(original.length / 1024).toFixed(0)} → ${(optimized.buffer.length / 1024).toFixed(0)} Ko (-${savingsPercent.toFixed(1)}%)${formatNote} [dry-run]`
     );
     state.stats.replaced += 1;
     state.stats.savedBytes += Math.max(0, savings);
@@ -265,10 +297,26 @@ async function processFile(file: StrapiFile, state: ProgressState): Promise<void
     return;
   }
 
-  await replaceFile(file, optimized.buffer, optimized.mime);
+  const oldUrl = file.url;
+  const updated = await replaceFile(file, optimized.buffer, optimized.mime, optimized.filename);
   console.info(
-    `  ✓ ${label} — ${(original.length / 1024).toFixed(0)} → ${(optimized.buffer.length / 1024).toFixed(0)} Ko (-${savingsPercent.toFixed(1)}%)`
+    `  ✓ ${label} — ${(original.length / 1024).toFixed(0)} → ${(optimized.buffer.length / 1024).toFixed(0)} Ko (-${savingsPercent.toFixed(1)}%)${formatNote}`
   );
+
+  if (!SKIP_URL_MIGRATE && updated.url && updated.url !== oldUrl) {
+    const articlesUpdated = await migrateContentUrls({
+      strapiUrl: STRAPI_URL,
+      token: STRAPI_TOKEN,
+      oldUrl,
+      newUrl: updated.url,
+      dryRun: false,
+    });
+    if (articlesUpdated > 0) {
+      console.info(`    ↳ ${articlesUpdated} article(s) mis à jour (URLs)`);
+      state.stats.articlesUpdated += articlesUpdated;
+    }
+  }
+
   state.stats.replaced += 1;
   state.stats.savedBytes += Math.max(0, savings);
   state.completedIds.push(file.id);
@@ -284,12 +332,12 @@ async function main() {
 
   await checkStrapiConnection();
 
-  const state = loadProgress();
+  const state = ensureProgressStats(loadProgress());
   const done = new Set(state.completedIds);
 
   console.info(`Strapi: ${STRAPI_URL}`);
   console.info(
-    `Mode: ${DRY_RUN ? 'dry-run' : 'live'} | min gain: ${MIN_SAVINGS_PERCENT}% | page: ${PAGE_SIZE}`
+    `Mode: ${DRY_RUN ? 'dry-run' : 'live'} | format: ${KEEP_FORMAT ? 'original' : 'webp'} | min gain: ${MIN_SAVINGS_PERCENT}% | page: ${PAGE_SIZE}`
   );
 
   let processed = 0;
@@ -364,6 +412,9 @@ function printSummary(state: ProgressState) {
   console.info(`Ignorés    : ${stats.skipped}`);
   console.info(`Échecs     : ${stats.failed}`);
   console.info(`Économisé  : ${(stats.savedBytes / 1024 / 1024).toFixed(2)} Mo`);
+  if (stats.articlesUpdated > 0) {
+    console.info(`Articles   : ${stats.articlesUpdated} contenu(s) mis à jour`);
+  }
   console.info(`Progression: ${progressPath}`);
 }
 

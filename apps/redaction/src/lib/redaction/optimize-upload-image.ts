@@ -94,10 +94,12 @@ export async function optimizeUploadImage(file: File): Promise<File> {
   }
 
   try {
+    const quality =
+      file.size > 2048 ? 72 : file.size > 1024 ? 75 : file.size > 500 ? 78 : WEBP_QUALITY;
     const optimized = await sharp(input)
       .rotate()
       .resize({ width: MAX_WIDTH, withoutEnlargement: true })
-      .webp({ quality: WEBP_QUALITY, effort: 4 })
+      .webp({ quality, effort: 4 })
       .toBuffer();
 
     const baseName = file.name.replace(/\.[^.]+$/i, '') || 'image';

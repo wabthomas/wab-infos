@@ -3,6 +3,8 @@ import { cookies, headers } from 'next/headers';
 import {
   REDACTION_COOKIE,
   REDACTION_COOKIE_MAX_AGE,
+  REDACTION_COOKIE_MAX_AGE_SESSION,
+  REDACTION_REMEMBER_COOKIE,
 } from '@/lib/redaction/config';
 import { redactionCookieOptions } from '@/lib/redaction/cookie-options';
 import { RedactionAuthError, requireRedactionUser } from '@/lib/redaction/strapi-editor';
@@ -17,14 +19,15 @@ export async function POST() {
     }
 
     const headerList = await headers();
-    jar.set(
-      REDACTION_COOKIE,
-      jwt,
-      redactionCookieOptions(
-        REDACTION_COOKIE_MAX_AGE,
-        headerList.get('x-forwarded-proto')
-      )
-    );
+    const remember = jar.get(REDACTION_REMEMBER_COOKIE)?.value === '1';
+    const maxAge = remember ? REDACTION_COOKIE_MAX_AGE : REDACTION_COOKIE_MAX_AGE_SESSION;
+    const cookieOptions = redactionCookieOptions(maxAge, headerList.get('x-forwarded-proto'));
+
+    jar.set(REDACTION_COOKIE, jwt, cookieOptions);
+    jar.set(REDACTION_REMEMBER_COOKIE, remember ? '1' : '0', {
+      ...cookieOptions,
+      httpOnly: true,
+    });
 
     return NextResponse.json({ user });
   } catch (err) {

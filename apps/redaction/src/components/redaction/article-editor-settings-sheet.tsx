@@ -127,7 +127,7 @@ export function ArticleEditorSettingsSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:items-center lg:justify-center lg:p-6">
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
@@ -138,7 +138,7 @@ export function ArticleEditorSettingsSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="editor-settings-title"
-        className="relative max-h-[min(92dvh,780px)] overflow-y-auto rounded-t-2xl bg-background shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))]"
+        className="relative max-h-[min(92dvh,780px)] w-full overflow-y-auto rounded-t-2xl bg-background shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))] lg:max-h-[min(85vh,780px)] lg:max-w-2xl lg:rounded-2xl"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
           <h2 id="editor-settings-title" className="font-display text-base font-bold">

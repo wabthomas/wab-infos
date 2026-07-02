@@ -55,14 +55,14 @@ export function DashboardActivityChart({ publications, comments }: DashboardActi
 
   if (!hasActivity) {
     return (
-      <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 text-sm text-muted-foreground lg:h-[220px]">
+      <div className="flex h-[160px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 text-sm text-muted-foreground sm:h-[200px] lg:h-[220px]">
         Aucune activité sur les 7 derniers jours
       </div>
     );
   }
 
   return (
-    <div className="h-[200px] w-full lg:h-[220px]">
+    <div className="h-[160px] w-full sm:h-[200px] lg:h-[220px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
           <defs>

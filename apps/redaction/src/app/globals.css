@@ -199,6 +199,61 @@ body {
   background: var(--background);
 }
 
+.redaction-editor-width {
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  max-width: 32rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.redaction-editor-fixed-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+
+@media (min-width: 1024px) {
+  .redaction-editor-width {
+    max-width: 48rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+
+  .redaction-editor-fixed-panel {
+    left: 260px;
+  }
+
+  .jetpack-editor-title {
+    font-size: 2.125rem;
+  }
+
+  .jetpack-editor-body {
+    min-height: 42vh;
+    font-size: 1.125rem;
+    line-height: 1.85;
+  }
+
+  .jetpack-editor-scroll {
+    padding-top: 0 !important;
+    padding-bottom: calc(3.75rem + 0.5rem) !important;
+  }
+
+  html.redaction-writing,
+  html.redaction-writing body {
+    overflow: auto;
+    height: auto;
+  }
+}
+
+@media (min-width: 1280px) {
+  .redaction-editor-width {
+    max-width: 56rem;
+  }
+}
+
 html.redaction-writing,
 html.redaction-writing body {
   overflow: hidden;

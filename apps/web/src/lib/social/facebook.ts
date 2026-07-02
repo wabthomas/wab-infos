@@ -6,9 +6,17 @@ export interface FacebookPostResult {
   error?: string;
 }
 
+export interface FacebookPostOptions {
+  /** Miniature explicite (URL publique JPEG/PNG). */
+  picture?: string;
+  name?: string;
+  description?: string;
+}
+
 export async function postToFacebook(
   message: string,
-  link: string
+  link: string,
+  options?: FacebookPostOptions
 ): Promise<FacebookPostResult> {
   const { pageId, accessToken } = socialConfig.facebook;
   if (!pageId || !accessToken) {
@@ -20,6 +28,10 @@ export async function postToFacebook(
     link,
     access_token: accessToken,
   });
+
+  if (options?.picture) body.set('picture', options.picture);
+  if (options?.name) body.set('name', options.name.slice(0, 255));
+  if (options?.description) body.set('description', options.description.slice(0, 500));
 
   try {
     const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {

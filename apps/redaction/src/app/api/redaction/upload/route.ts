@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { assertUploadableImage, optimizeUploadImage } from '@/lib/redaction/optimize-upload-image';
+import { DuplicateMediaError } from '@/lib/redaction/duplicate-media-error';
 import {
   RedactionAuthError,
   requireRedactionUser,
@@ -46,6 +47,21 @@ export async function POST(request: Request) {
     const media = await uploadEditorImage(user, optimized);
     return NextResponse.json({ media });
   } catch (err) {
+    if (err instanceof DuplicateMediaError) {
+      return NextResponse.json(
+        {
+          error: err.message,
+          duplicate: true,
+          media: {
+            id: err.existing.id,
+            url: err.existing.url,
+            name: err.existing.name,
+            alternativeText: err.existing.alternativeText,
+          },
+        },
+        { status: 409 }
+      );
+    }
     if (err instanceof RedactionAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
     }

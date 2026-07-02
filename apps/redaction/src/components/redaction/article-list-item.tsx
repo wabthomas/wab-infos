@@ -18,6 +18,8 @@ interface ArticleListItemProps {
   canDeleteAny?: boolean;
   canManagePublication?: boolean;
   variant?: 'default' | 'comfortable';
+  /** Liste dashboard mobile : sans carte, métadonnées sur 2 lignes */
+  layout?: 'default' | 'compact';
   onDeleted?: (documentId: string) => void;
   onPublicationChange?: (documentId: string, article: RedactionArticle) => void;
 }
@@ -29,6 +31,7 @@ export function ArticleListItem({
   canDeleteAny = false,
   canManagePublication = false,
   variant = 'default',
+  layout = 'default',
   onDeleted,
   onPublicationChange,
 }: ArticleListItemProps) {
@@ -112,19 +115,35 @@ export function ArticleListItem({
   }
 
   const comfortable = variant === 'comfortable';
+  const compact = layout === 'compact';
+
+  const categoryLabel = article.category?.name ?? 'Sans rubrique';
+  const statusLabel = getRedactionArticleStatusLabel(article.status);
+  const dateLabel = formatArticleDate(getArticleDisplayDate(article));
+  const viewsLabel =
+    showViews && article.viewCount > 0
+      ? `${article.viewCount.toLocaleString('fr-FR')} vues`
+      : null;
 
   return (
     <div
       className={cn(
-        'flex gap-3 rounded-xl border border-border bg-card p-3 transition-colors lg:hover:border-primary/20',
-        comfortable && 'lg:gap-4 lg:p-4'
+        'flex gap-2.5 transition-colors lg:gap-3',
+        compact
+          ? 'border-0 bg-transparent p-0 lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-4 lg:hover:border-primary/20'
+          : 'rounded-xl border border-border bg-card p-3 lg:hover:border-primary/20',
+        comfortable && !compact && 'lg:gap-4 lg:p-4'
       )}
     >
       <Link
         href={editHref}
         className={cn(
           'relative shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border/60',
-          comfortable ? 'h-16 w-16 lg:h-[4.5rem] lg:w-[4.5rem]' : 'h-16 w-16'
+          compact
+            ? 'h-12 w-12 lg:h-[4.5rem] lg:w-[4.5rem]'
+            : comfortable
+              ? 'h-16 w-16 lg:h-[4.5rem] lg:w-[4.5rem]'
+              : 'h-16 w-16'
         )}
         aria-label={`Modifier ${article.title}`}
       >
@@ -145,7 +164,14 @@ export function ArticleListItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
           <Link href={editHref} className="min-w-0 flex-1 transition-colors active:text-primary">
-            <p className="line-clamp-2 font-semibold leading-snug">{article.title}</p>
+            <p
+              className={cn(
+                'line-clamp-2 font-semibold leading-snug',
+                compact && 'text-sm lg:text-base'
+              )}
+            >
+              {article.title}
+            </p>
           </Link>
           {article.isBreaking ? (
             <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
@@ -154,7 +180,48 @@ export function ArticleListItem({
           ) : null}
         </div>
 
-        <div className="mt-1 flex items-center gap-2">
+        {compact ? (
+          <div className="mt-1 space-y-0.5 lg:hidden">
+            <p className="line-clamp-1 text-[11px] text-muted-foreground">
+              {showAuthor && article.author?.name ? (
+                <>
+                  <span className="font-medium text-foreground">{article.author.name}</span>
+                  <span className="mx-1">·</span>
+                </>
+              ) : null}
+              {categoryLabel} · {statusLabel}
+            </p>
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+                {dateLabel}
+                {viewsLabel ? (
+                  <>
+                    <span className="mx-1">·</span>
+                    {viewsLabel}
+                  </>
+                ) : null}
+              </p>
+              <ArticleListOptionsMenu
+                open={menuOpen}
+                onOpenChange={setMenuOpen}
+                editHref={editHref}
+                publicUrl={publicUrl}
+                canDelete={canDelete}
+                canManagePublication={canManagePublication}
+                showPublish={!isLive && article.status !== 'scheduled'}
+                showUnpublish={isLive}
+                deleting={deleting}
+                togglingPublication={togglingPublication}
+                onPublish={() => void togglePublication(true)}
+                onUnpublish={() => void togglePublication(false)}
+                onShare={publicUrl ? () => void shareArticle() : undefined}
+                onDelete={() => void deleteArticle()}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <div className={cn('mt-1 flex items-center gap-2', compact && 'hidden lg:flex')}>
           <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
             {showAuthor && article.author?.name ? (
               <>
@@ -162,15 +229,15 @@ export function ArticleListItem({
                 <span className="mx-1.5">·</span>
               </>
             ) : null}
-            {article.category?.name ?? 'Sans rubrique'}
+            {categoryLabel}
             <span className="mx-1.5">·</span>
-            {getRedactionArticleStatusLabel(article.status)}
+            {statusLabel}
             <span className="mx-1.5">·</span>
-            {formatArticleDate(getArticleDisplayDate(article))}
-            {showViews && article.viewCount > 0 ? (
+            {dateLabel}
+            {viewsLabel ? (
               <>
                 <span className="mx-1.5">·</span>
-                {article.viewCount.toLocaleString('fr-FR')} vues
+                {viewsLabel}
               </>
             ) : null}
           </p>

@@ -28,13 +28,13 @@ export function ArticleHeadingPicker({
 
   return (
     <div
-      className="fixed inset-x-0 z-[68] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+      className="redaction-editor-fixed-panel z-[68] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
       style={{
         bottom: bottomOffset > 0 ? bottomOffset : undefined,
         paddingBottom: bottomOffset > 0 ? '0.75rem' : 'max(0.75rem, env(safe-area-inset-bottom))',
       }}
     >
-      <div className="mx-auto max-w-lg">
+      <div className="redaction-editor-width">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold">Style de titre</p>
           <button

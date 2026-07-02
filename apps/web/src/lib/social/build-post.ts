@@ -1,8 +1,8 @@
-export function buildFacebookMessage(title: string, excerpt: string, articleUrl: string): string {
+/** Corps du post Facebook — sans URL (le lien est passé séparément pour l’aperçu). */
+export function buildFacebookMessage(title: string, excerpt: string): string {
   const excerptShort = excerpt.trim().slice(0, 400);
   const parts = [title.trim()];
   if (excerptShort) parts.push(excerptShort);
-  parts.push(articleUrl);
   return parts.join('\n\n');
 }
 

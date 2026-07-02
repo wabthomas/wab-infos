@@ -1,3 +1,4 @@
+import type { Article } from '@wab-infos/shared';
 import {
   getArticleForSocial,
   markFacebookPosted,
@@ -7,6 +8,7 @@ import { buildFacebookMessage, buildXMessage } from '@/lib/social/build-post';
 import { isFacebookConfigured, isXConfigured, socialConfig } from '@/lib/social/config';
 import { postToFacebook } from '@/lib/social/facebook';
 import { postToX } from '@/lib/social/x';
+import { resolveArticleOgImage } from '@/lib/og-image-url';
 
 export interface PublishArticleSocialResult {
   ok: boolean;
@@ -48,8 +50,13 @@ export async function publishArticleToSocial(slug: string): Promise<PublishArtic
   const result: PublishArticleSocialResult = { ok: true };
 
   if (isFacebookConfigured() && !article.facebookPostedAt) {
-    const message = buildFacebookMessage(article.title, article.excerpt, article.articleUrl);
-    const fb = await postToFacebook(message, article.articleUrl);
+    const message = buildFacebookMessage(article.title, article.excerpt);
+    const ogImage = resolveArticleOgImage(article as Article);
+    const fb = await postToFacebook(message, article.articleUrl, {
+      picture: ogImage.url,
+      name: article.title,
+      description: article.excerpt,
+    });
     result.facebook = fb.ok
       ? { ok: true, postId: fb.postId }
       : { ok: false, error: fb.error };

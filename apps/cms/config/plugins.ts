@@ -3,8 +3,10 @@ import type { Core } from '@strapi/strapi';
 const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Plugin => ({
   'users-permissions': {
     config: {
+      // JWT long (évite les tokens ~10–30 min du mode refresh Strapi 5)
+      jwtManagement: 'legacy-support',
       jwt: {
-        expiresIn: '30d',
+        expiresIn: '7d',
       },
       ratelimit: {
         max: 5,

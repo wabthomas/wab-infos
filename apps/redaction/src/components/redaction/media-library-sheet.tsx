@@ -1,11 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, FolderOpen, ImagePlus, Loader2, Search, Upload, X } from 'lucide-react';
+import { Camera, Copy, FolderOpen, ImagePlus, Loader2, Search, Trash2, Upload, X } from 'lucide-react';
 import type { RedactionMediaItem } from '@/lib/redaction/types';
 import { readApiJsonResponse } from '@/lib/redaction/api-response';
 import { compressClientImage } from '@/lib/redaction/compress-client-image';
 import { IMAGE_UPLOAD_ACCEPT } from '@/lib/redaction/image-upload-accept';
+import {
+  countDeletableDuplicates,
+  isDeletableDuplicate,
+} from '@/lib/redaction/media-fingerprint';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
 
 type LibraryTab = 'library' | 'upload';
@@ -41,6 +45,8 @@ export function MediaLibrarySheet({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -110,6 +116,7 @@ export function MediaLibrarySheet({
     setSearch('');
     setDebouncedSearch('');
     setPage(1);
+    setShowDuplicatesOnly(false);
   }, [open]);
 
   useEffect(() => {
@@ -147,8 +154,23 @@ export function MediaLibrarySheet({
       const res = await fetch('/api/redaction/upload', { method: 'POST', body: form });
       const data = await readApiJsonResponse<{
         media?: { id: number; url: string; name?: string };
+        duplicate?: boolean;
         error?: string;
       }>(res);
+
+      if (res.status === 409 && data.duplicate && data.media) {
+        cacheRef.current.clear();
+        onSelect({
+          id: data.media.id,
+          url: data.media.url,
+          previewUrl: data.media.url,
+          name: data.media.name ?? file.name,
+          mime: prepared.type,
+        });
+        onClose();
+        return;
+      }
+
       if (!res.ok || !data.media) throw new Error(data.error ?? 'Upload échoué');
 
       const media: RedactionMediaItem = {
@@ -168,6 +190,33 @@ export function MediaLibrarySheet({
     }
   }
 
+  async function deleteDuplicate(item: RedactionMediaItem) {
+    if (!isDeletableDuplicate(item, items) || deletingId) return;
+    const confirmed = window.confirm(
+      `Supprimer le doublon « ${item.name || 'Sans nom' } » ? Cette action est irréversible.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(item.id);
+    setError('');
+    try {
+      const res = await fetch(`/api/redaction/media/${item.id}`, { method: 'DELETE' });
+      const data = await readApiJsonResponse<{ error?: string }>(res);
+      if (!res.ok) throw new Error(data.error ?? 'Suppression impossible');
+      cacheRef.current.clear();
+      setItems((prev) => prev.filter((entry) => entry.id !== item.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Suppression impossible');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const duplicateCount = countDeletableDuplicates(items);
+  const visibleItems = showDuplicatesOnly
+    ? items.filter((item) => isDeletableDuplicate(item, items))
+    : items;
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -177,9 +226,16 @@ export function MediaLibrarySheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col bg-background">
-      <header className="border-b border-border px-4 py-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        <div className="mx-auto flex max-w-lg items-center gap-2">
+    <div className="fixed inset-0 z-[70] flex flex-col bg-background lg:items-center lg:justify-center lg:bg-black/45 lg:p-8">
+      <button
+        type="button"
+        className="absolute inset-0 hidden lg:block"
+        aria-label="Fermer"
+        onClick={onClose}
+      />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background lg:max-h-[85vh] lg:w-full lg:max-w-4xl lg:flex-none lg:rounded-2xl lg:shadow-2xl">
+      <header className="border-b border-border px-4 py-3 pt-[max(0.5rem,env(safe-area-inset-top))] lg:pt-3">
+        <div className="redaction-editor-width flex items-center gap-2 lg:max-w-none">
           <button
             type="button"
             onClick={onClose}
@@ -191,7 +247,7 @@ export function MediaLibrarySheet({
           <h2 className="min-w-0 flex-1 truncate font-display text-base font-bold">{title}</h2>
         </div>
 
-        <div className="mx-auto mt-3 flex max-w-lg gap-2">
+        <div className="redaction-editor-width mt-3 flex gap-2 lg:max-w-none">
           <button
             type="button"
             onClick={() => setTab('library')}
@@ -218,7 +274,7 @@ export function MediaLibrarySheet({
       </header>
 
       {error && (
-        <div className="mx-auto mt-3 w-full max-w-lg px-4">
+        <div className="redaction-editor-width mt-3 lg:max-w-none">
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-600">
             {error}
           </div>
@@ -226,7 +282,7 @@ export function MediaLibrarySheet({
       )}
 
       {tab === 'library' ? (
-        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col overflow-hidden px-4 py-3">
+        <div className="redaction-editor-width flex min-h-0 flex-1 flex-col overflow-hidden py-3 lg:max-w-none">
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -237,6 +293,23 @@ export function MediaLibrarySheet({
               className="h-11 w-full rounded-xl border border-border bg-card pl-10 pr-3 text-base outline-none focus:border-primary"
             />
           </div>
+
+          {duplicateCount > 0 ? (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <Copy className="h-3.5 w-3.5" />
+                {duplicateCount} doublon{duplicateCount > 1 ? 's' : ''} supprimable
+                {duplicateCount > 1 ? 's' : ''}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowDuplicatesOnly((value) => !value)}
+                className="rounded-lg bg-amber-100 px-2.5 py-1 font-semibold text-amber-900"
+              >
+                {showDuplicatesOnly ? 'Tout afficher' : 'Voir les doublons'}
+              </button>
+            </div>
+          ) : null}
 
           {loading && items.length === 0 ? (
             <div className="flex flex-1 items-center justify-center">
@@ -254,30 +327,67 @@ export function MediaLibrarySheet({
                 Importer une image
               </button>
             </div>
+          ) : visibleItems.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+              <Copy className="h-10 w-10 opacity-50" />
+              <p className="text-sm">Aucun doublon dans la liste chargée.</p>
+              <button
+                type="button"
+                onClick={() => setShowDuplicatesOnly(false)}
+                className="text-sm font-semibold text-primary"
+              >
+                Afficher toute la bibliothèque
+              </button>
+            </div>
           ) : (
             <div className="flex-1 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {items.map((item) => {
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+                {visibleItems.map((item) => {
                   const src = mediaPreviewSrc(item);
+                  const deletable = isDeletableDuplicate(item, items);
                   return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        onSelect(item);
-                        onClose();
-                      }}
-                      className="group relative aspect-square overflow-hidden rounded-xl bg-muted ring-offset-2 active:ring-2 active:ring-primary"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={src}
-                        alt={item.alternativeText ?? item.name}
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-cover transition-transform group-active:scale-105"
-                      />
-                    </button>
+                    <div key={item.id} className="group relative aspect-square">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelect(item);
+                          onClose();
+                        }}
+                        className="h-full w-full overflow-hidden rounded-xl bg-muted ring-offset-2 active:ring-2 active:ring-primary"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={src}
+                          alt={item.alternativeText ?? item.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover transition-transform group-active:scale-105"
+                        />
+                      </button>
+                      {deletable ? (
+                        <>
+                          <span className="pointer-events-none absolute left-1.5 top-1.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white shadow">
+                            Doublon
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Supprimer le doublon ${item.name}`}
+                            disabled={deletingId === item.id}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void deleteDuplicate(item);
+                            }}
+                            className="absolute bottom-1.5 right-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white shadow-md disabled:opacity-60"
+                          >
+                            {deletingId === item.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>
@@ -297,7 +407,7 @@ export function MediaLibrarySheet({
           )}
         </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-3 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="redaction-editor-width flex flex-1 flex-col justify-center gap-3 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:max-w-md lg:mx-auto">
           <button
             type="button"
             disabled={uploading}
@@ -325,8 +435,8 @@ export function MediaLibrarySheet({
           </button>
 
           <p className="text-center text-xs text-muted-foreground">
-            Les images importées sont enregistrées sur le serveur et réutilisables pour d&apos;autres
-            articles.
+            Les images déjà présentes sur le serveur ne sont pas réimportées. Les doublons
+            existants peuvent être supprimés depuis l&apos;onglet Bibliothèque.
           </p>
 
           <input
@@ -346,6 +456,7 @@ export function MediaLibrarySheet({
           />
         </div>
       )}
+      </div>
     </div>
   );
 }

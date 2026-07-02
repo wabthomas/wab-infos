@@ -17,6 +17,8 @@ import type {
 } from '@/lib/redaction/types';
 import { calculateReadingTime, generateSeoDescription, generateSeoTitle, slugify } from '@/lib/utils';
 import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
+import { computeMediaContentHash } from '@/lib/redaction/media-fingerprint';
+import { DuplicateMediaError } from '@/lib/redaction/duplicate-media-error';
 
 export { isLiveRedactionArticle };
 
@@ -1452,8 +1454,15 @@ export async function uploadEditorImage(
     throw new Error('STRAPI_API_TOKEN manquant');
   }
 
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const hash = computeMediaContentHash(buffer);
+  const existing = await findEditorMediaByHash(hash);
+  if (existing) {
+    throw new DuplicateMediaError(existing);
+  }
+
   const form = new FormData();
-  form.append('files', file);
+  form.append('files', new Blob([buffer], { type: file.type || 'application/octet-stream' }), file.name);
 
   const res = await fetch(`${getStrapiUrl()}/api/upload`, {
     method: 'POST',
@@ -1513,8 +1522,54 @@ function mapUploadFile(raw: Record<string, unknown>): RedactionMediaItem {
     width: raw.width as number | undefined,
     height: raw.height as number | undefined,
     mime: (raw.mime as string) ?? '',
+    hash: raw.hash as string | undefined,
+    size: raw.size as number | undefined,
     createdAt: raw.createdAt as string | undefined,
   };
+}
+
+export async function findEditorMediaByHash(hash: string): Promise<RedactionMediaItem | null> {
+  const query = qs.stringify(
+    {
+      filters: {
+        $and: [{ mime: { $startsWith: 'image' } }, { hash: { $eq: hash } }],
+      },
+      sort: ['createdAt:desc'],
+      pagination: { pageSize: 1 },
+    },
+    { encodeValuesOnly: true }
+  );
+
+  const res = await fetch(`${getStrapiUrl()}/api/upload/files?${query}`, {
+    headers: apiTokenHeaders(),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as
+    | Record<string, unknown>[]
+    | { results?: Record<string, unknown>[] };
+
+  const row = Array.isArray(data) ? data[0] : data.results?.[0];
+  return row ? mapUploadFile(row) : null;
+}
+
+export async function deleteEditorMedia(id: number): Promise<void> {
+  if (!STRAPI_TOKEN) {
+    throw new Error('STRAPI_API_TOKEN manquant');
+  }
+
+  const res = await fetch(`${getStrapiUrl()}/api/upload/files/${id}`, {
+    method: 'DELETE',
+    headers: apiTokenHeaders(),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Suppression impossible (${res.status}): ${text.slice(0, 120)}`);
+  }
 }
 
 export async function listEditorMedia(options?: {
@@ -1552,7 +1607,7 @@ export async function listEditorMedia(options?: {
 
   const res = await fetch(`${getStrapiUrl()}/api/upload/files?${query}`, {
     headers: apiTokenHeaders(),
-    next: { revalidate: 60 },
+    next: { revalidate: 0 },
   });
 
   if (!res.ok) {

@@ -47,7 +47,9 @@ function Btn({
       onClick={onClick}
       className={cn(
         'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors',
-        active ? 'bg-primary/15 text-primary' : 'text-foreground active:bg-muted'
+        active
+          ? 'bg-primary/15 text-primary'
+          : 'text-foreground active:bg-muted lg:hover:bg-muted'
       )}
     >
       {children}
@@ -95,7 +97,7 @@ export function ArticleEditorToolbar({
       role="toolbar"
       aria-label="Mise en forme"
     >
-      <div className="flex items-center gap-0.5 overflow-x-auto px-2 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-0.5 overflow-x-auto px-2 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:justify-center lg:gap-1 lg:overflow-visible lg:px-4 lg:py-2 [&::-webkit-scrollbar]:hidden">
         {showDismissKeyboard && onDismissKeyboard ? (
           <>
             <Btn label="Masquer le clavier" onClick={onDismissKeyboard}>

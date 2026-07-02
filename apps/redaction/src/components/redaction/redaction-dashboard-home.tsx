@@ -55,9 +55,9 @@ export function RedactionDashboardHome({
     stats.totalArticles > 0 ? Math.round((stats.publishedCount / stats.totalArticles) * 100) : 0;
 
   return (
-    <div className="space-y-6 lg:space-y-8">
+    <div className="space-y-4 lg:space-y-8">
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 lg:p-8">
+      <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 lg:p-8">
         <div
           className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-primary/10 blur-3xl"
           aria-hidden
@@ -70,10 +70,9 @@ export function RedactionDashboardHome({
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary lg:sr-only">Tableau de bord</p>
-            <h1 className="mt-1 font-display text-2xl font-bold lg:text-3xl">Bonjour, {firstName}</h1>
+            <h1 className="mt-0.5 font-display text-xl font-bold lg:mt-1 lg:text-3xl">Bonjour, {firstName}</h1>
             <p className="mt-1 hidden text-sm capitalize text-muted-foreground lg:block">{todayLabel}</p>
-            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              <span className="lg:hidden">Rédigez et publiez depuis votre mobile.</span>
+            <p className="mt-1.5 max-w-xl text-sm text-muted-foreground lg:mt-2">
               <span className="hidden lg:inline">
                 {isSuperAdmin
                   ? `Vue d'ensemble de la rédaction — connecté en tant que ${authorName}.`
@@ -128,7 +127,7 @@ export function RedactionDashboardHome({
         >
           Indicateurs
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 xl:gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 xl:grid-cols-5 xl:gap-4">
           <StatCard
             icon={FileText}
             label="Publiés"
@@ -153,45 +152,39 @@ export function RedactionDashboardHome({
           <StatCard
             icon={Eye}
             label="Vues totales"
+            mobileLabel="Vues"
             value={stats.totalViews.toLocaleString('fr-FR')}
             href="/stats"
             accent={STAT_ACCENTS.views}
           />
           <StatCard
             icon={Zap}
-            label="Flash actifs"
+            label="Flash"
             value={stats.breakingCount}
             href="/articles?filter=published"
             accent={STAT_ACCENTS.breaking}
-            className="col-span-2 sm:col-span-1"
           />
         </div>
       </section>
-
-      <Link
-        href="/nouveau"
-        className="flex h-14 items-center justify-center gap-2 rounded-xl bg-primary text-base font-bold text-primary-foreground shadow-lg shadow-primary/20 lg:hidden"
-      >
-        <PenLine className="h-5 w-5" />
-        Nouvel article
-      </Link>
 
       {/* Corps principal : 2 colonnes desktop */}
       <div className="grid gap-6 xl:grid-cols-12 xl:gap-8">
         <div className="space-y-6 xl:col-span-8 xl:space-y-8">
           {/* Graphique activité */}
           <section
-            className="rounded-2xl border border-border bg-card p-5 lg:p-6"
+            className="rounded-2xl border border-border bg-card p-4 lg:p-6"
             aria-labelledby="dashboard-activity-heading"
           >
-            <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
               <div>
-                <h2 id="dashboard-activity-heading" className="font-display text-lg font-bold">
+                <h2 id="dashboard-activity-heading" className="font-display text-base font-bold lg:text-lg">
                   Activité — 7 jours
                 </h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">Publications et commentaires reçus</p>
+                <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+                  Publications et commentaires reçus
+                </p>
               </div>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground sm:gap-4 sm:text-xs">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-primary" />
                   Publications
@@ -210,12 +203,12 @@ export function RedactionDashboardHome({
 
           {/* Articles récents */}
           <section
-            className="rounded-2xl border border-border bg-card p-5 lg:p-6"
+            className="rounded-2xl border border-border bg-card p-4 lg:p-6"
             aria-labelledby="dashboard-recent-heading"
           >
-            <div className="mb-4 flex items-center justify-between lg:mb-5">
-              <div>
-                <h2 id="dashboard-recent-heading" className="font-display text-lg font-bold lg:text-xl">
+            <div className="mb-3 flex items-center justify-between gap-2 lg:mb-5">
+              <div className="min-w-0">
+                <h2 id="dashboard-recent-heading" className="font-display text-base font-bold lg:text-xl">
                   Dernières publications
                 </h2>
                 <p className="mt-0.5 hidden text-sm text-muted-foreground lg:block">
@@ -224,14 +217,14 @@ export function RedactionDashboardHome({
               </div>
               <Link
                 href="/articles?filter=published"
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:underline"
+                className="shrink-0 text-xs font-medium text-primary transition-colors hover:underline sm:text-sm"
               >
                 Tout voir
-                <ArrowRight className="hidden h-3.5 w-3.5 lg:inline" />
+                <ArrowRight className="ml-0.5 hidden h-3.5 w-3.5 lg:inline" />
               </Link>
             </div>
 
-            <ul className="space-y-2 lg:space-y-3">
+            <ul className="divide-y divide-border/60 lg:space-y-3 lg:divide-y-0">
               {latestPublished.length === 0 ? (
                 <li className="rounded-xl border border-dashed border-border p-8 text-center lg:p-12">
                   <p className="text-sm text-muted-foreground">Aucun article publié pour l&apos;instant.</p>
@@ -245,7 +238,7 @@ export function RedactionDashboardHome({
                 </li>
               ) : (
                 latestPublished.map((article) => (
-                  <li key={article.documentId}>
+                  <li key={article.documentId} className="py-2.5 first:pt-0 last:pb-0 lg:py-0">
                     <ArticleListItem
                       article={article}
                       canDeleteAny={canDeleteAnyArticle}
@@ -253,6 +246,7 @@ export function RedactionDashboardHome({
                       showViews={showViews}
                       canManagePublication={isSuperAdmin}
                       variant="comfortable"
+                      layout="compact"
                     />
                   </li>
                 ))
@@ -262,9 +256,9 @@ export function RedactionDashboardHome({
         </div>
 
         {/* Colonne latérale */}
-        <aside className="space-y-6 xl:col-span-4 xl:space-y-6">
-          {/* Résumé rapide */}
-          <section className="rounded-2xl border border-border bg-card p-5">
+        <aside className="space-y-4 lg:space-y-6 xl:col-span-4">
+          {/* Résumé rapide — desktop uniquement (doublon des stats sur mobile) */}
+          <section className="hidden rounded-2xl border border-border bg-card p-5 lg:block">
             <h2 className="font-display text-base font-bold">En bref</h2>
             <dl className="mt-4 space-y-3">
               <SummaryRow label="Articles au total" value={String(stats.totalArticles)} />
@@ -284,8 +278,8 @@ export function RedactionDashboardHome({
             </dl>
           </section>
 
-          {/* Actions rapides */}
-          <section className="rounded-2xl border border-border bg-card p-5">
+          {/* Actions rapides — desktop (navigation mobile + FAB) */}
+          <section className="hidden rounded-2xl border border-border bg-card p-5 lg:block">
             <h2 className="font-display text-base font-bold">Actions rapides</h2>
             <nav className="mt-3 flex flex-col gap-1">
               <QuickAction href="/nouveau" icon={PenLine} label="Nouvel article" primary />
@@ -309,7 +303,7 @@ export function RedactionDashboardHome({
 
           {/* Brouillons à reprendre */}
           {recentDrafts.length > 0 ? (
-            <section className="rounded-2xl border border-border bg-card p-5">
+            <section className="rounded-2xl border border-border bg-card p-4 lg:p-5">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="font-display text-base font-bold">À reprendre</h2>
                 <Link href="/articles?filter=draft" className="text-xs font-medium text-primary hover:underline">
@@ -375,6 +369,7 @@ export function RedactionDashboardHome({
 function StatCard({
   icon: Icon,
   label,
+  mobileLabel,
   value,
   href,
   accent,
@@ -382,6 +377,7 @@ function StatCard({
 }: {
   icon: typeof FileText;
   label: string;
+  mobileLabel?: string;
   value: string | number;
   href: string;
   accent: string;
@@ -391,20 +387,38 @@ function StatCard({
     <Link
       href={href}
       className={cn(
-        'group rounded-xl border border-border bg-card p-4 transition-all',
-        'active:border-primary/40 active:bg-primary/5',
-        'lg:p-5 lg:hover:border-primary/30 lg:hover:shadow-sm',
+        'group rounded-lg border border-border bg-card transition-all',
+        'p-2.5 active:border-primary/40 active:bg-primary/5',
+        'lg:rounded-xl lg:p-5 lg:hover:border-primary/30 lg:hover:shadow-sm',
         className
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className={cn('flex h-9 w-9 items-center justify-center rounded-lg lg:h-10 lg:w-10', accent)}>
-          <Icon className="h-4 w-4 lg:h-[18px] lg:w-[18px]" />
-        </span>
-        <ArrowRight className="hidden h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 lg:block" />
+      <div className="flex items-center gap-2 lg:block">
+        <div className="flex shrink-0 items-start justify-between lg:w-full">
+          <span
+            className={cn(
+              'flex h-7 w-7 items-center justify-center rounded-md lg:h-10 lg:w-10 lg:rounded-lg',
+              accent
+            )}
+          >
+            <Icon className="h-3.5 w-3.5 lg:h-[18px] lg:w-[18px]" />
+          </span>
+          <ArrowRight className="hidden h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 lg:block" />
+        </div>
+        <div className="min-w-0 flex-1 lg:mt-3 lg:flex-none">
+          <p className="font-display text-lg font-bold leading-none lg:text-3xl">{value}</p>
+          <p className="mt-0.5 truncate text-[10px] text-muted-foreground lg:mt-0.5 lg:text-sm">
+            {mobileLabel ? (
+              <>
+                <span className="lg:hidden">{mobileLabel}</span>
+                <span className="hidden lg:inline">{label}</span>
+              </>
+            ) : (
+              label
+            )}
+          </p>
+        </div>
       </div>
-      <p className="mt-3 font-display text-2xl font-bold lg:text-3xl">{value}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground lg:text-sm">{label}</p>
     </Link>
   );
 }

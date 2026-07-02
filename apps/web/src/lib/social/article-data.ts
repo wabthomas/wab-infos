@@ -1,3 +1,4 @@
+import type { StrapiMedia } from '@wab-infos/shared';
 import qs from 'qs';
 import { getArticlePath } from '@/config/site';
 import { socialConfig } from '@/lib/social/config';
@@ -36,13 +37,49 @@ export interface SocialArticle {
   facebookPostedAt?: string | null;
   xPostedAt?: string | null;
   category?: { slug?: string };
+  featuredImage?: StrapiMedia;
+  content?: string;
   articleUrl: string;
+}
+
+function mapFeaturedImage(
+  media: StrapiMedia | { data?: StrapiMedia | null } | null | undefined
+): StrapiMedia | undefined {
+  if (!media) return undefined;
+
+  if ('data' in media) {
+    return mapFeaturedImage(media.data ?? undefined);
+  }
+
+  if (!media.url) return undefined;
+
+  return {
+    id: media.id,
+    url: media.url,
+    alternativeText: media.alternativeText,
+    caption: media.caption,
+    width: media.width,
+    height: media.height,
+    formats: media.formats,
+  };
 }
 
 export async function getArticleForSocial(slug: string): Promise<SocialArticle | null> {
   const query = qs.stringify({
     filters: { slug: { $eq: slug } },
-    populate: { category: true },
+    populate: { category: true, featuredImage: true },
+    fields: [
+      'documentId',
+      'title',
+      'slug',
+      'excerpt',
+      'content',
+      'status',
+      'publishedAt',
+      'wpPublishedAt',
+      'facebookPostedAt',
+      'xPostedAt',
+    ],
     status: 'published',
   });
 
@@ -58,11 +95,20 @@ export async function getArticleForSocial(slug: string): Promise<SocialArticle |
       facebookPostedAt?: string | null;
       xPostedAt?: string | null;
       category?: { slug?: string };
+      featuredImage?: StrapiMedia | { data?: StrapiMedia | null };
+      content?: string;
     }[];
   }>(`/articles?${query}`);
 
-  const article = result.data[0];
-  if (!article) return null;
+  const raw = result.data[0];
+  if (!raw) return null;
+
+  const featuredImage =
+    raw.featuredImage && 'data' in raw.featuredImage
+      ? (raw.featuredImage.data ?? undefined)
+      : raw.featuredImage;
+
+  const article = { ...raw, featuredImage };
 
   const categorySlug = article.category?.slug ?? 'actualite';
   const articleUrl = `${socialConfig.siteUrl}${getArticlePath(

@@ -189,5 +189,7 @@ export interface RedactionMediaItem {
   width?: number;
   height?: number;
   mime: string;
+  hash?: string;
+  size?: number;
   createdAt?: string;
 }

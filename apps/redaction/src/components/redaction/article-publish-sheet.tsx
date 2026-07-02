@@ -44,7 +44,7 @@ export function ArticlePublishSheet({
     authors.find((author) => author.name === currentAuthorName);
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col justify-end">
+    <div className="fixed inset-0 z-[70] flex flex-col justify-end lg:items-center lg:justify-center lg:p-6">
       <button
         type="button"
         className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"
@@ -55,7 +55,7 @@ export function ArticlePublishSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="publish-sheet-title"
-        className="relative max-h-[min(88dvh,720px)] overflow-y-auto rounded-t-2xl bg-background shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))]"
+        className="relative max-h-[min(88dvh,720px)] w-full overflow-y-auto rounded-t-2xl bg-background shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))] lg:max-h-[min(85vh,640px)] lg:max-w-lg lg:rounded-2xl"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
           <div className="flex items-center gap-2">

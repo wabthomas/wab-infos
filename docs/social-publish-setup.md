@@ -145,6 +145,8 @@ curl -X POST "https://graph.facebook.com/v21.0/VOTRE_PAGE_ID/feed" \
 
 Succès : JSON avec `"id": "PAGE_ID_POST_ID"`. Vérifiez sur la Page Facebook.
 
+> **Miniature absente ?** Wab-infos envoie désormais `picture`, `name` et `description` à l’API Facebook (image issue de `og:image` de l’article). Si un ancien post n’a pas de vignette, videz le cache dans [Sharing Debugger](https://developers.facebook.com/tools/debug/) puis republiez l’article (ou testez avec un article sans `facebookPostedAt`).
+
 ## Dépannage Facebook
 
 | Erreur | Solution |

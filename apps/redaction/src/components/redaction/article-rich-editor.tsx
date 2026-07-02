@@ -247,13 +247,20 @@ export function ArticleRichEditor({
         const form = new FormData();
         form.append('file', prepared);
         const res = await fetch('/api/redaction/upload', { method: 'POST', body: form });
-        const data = await readApiJsonResponse<{ media?: { url: string }; error?: string }>(res);
-        if (!res.ok) throw new Error(data.error ?? 'Upload échoué');
-        const src = data.media!.url.startsWith('http')
-          ? data.media!.url
-          : data.media!.url.startsWith('/')
-            ? data.media!.url
-            : `/${data.media!.url}`;
+        const data = await readApiJsonResponse<{
+          media?: { url: string };
+          duplicate?: boolean;
+          error?: string;
+        }>(res);
+        if (!res.ok && !(res.status === 409 && data.duplicate && data.media)) {
+          throw new Error(data.error ?? 'Upload échoué');
+        }
+        const mediaUrl = data.media!.url;
+        const src = mediaUrl.startsWith('http')
+          ? mediaUrl
+          : mediaUrl.startsWith('/')
+            ? mediaUrl
+            : `/${mediaUrl}`;
         editor.chain().focus().setImage({ src, alt: '' }).run();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Upload échoué');
@@ -296,13 +303,13 @@ export function ArticleRichEditor({
 
       {sheet && (
         <div
-          className="fixed inset-x-0 z-[70] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+          className="redaction-editor-fixed-panel z-[70] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
           style={{
             bottom: sheetBottom,
             paddingBottom: toolbarBottom > 0 ? '0.75rem' : 'max(0.75rem, env(safe-area-inset-bottom))',
           }}
         >
-          <div className="mx-auto max-w-lg">
+          <div className="redaction-editor-width">
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-sm font-semibold">
                 {sheet === 'link' ? 'Insérer un lien' : 'Intégrer une vidéo ou un post'}
@@ -363,7 +370,7 @@ export function ArticleRichEditor({
 
       {blockSheet === 'blocks' && (
         <div
-          className="fixed inset-x-0 z-[65] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+          className="redaction-editor-fixed-panel z-[65] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
           style={{
             bottom:
               toolbarBottom > 0
@@ -371,7 +378,7 @@ export function ArticleRichEditor({
                 : 'calc(3.9rem + env(safe-area-inset-bottom))',
           }}
         >
-          <div className="mx-auto max-w-lg">
+          <div className="redaction-editor-width">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold">Ajouter un bloc</p>
               <button
@@ -517,13 +524,13 @@ export function ArticleRichEditor({
       )}
 
       <div
-        className="fixed inset-x-0 z-50 transition-[bottom] duration-150"
+        className="redaction-editor-fixed-panel z-50 transition-[bottom] duration-150"
         style={{
           bottom: toolbarBottom > 0 ? toolbarBottom : 0,
           paddingBottom: toolbarBottom > 0 ? 0 : 'max(0px, env(safe-area-inset-bottom))',
         }}
       >
-        <div className="mx-auto max-w-lg">
+        <div className="redaction-editor-width">
           <ArticleEditorToolbar
             editor={editor}
             uploading={uploading}

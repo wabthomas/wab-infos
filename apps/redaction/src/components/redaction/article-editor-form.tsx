@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Loader2,
   Redo2,
+  Settings2,
   Undo2,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
@@ -25,6 +26,7 @@ import { ArticleEditorOptionsMenu } from '@/components/redaction/article-editor-
 import { ArticlePublishSheet } from '@/components/redaction/article-publish-sheet';
 import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
 import type { RedactionAuthor } from '@/lib/redaction/types';
+import { cn } from '@/lib/utils';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 const DRAFT_SAVE_HEADERS = { ...JSON_HEADERS, 'X-Redaction-Draft': '1' } as const;
@@ -316,7 +318,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
 
   useEffect(() => {
     void touchRedactionSession();
-    const interval = window.setInterval(() => void touchRedactionSession(), 10 * 60 * 1000);
+    const interval = window.setInterval(() => void touchRedactionSession(), 15 * 60 * 1000);
     const onVisible = () => {
       if (document.visibilityState === 'visible') void touchRedactionSession();
     };
@@ -687,26 +689,31 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     scheduledAt && new Date(scheduledAt).getTime() > Date.now() ? 'schedule' : 'publish';
 
   return (
-    <div className="jetpack-editor-screen fixed inset-0 flex flex-col bg-background">
+    <div className="jetpack-editor-screen fixed inset-0 flex flex-col bg-background lg:static lg:inset-auto lg:h-full lg:min-h-0 lg:flex-1">
       <header
         ref={headerRef}
-        className="fixed inset-x-0 top-0 z-40 border-b border-border/60 bg-background/95 backdrop-blur pt-[max(0.5rem,env(safe-area-inset-top))]"
+        className={cn(
+          'z-40 border-b border-border/60 bg-background/95 backdrop-blur',
+          'fixed inset-x-0 top-0 pt-[max(0.5rem,env(safe-area-inset-top))]',
+          'lg:static lg:inset-auto lg:shrink-0 lg:pt-0'
+        )}
       >
-        <div className="flex items-center gap-1.5 px-3 py-2.5">
+        <div className="redaction-editor-width flex items-center gap-1.5 py-2.5 lg:gap-2 lg:py-3">
           <button
             type="button"
             onClick={() => void handleBack()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted"
+            className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-full text-foreground active:bg-muted lg:rounded-xl lg:px-3 lg:hover:bg-muted"
             aria-label="Retour"
           >
             <ArrowLeft className="h-5 w-5" />
+            <span className="hidden text-sm font-medium lg:inline">Articles</span>
           </button>
 
           <button
             type="button"
             onClick={() => editor?.chain().focus().undo().run()}
             disabled={!editor?.can().undo()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted disabled:opacity-30"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted disabled:opacity-30 lg:hover:bg-muted"
             aria-label="Annuler"
           >
             <Undo2 className="h-5 w-5" />
@@ -716,13 +723,35 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             type="button"
             onClick={() => editor?.chain().focus().redo().run()}
             disabled={!editor?.can().redo()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted disabled:opacity-30"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground active:bg-muted disabled:opacity-30 lg:hover:bg-muted"
             aria-label="Rétablir"
           >
             <Redo2 className="h-5 w-5" />
           </button>
 
-          <div className="min-w-0 flex-1" />
+          <div className="min-w-0 flex-1">
+            <p className="hidden truncate text-sm font-medium text-muted-foreground lg:block">
+              {documentId ? 'Modifier l’article' : 'Nouvel article'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="hidden h-10 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-foreground hover:bg-muted lg:inline-flex"
+          >
+            <Settings2 className="h-4 w-4" />
+            Réglages
+          </button>
+
+          <button
+            type="button"
+            disabled={!!saving}
+            onClick={() => void save('draft')}
+            className="hidden h-10 shrink-0 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60 lg:inline-flex"
+          >
+            {saving === 'draft' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Brouillon'}
+          </button>
 
           <button
             type="button"
@@ -736,7 +765,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
               setError('');
               setPublishSheetMode(primaryMode);
             }}
-            className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-60"
+            className="shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-60 lg:rounded-xl lg:px-5 lg:py-2.5"
           >
             {saving === primaryMode ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -750,19 +779,19 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       </header>
 
       <div
-        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
+        className="jetpack-editor-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
         style={{
           paddingTop: headerHeight,
           paddingBottom: `calc(3.75rem + env(safe-area-inset-bottom) + ${keyboardInset}px)`,
         }}
       >
         {error && (
-          <div className="mx-4 mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-600">
+          <div className="redaction-editor-width mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-600">
             {error}
           </div>
         )}
 
-        <div className="mx-auto max-w-lg px-4 pt-4">
+        <div className="redaction-editor-width pt-4">
           <label className="block">
             <span className="sr-only">Titre</span>
             <input
@@ -770,7 +799,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
               onChange={(e) =>
                 setValues((v) => applyDerivedFields({ ...v, title: e.target.value }))
               }
-              className="jetpack-editor-title w-full border-0 bg-transparent font-display text-[1.65rem] font-bold leading-tight tracking-tight outline-none placeholder:text-muted-foreground/50"
+              className="jetpack-editor-title w-full border-0 bg-transparent font-display font-bold leading-tight tracking-tight outline-none placeholder:text-muted-foreground/50"
               placeholder="Titre"
             />
           </label>

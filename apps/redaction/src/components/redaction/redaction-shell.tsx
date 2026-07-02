@@ -129,6 +129,60 @@ function SidebarNavItem({
   );
 }
 
+function RedactionSidebar({
+  pathname,
+  authorName,
+  isSuperAdmin,
+  pendingComments,
+}: {
+  pathname: string;
+  authorName?: string;
+  isSuperAdmin: boolean;
+  pendingComments: number;
+}) {
+  return (
+    <aside className="redaction-sidebar hidden w-[260px] shrink-0 flex-col border-r border-border bg-card lg:flex">
+      <div className="border-b border-border px-5 py-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Wab-infos</p>
+        <p className="mt-0.5 font-display text-lg font-bold leading-tight">Rédaction</p>
+        <p className="mt-1.5 truncate text-sm text-muted-foreground">{authorName ?? 'Éditeur'}</p>
+      </div>
+
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
+        {NAV_ITEMS.map(({ href, label, icon, ...rest }) => (
+          <SidebarNavItem
+            key={href}
+            href={href}
+            label={label}
+            icon={icon}
+            active={isNavActive(pathname, href, 'exact' in rest && rest.exact)}
+            badge={'badge' in rest && rest.badge}
+            pendingComments={pendingComments}
+          />
+        ))}
+        {isSuperAdmin ? (
+          <SidebarNavItem
+            href="/parametres"
+            label="Paramètres"
+            icon={Settings}
+            active={pathname === '/parametres'}
+          />
+        ) : null}
+      </nav>
+
+      <div className="border-t border-border p-4">
+        <Link
+          href="/nouveau"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 transition-transform hover:brightness-105 active:scale-[0.98]"
+        >
+          <PenLine className="h-4 w-4" />
+          Nouvel article
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
 export function RedactionShell({ children, authorName, isSuperAdmin = false }: RedactionShellProps) {
   const pathname = usePathname();
   const writing = isWritingPage(pathname);
@@ -156,7 +210,7 @@ export function RedactionShell({ children, authorName, isSuperAdmin = false }: R
 
   useEffect(() => {
     void touchRedactionSession();
-    const interval = window.setInterval(() => void touchRedactionSession(), 10 * 60 * 1000);
+    const interval = window.setInterval(() => void touchRedactionSession(), 15 * 60 * 1000);
     const onVisible = () => {
       if (document.visibilityState === 'visible') void touchRedactionSession();
     };
@@ -168,51 +222,30 @@ export function RedactionShell({ children, authorName, isSuperAdmin = false }: R
   }, []);
 
   if (writing) {
-    return <div className="fixed inset-0 z-50 bg-background">{children}</div>;
+    return (
+      <>
+        <div className="fixed inset-0 z-50 bg-background lg:hidden">{children}</div>
+        <div className="hidden h-[100dvh] max-h-[100dvh] overflow-hidden bg-background lg:flex">
+          <RedactionSidebar
+            pathname={pathname}
+            authorName={authorName}
+            isSuperAdmin={isSuperAdmin}
+            pendingComments={pendingComments}
+          />
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+        </div>
+      </>
+    );
   }
 
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-background">
-      {/* Sidebar desktop */}
-      <aside className="redaction-sidebar hidden w-[260px] shrink-0 flex-col border-r border-border bg-card lg:flex">
-        <div className="border-b border-border px-5 py-5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Wab-infos</p>
-          <p className="mt-0.5 font-display text-lg font-bold leading-tight">Rédaction</p>
-          <p className="mt-1.5 truncate text-sm text-muted-foreground">{authorName ?? 'Éditeur'}</p>
-        </div>
-
-        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
-          {NAV_ITEMS.map(({ href, label, icon, ...rest }) => (
-            <SidebarNavItem
-              key={href}
-              href={href}
-              label={label}
-              icon={icon}
-              active={isNavActive(pathname, href, 'exact' in rest && rest.exact)}
-              badge={'badge' in rest && rest.badge}
-              pendingComments={pendingComments}
-            />
-          ))}
-          {isSuperAdmin ? (
-            <SidebarNavItem
-              href="/parametres"
-              label="Paramètres"
-              icon={Settings}
-              active={pathname === '/parametres'}
-            />
-          ) : null}
-        </nav>
-
-        <div className="border-t border-border p-4">
-          <Link
-            href="/nouveau"
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 transition-transform hover:brightness-105 active:scale-[0.98]"
-          >
-            <PenLine className="h-4 w-4" />
-            Nouvel article
-          </Link>
-        </div>
-      </aside>
+      <RedactionSidebar
+        pathname={pathname}
+        authorName={authorName}
+        isSuperAdmin={isSuperAdmin}
+        pendingComments={pendingComments}
+      />
 
       {/* Zone principale */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
