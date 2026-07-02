@@ -7,6 +7,7 @@ import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { SiteLogo } from '@/components/brand/site-logo';
 import { PwaInstallBanner } from '@/components/pwa/pwa-install-banner';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export function RedactionLoginForm() {
   const router = useRouter();
@@ -88,8 +89,11 @@ export function RedactionLoginForm() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-background">
-      <div className="border-b border-border bg-white px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))] text-foreground">
+    <div className="relative flex min-h-[100dvh] flex-col bg-background">
+      <div className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10">
+        <ThemeToggle />
+      </div>
+      <div className="border-b border-border bg-card px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))] text-foreground">
         <Link href={siteConfig.url} className="inline-block">
           <SiteLogo className="h-16" priority />
         </Link>

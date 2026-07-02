@@ -3,6 +3,7 @@ import { BarChart3, FileText, MessageSquare, PenLine } from 'lucide-react';
 import { getEditorProfile, getEditorStats, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 import { cn } from '@/lib/utils';
 import { ProfileLogoutButton } from '@/components/redaction/profile-logout-button';
+import { ThemeSettings } from '@/components/redaction/theme-settings';
 
 export default async function RedactionProfilePage() {
   const user = await requireRedactionUser();
@@ -41,6 +42,8 @@ export default async function RedactionProfilePage() {
         <ProfileLink href="/comments" icon={MessageSquare} label="Commentaires" />
         <ProfileLink href="/nouveau" icon={PenLine} label="Nouvel article" />
       </nav>
+
+      <ThemeSettings />
 
       <ProfileLogoutButton />
     </div>

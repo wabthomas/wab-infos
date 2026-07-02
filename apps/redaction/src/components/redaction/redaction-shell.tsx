@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { RedactionPushBanner } from '@/components/redaction/redaction-push-setup';
 import { touchRedactionSession } from '@/lib/redaction/touch-session';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Accueil', icon: Home, exact: true },
@@ -171,6 +172,10 @@ function RedactionSidebar({
       </nav>
 
       <div className="border-t border-border p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <span className="text-xs font-medium text-muted-foreground">Apparence</span>
+          <ThemeToggle />
+        </div>
         <Link
           href="/nouveau"
           className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 transition-transform hover:brightness-105 active:scale-[0.98]"
