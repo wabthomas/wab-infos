@@ -178,7 +178,7 @@ export function MediaLibrarySheet({
         url: data.media.url,
         previewUrl: data.media.url,
         name: data.media.name ?? file.name,
-        mime: file.type,
+        mime: data.media.mime ?? prepared.type,
       };
       cacheRef.current.clear();
       onSelect(media);

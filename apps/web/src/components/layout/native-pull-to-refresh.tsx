@@ -104,7 +104,7 @@ export function NativePullToRefresh() {
       document.removeEventListener('touchend', onTouchEnd);
       document.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, []);
+  }, [router]);
 
   if (!isNativeCapacitorFromUserAgent()) return null;
   if (pull <= 0 && !refreshing) return null;

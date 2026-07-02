@@ -82,6 +82,7 @@ interface StrapiFile {
   url: string;
   mime: string;
   size: number;
+  sizeInBytes?: number;
   alternativeText?: string | null;
   caption?: string | null;
   ext?: string;
@@ -213,6 +214,11 @@ function formatSizeKb(sizeKb: number): string {
   return `${Math.round(sizeKb)} Ko`;
 }
 
+function fileSizeKb(file: StrapiFile): number {
+  if (typeof file.sizeInBytes === 'number') return file.sizeInBytes / 1024;
+  return file.size;
+}
+
 async function replaceFile(
   file: StrapiFile,
   buffer: Buffer,
@@ -255,7 +261,7 @@ async function replaceFile(
 async function processFile(file: StrapiFile, state: ProgressState): Promise<void> {
   state.stats.scanned += 1;
 
-  const label = `#${file.id} ${file.name} (${formatSizeKb(file.size)})`;
+  const label = `#${file.id} ${file.name} (${formatSizeKb(fileSizeKb(file))})`;
 
   const res = await fetch(mediaUrl(file));
   if (!res.ok) {

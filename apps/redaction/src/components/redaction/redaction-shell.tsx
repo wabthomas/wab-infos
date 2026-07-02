@@ -210,7 +210,7 @@ export function RedactionShell({ children, authorName, isSuperAdmin = false }: R
 
   useEffect(() => {
     void touchRedactionSession();
-    const interval = window.setInterval(() => void touchRedactionSession(), 15 * 60 * 1000);
+    const interval = window.setInterval(() => void touchRedactionSession(), 10 * 60 * 1000);
     const onVisible = () => {
       if (document.visibilityState === 'visible') void touchRedactionSession();
     };

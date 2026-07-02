@@ -374,7 +374,7 @@ export function PwaInstallBanner({
       </div>
     );
   } else if (ios) {
-    if (showPwaInstallOption) {
+    if (variant !== 'site' || showPwaInstallOption) {
       if (needsSafari) {
         content = (
           <div className="rounded-xl border border-amber-500/40 bg-card p-4 shadow-lg">

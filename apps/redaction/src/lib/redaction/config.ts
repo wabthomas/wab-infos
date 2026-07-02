@@ -13,4 +13,4 @@ export const REDACTION_REMEMBER_COOKIE = 'redaction_remember';
 export const REDACTION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 jours
 
 /** Session sans « Rester connecté » */
-export const REDACTION_COOKIE_MAX_AGE_SESSION = 60 * 60; // 1 heure
+export const REDACTION_COOKIE_MAX_AGE_SESSION = 60 * 60 * 24 * 14; // 14 jours

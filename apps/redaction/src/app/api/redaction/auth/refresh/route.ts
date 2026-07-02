@@ -19,7 +19,9 @@ export async function POST() {
     }
 
     const headerList = await headers();
-    const remember = jar.get(REDACTION_REMEMBER_COOKIE)?.value === '1';
+    const rememberValue = jar.get(REDACTION_REMEMBER_COOKIE)?.value;
+    // Sessions créées avant le cookie « remember » : conserver une durée longue.
+    const remember = rememberValue === undefined ? true : rememberValue === '1';
     const maxAge = remember ? REDACTION_COOKIE_MAX_AGE : REDACTION_COOKIE_MAX_AGE_SESSION;
     const cookieOptions = redactionCookieOptions(maxAge, headerList.get('x-forwarded-proto'));
 
