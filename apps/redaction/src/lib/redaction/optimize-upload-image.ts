@@ -95,7 +95,13 @@ export async function optimizeUploadImage(file: File): Promise<File> {
 
   try {
     const quality =
-      file.size > 2048 ? 72 : file.size > 1024 ? 75 : file.size > 500 ? 78 : WEBP_QUALITY;
+      input.length > 2 * 1024 * 1024
+        ? 72
+        : input.length > 1024 * 1024
+          ? 75
+          : input.length > 500 * 1024
+            ? 78
+            : WEBP_QUALITY;
     const optimized = await sharp(input)
       .rotate()
       .resize({ width: MAX_WIDTH, withoutEnlargement: true })

@@ -153,7 +153,7 @@ export function MediaLibrarySheet({
       form.append('file', prepared);
       const res = await fetch('/api/redaction/upload', { method: 'POST', body: form });
       const data = await readApiJsonResponse<{
-        media?: { id: number; url: string; name?: string };
+        media?: { id: number; url: string; name?: string; mime?: string };
         duplicate?: boolean;
         error?: string;
       }>(res);
@@ -165,7 +165,7 @@ export function MediaLibrarySheet({
           url: data.media.url,
           previewUrl: data.media.url,
           name: data.media.name ?? file.name,
-          mime: prepared.type,
+          mime: data.media.mime ?? prepared.type,
         });
         onClose();
         return;

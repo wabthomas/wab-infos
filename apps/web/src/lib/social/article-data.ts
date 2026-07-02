@@ -42,25 +42,25 @@ export interface SocialArticle {
   articleUrl: string;
 }
 
-function mapFeaturedImage(
-  media: StrapiMedia | { data?: StrapiMedia | null } | null | undefined
-): StrapiMedia | undefined {
-  if (!media) return undefined;
+function mapFeaturedImage(media: unknown): StrapiMedia | undefined {
+  if (!media || typeof media !== 'object') return undefined;
 
-  if ('data' in media) {
-    return mapFeaturedImage(media.data ?? undefined);
+  const record = media as Record<string, unknown>;
+  if (record.data && typeof record.data === 'object') {
+    return mapFeaturedImage(record.data);
   }
 
-  if (!media.url) return undefined;
+  const url = record.url;
+  if (typeof url !== 'string' || !url) return undefined;
 
   return {
-    id: media.id,
-    url: media.url,
-    alternativeText: media.alternativeText,
-    caption: media.caption,
-    width: media.width,
-    height: media.height,
-    formats: media.formats,
+    id: typeof record.id === 'number' ? record.id : 0,
+    url,
+    alternativeText: typeof record.alternativeText === 'string' ? record.alternativeText : undefined,
+    caption: typeof record.caption === 'string' ? record.caption : undefined,
+    width: typeof record.width === 'number' ? record.width : undefined,
+    height: typeof record.height === 'number' ? record.height : undefined,
+    formats: record.formats as StrapiMedia['formats'],
   };
 }
 
@@ -103,20 +103,27 @@ export async function getArticleForSocial(slug: string): Promise<SocialArticle |
   const raw = result.data[0];
   if (!raw) return null;
 
-  const featuredImage =
-    raw.featuredImage && 'data' in raw.featuredImage
-      ? (raw.featuredImage.data ?? undefined)
-      : raw.featuredImage;
-
-  const article = { ...raw, featuredImage };
-
-  const categorySlug = article.category?.slug ?? 'actualite';
+  const categorySlug = raw.category?.slug ?? 'actualite';
   const articleUrl = `${socialConfig.siteUrl}${getArticlePath(
-    { slug: article.slug, category: article.category },
+    { slug: raw.slug, category: raw.category },
     categorySlug
   )}`;
 
-  return { ...article, articleUrl };
+  return {
+    documentId: raw.documentId,
+    title: raw.title,
+    slug: raw.slug,
+    excerpt: raw.excerpt,
+    status: raw.status,
+    publishedAt: raw.publishedAt,
+    wpPublishedAt: raw.wpPublishedAt,
+    facebookPostedAt: raw.facebookPostedAt,
+    xPostedAt: raw.xPostedAt,
+    category: raw.category,
+    featuredImage: mapFeaturedImage(raw.featuredImage),
+    content: raw.content,
+    articleUrl,
+  };
 }
 
 export async function markFacebookPosted(documentId: string): Promise<void> {

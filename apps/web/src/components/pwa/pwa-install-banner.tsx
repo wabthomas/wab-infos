@@ -307,7 +307,8 @@ export function PwaInstallBanner({
   };
 
   // pwaBannerVisible = afficher le bandeau (interrupteur global du panneau site)
-  const showPwaInstallOption = bannerFlags.pwaBannerEnabled;
+  const showPwaInstallOption =
+    bannerFlags.pwaBannerEnabled && bannerFlags.pwaBannerVisible;
   const showApkInstallOption =
     bannerFlags.apkBannerEnabled && bannerFlags.apkBannerVisible;
 
@@ -373,7 +374,7 @@ export function PwaInstallBanner({
       </div>
     );
   } else if (ios) {
-    if (variant !== 'site' || showPwaInstallOption) {
+    if (showPwaInstallOption) {
       if (needsSafari) {
         content = (
           <div className="rounded-xl border border-amber-500/40 bg-card p-4 shadow-lg">

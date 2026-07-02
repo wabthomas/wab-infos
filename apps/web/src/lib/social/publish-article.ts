@@ -1,4 +1,3 @@
-import type { Article } from '@wab-infos/shared';
 import {
   getArticleForSocial,
   markFacebookPosted,
@@ -51,7 +50,11 @@ export async function publishArticleToSocial(slug: string): Promise<PublishArtic
 
   if (isFacebookConfigured() && !article.facebookPostedAt) {
     const message = buildFacebookMessage(article.title, article.excerpt);
-    const ogImage = resolveArticleOgImage(article as Article);
+    const ogImage = resolveArticleOgImage({
+      title: article.title,
+      featuredImage: article.featuredImage,
+      content: article.content ?? '',
+    });
     const fb = await postToFacebook(message, article.articleUrl, {
       picture: ogImage.url,
       name: article.title,

@@ -116,7 +116,9 @@ export interface ResolvedOgImage {
 }
 
 /** Choisit la meilleure image pour og:image (aperçu WhatsApp, Facebook, X). */
-export function resolveArticleOgImage(article: Article): ResolvedOgImage {
+export function resolveArticleOgImage(
+  article: Pick<Article, 'title' | 'featuredImage' | 'content'>
+): ResolvedOgImage {
   const alt = article.featuredImage?.alternativeText || article.title;
   const candidates: OgImageCandidate[] = [];
 

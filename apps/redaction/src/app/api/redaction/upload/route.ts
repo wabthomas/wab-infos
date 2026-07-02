@@ -56,6 +56,7 @@ export async function POST(request: Request) {
             id: err.existing.id,
             url: err.existing.url,
             name: err.existing.name,
+            mime: err.existing.mime,
             alternativeText: err.existing.alternativeText,
           },
         },
