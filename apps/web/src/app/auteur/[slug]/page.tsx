@@ -4,7 +4,7 @@ import { ArticleCard } from '@/components/articles/article-card';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { SidebarAd } from '@/components/ads/adsense';
 import { getAuthorBySlug, getArticles } from '@/lib/strapi';
-import { generateAuthorMetadata } from '@/lib/seo';
+import { generateAuthorMetadata, generatePersonJsonLd } from '@/lib/seo';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -35,6 +35,8 @@ export default async function AuthorPage({ params }: PageProps) {
 
   if (!author) notFound();
 
+  const personJsonLd = generatePersonJsonLd(author);
+
   let articles: Awaited<ReturnType<typeof getArticles>>['articles'] = [];
   try {
     const result = await getArticles({ pageSize: 20 });
@@ -45,6 +47,10 @@ export default async function AuthorPage({ params }: PageProps) {
 
   return (
     <div className="container mx-auto px-4 py-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+      />
       <Breadcrumbs items={[{ name: author.name }]} />
 
       <header className="mb-8 flex flex-col gap-4 border-b border-border pb-8 md:flex-row md:items-center">

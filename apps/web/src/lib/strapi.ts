@@ -240,6 +240,7 @@ export async function getArticles(options?: {
   page?: number;
   pageSize?: number;
   category?: string;
+  tag?: string;
   featured?: boolean;
   breaking?: boolean;
   recommended?: boolean;
@@ -247,6 +248,7 @@ export async function getArticles(options?: {
   const filters: Record<string, unknown> = {};
 
   if (options?.category) filters.category = { slug: { $eq: options.category } };
+  if (options?.tag) filters.tags = { slug: { $eq: options.tag } };
   if (options?.featured) filters.isFeatured = { $eq: true };
   if (options?.breaking) filters.isBreaking = { $eq: true };
   if (options?.recommended) filters.isRecommended = { $eq: true };
@@ -454,6 +456,58 @@ export async function getAuthorBySlug(slug: string): Promise<Author | null> {
   });
   if (!response.data.length) return null;
   return mapAuthor(response.data[0]);
+}
+
+export async function getTagBySlug(slug: string): Promise<Tag | null> {
+  const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/tags', {
+    filters: { slug: { $eq: slug } },
+  });
+  if (!response.data.length) return null;
+  return mapTag(response.data[0]);
+}
+
+export async function getAllAuthorSlugs(): Promise<string[]> {
+  const slugs: string[] = [];
+  let page = 1;
+  let pageCount = 1;
+
+  while (page <= pageCount) {
+    const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/authors', {
+      fields: ['slug'],
+      pagination: { page, pageSize: 100 },
+    });
+
+    for (const entity of response.data) {
+      if (typeof entity.slug === 'string') slugs.push(entity.slug);
+    }
+
+    pageCount = response.meta?.pagination?.pageCount ?? 1;
+    page++;
+  }
+
+  return slugs;
+}
+
+export async function getAllTagSlugs(): Promise<string[]> {
+  const slugs: string[] = [];
+  let page = 1;
+  let pageCount = 1;
+
+  while (page <= pageCount) {
+    const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/tags', {
+      fields: ['slug'],
+      pagination: { page, pageSize: 100 },
+    });
+
+    for (const entity of response.data) {
+      if (typeof entity.slug === 'string') slugs.push(entity.slug);
+    }
+
+    pageCount = response.meta?.pagination?.pageCount ?? 1;
+    page++;
+  }
+
+  return slugs;
 }
 
 export async function getVideos(options?: { type?: Video['type']; pageSize?: number }): Promise<Video[]> {

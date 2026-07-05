@@ -63,7 +63,9 @@
     "pack:redaction-build": "node scripts/pack-redaction-build.mjs",
     "unpack:redaction-build": "node scripts/unpack-redaction-build.mjs",
     "clean:build": "node scripts/clean-build-artifacts.mjs",
+    "clean:build:full": "node scripts/clean-build-artifacts.mjs --full",
     "clean:packs": "node scripts/clean-build-artifacts.mjs --packs-only",
+    "generate:publisher-logo": "node scripts/generate-publisher-logo.mjs",
     "secrets": "node scripts/generate-secrets.js",
     "lint": "npm run lint --workspace=apps/web",
     "typecheck": "npm run typecheck --workspace=apps/web && npm run typecheck --workspace=apps/redaction"

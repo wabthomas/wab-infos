@@ -6,12 +6,16 @@ import type {
   WebSite,
   VideoObject,
   BroadcastEvent,
+  NewsMediaOrganization,
+  Person,
 } from 'schema-dts';
 import {
+  editorialConfig,
   getArticlePath,
   getVideoPagePath,
   resolveArticleCategorySlug,
   siteConfig,
+  siteSocialProfiles,
 } from '@/config/site';
 import { resolveArticleOgImage } from '@/lib/og-image-url';
 import { getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
@@ -24,6 +28,67 @@ function stripHtml(html: string): string {
 function collectArticleImages(article: Article): string[] {
   const { url } = resolveArticleOgImage(article);
   return [url];
+}
+
+function publisherLogoObject() {
+  return {
+    '@type': 'ImageObject' as const,
+    url: siteConfig.publisherLogoUrl,
+    width: '400',
+    height: '200',
+  };
+}
+
+function resolveCanonicalUrl(article: Article, defaultUrl: string): string {
+  const raw = article.canonicalUrl?.trim();
+  if (!raw) return defaultUrl;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  return `${siteConfig.url}${raw.startsWith('/') ? raw : `/${raw}`}`;
+}
+
+export function generateOrganizationJsonLd(): WithContext<NewsMediaOrganization> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'NewsMediaOrganization',
+    name: siteConfig.publisher,
+    alternateName: ['Wab-infos', 'Wab infos', 'wab-infos'],
+    url: siteConfig.url,
+    logo: publisherLogoObject(),
+    description: siteConfig.description,
+    foundingDate: `${editorialConfig.foundedYear}-01-01`,
+    areaServed: {
+      '@type': 'Country',
+      name: editorialConfig.country,
+    },
+    sameAs: [...siteSocialProfiles],
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'customer service',
+      email: editorialConfig.contactEmail,
+      availableLanguage: ['fr'],
+    },
+  };
+}
+
+export function generatePersonJsonLd(author: {
+  name: string;
+  slug: string;
+  bio?: string;
+  role?: string;
+}): WithContext<Person> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: author.name,
+    url: `${siteConfig.url}/auteur/${author.slug}`,
+    description: author.bio,
+    jobTitle: author.role,
+    worksFor: {
+      '@type': 'NewsMediaOrganization',
+      name: siteConfig.publisher,
+      url: siteConfig.url,
+    },
+  };
 }
 
 export function getYoutubeThumbnailUrl(youtubeId: string, quality: 'maxres' | 'hq' = 'maxres'): string {
@@ -60,10 +125,7 @@ export function generateArticleJsonLd(
     publisher: {
       '@type': 'Organization',
       name: siteConfig.publisher,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${siteConfig.url}/logo.png`,
-      },
+      logo: publisherLogoObject(),
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
@@ -104,10 +166,7 @@ export function generateWebsiteJsonLd(): WithContext<WebSite> {
     publisher: {
       '@type': 'Organization',
       name: siteConfig.publisher,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${siteConfig.url}/logo.png`,
-      },
+      logo: publisherLogoObject(),
     },
     potentialAction: {
       '@type': 'SearchAction',
@@ -140,10 +199,7 @@ export function generateVideoJsonLd(video: Video): WithContext<VideoObject> {
     publisher: {
       '@type': 'Organization',
       name: siteConfig.publisher,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${siteConfig.url}/logo.png`,
-      },
+      logo: publisherLogoObject(),
     },
   };
 
@@ -193,6 +249,7 @@ export function generateBroadcastEventJsonLd(options: {
 export function generateArticleMetadata(article: Article, urlCategory?: string) {
   const ogImage = resolveArticleOgImage(article);
   const url = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
+  const canonical = resolveCanonicalUrl(article, url);
   const displayDate = getArticleDisplayDate(article);
 
   const imageMeta = {
@@ -207,13 +264,13 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
     title: article.seoTitle || article.title,
     description: article.seoDescription || article.excerpt,
     alternates: {
-      canonical: url,
+      canonical,
     },
     openGraph: {
       type: 'article' as const,
       title: article.seoTitle || article.title,
       description: article.seoDescription || article.excerpt,
-      url,
+      url: canonical,
       siteName: siteConfig.name,
       locale: siteConfig.locale,
       images: [imageMeta],
@@ -242,8 +299,13 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
 
 export function generateCategoryMetadata(category: Category) {
   const title = `${category.name} — ${siteConfig.name}`;
+  const rdcBoost =
+    category.slug === 'actualites-rdc' || category.slug === 'actualite'
+      ? ' — dernières nouvelles du Congo et de Kinshasa'
+      : '';
   const description =
-    category.description || `Toute l'actualité ${category.name} sur ${siteConfig.name}`;
+    category.description ||
+    `Toute l'actualité ${category.name} en RDC et à l'international sur ${siteConfig.name}${rdcBoost}.`;
   const url = `${siteConfig.url}/${category.slug}`;
 
   return {
@@ -271,6 +333,39 @@ export function generateCategoryMetadata(category: Category) {
       follow: true,
       'max-image-preview': 'large' as const,
       'max-snippet': -1,
+    },
+  };
+}
+
+export function generateTagMetadata(tag: { name: string; slug: string }) {
+  const title = `${tag.name} — actualités`;
+  const description = `Articles et actualités sur « ${tag.name} » publiés par ${siteConfig.name}, média d'information en RDC.`;
+  const url = `${siteConfig.url}/tag/${tag.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website' as const,
+      title: `${title} — ${siteConfig.name}`,
+      description,
+      url,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: `${title} — ${siteConfig.name}`,
+      description,
+      images: [siteConfig.ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large' as const,
     },
   };
 }

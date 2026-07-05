@@ -56,7 +56,7 @@ Chaque article génère automatiquement :
 
 - Structure : `/{rubrique}/{slug}`
 - Slugs WordPress conservés à l'import
-- Redirections 301 via `middleware.ts` + `redirects.json`
+- Redirections 301 via `middleware.ts` (trailing slash, anciennes URLs WordPress)
 - Trailing slashes supprimés (301)
 
 ## Checklist Google News Publisher Center
@@ -65,7 +65,7 @@ Chaque article génère automatiquement :
 
 - [ ] Domaine vérifié dans Google Search Console
 - [ ] Sitemap News soumis et validé
-- [ ] Logo publisher 600×60px minimum
+- [ ] Logo publisher **600×60 px** (`public/publisher-logo.png`) — source : `publisher-logo-source.png`, puis `npm run generate:publisher-logo`
 - [ ] Page « À propos » avec informations éditoriales
 - [ ] Page « Contact » avec adresse et email
 - [ ] Politique de confidentialité
@@ -78,11 +78,11 @@ Chaque article génère automatiquement :
 
 1. Aller sur [publishercenter.google.com](https://publishercenter.google.com)
 2. Ajouter la publication « Wab-infos »
-3. URL : `https://app.wab-infos.com`
+3. URL : `https://wab-infos.com`
 4. Catégorie : News
 5. Pays : République Démocratique du Congo
 6. Langue : Français
-7. Soumettre le sitemap : `https://app.wab-infos.com/sitemap-news.xml`
+7. Soumettre le sitemap : `https://wab-infos.com/sitemap-news.xml`
 
 ### Sections à déclarer
 

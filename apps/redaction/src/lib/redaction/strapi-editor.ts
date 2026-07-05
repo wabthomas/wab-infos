@@ -1518,14 +1518,75 @@ function mapUploadFile(raw: Record<string, unknown>): RedactionMediaItem {
     previewUrl,
     name: (raw.name as string) ?? '',
     alternativeText: raw.alternativeText as string | null | undefined,
-    caption: raw.caption as string | null | undefined,
-    width: raw.width as number | undefined,
-    height: raw.height as number | undefined,
     mime: (raw.mime as string) ?? '',
     hash: raw.hash as string | undefined,
-    size: raw.size as number | undefined,
     createdAt: raw.createdAt as string | undefined,
   };
+}
+
+type UploadFilesListPayload =
+  | Record<string, unknown>[]
+  | {
+      data?: Record<string, unknown>[];
+      results?: Record<string, unknown>[];
+      meta?: {
+        pagination?: {
+          page?: number;
+          pageSize?: number;
+          pageCount?: number;
+          total?: number;
+        };
+      };
+      pagination?: { total?: number; pageCount?: number };
+    };
+
+/** Strapi peut renvoyer toute la médiathèque en tableau plat si la pagination est ignorée. */
+function parseUploadFilesList(
+  payload: UploadFilesListPayload,
+  page: number,
+  pageSize: number
+): { rows: Record<string, unknown>[]; total: number; pageCount: number } {
+  if (Array.isArray(payload)) {
+    const total = payload.length;
+    const start = (page - 1) * pageSize;
+    return {
+      rows: payload.slice(start, start + pageSize),
+      total,
+      pageCount: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  const rows = payload.data ?? payload.results ?? [];
+  const pagination = payload.meta?.pagination ?? payload.pagination;
+  const pageCount =
+    pagination?.pageCount ??
+    (rows.length < pageSize ? page : page + 1);
+  const total = pagination?.total ?? rows.length;
+
+  return { rows, total, pageCount };
+}
+
+async function fetchUploadFilesPage(query: string): Promise<Response> {
+  const base = getStrapiUrl();
+  const headers = apiTokenHeaders();
+
+  const paginated = await fetch(`${base}/api/upload/files/page?${query}`, {
+    headers,
+    next: { revalidate: 0 },
+  });
+
+  if (paginated.ok) {
+    return paginated;
+  }
+
+  if (paginated.status === 404) {
+    return fetch(`${base}/api/upload/files?${query}`, {
+      headers,
+      next: { revalidate: 0 },
+    });
+  }
+
+  return paginated;
 }
 
 export async function findEditorMediaByHash(hash: string): Promise<RedactionMediaItem | null> {
@@ -1576,9 +1637,11 @@ export async function listEditorMedia(options?: {
   page?: number;
   pageSize?: number;
   search?: string;
+  withCount?: boolean;
 }): Promise<{ items: RedactionMediaItem[]; total: number; pageCount: number }> {
   const page = options?.page ?? 1;
-  const pageSize = options?.pageSize ?? 24;
+  const pageSize = options?.pageSize ?? 12;
+  const withCount = options?.withCount ?? page === 1;
   const search = options?.search?.trim();
 
   const filters: Record<string, unknown> = search
@@ -1600,38 +1663,26 @@ export async function listEditorMedia(options?: {
     {
       filters,
       sort: ['createdAt:desc'],
-      pagination: { page, pageSize },
+      pagination: { page, pageSize, withCount },
+      fields: ['name', 'url', 'formats', 'hash', 'mime', 'alternativeText', 'createdAt'],
     },
     { encodeValuesOnly: true }
   );
 
-  const res = await fetch(`${getStrapiUrl()}/api/upload/files?${query}`, {
-    headers: apiTokenHeaders(),
-    next: { revalidate: 0 },
-  });
+  const res = await fetchUploadFilesPage(query);
 
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Médiathèque indisponible (${res.status}): ${text.slice(0, 120)}`);
   }
 
-  const data = (await res.json()) as
-    | Record<string, unknown>[]
-    | { results?: Record<string, unknown>[]; pagination?: { total: number; pageCount: number } };
+  const payload = (await res.json()) as UploadFilesListPayload;
+  const { rows, total, pageCount } = parseUploadFilesList(payload, page, pageSize);
 
-  if (Array.isArray(data)) {
-    return {
-      items: data.map((item) => mapUploadFile(item)),
-      total: data.length,
-      pageCount: 1,
-    };
-  }
-
-  const items = (data.results ?? []).map((item) => mapUploadFile(item));
   return {
-    items,
-    total: data.pagination?.total ?? items.length,
-    pageCount: data.pagination?.pageCount ?? 1,
+    items: rows.map((item) => mapUploadFile(item)),
+    total,
+    pageCount,
   };
 }
 

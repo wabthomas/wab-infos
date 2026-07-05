@@ -10,10 +10,11 @@ export async function GET(request: Request) {
     await requireRedactionUser();
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
-    const pageSize = Math.min(48, Math.max(12, Number(searchParams.get('pageSize') ?? '24') || 24));
+    const pageSize = Math.min(48, Math.max(6, Number(searchParams.get('pageSize') ?? '8') || 8));
     const search = searchParams.get('q') ?? undefined;
+    const withCount = searchParams.get('withCount') !== '0' && page === 1;
 
-    const result = await listEditorMedia({ page, pageSize, search });
+    const result = await listEditorMedia({ page, pageSize, search, withCount });
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof RedactionAuthError) {

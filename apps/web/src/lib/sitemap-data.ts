@@ -1,12 +1,52 @@
 import type { MetadataRoute } from 'next';
 import { categories, getVideoPagePath, siteConfig } from '@/config/site';
 import { isProductionBuild } from '@/lib/build-phase';
-import { getAllArticlePaths, getAllVideosForSitemap } from '@/lib/strapi';
+import {
+  getAllArticlePaths,
+  getAllAuthorSlugs,
+  getAllTagSlugs,
+  getAllVideosForSitemap,
+} from '@/lib/strapi';
 import { getChannelRecentVideos } from '@/lib/youtube-channel';
 
-export const revalidate = 3600;
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+function toSitemapXml(entries: MetadataRoute.Sitemap): string {
+  const urls = entries
+    .map((entry) => {
+      const lastmod = entry.lastModified
+        ? `<lastmod>${new Date(entry.lastModified).toISOString()}</lastmod>`
+        : '';
+      const changefreq = entry.changeFrequency
+        ? `<changefreq>${entry.changeFrequency}</changefreq>`
+        : '';
+      const priority =
+        entry.priority !== undefined ? `<priority>${entry.priority}</priority>` : '';
+
+      return `  <url>
+    <loc>${escapeXml(entry.url)}</loc>
+    ${lastmod}
+    ${changefreq}
+    ${priority}
+  </url>`;
+    })
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>`;
+}
+
+/** Entrées du sitemap principal (articles exclus pendant `next build` pour éviter l'OOM). */
+export async function buildMainSitemapEntries(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: siteConfig.url, lastModified: new Date(), changeFrequency: 'always', priority: 1 },
     { url: `${siteConfig.url}/tv`, lastModified: new Date(), changeFrequency: 'hourly', priority: 0.8 },
@@ -28,7 +68,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
-  // Pendant `next build` : ne pas charger des milliers d'articles en mémoire (OOM mutualisé)
   if (isProductionBuild()) {
     return [...staticPages, ...categoryPages];
   }
@@ -43,7 +82,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }));
   } catch {
-    // Strapi not available during build
+    // Strapi indisponible
   }
 
   let videoPages: MetadataRoute.Sitemap = [];
@@ -62,7 +101,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       });
     }
   } catch {
-    // Strapi not available
+    // Strapi indisponible
   }
 
   try {
@@ -81,8 +120,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
   } catch {
-    // YouTube feed unavailable
+    // YouTube indisponible
   }
 
-  return [...staticPages, ...categoryPages, ...articlePages, ...videoPages];
+  let authorPages: MetadataRoute.Sitemap = [];
+  let tagPages: MetadataRoute.Sitemap = [];
+  try {
+    const [authorSlugs, tagSlugs] = await Promise.all([getAllAuthorSlugs(), getAllTagSlugs()]);
+    authorPages = authorSlugs.map((slug) => ({
+      url: `${siteConfig.url}/auteur/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.5,
+    }));
+    tagPages = tagSlugs.map((slug) => ({
+      url: `${siteConfig.url}/tag/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.4,
+    }));
+  } catch {
+    // Strapi indisponible
+  }
+
+  return [...staticPages, ...categoryPages, ...articlePages, ...videoPages, ...authorPages, ...tagPages];
+}
+
+export async function buildMainSitemapXml(): Promise<string> {
+  const entries = await buildMainSitemapEntries();
+  return toSitemapXml(entries);
 }

@@ -1,6 +1,7 @@
 /**
- * Archive apps/web/.next après un build local (déploiement sans rebuild serveur).
- * Exclut dev/cache/standalone — inutiles en prod (~1,5 Go → ~10–20 Mo).
+ * Archive apps/web/.next + public/ après un build local (déploiement sans rebuild serveur).
+ * public/ : logo publisher, PWA, offline.html, etc. (non copié dans .next seul).
+ * Exclut dev/cache/standalone — inutiles en prod (~1,5 Go → ~10–25 Mo).
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -53,8 +54,9 @@ const tarArgs = ['-czf', out];
 for (const pattern of EXCLUDE) {
   tarArgs.push(`--exclude=${pattern}`);
 }
-tarArgs.push('-C', 'apps/web', '.next');
+tarArgs.push('-C', 'apps/web', '.next', 'public');
 
+console.info('[pack] Contenu : .next + public/');
 console.info('[pack] Exclusions :', EXCLUDE.map((e) => e.replace('.next/', '')).join(', '));
 
 const result = spawnSync('tar', tarArgs, {

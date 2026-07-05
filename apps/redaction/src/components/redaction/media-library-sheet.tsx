@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { Camera, Copy, FolderOpen, ImagePlus, Loader2, Search, Trash2, Upload, X } from 'lucide-react';
 import type { RedactionMediaItem } from '@/lib/redaction/types';
 import { readApiJsonResponse } from '@/lib/redaction/api-response';
@@ -13,6 +13,9 @@ import {
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
 
 type LibraryTab = 'library' | 'upload';
+
+/** Taille de page API (fixe pour une pagination Strapi cohérente). */
+const PAGE_SIZE = 8;
 
 interface MediaPageCache {
   items: RedactionMediaItem[];
@@ -28,6 +31,54 @@ interface MediaLibrarySheetProps {
 
 function mediaPreviewSrc(item: RedactionMediaItem): string {
   return getStrapiMediaUrl(item.previewUrl ?? item.url) ?? item.previewUrl ?? item.url;
+}
+
+function MediaLibraryThumb({
+  item,
+  alt,
+  scrollRoot,
+}: {
+  item: RedactionMediaItem;
+  alt: string;
+  scrollRoot: RefObject<HTMLDivElement | null>;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { root: scrollRoot.current ?? undefined, rootMargin: '64px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [scrollRoot]);
+
+  return (
+    <div ref={ref} className="h-full w-full bg-muted">
+      {visible ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={mediaPreviewSrc(item)}
+          alt={alt}
+          decoding="async"
+          fetchPriority="low"
+          className="h-full w-full object-cover transition-transform group-active:scale-105"
+        />
+      ) : (
+        <div className="h-full w-full bg-muted" aria-hidden />
+      )}
+    </div>
+  );
 }
 
 export function MediaLibrarySheet({
@@ -50,8 +101,10 @@ export function MediaLibrarySheet({
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const cacheRef = useRef<Map<string, MediaPageCache>>(new Map());
+  const loadPageInFlightRef = useRef(0);
 
   useEffect(() => {
     if (!open) return;
@@ -60,7 +113,11 @@ export function MediaLibrarySheet({
   }, [open, search]);
 
   const loadPage = useCallback(async (targetPage: number, append: boolean, query: string) => {
-    const cacheKey = `${query}|${targetPage}`;
+    const cacheKey = `${query}|${targetPage}|${PAGE_SIZE}`;
+
+    if (loadPageInFlightRef.current === targetPage) return;
+    loadPageInFlightRef.current = targetPage;
+
     const cached = cacheRef.current.get(cacheKey);
 
     if (targetPage === 1 && !append && cached) {
@@ -69,6 +126,7 @@ export function MediaLibrarySheet({
       setPageCount(cached.pageCount);
       setLoading(false);
       setError('');
+      loadPageInFlightRef.current = 0;
       return;
     }
 
@@ -83,9 +141,10 @@ export function MediaLibrarySheet({
     try {
       const params = new URLSearchParams({
         page: String(targetPage),
-        pageSize: '36',
+        pageSize: String(PAGE_SIZE),
       });
       if (query) params.set('q', query);
+      if (targetPage > 1) params.set('withCount', '0');
 
       const res = await fetch(`/api/redaction/media?${params}`);
       const data = await readApiJsonResponse<{
@@ -97,7 +156,10 @@ export function MediaLibrarySheet({
       if (!res.ok) throw new Error(data.error ?? 'Chargement impossible');
 
       const nextItems = data.items ?? [];
-      const nextPageCount = data.pageCount ?? 1;
+      let nextPageCount = data.pageCount ?? 1;
+      if (targetPage > 1 && nextItems.length < PAGE_SIZE) {
+        nextPageCount = targetPage;
+      }
       cacheRef.current.set(cacheKey, { items: nextItems, pageCount: nextPageCount });
       setPage(targetPage);
       setPageCount(nextPageCount);
@@ -107,37 +169,43 @@ export function MediaLibrarySheet({
     } finally {
       setLoading(false);
       setLoadingMore(false);
+      if (loadPageInFlightRef.current === targetPage) {
+        loadPageInFlightRef.current = 0;
+      }
     }
   }, []);
 
   useEffect(() => {
     if (!open) return;
     setTab('library');
-    setSearch('');
-    setDebouncedSearch('');
-    setPage(1);
     setShowDuplicatesOnly(false);
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
-    void loadPage(1, false, debouncedSearch);
-  }, [open, debouncedSearch, loadPage]);
+    if (!open || tab !== 'library') return;
+
+    const timer = window.setTimeout(() => {
+      void loadPage(1, false, debouncedSearch);
+    }, debouncedSearch ? 0 : 48);
+
+    return () => window.clearTimeout(timer);
+  }, [open, tab, debouncedSearch, loadPage]);
 
   useEffect(() => {
     if (!open || tab !== 'library' || loading || loadingMore) return;
     if (page >= pageCount) return;
 
+    const root = scrollRef.current;
     const node = loadMoreRef.current;
-    if (!node) return;
+    if (!root || !node) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
+        if (entries.some((entry) => entry.isIntersecting) && loadPageInFlightRef.current === 0) {
           void loadPage(page + 1, true, debouncedSearch);
         }
       },
-      { rootMargin: '240px' }
+      { root, rootMargin: '120px' }
     );
 
     observer.observe(node);
@@ -340,10 +408,9 @@ export function MediaLibrarySheet({
               </button>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
                 {visibleItems.map((item) => {
-                  const src = mediaPreviewSrc(item);
                   const deletable = isDeletableDuplicate(item, items);
                   return (
                     <div key={item.id} className="group relative aspect-square">
@@ -355,13 +422,10 @@ export function MediaLibrarySheet({
                         }}
                         className="h-full w-full overflow-hidden rounded-xl bg-muted ring-offset-2 active:ring-2 active:ring-primary"
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={src}
+                        <MediaLibraryThumb
+                          item={item}
                           alt={item.alternativeText ?? item.name}
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover transition-transform group-active:scale-105"
+                          scrollRoot={scrollRef}
                         />
                       </button>
                       {deletable ? (

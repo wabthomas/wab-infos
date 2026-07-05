@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
-import { siteConfig } from '@/config/site';
+import { siteConfig, siteSeoKeywords } from '@/config/site';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { AppShell } from '@/components/layout/app-shell';
 import { PwaSetup } from '@/components/pwa/pwa-setup';
@@ -13,7 +13,7 @@ import { PwaSplash } from '@/components/pwa/pwa-splash';
 import { GoogleTagManagerBody, GoogleTagManagerHead } from '@/components/google/google-tag-manager';
 import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
 import { getAdsenseConfig } from '@/lib/adsense-config.server';
-import { generateWebsiteJsonLd } from '@/lib/seo';
+import { generateOrganizationJsonLd, generateWebsiteJsonLd } from '@/lib/seo';
 import { resolveRedactionUrl } from '@wab-infos/shared';
 import { fontVariables } from '@/lib/fonts';
 import './globals.css';
@@ -33,10 +33,7 @@ export const metadata: Metadata = {
     template: `%s — ${siteConfig.name}`,
   },
   description: siteConfig.description,
-  keywords: [
-    'actualités RDC', 'Congo', 'Kinshasa', 'politique', 'économie',
-    'sports', 'international', 'Afrique', 'Wab-infos',
-  ],
+  keywords: [...siteSeoKeywords],
   authors: [{ name: siteConfig.publisher }],
   creator: siteConfig.publisher,
   publisher: siteConfig.publisher,
@@ -69,7 +66,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: siteConfig.url,
     types: {
-      'application/rss+xml': `${siteConfig.url}/feed.xml`,
+      'application/rss+xml': [
+        { url: `${siteConfig.url}/feed.xml`, title: `${siteConfig.name} — Articles` },
+        { url: `${siteConfig.url}/feed-tv.xml`, title: `${siteConfig.name} TV` },
+      ],
     },
   },
   manifest: '/manifest.webmanifest',
@@ -98,6 +98,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const websiteJsonLd = generateWebsiteJsonLd();
+  const organizationJsonLd = generateOrganizationJsonLd();
   const adsenseConfig = getAdsenseConfig();
 
   return (
@@ -139,6 +140,10 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
       </head>
       <body className="min-h-full flex flex-col antialiased">

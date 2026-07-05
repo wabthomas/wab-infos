@@ -1,6 +1,7 @@
 /**
- * Nettoie archives de déploiement et caches Next.js inutiles en prod.
- * Conserve apps/*/.next/server + static (build prod) si présents.
+ * Nettoie archives de déploiement et caches Next.js inutiles.
+ * Par défaut : supprime les .tar.gz et prune cache/dev/standalone dans .next.
+ * --full : supprime aussi apps/web/.next, apps/redaction/.next et apps/cms/dist.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -43,6 +44,7 @@ function formatMb(bytes) {
 }
 
 const packsOnly = process.argv.includes('--packs-only');
+const fullClean = process.argv.includes('--full');
 
 let freed = 0;
 
@@ -57,14 +59,30 @@ for (const file of fs.readdirSync(root)) {
 }
 
 if (!packsOnly) {
-  for (const app of NEXT_APPS) {
-    const nextDir = path.join(root, app, '.next');
-    for (const name of NEXT_PRUNE) {
-      const target = path.join(nextDir, name);
-      const removed = rmPath(target);
+  if (fullClean) {
+    for (const app of NEXT_APPS) {
+      const removed = rmPath(path.join(root, app, '.next'));
       if (removed > 0) {
         freed += removed;
-        console.info(`[clean] ${app}/.next/${name} (${formatMb(removed)})`);
+        console.info(`[clean] ${app}/.next supprimé (${formatMb(removed)})`);
+      }
+    }
+    const cmsDist = path.join(root, 'apps/cms/dist');
+    const removed = rmPath(cmsDist);
+    if (removed > 0) {
+      freed += removed;
+      console.info(`[clean] apps/cms/dist supprimé (${formatMb(removed)})`);
+    }
+  } else {
+    for (const app of NEXT_APPS) {
+      const nextDir = path.join(root, app, '.next');
+      for (const name of NEXT_PRUNE) {
+        const target = path.join(nextDir, name);
+        const removed = rmPath(target);
+        if (removed > 0) {
+          freed += removed;
+          console.info(`[clean] ${app}/.next/${name} (${formatMb(removed)})`);
+        }
       }
     }
   }

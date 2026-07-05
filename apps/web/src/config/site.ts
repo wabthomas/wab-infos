@@ -36,10 +36,34 @@ export const siteConfig = {
   swgProductId: process.env.NEXT_PUBLIC_GOOGLE_SWG_PRODUCT_ID || '',
   /** URL de téléchargement APK Android (apps/reader-android release) */
   androidApkUrl: process.env.NEXT_PUBLIC_ANDROID_APK_URL || '/downloads/wab-infos.apk',
-  /** Manifeste de version APK (généré par copy-apk-to-web.mjs) */
   androidApkVersionUrl:
     process.env.NEXT_PUBLIC_ANDROID_APK_VERSION_URL || '/api/apk-version',
+  /** Logo rectangulaire Publisher Center / JSON-LD (400×200) — public/publisher-logo.png */
+  publisherLogoUrl: `${SITE_URL}/publisher-logo.png`,
 } as const;
+
+/** Profils officiels (Knowledge Graph, Organization sameAs) */
+export const siteSocialProfiles = [
+  'https://facebook.com/wabinfos',
+  'https://twitter.com/wabinfos',
+  siteConfig.youtubeChannelUrl,
+] as const;
+
+/** Mots-clés éditoriaux (meta keywords, pages thématiques) */
+export const siteSeoKeywords = [
+  'Wab-infos',
+  'wab infos',
+  'actualités RDC',
+  'actualités Congo',
+  'actualité Kinshasa',
+  'information RDC',
+  'journal Congo',
+  'média congolais',
+  'politique RDC',
+  'économie Congo',
+  'Afrique centrale',
+  'international',
+] as const;
 
 /** Informations éditoriales (Google News Publisher Center, pages légales) */
 export const editorialConfig = {

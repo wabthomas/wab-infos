@@ -17,14 +17,54 @@ export interface PublishArticleSocialResult {
   x?: { ok: boolean; tweetId?: string; error?: string; skipped?: boolean };
 }
 
+const inFlightSocialPublishes = new Set<string>();
+
+function publicationTimestamp(
+  publishedAt?: string,
+  wpPublishedAt?: string | null
+): number {
+  const times = [publishedAt, wpPublishedAt]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value).getTime())
+    .filter((time) => !Number.isNaN(time));
+  return times.length ? Math.max(...times) : 0;
+}
+
 function isRecentPublication(publishedAt?: string, wpPublishedAt?: string | null): boolean {
-  const effectiveDate = wpPublishedAt || publishedAt;
-  if (!effectiveDate) return true;
+  const publishedMs = publicationTimestamp(publishedAt, wpPublishedAt);
+  if (!publishedMs) return false;
   const maxAgeMs = 48 * 60 * 60 * 1000;
-  return Date.now() - new Date(effectiveDate).getTime() <= maxAgeMs;
+  return Date.now() - publishedMs <= maxAgeMs;
+}
+
+async function getArticleForSocialWithRetry(
+  slug: string,
+  attempts = 4
+): Promise<Awaited<ReturnType<typeof getArticleForSocial>>> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const article = await getArticleForSocial(slug);
+    if (article?.status === 'published') return article;
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+  return getArticleForSocial(slug);
 }
 
 export async function publishArticleToSocial(slug: string): Promise<PublishArticleSocialResult> {
+  if (inFlightSocialPublishes.has(slug)) {
+    return { ok: true, skipped: true, reason: 'already_in_flight' };
+  }
+  inFlightSocialPublishes.add(slug);
+
+  try {
+    return await publishArticleToSocialInner(slug);
+  } finally {
+    inFlightSocialPublishes.delete(slug);
+  }
+}
+
+async function publishArticleToSocialInner(slug: string): Promise<PublishArticleSocialResult> {
   if (!socialConfig.enabled || !socialConfig.sendOnPublish) {
     return { ok: true, skipped: true, reason: 'social_disabled' };
   }
@@ -33,7 +73,7 @@ export async function publishArticleToSocial(slug: string): Promise<PublishArtic
     return { ok: false, skipped: true, reason: 'social_not_configured' };
   }
 
-  const article = await getArticleForSocial(slug);
+  const article = await getArticleForSocialWithRetry(slug);
   if (!article) {
     return { ok: false, skipped: true, reason: 'article_not_found' };
   }

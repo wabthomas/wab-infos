@@ -2,47 +2,135 @@ export default {
   async beforeCreate(event: { params: { data: Record<string, unknown> } }) {
     ensureArticleSlug(event.params.data, false);
   },
-  async beforeUpdate(event: { params: { data: Record<string, unknown> } }) {
+  async beforeUpdate(event: {
+    params: {
+      data: Record<string, unknown>;
+      documentId?: string;
+      where?: { documentId?: string };
+    };
+    state?: Record<string, unknown>;
+  }) {
     ensureArticleSlug(event.params.data, true);
+
+    const documentId =
+      event.params.documentId ?? event.params.where?.documentId;
+    if (!documentId) {
+      event.state = { ...event.state, wasPublished: false };
+      return;
+    }
+
+    try {
+      const existing = (await strapi.db.query('api::article.article').findOne({
+        where: { documentId },
+        select: ['status', 'publishedAt'],
+      })) as { status?: string; publishedAt?: string | null } | null;
+
+      event.state = {
+        ...event.state,
+        wasPublished:
+          existing?.status === 'published' && Boolean(existing?.publishedAt),
+      };
+    } catch {
+      event.state = { ...event.state, wasPublished: false };
+    }
   },
   async afterCreate(event: {
-    result: {
-      slug?: string;
-      status?: string;
-      newsletterSentAt?: string | null;
-      facebookPostedAt?: string | null;
-      xPostedAt?: string | null;
-      pushSentAt?: string | null;
-      publishedAt?: string | null;
-      wpPublishedAt?: string | null;
-      documentId?: string;
-    };
+    result: ArticleLifecycleResult;
   }) {
     if (isPublishedArticle(event.result)) {
       runArticlePublishSideEffects(event.result);
     }
   },
   async afterUpdate(event: {
-    result: {
-      slug?: string;
-      status?: string;
-      newsletterSentAt?: string | null;
-      facebookPostedAt?: string | null;
-      xPostedAt?: string | null;
-      pushSentAt?: string | null;
-      publishedAt?: string | null;
-      wpPublishedAt?: string | null;
+    params: {
+      data?: Record<string, unknown>;
       documentId?: string;
+      where?: { documentId?: string };
     };
+    state?: Record<string, unknown>;
+    result: ArticleLifecycleResult;
   }) {
+    const data = event.params?.data ?? {};
+
     if (isPublishedArticle(event.result)) {
-      runArticlePublishSideEffects(event.result);
+      void triggerRevalidation('article', event.result).catch((err) => {
+        console.error('[article] revalidation failed:', err);
+      });
     }
+
+    // Newsletter / réseaux / push : uniquement à la publication explicite,
+    // pas à chaque modification d'un article déjà en ligne.
+    if (!isPublishedArticle(event.result)) return;
+    if (isSideEffectOnlyUpdate(data)) return;
+    if (!isExplicitPublishUpdate(data, event.result, event.state)) return;
+
+    runArticlePublishSideEffects(event.result, { skipRevalidation: true });
   },
   async afterDelete() {
     await triggerRevalidation('article');
   },
 };
+
+type ArticleLifecycleResult = {
+  slug?: string;
+  status?: string;
+  newsletterSentAt?: string | null;
+  facebookPostedAt?: string | null;
+  xPostedAt?: string | null;
+  pushSentAt?: string | null;
+  publishedAt?: string | null;
+  wpPublishedAt?: string | null;
+  documentId?: string;
+  category?: { slug?: string };
+};
+
+const SIDE_EFFECT_ONLY_FIELDS = new Set([
+  'facebookPostedAt',
+  'xPostedAt',
+  'newsletterSentAt',
+  'pushSentAt',
+]);
+
+/** Mise à jour qui ne fait qu'enregistrer un envoi (évite les boucles lifecycle). */
+function isSideEffectOnlyUpdate(data: Record<string, unknown>): boolean {
+  const keys = Object.keys(data).filter((key) => key !== 'updatedAt');
+  if (keys.length === 0) return false;
+  return keys.every((key) => SIDE_EFFECT_ONLY_FIELDS.has(key));
+}
+
+/** Publication explicite (brouillon → publié, planifié → publié), pas une simple édition. */
+function isExplicitPublishUpdate(
+  data: Record<string, unknown>,
+  result: ArticleLifecycleResult,
+  state?: Record<string, unknown>
+): boolean {
+  if (data.status === 'published') return true;
+  if (state?.wasPublished === false && isPublishedArticle(result)) return true;
+  // Strapi peut publier via ?status=published sans repasser status dans data
+  if ('publishedAt' in data && isPublishedArticle(result)) return true;
+  return false;
+}
+
+function publicationTimestamp(
+  publishedAt?: string | null,
+  wpPublishedAt?: string | null
+): number {
+  const times = [publishedAt, wpPublishedAt]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value).getTime())
+    .filter((time) => !Number.isNaN(time));
+  return times.length ? Math.max(...times) : 0;
+}
+
+function isRecentPublication(
+  publishedAt?: string | null,
+  wpPublishedAt?: string | null
+): boolean {
+  const publishedMs = publicationTimestamp(publishedAt, wpPublishedAt);
+  if (!publishedMs) return false;
+  const maxAgeMs = 48 * 60 * 60 * 1000;
+  return Date.now() - publishedMs <= maxAgeMs;
+}
 
 function slugifyTitle(title: string): string {
   return title
@@ -71,21 +159,15 @@ function ensureArticleSlug(data: Record<string, unknown>, isUpdate: boolean) {
 }
 
 /** Ne pas bloquer la réponse Strapi (newsletter, push, etc. peuvent être lents). */
-function runArticlePublishSideEffects(result: {
-  slug?: string;
-  status?: string;
-  newsletterSentAt?: string | null;
-  facebookPostedAt?: string | null;
-  xPostedAt?: string | null;
-  pushSentAt?: string | null;
-  publishedAt?: string | null;
-  wpPublishedAt?: string | null;
-  documentId?: string;
-  category?: { slug?: string };
-}) {
-  void triggerRevalidation('article', result).catch((err) => {
-    console.error('[article] revalidation failed:', err);
-  });
+function runArticlePublishSideEffects(
+  result: ArticleLifecycleResult,
+  options?: { skipRevalidation?: boolean }
+) {
+  if (!options?.skipRevalidation) {
+    void triggerRevalidation('article', result).catch((err) => {
+      console.error('[article] revalidation failed:', err);
+    });
+  }
   void triggerNewsletter(result).catch((err) => {
     console.error('[article] newsletter trigger failed:', err);
   });
@@ -144,14 +226,7 @@ async function triggerNewsletter(result: {
 }) {
   if (process.env.NEWSLETTER_SEND_ON_PUBLISH !== 'true') return;
   if (!result.slug || !isPublishedArticle(result) || result.newsletterSentAt) return;
-
-  // Évite l'envoi massif lors d'imports d'anciens articles (toute année)
-  const effectiveDate = result.wpPublishedAt || result.publishedAt;
-  if (effectiveDate) {
-    const publishedMs = new Date(effectiveDate).getTime();
-    const maxAgeMs = 48 * 60 * 60 * 1000;
-    if (Date.now() - publishedMs > maxAgeMs) return;
-  }
+  if (!isRecentPublication(result.publishedAt, result.wpPublishedAt)) return;
 
   const secret = process.env.NEWSLETTER_SECRET || process.env.REVALIDATION_SECRET;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
@@ -204,18 +279,21 @@ async function triggerSocialPublish(result: {
 }) {
   if (process.env.SOCIAL_SEND_ON_PUBLISH !== 'true') return;
   if (!result.slug || !isPublishedArticle(result)) return;
-  if (result.facebookPostedAt && result.xPostedAt) return;
 
-  const effectiveDate = result.wpPublishedAt || result.publishedAt;
-  if (effectiveDate) {
-    const publishedMs = new Date(effectiveDate).getTime();
-    const maxAgeMs = 48 * 60 * 60 * 1000;
-    if (Date.now() - publishedMs > maxAgeMs) return;
+  const needsFacebook = !result.facebookPostedAt;
+  const needsX = !result.xPostedAt;
+  if (!needsFacebook && !needsX) return;
+  if (!isRecentPublication(result.publishedAt, result.wpPublishedAt)) {
+    console.warn('[social] skipped: article not recent enough', result.slug);
+    return;
   }
 
   const secret = process.env.SOCIAL_SECRET || process.env.REVALIDATION_SECRET;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  if (!secret) return;
+  if (!secret) {
+    console.error('[social] skipped: SOCIAL_SECRET / REVALIDATION_SECRET missing');
+    return;
+  }
 
   try {
     const response = await fetch(`${siteUrl}/api/social/publish-article`, {
@@ -227,8 +305,21 @@ async function triggerSocialPublish(result: {
       body: JSON.stringify({ slug: result.slug }),
     });
 
+    const body = await response.text();
     if (!response.ok) {
-      console.error('[social] publish-article failed:', response.status, await response.text());
+      console.error('[social] publish-article failed:', response.status, body);
+      return;
+    }
+
+    try {
+      const data = JSON.parse(body) as { skipped?: boolean; reason?: string; facebook?: { ok?: boolean; error?: string } };
+      if (data.skipped) {
+        console.warn('[social] publish-article skipped:', data.reason ?? 'unknown', result.slug);
+      } else if (data.facebook && !data.facebook.ok) {
+        console.error('[social] facebook error:', data.facebook.error, result.slug);
+      }
+    } catch {
+      // réponse non-JSON
     }
   } catch (err) {
     console.error('[social] trigger failed:', err);
@@ -244,13 +335,7 @@ async function triggerPushPublish(result: {
 }) {
   if (process.env.PUSH_SEND_ON_PUBLISH !== 'true') return;
   if (!result.slug || !isPublishedArticle(result) || result.pushSentAt) return;
-
-  const effectiveDate = result.wpPublishedAt || result.publishedAt;
-  if (effectiveDate) {
-    const publishedMs = new Date(effectiveDate).getTime();
-    const maxAgeMs = 48 * 60 * 60 * 1000;
-    if (Date.now() - publishedMs > maxAgeMs) return;
-  }
+  if (!isRecentPublication(result.publishedAt, result.wpPublishedAt)) return;
 
   const secret = process.env.PUSH_SECRET || process.env.REVALIDATION_SECRET;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';

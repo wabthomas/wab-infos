@@ -1,5 +1,5 @@
 /**
- * Extrait web-next-build.tar.gz dans apps/web/.next (déploiement sans rebuild serveur).
+ * Extrait web-next-build.tar.gz dans apps/web (.next + public/).
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -36,5 +36,11 @@ if (!fs.existsSync(path.join(nextDir, 'BUILD_ID'))) {
 }
 
 const buildId = fs.readFileSync(path.join(nextDir, 'BUILD_ID'), 'utf8').trim();
+const publisherLogo = path.join(root, 'apps/web/public/publisher-logo.png');
 console.info(`✅ Build extrait → apps/web/.next (BUILD_ID=${buildId})`);
+if (fs.existsSync(publisherLogo)) {
+  console.info('   public/ synchronisé (publisher-logo.png présent).');
+} else {
+  console.warn('   ⚠ public/publisher-logo.png absent — npm run generate:publisher-logo puis repack.');
+}
 console.info('   Redémarrez l’app Node.js (N0C / PM2).');
