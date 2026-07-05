@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { articleIndexNowUrls, notifyIndexNow } from '@/lib/indexnow';
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-revalidation-secret');
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
       revalidatePath(`/${category}/${slug}`);
       revalidatePath(`/${category}`);
       revalidatePath('/');
+      void notifyIndexNow(articleIndexNowUrls(category, slug));
     }
 
     if (type === 'article') {

@@ -66,6 +66,7 @@
     "clean:build:full": "node scripts/clean-build-artifacts.mjs --full",
     "clean:packs": "node scripts/clean-build-artifacts.mjs --packs-only",
     "generate:publisher-logo": "node scripts/generate-publisher-logo.mjs",
+    "setup:indexnow": "node scripts/setup-indexnow.mjs",
     "secrets": "node scripts/generate-secrets.js",
     "lint": "npm run lint --workspace=apps/web",
     "typecheck": "npm run typecheck --workspace=apps/web && npm run typecheck --workspace=apps/redaction"

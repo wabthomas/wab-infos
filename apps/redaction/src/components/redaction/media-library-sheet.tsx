@@ -178,7 +178,14 @@ export function MediaLibrarySheet({
   useEffect(() => {
     if (!open) return;
     setTab('library');
+    setSearch('');
+    setDebouncedSearch('');
+    setPage(1);
+    setPageCount(1);
+    setItems([]);
     setShowDuplicatesOnly(false);
+    setError('');
+    loadPageInFlightRef.current = 0;
   }, [open]);
 
   useEffect(() => {
