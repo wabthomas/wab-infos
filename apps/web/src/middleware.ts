@@ -8,6 +8,16 @@ const WP_REDIRECTS: Record<string, string> = {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const indexNowKey = process.env.INDEXNOW_KEY?.trim();
+  if (indexNowKey && pathname === `/${indexNowKey}.txt`) {
+    return new NextResponse(`${indexNowKey}\n`, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    });
+  }
+
   // Redirections 301 WordPress
   if (WP_REDIRECTS[pathname]) {
     return NextResponse.redirect(new URL(WP_REDIRECTS[pathname], request.url), 301);

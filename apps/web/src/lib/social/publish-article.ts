@@ -7,7 +7,6 @@ import { buildFacebookMessage, buildXMessage } from '@/lib/social/build-post';
 import { isFacebookConfigured, isXConfigured, socialConfig } from '@/lib/social/config';
 import { postToFacebook } from '@/lib/social/facebook';
 import { postToX } from '@/lib/social/x';
-import { resolveArticleOgImage } from '@/lib/og-image-url';
 
 export interface PublishArticleSocialResult {
   ok: boolean;
@@ -90,16 +89,7 @@ async function publishArticleToSocialInner(slug: string): Promise<PublishArticle
 
   if (isFacebookConfigured() && !article.facebookPostedAt) {
     const message = buildFacebookMessage(article.title, article.excerpt);
-    const ogImage = resolveArticleOgImage({
-      title: article.title,
-      featuredImage: article.featuredImage,
-      content: article.content ?? '',
-    });
-    const fb = await postToFacebook(message, article.articleUrl, {
-      picture: ogImage.url,
-      name: article.title,
-      description: article.excerpt,
-    });
+    const fb = await postToFacebook(message, article.articleUrl);
     result.facebook = fb.ok
       ? { ok: true, postId: fb.postId }
       : { ok: false, error: fb.error };
