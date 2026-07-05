@@ -12,7 +12,7 @@ export const socialConfig = {
     apiSecret: process.env.X_API_SECRET || '',
     accessToken: process.env.X_ACCESS_TOKEN || '',
     accessTokenSecret: process.env.X_ACCESS_TOKEN_SECRET || '',
-    bearerToken: process.env.X_BEARER_TOKEN || '',
+    bearerToken: process.env.X_BEARER_TOKEN || '', // lecture seule (stats abonnés), pas pour tweeter
   },
 };
 
@@ -21,7 +21,6 @@ export function isFacebookConfigured(): boolean {
 }
 
 export function isXConfigured(): boolean {
-  const { apiKey, apiSecret, accessToken, accessTokenSecret, bearerToken } = socialConfig.x;
-  if (bearerToken) return true;
+  const { apiKey, apiSecret, accessToken, accessTokenSecret } = socialConfig.x;
   return Boolean(apiKey && apiSecret && accessToken && accessTokenSecret);
 }

@@ -7,7 +7,7 @@
 #   powershell -File scripts/deploy-remote.ps1 exec -- "cd ~/wab-infos && git pull"
 param(
   [Parameter(Position = 0)]
-  [ValidateSet('web', 'redaction', 'cms', 'all', 'ssh', 'exec', 'upload')]
+  [ValidateSet('web', 'redaction', 'cms', 'all', 'ssh', 'exec', 'upload', 'restart')]
   [string]$Target = 'web',
 
   [Parameter(ValueFromRemainingArguments = $true)]
@@ -129,6 +129,20 @@ try {
       & $PSCommandPath web
       & $PSCommandPath redaction
       Write-Host 'Deploiement web + redaction termine.' -ForegroundColor Green
+    }
+    'restart' {
+      $app = if ($Rest -and $Rest.Count -gt 0 -and $Rest[0]) { $Rest[0] } else { 'all' }
+      $apps = switch ($app) {
+        'web' { @('apps/web') }
+        'redaction' { @('apps/redaction') }
+        'cms' { @('apps/cms') }
+        'all' { @('apps/web', 'apps/redaction', 'apps/cms') }
+        default { throw "Usage: deploy-remote.ps1 restart [web|redaction|cms|all]" }
+      }
+      foreach ($relative in $apps) {
+        Restart-RemotePassenger -SshHost $sshHost -RemoteBase $remoteBase -AppRelativePath $relative
+      }
+      Write-Host "Passenger redemarre ($($apps -join ', '))." -ForegroundColor Green
     }
   }
 } finally {

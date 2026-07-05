@@ -11,14 +11,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as { slug?: string };
+    const body = (await request.json()) as { slug?: string; force?: boolean };
     const slug = body.slug?.trim();
+    const force = body.force === true;
 
     if (!slug) {
       return NextResponse.json({ error: 'slug required' }, { status: 400 });
     }
 
-    const result = await publishArticleToSocial(slug);
+    const result = await publishArticleToSocial(slug, { force });
 
     return NextResponse.json(result);
   } catch (error) {

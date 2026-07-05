@@ -47,73 +47,41 @@ function oauth1Header(method: string, url: string): string {
   );
 }
 
-async function postWithOAuth1(text: string): Promise<XPostResult> {
-  const url = 'https://api.twitter.com/2/tweets';
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: oauth1Header('POST', url),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ text }),
-  });
-
-  const data = (await res.json()) as {
-    data?: { id?: string };
-    errors?: { detail?: string; message?: string }[];
-  };
-
-  if (!res.ok) {
-    const err = data.errors?.[0];
-    return { ok: false, error: err?.detail ?? err?.message ?? `x_http_${res.status}` };
-  }
-
-  return { ok: true, tweetId: data.data?.id };
-}
-
-async function postWithBearer(text: string): Promise<XPostResult> {
-  const res = await fetch('https://api.twitter.com/2/tweets', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${socialConfig.x.bearerToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ text }),
-  });
-
-  const data = (await res.json()) as {
-    data?: { id?: string };
-    errors?: { detail?: string; message?: string }[];
-    detail?: string;
-  };
-
-  if (!res.ok) {
-    const err = data.errors?.[0];
-    return { ok: false, error: err?.detail ?? err?.message ?? data.detail ?? `x_http_${res.status}` };
-  }
-
-  return { ok: true, tweetId: data.data?.id };
-}
-
+/** Publie un tweet (OAuth 1.0a utilisateur — requis pour POST /2/tweets). */
 export async function postToX(text: string): Promise<XPostResult> {
-  const { apiKey, apiSecret, accessToken, accessTokenSecret, bearerToken } = socialConfig.x;
-
-  if (bearerToken) {
-    try {
-      return await postWithBearer(text);
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : 'x_request_failed' };
-    }
-  }
+  const { apiKey, apiSecret, accessToken, accessTokenSecret } = socialConfig.x;
 
   if (!apiKey || !apiSecret || !accessToken || !accessTokenSecret) {
     return { ok: false, error: 'x_not_configured' };
   }
 
+  const url = 'https://api.twitter.com/2/tweets';
+
   try {
-    return await postWithOAuth1(text);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: oauth1Header('POST', url),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    const data = (await res.json()) as {
+      data?: { id?: string };
+      errors?: { detail?: string; message?: string }[];
+    };
+
+    if (!res.ok) {
+      const err = data.errors?.[0];
+      return { ok: false, error: err?.detail ?? err?.message ?? `x_http_${res.status}` };
+    }
+
+    return { ok: true, tweetId: data.data?.id };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'x_request_failed' };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'x_request_failed',
+    };
   }
 }

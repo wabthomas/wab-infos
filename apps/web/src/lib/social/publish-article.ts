@@ -12,8 +12,13 @@ export interface PublishArticleSocialResult {
   ok: boolean;
   skipped?: boolean;
   reason?: string;
-  facebook?: { ok: boolean; postId?: string; error?: string; skipped?: boolean };
-  x?: { ok: boolean; tweetId?: string; error?: string; skipped?: boolean };
+  facebook?: { ok: boolean; postId?: string; error?: string; skipped?: boolean; reason?: string };
+  x?: { ok: boolean; tweetId?: string; error?: string; skipped?: boolean; reason?: string };
+}
+
+export interface PublishArticleSocialOptions {
+  /** Ignore facebookPostedAt / xPostedAt (republication manuelle). */
+  force?: boolean;
 }
 
 const inFlightSocialPublishes = new Set<string>();
@@ -50,20 +55,26 @@ async function getArticleForSocialWithRetry(
   return getArticleForSocial(slug);
 }
 
-export async function publishArticleToSocial(slug: string): Promise<PublishArticleSocialResult> {
+export async function publishArticleToSocial(
+  slug: string,
+  options?: PublishArticleSocialOptions
+): Promise<PublishArticleSocialResult> {
   if (inFlightSocialPublishes.has(slug)) {
     return { ok: true, skipped: true, reason: 'already_in_flight' };
   }
   inFlightSocialPublishes.add(slug);
 
   try {
-    return await publishArticleToSocialInner(slug);
+    return await publishArticleToSocialInner(slug, options);
   } finally {
     inFlightSocialPublishes.delete(slug);
   }
 }
 
-async function publishArticleToSocialInner(slug: string): Promise<PublishArticleSocialResult> {
+async function publishArticleToSocialInner(
+  slug: string,
+  options?: PublishArticleSocialOptions
+): Promise<PublishArticleSocialResult> {
   if (!socialConfig.enabled || !socialConfig.sendOnPublish) {
     return { ok: true, skipped: true, reason: 'social_disabled' };
   }
@@ -85,9 +96,10 @@ async function publishArticleToSocialInner(slug: string): Promise<PublishArticle
     return { ok: true, skipped: true, reason: 'article_too_old' };
   }
 
+  const force = options?.force === true;
   const result: PublishArticleSocialResult = { ok: true };
 
-  if (isFacebookConfigured() && !article.facebookPostedAt) {
+  if (isFacebookConfigured() && (!article.facebookPostedAt || force)) {
     const message = buildFacebookMessage(article.title, article.excerpt);
     const fb = await postToFacebook(message, article.articleUrl);
     result.facebook = fb.ok
@@ -100,12 +112,12 @@ async function publishArticleToSocialInner(slug: string): Promise<PublishArticle
       result.ok = false;
     }
   } else if (article.facebookPostedAt) {
-    result.facebook = { ok: true, skipped: true };
+    result.facebook = { ok: true, skipped: true, reason: 'already_posted' };
   } else {
-    result.facebook = { ok: true, skipped: true };
+    result.facebook = { ok: true, skipped: true, reason: 'facebook_not_configured' };
   }
 
-  if (isXConfigured() && !article.xPostedAt) {
+  if (isXConfigured() && (!article.xPostedAt || force)) {
     const text = buildXMessage(article.title, article.articleUrl);
     const x = await postToX(text);
     result.x = x.ok ? { ok: true, tweetId: x.tweetId } : { ok: false, error: x.error };
@@ -116,9 +128,9 @@ async function publishArticleToSocialInner(slug: string): Promise<PublishArticle
       result.ok = false;
     }
   } else if (article.xPostedAt) {
-    result.x = { ok: true, skipped: true };
+    result.x = { ok: true, skipped: true, reason: 'already_posted' };
   } else {
-    result.x = { ok: true, skipped: true };
+    result.x = { ok: true, skipped: true, reason: 'x_not_configured' };
   }
 
   return result;

@@ -233,15 +233,9 @@ Avec OAuth 1.0a, utilisez plutôt le test intégré Wab-infos (section 4) ou un 
 
 Succès : `"data": { "id": "...", "text": "..." }`.
 
-## Alternative : Bearer Token OAuth 2.0 (`X_BEARER_TOKEN`)
+## Bearer Token (`X_BEARER_TOKEN`)
 
-Wab-infos accepte aussi un **Bearer Token** utilisateur (OAuth 2.0) à la place des 4 clés OAuth 1.0a :
-
-```env
-X_BEARER_TOKEN=...
-```
-
-Pour l’obtenir, il faut un flux OAuth 2.0 PKCE (plus complexe). **Recommandation** : utilisez les 4 clés OAuth 1.0a générées directement dans le portail (étape 6) — c’est le plus simple pour un serveur.
+`X_BEARER_TOKEN` sert uniquement au **compteur d’abonnés** sur le site (API lecture). La **publication** requiert les **4 clés OAuth 1.0a** (étape 6).
 
 ## Dépannage X
 

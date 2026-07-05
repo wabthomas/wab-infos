@@ -57,6 +57,8 @@
     "deploy:remote:server": "powershell -ExecutionPolicy Bypass -File scripts/deploy-remote.ps1 exec -- \"cd ~/wab-infos && bash scripts/deploy-server.sh\"",
     "ssh:noc": "ssh wab-noc",
     "remote": "powershell -ExecutionPolicy Bypass -File scripts/deploy-remote.ps1 exec --",
+    "restart:passenger": "powershell -ExecutionPolicy Bypass -File scripts/deploy-remote.ps1 restart",
+    "restart:web": "powershell -ExecutionPolicy Bypass -File scripts/deploy-remote.ps1 restart web",
     "pack:web-build": "node scripts/pack-web-build.mjs",
     "unpack:web-build": "node scripts/unpack-web-build.mjs",
     "pack:cms-build": "node scripts/pack-cms-build.mjs",
