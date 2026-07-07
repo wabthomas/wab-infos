@@ -564,17 +564,6 @@ async function fetchPublishedDocumentIds(
   return ids;
 }
 
-/** Évite les requêtes $notIn énormes (timeout / URL trop longue sur gros catalogues). */
-const MAX_PUBLISHED_IDS_FOR_NOT_IN = 200;
-
-async function getPublishedIdsForExclusion(
-  authorFilter: Record<string, unknown>
-): Promise<Set<string> | null> {
-  const publishedCount = await getStrapiArticleTotal(authorFilter, 'published');
-  if (publishedCount > MAX_PUBLISHED_IDS_FOR_NOT_IN) return null;
-  return fetchPublishedDocumentIds(authorFilter);
-}
-
 async function fetchPublishedEngagementTotals(
   authorFilter: Record<string, unknown>
 ): Promise<{ totalViews: number; breakingCount: number }> {
@@ -663,90 +652,11 @@ async function listEditorArticlesPage(
       },
     };
   }
-
-  const publishedIds = await getPublishedIdsForExclusion(authorFilter);
-  const publishedIdList = publishedIds ? [...publishedIds] : [];
-
-  if (status === 'draft') {
-    const draftFilter: Record<string, unknown> = {
-      ...authorFilter,
-      status: { $eq: 'draft' },
-      ...(publishedIdList.length > 0 ? { documentId: { $notIn: publishedIdList } } : {}),
-    };
-    const response = await strapiFetch<StrapiListResponse>('/articles', {
-      ...listParams,
-      filters: draftFilter,
-      pagination: { page, pageSize },
-      status: 'draft',
-    });
-    let articles = response.data
-      .map(mapArticle)
-      .filter((article) => article.status === 'draft' && !isLiveRedactionArticle(article));
-    const total = publishedIds
-      ? await getStrapiArticleTotal(authorFilter, 'draft', draftFilter)
-      : await getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'draft' } });
-    return {
-      articles,
-      pagination: {
-        page,
-        pageSize,
-        total,
-        pageCount: Math.max(1, Math.ceil(total / pageSize)),
-      },
-    };
-  }
-
-  const [pubEntities, draftEntities, scheduledEntities] = await Promise.all([
-    fetchArticleEntitiesWindow(listParams, authorFilter, 'published', windowSize),
-    fetchArticleEntitiesWindow(
-      listParams,
-      authorFilter,
-      'draft',
-      windowSize,
-      publishedIdList.length > 0
-        ? { documentId: { $notIn: publishedIdList }, status: { $eq: 'draft' } }
-        : { status: { $eq: 'draft' } }
-    ),
-    fetchArticleEntitiesWindow(listParams, authorFilter, 'draft', windowSize, {
-      status: { $eq: 'scheduled' },
-    }),
-  ]);
-
-  const merged = new Map<string, RedactionArticle>();
-  for (const item of draftEntities) {
-    if (publishedIds && publishedIds.has(item.documentId)) continue;
-    const article = mapArticle(item);
-    if (article.status !== 'draft' || isLiveRedactionArticle(article)) continue;
-    merged.set(item.documentId, article);
-  }
-  for (const item of scheduledEntities) {
-    if (publishedIds && publishedIds.has(item.documentId)) continue;
-    const article = mapArticle(item);
-    if (article.status !== 'scheduled') continue;
-    merged.set(item.documentId, article);
-  }
-  for (const item of pubEntities) {
-    merged.set(item.documentId, mapArticle(item));
-  }
-
-  const sorted = sortArticlesByUpdated([...merged.values()]);
-  const [pubTotal, draftTotal, scheduledTotal, draftOnlyTotal] = await Promise.all([
-    getStrapiArticleTotal(authorFilter, 'published'),
-    getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'draft' } }),
-    getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'scheduled' } }),
-    publishedIds
-      ? getStrapiArticleTotal(authorFilter, 'draft', {
-          status: { $eq: 'draft' },
-          ...(publishedIdList.length > 0 ? { documentId: { $notIn: publishedIdList } } : {}),
-        })
-      : Promise.resolve(0),
-  ]);
-  const total = publishedIds
-    ? pubTotal + draftOnlyTotal + scheduledTotal
-    : pubTotal + draftTotal + scheduledTotal;
+  const merged = await mergeEditorArticles(authorFilter, listParams, status);
+  const total = merged.length;
 
   return {
-    articles: sorted.slice(start, start + pageSize),
+    articles: merged.slice(start, start + pageSize),
     pagination: {
       page,
       pageSize,

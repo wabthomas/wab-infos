@@ -51,6 +51,7 @@ export async function GET(request: Request) {
       headers: {
         'Content-Type': 'image/jpeg',
         'Cache-Control': CACHE_HEADER,
+        'Content-Disposition': 'inline; filename="og-image.jpg"',
       },
     });
   } catch {

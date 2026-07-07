@@ -2,8 +2,6 @@ import type { Article, StrapiMedia } from '@wab-infos/shared';
 import { siteConfig } from '@/config/site';
 
 const SITE_ORIGIN = siteConfig.url.replace(/\/$/, '');
-const SOCIAL_SAFE_EXT = /\.(jpe?g|png)$/i;
-const NEEDS_JPEG_PROXY_EXT = /\.(webp|avif|gif|heic|heif|bmp|tiff?)$/i;
 const UNSUPPORTED_EXT = /\.(svg)$/i;
 
 function firstImageFromHtml(html: string): string | undefined {
@@ -59,19 +57,13 @@ export function toAbsolutePublicMediaUrl(urlOrPath: string): string {
   return `${SITE_ORIGIN}/${urlOrPath.replace(/^\//, '')}`;
 }
 
-/** URL fiable pour WhatsApp / Facebook (JPEG de préférence, domaine public). */
+/** URL fiable pour WhatsApp / Facebook: on normalise en JPEG public. */
 export function resolveSocialShareImageUrl(urlOrPath: string): string {
   const path = normalizeMediaPathForSite(urlOrPath);
   if (!path || UNSUPPORTED_EXT.test(path)) {
     return siteConfig.ogImage;
   }
-  if (SOCIAL_SAFE_EXT.test(path)) {
-    return `${SITE_ORIGIN}${path}`;
-  }
-  if (NEEDS_JPEG_PROXY_EXT.test(path)) {
-    return `${SITE_ORIGIN}/og-image?src=${encodeURIComponent(path)}`;
-  }
-  return toAbsolutePublicMediaUrl(urlOrPath);
+  return `${SITE_ORIGIN}/og-image?src=${encodeURIComponent(path)}`;
 }
 
 type OgImageCandidate = {
@@ -113,6 +105,7 @@ export interface ResolvedOgImage {
   width?: number;
   height?: number;
   alt: string;
+  type?: string;
 }
 
 /** Choisit la meilleure image pour og:image (aperçu WhatsApp, Facebook, X). */
@@ -133,13 +126,16 @@ export function resolveArticleOgImage(
   }
 
   if (!candidates.length) {
-    return { url: siteConfig.ogImage, width: 1200, height: 630, alt: siteConfig.name };
+    return {
+      url: siteConfig.ogImage,
+      width: 1200,
+      height: 630,
+      alt: siteConfig.name,
+      type: 'image/jpeg',
+    };
   }
 
   candidates.sort((a, b) => {
-    const aSafe = SOCIAL_SAFE_EXT.test(a.path) ? 0 : 1;
-    const bSafe = SOCIAL_SAFE_EXT.test(b.path) ? 0 : 1;
-    if (aSafe !== bSafe) return aSafe - bSafe;
     if (a.rank !== b.rank) return a.rank - b.rank;
     return (b.width ?? 0) - (a.width ?? 0);
   });
@@ -150,6 +146,7 @@ export function resolveArticleOgImage(
     width: best.width,
     height: best.height,
     alt,
+    type: 'image/jpeg',
   };
 }
 

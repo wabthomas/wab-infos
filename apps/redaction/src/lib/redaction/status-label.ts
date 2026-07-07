@@ -8,7 +8,7 @@ const STATUS_LABELS: Record<RedactionArticle['status'], string> = {
 };
 
 export function isLiveRedactionArticle(article: RedactionArticle): boolean {
-  return Boolean(article.publishedAt);
+  return article.status === 'published' && Boolean(article.publishedAt);
 }
 
 export function getRedactionArticleStatusLabel(status: RedactionArticle['status']): string {

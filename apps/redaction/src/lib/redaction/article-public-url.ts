@@ -5,7 +5,7 @@ function siteOrigin(): string {
 }
 
 export function canViewArticlePublicly(article: RedactionArticle): boolean {
-  const isLive = Boolean(article.publishedAt);
+  const isLive = article.status === 'published' && Boolean(article.publishedAt);
   return isLive && Boolean(article.category?.slug && article.slug);
 }
 

@@ -24,7 +24,15 @@ export async function sendPushToReaders(
   });
 
   const subscriptions = await listReaderPushSubscriptions();
-  if (!subscriptions.length) {
+  const uniqueSubscriptions = Array.from(
+    new Map(
+      subscriptions
+        .filter((sub) => sub.fcmToken?.trim())
+        .map((sub) => [sub.fcmToken.trim(), sub] as const)
+    ).values()
+  );
+
+  if (!uniqueSubscriptions.length) {
     return { sent: 0, failed: 0 };
   }
 
@@ -32,7 +40,7 @@ export async function sendPushToReaders(
   let failed = 0;
 
   await Promise.all(
-    subscriptions.map(async (sub) => {
+    uniqueSubscriptions.map(async (sub) => {
       if (!sub.fcmToken) {
         failed++;
         return;

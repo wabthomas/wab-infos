@@ -255,6 +255,7 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
   const imageMeta = {
     url: ogImage.url,
     alt: ogImage.alt,
+    ...(ogImage.type ? { type: ogImage.type } : {}),
     ...(ogImage.width && ogImage.height
       ? { width: ogImage.width, height: ogImage.height }
       : { width: 1200, height: 630 }),

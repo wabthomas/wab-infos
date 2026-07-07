@@ -2,7 +2,6 @@ import { getArticlePath } from '@/config/site';
 import { isArticlePublished, isRecentPublication } from '@/lib/article-publish';
 import { pushConfig } from '@/lib/push/config';
 import { sendPushToReaders } from '@/lib/push/send';
-import { listReaderPushSubscriptions } from '@/lib/push/subscriptions';
 import { strapiAdminFetch } from '@/lib/push/strapi-admin';
 import { isFirebaseAdminConfigured } from '@/lib/firebase/config';
 
@@ -27,6 +26,18 @@ interface PushArticle {
   wpPublishedAt?: string | null;
   pushSentAt?: string | null;
   category?: { slug?: string };
+}
+
+const PUSH_DEDUP_WINDOW_MS = 2 * 60 * 1000;
+const pushInFlight = new Map<string, Promise<PublishArticlePushResult>>();
+const recentPushes = new Map<string, number>();
+
+function cleanupRecentPushes(now = Date.now()): void {
+  for (const [slug, at] of recentPushes.entries()) {
+    if (now - at > PUSH_DEDUP_WINDOW_MS) {
+      recentPushes.delete(slug);
+    }
+  }
 }
 
 async function getArticleForPush(slug: string): Promise<(PushArticle & { articleUrl: string }) | null> {
@@ -87,71 +98,93 @@ function pushErrorMessage(error: unknown): string {
 }
 
 export async function publishArticlePush(slug: string): Promise<PublishArticlePushResult> {
-  try {
-    if (!pushConfig.enabled || !pushConfig.sendOnPublish) {
-      return { ok: true, skipped: true, reason: 'push_disabled' };
-    }
-
-    const article = await fetchArticleForPush(slug);
-    if (!article) {
-      return { ok: false, skipped: true, reason: 'article_not_found' };
-    }
-
-    if (!isArticlePublished(article)) {
-      return { ok: true, skipped: true, reason: 'not_published' };
-    }
-
-    if (article.pushSentAt) {
-      return { ok: true, skipped: true, reason: 'already_sent' };
-    }
-
-    if (!isRecentPublication(article.publishedAt, article.wpPublishedAt)) {
-      return { ok: true, skipped: true, reason: 'article_too_old' };
-    }
-
-    const body =
-      article.excerpt?.replace(/<[^>]+>/g, '').trim().slice(0, 140) ||
-      'Nouvel article sur Wab-infos';
-
-    const subscriptions = await listReaderPushSubscriptions();
-    if (!subscriptions.length) {
-      return { ok: true, skipped: true, reason: 'no_subscribers' };
-    }
-
-    if (!isFirebaseAdminConfigured()) {
-      return { ok: false, skipped: true, reason: 'firebase_not_configured' };
-    }
-
-    const { sent, failed } = await sendPushToReaders({
-      title: article.seoTitle?.trim() || article.title,
-      body,
-      url: article.articleUrl,
-    });
-
-    if (sent > 0) {
-      const marked = await markPushSent(article.documentId);
-      if (!marked.ok) {
-        console.error('[push] markPushSent failed after send:', {
-          slug,
-          documentId: article.documentId,
-          sent,
-          failed,
-          error: marked.error,
-        });
-        return {
-          ok: false,
-          reason: 'mark_failed',
-          markFailed: true,
-          sent,
-          failed,
-        };
-      }
-    }
-
-    return { ok: failed === 0, sent, failed };
-  } catch (error) {
-    const message = pushErrorMessage(error);
-    console.error('[push/publishArticlePush]', slug, message);
-    return { ok: false, reason: 'error', message };
+  const normalizedSlug = slug.trim();
+  if (!normalizedSlug) {
+    return { ok: false, skipped: true, reason: 'article_not_found' };
   }
+
+  cleanupRecentPushes();
+  const recentAt = recentPushes.get(normalizedSlug);
+  if (recentAt && Date.now() - recentAt < PUSH_DEDUP_WINDOW_MS) {
+    return { ok: true, skipped: true, reason: 'recent_duplicate' };
+  }
+
+  const running = pushInFlight.get(normalizedSlug);
+  if (running) {
+    return running;
+  }
+
+  const task = (async (): Promise<PublishArticlePushResult> => {
+    try {
+      if (!pushConfig.enabled || !pushConfig.sendOnPublish) {
+        return { ok: true, skipped: true, reason: 'push_disabled' };
+      }
+
+      const article = await fetchArticleForPush(normalizedSlug);
+      if (!article) {
+        return { ok: false, skipped: true, reason: 'article_not_found' };
+      }
+
+      if (!isArticlePublished(article)) {
+        return { ok: true, skipped: true, reason: 'not_published' };
+      }
+
+      if (article.pushSentAt) {
+        return { ok: true, skipped: true, reason: 'already_sent' };
+      }
+
+      if (!isRecentPublication(article.publishedAt, article.wpPublishedAt)) {
+        return { ok: true, skipped: true, reason: 'article_too_old' };
+      }
+
+      const body =
+        article.excerpt?.replace(/<[^>]+>/g, '').trim().slice(0, 140) ||
+        'Nouvel article sur Wab-infos';
+
+      if (!isFirebaseAdminConfigured()) {
+        return { ok: false, skipped: true, reason: 'firebase_not_configured' };
+      }
+
+      const { sent, failed } = await sendPushToReaders({
+        title: article.seoTitle?.trim() || article.title,
+        body,
+        url: article.articleUrl,
+      });
+
+      if (sent > 0) {
+        recentPushes.set(normalizedSlug, Date.now());
+      }
+
+      if (sent > 0) {
+        const marked = await markPushSent(article.documentId);
+        if (!marked.ok) {
+          console.error('[push] markPushSent failed after send:', {
+            slug: normalizedSlug,
+            documentId: article.documentId,
+            sent,
+            failed,
+            error: marked.error,
+          });
+          return {
+            ok: false,
+            reason: 'mark_failed',
+            markFailed: true,
+            sent,
+            failed,
+          };
+        }
+      }
+
+      return { ok: failed === 0, sent, failed };
+    } catch (error) {
+      const message = pushErrorMessage(error);
+      console.error('[push/publishArticlePush]', normalizedSlug, message);
+      return { ok: false, reason: 'error', message };
+    } finally {
+      pushInFlight.delete(normalizedSlug);
+    }
+  })();
+
+  pushInFlight.set(normalizedSlug, task);
+  return task;
 }

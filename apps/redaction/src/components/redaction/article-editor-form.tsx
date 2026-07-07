@@ -97,7 +97,7 @@ async function recoverPublishAfterNetworkError(
     const article = data.article;
     if (!article) return false;
     if (mode === 'publish') {
-      return article.status === 'published' || Boolean(article.publishedAt);
+      return article.status === 'published' && Boolean(article.publishedAt);
     }
     return article.status === 'scheduled' && Boolean(article.scheduledAt);
   } catch {
@@ -737,21 +737,25 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
 
           <button
             type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="hidden h-10 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-foreground hover:bg-muted lg:inline-flex"
-          >
-            <Settings2 className="h-4 w-4" />
-            Réglages
-          </button>
-
-          <button
-            type="button"
             disabled={!!saving}
             onClick={() => void save('draft')}
             className="hidden h-10 shrink-0 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60 lg:inline-flex"
           >
             {saving === 'draft' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Brouillon'}
           </button>
+
+          <ArticleEditorOptionsMenu
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenFeaturedImage={() => setMediaLibraryOpen(true)}
+            onSaveDraft={() => void save('draft')}
+            onDelete={() => void deleteArticle()}
+            savingDraft={saving === 'draft'}
+            deleting={deleting}
+            canDelete={canDeleteArticle}
+            hasFeaturedImage={Boolean(values.featuredImageUrl)}
+          />
 
           <button
             type="button"
@@ -855,18 +859,6 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
                 </>
               ) : null}
             </p>
-            <ArticleEditorOptionsMenu
-              open={menuOpen}
-              onOpenChange={setMenuOpen}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onOpenFeaturedImage={() => setMediaLibraryOpen(true)}
-              onSaveDraft={() => void save('draft')}
-              onDelete={() => void deleteArticle()}
-              savingDraft={saving === 'draft'}
-              deleting={deleting}
-              canDelete={canDeleteArticle}
-              hasFeaturedImage={Boolean(values.featuredImageUrl)}
-            />
           </div>
 
           <div className="mt-3">
