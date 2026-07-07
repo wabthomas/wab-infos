@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArticleCard } from '@/components/articles/article-card';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
@@ -42,7 +42,8 @@ export default async function CategoryPage({ params }: PageProps) {
   if (!isValidCategorySlug(category)) {
     const legacyPath = await resolveLegacyArticlePath(category);
     if (legacyPath) {
-      redirect(legacyPath);
+      // Permalien WordPress /{slug} → /{rubrique}/{slug} (transfert SEO permanent)
+      permanentRedirect(legacyPath);
     }
     notFound();
   }

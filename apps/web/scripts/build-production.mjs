@@ -162,6 +162,15 @@ async function main() {
       await ensureCompiledCss();
     }
 
+    try {
+      const { pathToFileURL } = await import('node:url');
+      const gen = pathToFileURL(path.join(__dirname, 'generate-wp-redirects.mjs')).href;
+      console.info('[build] Mise à jour wp-redirects.json…');
+      await import(gen);
+    } catch (err) {
+      console.warn('[build] wp-redirects non régénéré:', err?.message || err);
+    }
+
     await runNextBuild();
     process.exit(0);
   } catch (err) {

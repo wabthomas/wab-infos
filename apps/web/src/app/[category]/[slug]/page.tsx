@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { preload } from 'react-dom';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -63,7 +63,8 @@ export default async function ArticlePage({ params }: PageProps) {
 
   const articleCategorySlug = article.category?.slug;
   if (articleCategorySlug && articleCategorySlug !== category) {
-    redirect(`/${articleCategorySlug}/${slug}`);
+    // Rubrique canonique différente de l’URL (ancien permalien ou lien incorrect)
+    permanentRedirect(`/${articleCategorySlug}/${slug}`);
   }
 
   if (!articleCategorySlug && !isValidCategorySlug(category)) {
