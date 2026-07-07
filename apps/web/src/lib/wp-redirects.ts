@@ -1,4 +1,5 @@
 import wpRedirects from '@/data/wp-redirects.json';
+import manualRedirects from '@/data/wp-redirects-manual.json';
 import { isValidCategorySlug } from '@/config/site';
 
 /** Anciennes rubriques WordPress → rubrique Next.js */
@@ -30,7 +31,14 @@ type WpRedirectsData = {
   slugs?: Record<string, string>;
 };
 
+/** Articles WordPress supprimés/non migrés : préfixes → rubrique de repli */
+const DELETED_SLUG_PREFIX_FALLBACKS: { prefix: string; target: string }[] = [
+  { prefix: 'urgent-', target: '/actualite' },
+  { prefix: 'flash-', target: '/actualite' },
+];
+
 const data = wpRedirects as WpRedirectsData;
+const manual = manualRedirects as WpRedirectsData;
 
 function normalizePathname(pathname: string): string {
   const trimmed = pathname.replace(/\/$/, '');
@@ -41,6 +49,9 @@ function normalizePathname(pathname: string): string {
 export function resolveWpRedirect(pathname: string): string | null {
   const normalized = normalizePathname(pathname);
   if (normalized === '/') return null;
+
+  const manualExact = manual.paths?.[normalized];
+  if (manualExact && manualExact !== normalized) return manualExact;
 
   const exact = data.paths?.[normalized];
   if (exact && exact !== normalized) return exact;
@@ -58,6 +69,12 @@ export function resolveWpRedirect(pathname: string): string | null {
 
     const byRootSlug = data.slugs?.[segments[0]];
     if (byRootSlug && byRootSlug !== normalized) return byRootSlug;
+
+    for (const { prefix, target } of DELETED_SLUG_PREFIX_FALLBACKS) {
+      if (segments[0].startsWith(prefix) && segments[0].length > prefix.length + 8) {
+        return target;
+      }
+    }
 
     return null;
   }
