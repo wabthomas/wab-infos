@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "863302672029",
+    "project_id": "wab-infos-app",
+    "storage_bucket": "wab-infos-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:863302672029:android:5c2daff34a787e6934be74",
+        "android_client_info": {
+          "package_name": "com.wabapp.wabinfos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcPN4yFKzWgmwWMB5fS2oUvU1Mi77871s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:863302672029:android:c4380d7c9fd3817834be74",
+        "android_client_info": {
+          "package_name": "com.wabinfos.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcPN4yFKzWgmwWMB5fS2oUvU1Mi77871s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

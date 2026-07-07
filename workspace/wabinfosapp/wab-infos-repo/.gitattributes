@@ -1,0 +1,2 @@
+# Scripts shell : LF obligatoire (CRLF casse bash Linux : set pipefail)
+*.sh text eol=lf

@@ -8,9 +8,10 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const flavor = process.env.READER_ANDROID_APK_FLAVOR || 'withFcm';
 const apkSrc = join(
   root,
-  'apps/reader-android/android/app/build/outputs/apk/release/app-release.apk'
+  `apps/reader-android/android/app/build/outputs/apk/${flavor}/release/app-${flavor}-release.apk`
 );
 const buildGradle = join(root, 'apps/reader-android/android/app/build.gradle');
 const destDir = join(root, 'apps/web/public/downloads');

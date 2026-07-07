@@ -79,6 +79,50 @@ export async function sendFcmToToken(
   });
 }
 
+export async function sendFcmToTopic(
+  topic: string,
+  payload: FcmNotificationPayload
+): Promise<void> {
+  const app = ensureFirebaseAdmin();
+  if (!app) throw new Error('Firebase Admin non configuré');
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const absoluteUrl = payload.url.startsWith('http')
+    ? payload.url
+    : `${siteUrl}${payload.url}`;
+
+  await getMessaging(app).send({
+    topic,
+    notification: {
+      title: payload.title,
+      body: payload.body,
+    },
+    data: {
+      title: payload.title,
+      body: payload.body,
+      url: absoluteUrl,
+    },
+    android: {
+      priority: 'high',
+      ttl: 86400,
+      notification: {
+        channelId: 'wab_infos_news',
+        sound: 'default',
+        defaultSound: true,
+        defaultVibrateTimings: true,
+      },
+    },
+    webpush: {
+      fcmOptions: { link: absoluteUrl },
+      notification: {
+        title: payload.title,
+        body: payload.body,
+        icon: `${siteUrl}/icons/icon-192.png`,
+      },
+    },
+  });
+}
+
 export function isInvalidFcmTokenError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const code =

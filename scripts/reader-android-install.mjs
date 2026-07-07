@@ -3,16 +3,18 @@
  * Installe l'APK release sur l'appareil USB (adb).
  * Usage : npm run reader-android:install
  */
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const googleServices = join(root, 'apps/reader-android/android/app/google-services.json');
+const flavor = existsSync(googleServices) ? 'withFcm' : 'noFcm';
 const apk = join(
   root,
-  'apps/reader-android/android/app/build/outputs/apk/release/app-release.apk'
+  `apps/reader-android/android/app/build/outputs/apk/${flavor}/release/app-${flavor}-release.apk`
 );
 
 function resolveAdbPath() {
@@ -54,25 +56,6 @@ if (!existsSync(apk)) {
   process.exit(1);
 }
 
-const capConfigPath = join(
-  root,
-  'apps/reader-android/android/app/src/main/assets/capacitor.config.json'
-);
-if (existsSync(capConfigPath)) {
-  try {
-    const capConfig = JSON.parse(readFileSync(capConfigPath, 'utf8'));
-    if (!capConfig.server?.url) {
-      console.warn(
-        '[install] ⚠️  APK sans server.url (page locale). Rebuild : npm run reader-android:release'
-      );
-    } else {
-      console.log(`[install] WebView → ${capConfig.server.url}`);
-    }
-  } catch {
-    // ignore
-  }
-}
-
 const devices = spawnSync(adb, ['devices'], { encoding: 'utf8' });
 if (devices.status !== 0) {
   console.error(devices.stderr || devices.stdout);
@@ -89,7 +72,8 @@ if (lines.length === 0) {
 }
 
 console.log(`[install] Appareil : ${lines[0]}`);
-console.log(`[install] APK : ${apk}`);
+console.log(`[install] APK (${flavor}) : ${apk}`);
+console.log('[install] WebView → https://wab-infos.com');
 
 const install = spawnSync(adb, ['install', '-r', apk], { stdio: 'inherit' });
 if (install.status !== 0) process.exit(install.status ?? 1);

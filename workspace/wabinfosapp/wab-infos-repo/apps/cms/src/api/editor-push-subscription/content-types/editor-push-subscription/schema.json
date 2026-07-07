@@ -1,0 +1,23 @@
+{
+  "kind": "collectionType",
+  "collectionName": "editor_push_subscriptions",
+  "info": {
+    "singularName": "editor-push-subscription",
+    "pluralName": "editor-push-subscriptions",
+    "displayName": "Abonnement push rédaction"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "userEmail": {
+      "type": "email",
+      "required": true
+    },
+    "fcmToken": {
+      "type": "text",
+      "required": true,
+      "unique": true
+    }
+  }
+}

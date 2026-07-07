@@ -1,0 +1,5 @@
+<resources>
+    <color name="brand_background">#0f0f14</color>
+    <color name="brand_title">#ffffff</color>
+    <color name="brand_accent">#ff6b7f</color>
+</resources>

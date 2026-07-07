@@ -1,21 +1,18 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Garde l'interface JavaScript exposée à la WebView (partage natif)
+-keepclassmembers class com.wabinfos.app.MainActivity$NativeBridge {
+    public *;
+}
+-keep class com.wabinfos.app.MainActivity$NativeBridge {
+    public *;
+}
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# WebView JavascriptInterface : nécessaire pour que @JavascriptInterface fonctionne après minification
+-keepattributes JavascriptInterface
+-keepattributes *Annotation*
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Firebase Cloud Messaging
+-keep class com.google.firebase.messaging.** { *; }
+-dontwarn com.google.firebase.**
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Évite de supprimer les classes utilisées via réflexion par AndroidX
+-keep class androidx.core.app.CoreComponentFactory { *; }

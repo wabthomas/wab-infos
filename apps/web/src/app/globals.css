@@ -422,6 +422,16 @@ html.redaction-writing body {
   }
 }
 
+/* APK native — pas de splash / bandeau PWA web (launcher natif) */
+html.native-capacitor .pwa-splash-bootstrap,
+html.native-capacitor .pwa-splash {
+  display: none !important;
+}
+
+html.native-capacitor #app-root {
+  visibility: visible;
+}
+
 /* App PWA — écran de lancement */
 .pwa-splash-bootstrap {
   display: none;

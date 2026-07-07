@@ -1,0 +1,17 @@
+{
+  "_comment": "Télécharger depuis Firebase Console → Paramètres du projet → Vos applications → Android (com.wabinfos.app)",
+  "project_info": {
+    "project_number": "VOTRE_SENDER_ID",
+    "project_id": "votre-projet-firebase"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:XXXX:android:XXXX",
+        "android_client_info": {
+          "package_name": "com.wabinfos.app"
+        }
+      }
+    }
+  ]
+}

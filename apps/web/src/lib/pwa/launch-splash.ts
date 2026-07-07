@@ -9,8 +9,9 @@ export function isStandalonePwa(): boolean {
   );
 }
 
+/** Splash web uniquement pour la PWA installée — pas dans l’APK (launcher natif). */
 export function shouldShowLaunchSplashSync(): boolean {
-  return isStandalonePwa() || isNativeFromUa();
+  return isStandalonePwa();
 }
 
 export function waitForPageReady(timeoutMs: number): Promise<void> {

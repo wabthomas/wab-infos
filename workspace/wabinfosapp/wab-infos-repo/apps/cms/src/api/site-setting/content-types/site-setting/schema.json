@@ -1,0 +1,38 @@
+{
+  "kind": "singleType",
+  "collectionName": "site_settings",
+  "info": {
+    "singularName": "site-setting",
+    "pluralName": "site-settings",
+    "displayName": "Paramètres site"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "pwaBannerEnabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "pwaBannerVisible": {
+      "type": "boolean",
+      "default": true
+    },
+    "apkBannerEnabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "apkBannerVisible": {
+      "type": "boolean",
+      "default": true
+    },
+    "showArticleViewCounts": {
+      "type": "boolean",
+      "default": true
+    },
+    "socialLinks": {
+      "type": "json",
+      "default": []
+    }
+  }
+}

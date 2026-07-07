@@ -1,0 +1,20 @@
+{
+  "name": "@wab-infos/media-optimize",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "optimize": "tsx src/optimize-strapi-media.ts",
+    "dry-run": "tsx src/optimize-strapi-media.ts --dry-run"
+  },
+  "dependencies": {
+    "form-data": "^4.0.2",
+    "node-fetch": "^3.3.2",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.19.3",
+    "typescript": "^5"
+  }
+}

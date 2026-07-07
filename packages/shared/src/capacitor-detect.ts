@@ -1,4 +1,4 @@
-/** Doit correspondre à `appendUserAgent` dans apps/reader-android/capacitor.config.ts */
+/** Marqueur user-agent de l’APK Android (WebView native). */
 export const NATIVE_APP_UA_MARKER = 'WabInfosNative';
 
 export function isNativeCapacitorFromUserAgent(): boolean {

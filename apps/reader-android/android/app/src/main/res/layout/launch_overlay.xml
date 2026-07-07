@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/launchOverlay"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/brand_background"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:elevation="20dp">
+
+    <ImageView
+        android:id="@+id/launchLogo"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:contentDescription="@string/app_name"
+        android:src="@drawable/splash_logo" />
+
+    <TextView
+        android:id="@+id/launchTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:fontFamily="sans-serif-medium"
+        android:text="@string/app_name"
+        android:textColor="@color/brand_title"
+        android:textSize="24sp" />
+
+    <TextView
+        android:id="@+id/launchTagline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:alpha="0.75"
+        android:text="@string/app_tagline"
+        android:textColor="@color/brand_title"
+        android:textSize="13sp" />
+
+    <ProgressBar
+        android:id="@+id/launchProgress"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginTop="32dp"
+        android:indeterminateTint="@color/brand_accent" />
+
+</LinearLayout>

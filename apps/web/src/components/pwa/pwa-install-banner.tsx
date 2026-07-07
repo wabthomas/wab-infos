@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { Download, ExternalLink, Smartphone, X } from 'lucide-react';
 import { siteConfig } from '@/config/site';
 import { PWA_INSTALL_DISMISS } from '@/lib/pwa/constants';
@@ -209,6 +209,13 @@ export function PwaInstallBanner({
   const dismissKey = PWA_INSTALL_DISMISS[variant];
   const labels = COPY[variant];
   const apkUrl = siteConfig.androidApkUrl;
+
+  useLayoutEffect(() => {
+    if (isNativeCapacitorFromUserAgent()) {
+      setInNativeApp(true);
+      setInstallCheckDone(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (variant !== 'site') return;

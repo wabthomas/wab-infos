@@ -1,0 +1,79 @@
+plugins {
+    id 'com.android.application'
+}
+
+def googleServicesFile = file('google-services.json')
+def hasFirebase = googleServicesFile.exists()
+if (hasFirebase) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
+android {
+    namespace 'com.wabinfos.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.wabinfos.app"
+        minSdk 22
+        targetSdk 34
+        versionCode 16
+        versionName "1.1.4"
+
+        buildConfigField "boolean", "HAS_FIREBASE", hasFirebase.toString()
+        buildConfigField "String", "SITE_URL", '"https://wab-infos.com"'
+        buildConfigField "String", "VERSION_MANIFEST_URL", '"https://wab-infos.com/native-app-version.json"'
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("wabinfos-release.keystore")
+            storePassword "wabinfos2026"
+            keyAlias "wabinfos"
+            keyPassword "wabinfos2026"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    flavorDimensions = ["push"]
+    productFlavors {
+        withFcm {
+            dimension "push"
+        }
+        noFcm {
+            dimension "push"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+    implementation 'androidx.coordinatorlayout:coordinatorlayout:1.2.0'
+    implementation 'androidx.activity:activity:1.9.0'
+    implementation 'com.google.android.material:material:1.11.0'
+
+    withFcmImplementation platform('com.google.firebase:firebase-bom:33.1.2')
+    withFcmImplementation 'com.google.firebase:firebase-messaging'
+}

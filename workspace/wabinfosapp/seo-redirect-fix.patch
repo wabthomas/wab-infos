@@ -1,0 +1,46 @@
+diff --git a/apps/web/src/app/[category]/[slug]/page.tsx b/apps/web/src/app/[category]/[slug]/page.tsx
+index ed1dcbd..b5b6cb4 100644
+--- a/apps/web/src/app/[category]/[slug]/page.tsx
++++ b/apps/web/src/app/[category]/[slug]/page.tsx
+@@ -1,5 +1,5 @@
+ import { Suspense } from 'react';
+-import { notFound, redirect } from 'next/navigation';
++import { notFound, permanentRedirect } from 'next/navigation';
+ import { preload } from 'react-dom';
+ import type { Metadata } from 'next';
+ import Link from 'next/link';
+@@ -63,7 +63,10 @@ export default async function ArticlePage({ params }: PageProps) {
+ 
+   const articleCategorySlug = article.category?.slug;
+   if (articleCategorySlug && articleCategorySlug !== category) {
+-    redirect(`/${articleCategorySlug}/${slug}`);
++    // Redirection permanente (308) : la catégorie de l'article a changé ou l'URL
++    // utilisée n'est pas la version canonique. Un statut permanent est essentiel
++    // pour transférer correctement l'autorité SEO vers la nouvelle URL.
++    permanentRedirect(`/${articleCategorySlug}/${slug}`);
+   }
+ 
+   if (!articleCategorySlug && !isValidCategorySlug(category)) {
+diff --git a/apps/web/src/app/[category]/page.tsx b/apps/web/src/app/[category]/page.tsx
+index 1bc8c70..19fab3d 100644
+--- a/apps/web/src/app/[category]/page.tsx
++++ b/apps/web/src/app/[category]/page.tsx
+@@ -1,4 +1,4 @@
+-import { notFound, redirect } from 'next/navigation';
++import { notFound, permanentRedirect } from 'next/navigation';
+ import type { Metadata } from 'next';
+ import { ArticleCard } from '@/components/articles/article-card';
+ import { Breadcrumbs } from '@/components/ui/breadcrumbs';
+@@ -42,7 +42,11 @@ export default async function CategoryPage({ params }: PageProps) {
+   if (!isValidCategorySlug(category)) {
+     const legacyPath = await resolveLegacyArticlePath(category);
+     if (legacyPath) {
+-      redirect(legacyPath);
++      // Redirection permanente (308) : c'est un ancien permalien WordPress
++      // (/{slug} à la racine) qui pointe définitivement vers le nouveau chemin
++      // /{rubrique}/{slug}. Un statut permanent est indispensable pour que
++      // Google transfère l'autorité SEO accumulée vers la nouvelle URL.
++      permanentRedirect(legacyPath);
+     }
+     notFound();
+   }

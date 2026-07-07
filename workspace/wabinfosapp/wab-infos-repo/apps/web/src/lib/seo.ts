@@ -1,0 +1,540 @@
+import type { Article, Category, Video } from '@wab-infos/shared';
+import type {
+  NewsArticle,
+  WithContext,
+  BreadcrumbList,
+  WebSite,
+  VideoObject,
+  BroadcastEvent,
+  NewsMediaOrganization,
+  Person,
+} from 'schema-dts';
+import {
+  editorialConfig,
+  getArticlePath,
+  getVideoPagePath,
+  resolveArticleCategorySlug,
+  siteConfig,
+  siteSocialProfiles,
+} from '@/config/site';
+import { resolveArticleOgImage } from '@/lib/og-image-url';
+import { getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
+import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function collectArticleImages(article: Article): string[] {
+  const { url } = resolveArticleOgImage(article);
+  return [url];
+}
+
+function publisherLogoObject() {
+  return {
+    '@type': 'ImageObject' as const,
+    url: siteConfig.publisherLogoUrl,
+    width: '400',
+    height: '200',
+  };
+}
+
+function resolveCanonicalUrl(article: Article, defaultUrl: string): string {
+  const raw = article.canonicalUrl?.trim();
+  if (!raw) return defaultUrl;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  return `${siteConfig.url}${raw.startsWith('/') ? raw : `/${raw}`}`;
+}
+
+export function generateOrganizationJsonLd(): WithContext<NewsMediaOrganization> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'NewsMediaOrganization',
+    name: siteConfig.publisher,
+    alternateName: ['Wab-infos', 'Wab infos', 'wab-infos'],
+    url: siteConfig.url,
+    logo: publisherLogoObject(),
+    description: siteConfig.description,
+    foundingDate: `${editorialConfig.foundedYear}-01-01`,
+    areaServed: {
+      '@type': 'Country',
+      name: editorialConfig.country,
+    },
+    sameAs: [...siteSocialProfiles],
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'customer service',
+      email: editorialConfig.contactEmail,
+      availableLanguage: ['fr'],
+    },
+  };
+}
+
+export function generatePersonJsonLd(author: {
+  name: string;
+  slug: string;
+  bio?: string;
+  role?: string;
+}): WithContext<Person> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: author.name,
+    url: `${siteConfig.url}/auteur/${author.slug}`,
+    description: author.bio,
+    jobTitle: author.role,
+    worksFor: {
+      '@type': 'NewsMediaOrganization',
+      name: siteConfig.publisher,
+      url: siteConfig.url,
+    },
+  };
+}
+
+export function getYoutubeThumbnailUrl(youtubeId: string, quality: 'maxres' | 'hq' = 'maxres'): string {
+  const file = quality === 'maxres' ? 'maxresdefault.jpg' : 'hqdefault.jpg';
+  return `https://i.ytimg.com/vi/${youtubeId}/${file}`;
+}
+
+export function generateArticleJsonLd(
+  article: Article,
+  urlCategory?: string
+): WithContext<NewsArticle> {
+  const images = collectArticleImages(article);
+  const categorySlug = resolveArticleCategorySlug(article, urlCategory);
+  const articleUrl = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
+  const plainBody = stripHtml(article.content);
+
+  const displayDate = getArticleDisplayDate(article);
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: article.seoTitle || article.title,
+    description: article.seoDescription || article.excerpt,
+    image: images,
+    datePublished: displayDate,
+    dateModified: article.updatedAt || displayDate,
+    author: article.author
+      ? {
+          '@type': 'Person',
+          name: article.author.name,
+          url: `${siteConfig.url}/auteur/${article.author.slug}`,
+        }
+      : { '@type': 'Organization', name: siteConfig.publisher },
+    publisher: {
+      '@type': 'Organization',
+      name: siteConfig.publisher,
+      logo: publisherLogoObject(),
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': articleUrl,
+    },
+    articleSection: article.category?.name,
+    keywords: article.tags?.map((t) => t.name).join(', '),
+    wordCount: plainBody.split(/\s+/).filter(Boolean).length,
+    articleBody: plainBody.slice(0, 5000),
+    isAccessibleForFree: true,
+    inLanguage: 'fr',
+  };
+}
+
+export function generateBreadcrumbJsonLd(
+  items: { name: string; url: string }[]
+): WithContext<BreadcrumbList> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  };
+}
+
+export function generateWebsiteJsonLd(): WithContext<WebSite> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: siteConfig.name,
+    url: siteConfig.url,
+    description: siteConfig.description,
+    inLanguage: 'fr',
+    publisher: {
+      '@type': 'Organization',
+      name: siteConfig.publisher,
+      logo: publisherLogoObject(),
+    },
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${siteConfig.url}/recherche?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    } as WebSite['potentialAction'],
+  };
+}
+
+export function generateVideoJsonLd(video: Video): WithContext<VideoObject> {
+  const pageUrl = `${siteConfig.url}${getVideoPagePath(video.youtubeId)}`;
+  const thumbnail =
+    getStrapiMediaUrl(video.thumbnail?.url) ?? getYoutubeThumbnailUrl(video.youtubeId);
+
+  const jsonLd: WithContext<VideoObject> = {
+    '@context': 'https://schema.org',
+    '@type': 'VideoObject',
+    name: video.title,
+    description: video.description || `${video.title} — Wab-infos TV`,
+    thumbnailUrl: [thumbnail, getYoutubeThumbnailUrl(video.youtubeId, 'hq')],
+    ...(isValidVideoPublishedAt(video.publishedAt) ? { uploadDate: video.publishedAt } : {}),
+    contentUrl: `https://www.youtube.com/watch?v=${video.youtubeId}`,
+    embedUrl: `https://www.youtube.com/embed/${video.youtubeId}`,
+    mainEntityOfPage: pageUrl,
+    inLanguage: 'fr',
+    isFamilyFriendly: true,
+    publisher: {
+      '@type': 'Organization',
+      name: siteConfig.publisher,
+      logo: publisherLogoObject(),
+    },
+  };
+
+  if (video.duration) {
+    jsonLd.duration = video.duration;
+  }
+
+  return jsonLd;
+}
+
+export function generateBroadcastEventJsonLd(options: {
+  videoId: string;
+  title: string;
+  publishedAt?: string;
+  isLive: boolean;
+}): WithContext<BroadcastEvent> {
+  const pageUrl = `${siteConfig.url}${getVideoPagePath(options.videoId)}`;
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BroadcastEvent',
+    name: options.title,
+    isLiveBroadcast: options.isLive,
+    startDate: options.publishedAt,
+    broadcastOfEvent: {
+      '@type': 'Event',
+      name: options.title,
+      eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
+      eventStatus: options.isLive
+        ? 'https://schema.org/EventScheduled'
+        : 'https://schema.org/EventPostponed',
+      location: {
+        '@type': 'VirtualLocation',
+        url: pageUrl,
+      },
+    },
+    videoFormat: 'HD',
+    publishedOn: {
+      '@type': 'BroadcastService',
+      name: 'Wab-infos TV',
+      broadcastDisplayName: siteConfig.name,
+      url: `${siteConfig.url}/tv`,
+    },
+  };
+}
+
+export function generateArticleMetadata(article: Article, urlCategory?: string) {
+  const ogImage = resolveArticleOgImage(article);
+  const url = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
+  const canonical = resolveCanonicalUrl(article, url);
+  const displayDate = getArticleDisplayDate(article);
+
+  const imageMeta = {
+    url: ogImage.url,
+    alt: ogImage.alt,
+    ...(ogImage.width && ogImage.height
+      ? { width: ogImage.width, height: ogImage.height }
+      : { width: 1200, height: 630 }),
+  };
+
+  return {
+    title: article.seoTitle || article.title,
+    description: article.seoDescription || article.excerpt,
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      type: 'article' as const,
+      title: article.seoTitle || article.title,
+      description: article.seoDescription || article.excerpt,
+      url: canonical,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [imageMeta],
+      publishedTime: displayDate,
+      modifiedTime: article.updatedAt || displayDate,
+      authors: article.author ? [article.author.name] : [siteConfig.publisher],
+      section: article.category?.name,
+      tags: article.tags?.map((t) => t.name),
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: article.seoTitle || article.title,
+      description: article.seoDescription || article.excerpt,
+      images: [ogImage.url],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large' as const,
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  };
+}
+
+export function generateCategoryMetadata(category: Category) {
+  const title = `${category.name} — ${siteConfig.name}`;
+  const rdcBoost =
+    category.slug === 'actualites-rdc' || category.slug === 'actualite'
+      ? ' — dernières nouvelles du Congo et de Kinshasa'
+      : '';
+  const description =
+    category.description ||
+    `Toute l'actualité ${category.name} en RDC et à l'international sur ${siteConfig.name}${rdcBoost}.`;
+  const url = `${siteConfig.url}/${category.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website' as const,
+      title,
+      description,
+      url,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title,
+      description,
+      images: [siteConfig.ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large' as const,
+      'max-snippet': -1,
+    },
+  };
+}
+
+export function generateTagMetadata(tag: { name: string; slug: string }) {
+  const title = `${tag.name} — actualités`;
+  const description = `Articles et actualités sur « ${tag.name} » publiés par ${siteConfig.name}, média d'information en RDC.`;
+  const url = `${siteConfig.url}/tag/${tag.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website' as const,
+      title: `${title} — ${siteConfig.name}`,
+      description,
+      url,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: `${title} — ${siteConfig.name}`,
+      description,
+      images: [siteConfig.ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large' as const,
+    },
+  };
+}
+
+export function generateAuthorMetadata(author: { name: string; slug: string; bio?: string }) {
+  const title = author.name;
+  const description = author.bio ?? `Articles de ${author.name} sur ${siteConfig.name}`;
+  const url = `${siteConfig.url}/auteur/${author.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'profile' as const,
+      title: `${title} — ${siteConfig.name}`,
+      description,
+      url,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: `${title} — ${siteConfig.name}`,
+      description,
+      images: [siteConfig.ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large' as const,
+    },
+  };
+}
+
+export function generateStaticPageMetadata(options: {
+  title: string;
+  description: string;
+  path: string;
+}) {
+  const url = `${siteConfig.url}${options.path}`;
+
+  return {
+    title: options.title,
+    description: options.description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website' as const,
+      title: `${options.title} — ${siteConfig.name}`,
+      description: options.description,
+      url,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: options.title }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: `${options.title} — ${siteConfig.name}`,
+      description: options.description,
+      images: [siteConfig.ogImage],
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
+
+export function generateHomeMetadata() {
+  return {
+    title: `${siteConfig.name} — Actualités RDC et International`,
+    description: siteConfig.description,
+    alternates: { canonical: siteConfig.url },
+    openGraph: {
+      type: 'website' as const,
+      title: `${siteConfig.name} — Actualités RDC et International`,
+      description: siteConfig.description,
+      url: siteConfig.url,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: siteConfig.name }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: `${siteConfig.name} — Actualités RDC et International`,
+      description: siteConfig.description,
+      images: [siteConfig.ogImage],
+    },
+  };
+}
+
+export function generateVideoMetadata(video: Video) {
+  const pageUrl = `${siteConfig.url}${getVideoPagePath(video.youtubeId)}`;
+  const thumbnail =
+    getStrapiMediaUrl(video.thumbnail?.url) ?? getYoutubeThumbnailUrl(video.youtubeId);
+  const description = video.description || `${video.title} — Wab-infos TV`;
+
+  return {
+    title: `${video.title} — Wab-infos TV`,
+    description,
+    alternates: {
+      canonical: pageUrl,
+    },
+    openGraph: {
+      type: 'video.other' as const,
+      title: video.title,
+      description,
+      url: pageUrl,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: [{ url: thumbnail, width: 1280, height: 720, alt: video.title }],
+      videos: [
+        {
+          url: `https://www.youtube.com/embed/${video.youtubeId}`,
+          secureUrl: `https://www.youtube.com/embed/${video.youtubeId}`,
+          type: 'text/html',
+          width: 1280,
+          height: 720,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: video.title,
+      description,
+      images: [thumbnail],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large' as const,
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  };
+}
+
+export function generateTvPageMetadata() {
+  return {
+    title: 'Wab-infos TV — Direct, replays & émissions',
+    description:
+      'Suivez Wab-infos TV en direct, retrouvez les replays, émissions et podcasts de la chaîne YouTube @wabinfostv.',
+    alternates: {
+      canonical: `${siteConfig.url}/tv`,
+    },
+    openGraph: {
+      type: 'website' as const,
+      title: 'Wab-infos TV',
+      description: 'Direct, replays, émissions et podcasts — Wab-infos TV',
+      url: `${siteConfig.url}/tv`,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      site: siteConfig.twitter,
+      title: 'Wab-infos TV',
+      description: 'Direct, replays, émissions et podcasts',
+    },
+    robots: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large' as const,
+      'max-video-preview': -1,
+    },
+  };
+}

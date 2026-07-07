@@ -6,7 +6,6 @@ import { siteConfig } from '@/config/site';
 import { getPwaVariant, persistPwaVariantFromPath } from '@/lib/pwa/detect';
 import {
   delay,
-  hideNativeSplashScreen,
   isNativeCapacitorFromUserAgent,
   shouldShowLaunchSplashSync,
   waitForPageReady,
@@ -14,8 +13,6 @@ import {
 import { isNativeCapacitorApp } from '@wab-infos/shared';
 
 const SPLASH_MS_PWA = 1200;
-const SPLASH_MS_NATIVE_MIN = 1000;
-const SPLASH_MS_NATIVE_MAX = 12000;
 const FADE_OUT_MS = 320;
 
 const SPLASH_LOGO = '/brand-icon.png';
@@ -41,9 +38,14 @@ export function PwaSplash() {
     async function run() {
       const syncNative = isNativeCapacitorFromUserAgent();
       const asyncNative = syncNative || (await isNativeCapacitorApp());
-      const showSplash = shouldShowLaunchSplashSync() || asyncNative;
 
-      if (!showSplash) {
+      // L’APK affiche son propre écran de lancement natif — pas de splash PWA web.
+      if (asyncNative) {
+        finishAppLaunch();
+        return;
+      }
+
+      if (!shouldShowLaunchSplashSync()) {
         finishAppLaunch();
         return;
       }
@@ -61,23 +63,17 @@ export function PwaSplash() {
       }
       setPhase('visible');
 
-      const minMs = asyncNative ? SPLASH_MS_NATIVE_MIN : SPLASH_MS_PWA;
-      const maxWaitMs = asyncNative ? SPLASH_MS_NATIVE_MAX : 5000;
       const startedAt = performance.now();
-
-      if (asyncNative) {
-        await waitForPageReady(maxWaitMs);
-        if (cancelled) return;
-      }
+      await waitForPageReady(5000);
+      if (cancelled) return;
 
       const elapsed = performance.now() - startedAt;
-      if (elapsed < minMs) {
-        await delay(minMs - elapsed);
+      if (elapsed < SPLASH_MS_PWA) {
+        await delay(SPLASH_MS_PWA - elapsed);
       }
       if (cancelled) return;
 
       setPhase('out');
-      await hideNativeSplashScreen(FADE_OUT_MS);
       await delay(FADE_OUT_MS);
       if (cancelled) return;
 
