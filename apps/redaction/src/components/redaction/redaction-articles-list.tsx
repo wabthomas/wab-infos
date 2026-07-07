@@ -12,10 +12,18 @@ function parseFilter(value: string | null): Filter {
   if (value === 'published' || value === 'draft' || value === 'scheduled' || value === 'all') {
     return value;
   }
-  return 'all';
+  return 'published';
 }
 
-export function RedactionArticlesList() {
+export function RedactionArticlesList({
+  initialIsSuperAdmin,
+  initialCanDeleteAny,
+  initialShowViews,
+}: {
+  initialIsSuperAdmin?: boolean;
+  initialCanDeleteAny?: boolean;
+  initialShowViews?: boolean;
+} = {}) {
   const searchParams = useSearchParams();
   const [filter, setFilter] = useState<Filter>(() => parseFilter(searchParams.get('filter')));
   const [authorFilter, setAuthorFilter] = useState('');
@@ -25,10 +33,13 @@ export function RedactionArticlesList() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [canDeleteAny, setCanDeleteAny] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(initialIsSuperAdmin ?? false);
+  const [canDeleteAny, setCanDeleteAny] = useState(initialCanDeleteAny ?? false);
   const [authors, setAuthors] = useState<RedactionAuthor[]>([]);
-  const [showViews, setShowViews] = useState(true);
+  const [showViews, setShowViews] = useState(initialShowViews ?? true);
+  const [profileReady, setProfileReady] = useState(
+    initialIsSuperAdmin !== undefined && initialCanDeleteAny !== undefined
+  );
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,6 +47,8 @@ export function RedactionArticlesList() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (profileReady) return;
+
     void fetch('/api/redaction/auth/me')
       .then((r) => r.json())
       .then(
@@ -47,17 +60,20 @@ export function RedactionArticlesList() {
           setCanDeleteAny(Boolean(data.canDeleteAnyArticle));
         }
       )
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setProfileReady(true));
 
-    void fetch('/api/redaction/site-settings')
-      .then((r) => r.json())
-      .then((data: { settings?: { showArticleViewCounts?: boolean } }) => {
-        if (data.settings) {
-          setShowViews(data.settings.showArticleViewCounts !== false);
-        }
-      })
-      .catch(() => undefined);
-  }, []);
+    if (initialShowViews === undefined) {
+      void fetch('/api/redaction/site-settings')
+        .then((r) => r.json())
+        .then((data: { settings?: { showArticleViewCounts?: boolean } }) => {
+          if (data.settings) {
+            setShowViews(data.settings.showArticleViewCounts !== false);
+          }
+        })
+        .catch(() => undefined);
+    }
+  }, [initialShowViews, profileReady]);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -112,9 +128,10 @@ export function RedactionArticlesList() {
   );
 
   useEffect(() => {
+    if (!profileReady) return;
     setPage(1);
     void loadPage(1, false);
-  }, [filter, authorFilter, loadPage]);
+  }, [filter, authorFilter, loadPage, profileReady]);
 
   useEffect(() => {
     const node = loadMoreRef.current;

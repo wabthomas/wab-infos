@@ -63,6 +63,8 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout offlineLayout;
     private View launchOverlay;
     private boolean launchOverlayDismissed = false;
+    /** Mis à jour par le JS de la page (conteneurs internes type #redaction-main-scroll). */
+    private volatile boolean webCanScrollUp = false;
 
     // Gestion de l'upload de fichiers depuis le WebView (<input type="file">)
     private ValueCallback<Uri[]> filePathCallback;
@@ -86,6 +88,8 @@ public class MainActivity extends AppCompatActivity {
         registerFileChooserLauncher();
         setupWebView();
         requestRuntimePermissionsIfNeeded();
+
+        configurePullToRefresh();
 
         swipeRefresh.setOnRefreshListener(() -> {
             if (isOnline()) {
@@ -165,6 +169,20 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onAnimationRepeat(android.view.animation.Animation animation) {}
         });
         launchOverlay.startAnimation(anim);
+    }
+
+    private void configurePullToRefresh() {
+        swipeRefresh.setColorSchemeResources(R.color.brand_primary);
+        swipeRefresh.setProgressBackgroundColorSchemeResource(android.R.color.white);
+        swipeRefresh.setDistanceToTriggerSync((int) (getResources().getDisplayMetrics().density * 120));
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            swipeRefresh.setOnChildScrollUpCallback((parent, child) -> canWebContentScrollUp());
+        }
+    }
+
+    private boolean canWebContentScrollUp() {
+        return webCanScrollUp || webView.getScrollY() > 0 || webView.canScrollVertically(-1);
     }
 
     private void requestRuntimePermissionsIfNeeded() {
@@ -264,6 +282,7 @@ public class MainActivity extends AppCompatActivity {
                 progressBar.setVisibility(View.GONE);
                 injectNativeShareBridge(view);
                 injectStatusBarColorSync(view);
+                injectPullRefreshScrollSync(view);
                 dismissLaunchOverlay();
             }
 
@@ -453,6 +472,39 @@ public class MainActivity extends AppCompatActivity {
      * puis l'applique à la barre de statut Android avec des icônes claires ou sombres
      * choisies automatiquement selon la luminosité de cette couleur pour rester lisible.
      */
+    /**
+     * Synchronise l'état de scroll avec SwipeRefreshLayout : fenêtre + conteneurs internes
+     * (rédaction #redaction-main-scroll, éditeur, etc.) pour ne pas bloquer le scroll.
+     */
+    private void injectPullRefreshScrollSync(WebView view) {
+        String script =
+                "(function(){" +
+                "  if (window.__wabInfosPullRefreshSync) return;" +
+                "  window.__wabInfosPullRefreshSync = true;" +
+                "  var roots = ['#redaction-main-scroll', '.jetpack-editor-scroll'];" +
+                "  function computeCanScrollUp() {" +
+                "    if (window.scrollY > 2) return true;" +
+                "  if (document.documentElement && document.documentElement.scrollTop > 2) return true;" +
+                "    for (var i = 0; i < roots.length; i++) {" +
+                "      var el = document.querySelector(roots[i]);" +
+                "      if (el && el.scrollTop > 2) return true;" +
+                "    }" +
+                "    return false;" +
+                "  }" +
+                "  function notify() {" +
+                "    if (!window.AndroidBridge || !window.AndroidBridge.setWebCanScrollUp) return;" +
+                "    try { window.AndroidBridge.setWebCanScrollUp(computeCanScrollUp()); } catch (e) {}" +
+                "  }" +
+                "  document.addEventListener('scroll', notify, true);" +
+                "  window.addEventListener('scroll', notify, { passive: true });" +
+                "  window.addEventListener('touchstart', notify, { passive: true });" +
+                "  window.addEventListener('touchend', notify, { passive: true });" +
+                "  new MutationObserver(notify).observe(document.documentElement, { childList: true, subtree: true });" +
+                "  notify();" +
+                "})();";
+        view.evaluateJavascript(script, null);
+    }
+
     private void injectStatusBarColorSync(WebView view) {
         String script =
                 "(function(){" +
@@ -596,6 +648,11 @@ public class MainActivity extends AppCompatActivity {
         @android.webkit.JavascriptInterface
         public void requestStatusBarSync() {
             runOnUiThread(() -> injectStatusBarColorSync(webView));
+        }
+
+        @android.webkit.JavascriptInterface
+        public void setWebCanScrollUp(boolean canScrollUp) {
+            webCanScrollUp = canScrollUp;
         }
     }
 }

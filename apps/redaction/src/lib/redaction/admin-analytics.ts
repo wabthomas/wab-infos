@@ -133,35 +133,68 @@ function scopedArticleFilters(authorDocumentId?: string): Record<string, unknown
   return { author: { documentId: { $eq: authorDocumentId } } };
 }
 
+async function strapiListPage<T>(
+  path: string,
+  params: Record<string, unknown>,
+  page: number,
+  pageSize: number
+): Promise<T[]> {
+  const query = qs.stringify(
+    { ...params, pagination: { page, pageSize } },
+    { encodeValuesOnly: true }
+  );
+  const res = await fetch(`${getStrapiUrl()}/api${path}?${query}`, {
+    headers: apiHeaders(),
+    next: { revalidate: ANALYTICS_REVALIDATE_SEC },
+  });
+  if (!res.ok) return [];
+  const body = (await res.json()) as StrapiListResponse<T>;
+  return body.data;
+}
+
+async function sumPublishedViewCounts(articleFilters: Record<string, unknown>): Promise<number> {
+  const pageSize = 100;
+  let page = 1;
+  let totalViews = 0;
+
+  while (true) {
+    const query = qs.stringify(
+      {
+        filters: articleFilters,
+        status: 'published',
+        fields: ['viewCount', 'publishedAt'],
+        pagination: { page, pageSize },
+      },
+      { encodeValuesOnly: true }
+    );
+    const res = await fetch(`${getStrapiUrl()}/api/articles?${query}`, {
+      headers: apiHeaders(),
+      next: { revalidate: ANALYTICS_REVALIDATE_SEC },
+    });
+    if (!res.ok) break;
+
+    const body = (await res.json()) as StrapiListResponse<{ viewCount?: number; publishedAt?: string }>;
+    for (const article of body.data) {
+      if (!article.publishedAt) continue;
+      totalViews += article.viewCount ?? 0;
+    }
+
+    if (page >= body.meta.pagination.pageCount) break;
+    page += 1;
+  }
+
+  return totalViews;
+}
+
 async function countUniqueAuthorArticles(authorDocumentId: string): Promise<number> {
   const filters = scopedArticleFilters(authorDocumentId);
-  const [publishedRows, draftRows] = await Promise.all([
-    strapiList<{ documentId: string }>('/articles', {
-      filters,
-      status: 'published',
-      fields: ['documentId'],
-    }),
-    strapiList<{ documentId: string }>('/articles', {
-      filters,
-      status: 'draft',
-      fields: ['documentId'],
-    }),
+  const [publishedTotal, draftTotal] = await Promise.all([
+    strapiCount('/articles', filters, { publicationStatus: 'published' }),
+    strapiCount('/articles', { ...filters, status: { $eq: 'draft' } }, { publicationStatus: 'draft' }),
   ]);
-
-  return new Set([...publishedRows, ...draftRows].map((row) => row.documentId)).size;
+  return publishedTotal + draftTotal;
 }
 
-function countPublishedInRange(
-  articles: StrapiArticleRow[],
-  from: Date,
-  to: Date
-): number {
-  return articles.filter((article) => {
-    if (!article.publishedAt) return false;
-    const published = parseISO(article.publishedAt);
-    return !Number.isNaN(published.getTime()) && isWithinInterval(published, { start: from, end: to });
-  }).length;
-}
 function commentFiltersForScope(
   authorDocumentId: string | undefined,
   extra?: Record<string, unknown>
@@ -199,7 +232,10 @@ async function buildRedactionAnalytics(
   });
 
   const [
-    articleMetrics,
+    topArticles,
+    articlesInRange,
+    totalViews,
+    categoryArticles,
     commentsInRange,
     pendingComments,
     approvedComments,
@@ -210,13 +246,39 @@ async function buildRedactionAnalytics(
     activeSubscribers,
     unsubscribedSubscribers,
   ] = await Promise.all([
+    strapiListPage<StrapiArticleRow>(
+      '/articles',
+      {
+        filters: articleFilters,
+        status: 'published',
+        fields: ['title', 'viewCount', 'publishedAt', 'documentId'],
+        populate: { category: { fields: ['name'] } },
+        sort: ['viewCount:desc'],
+      },
+      1,
+      15
+    ),
     strapiList<StrapiArticleRow>('/articles', {
-      filters: articleFilters,
+      filters: {
+        ...articleFilters,
+        publishedAt: { $gte: from.toISOString(), $lte: to.toISOString() },
+      },
       status: 'published',
-      fields: ['title', 'viewCount', 'publishedAt', 'documentId'],
-      populate: { category: { fields: ['name'] } },
-      sort: ['viewCount:desc'],
+      fields: ['publishedAt'],
     }),
+    sumPublishedViewCounts(articleFilters),
+    strapiListPage<StrapiArticleRow>(
+      '/articles',
+      {
+        filters: articleFilters,
+        status: 'published',
+        fields: ['viewCount'],
+        populate: { category: { fields: ['name'] } },
+        sort: ['viewCount:desc'],
+      },
+      1,
+      100
+    ),
     strapiList<StrapiCommentRow>('/comments', {
       filters: commentRangeFilter,
       fields: ['status', 'createdAt'],
@@ -245,15 +307,14 @@ async function buildRedactionAnalytics(
     isAuthorScope ? Promise.resolve(0) : strapiCount('/subscribers', { status: { $eq: 'unsubscribed' } }),
   ]);
 
-  const totalViews = articleMetrics.reduce((sum, article) => sum + (article.viewCount ?? 0), 0);
-  const publishedTotal = articleMetrics.length;
-  const publishedInRange = countPublishedInRange(articleMetrics, from, to);
+  const publishedTotal = await strapiCount('/articles', articleFilters, {
+    publicationStatus: 'published',
+  });
+  const publishedInRange = articlesInRange.length;
 
   const commentDates = commentsInRange.map((c) => ({ date: c.createdAt }));
   const publicationsTimeline = countByDate(
-    articleMetrics
-      .filter((a) => a.publishedAt)
-      .map((a) => ({ date: a.publishedAt })),
+    articlesInRange.map((a) => ({ date: a.publishedAt })),
     days,
     from,
     to
@@ -271,7 +332,7 @@ async function buildRedactionAnalytics(
   }
 
   const categoryViews = new Map<string, number>();
-  for (const article of articleMetrics) {
+  for (const article of categoryArticles) {
     const name = article.category?.name ?? 'Sans rubrique';
     categoryViews.set(name, (categoryViews.get(name) ?? 0) + (article.viewCount ?? 0));
   }
@@ -320,7 +381,7 @@ async function buildRedactionAnalytics(
     },
     referrers,
     countries,
-    topArticles: articleMetrics.slice(0, 15).map((a) => ({
+    topArticles: topArticles.map((a) => ({
       documentId: a.documentId,
       title: a.title,
       views: a.viewCount ?? 0,

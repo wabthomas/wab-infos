@@ -3,6 +3,10 @@ import { siteConfig } from '@/config/site';
 
 const SITE_ORIGIN = siteConfig.url.replace(/\/$/, '');
 const UNSUPPORTED_EXT = /\.(svg)$/i;
+/** WhatsApp / Facebook lisent ces formats sans conversion. */
+const SOCIAL_SAFE_EXT = /\.(jpe?g|png|gif)$/i;
+/** Nécessite le proxy JPEG (/og-image). */
+const NEEDS_PROXY_EXT = /\.(webp|avif|heic|heif)$/i;
 
 function firstImageFromHtml(html: string): string | undefined {
   const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
@@ -57,13 +61,19 @@ export function toAbsolutePublicMediaUrl(urlOrPath: string): string {
   return `${SITE_ORIGIN}/${urlOrPath.replace(/^\//, '')}`;
 }
 
-/** URL fiable pour WhatsApp / Facebook: on normalise en JPEG public. */
+/** URL fiable pour WhatsApp / Facebook. */
 export function resolveSocialShareImageUrl(urlOrPath: string): string {
   const path = normalizeMediaPathForSite(urlOrPath);
   if (!path || UNSUPPORTED_EXT.test(path)) {
     return siteConfig.ogImage;
   }
-  return `${SITE_ORIGIN}/og-image?src=${encodeURIComponent(path)}`;
+  if (SOCIAL_SAFE_EXT.test(path)) {
+    return `${SITE_ORIGIN}${path}`;
+  }
+  if (NEEDS_PROXY_EXT.test(path)) {
+    return `${SITE_ORIGIN}/og-image?src=${encodeURIComponent(path)}`;
+  }
+  return `${SITE_ORIGIN}${path}`;
 }
 
 type OgImageCandidate = {
@@ -141,12 +151,15 @@ export function resolveArticleOgImage(
   });
 
   const best = candidates[0];
+  const url = resolveSocialShareImageUrl(best.path);
+  const isDirectJpeg = SOCIAL_SAFE_EXT.test(best.path) && /\.jpe?g$/i.test(best.path);
+
   return {
-    url: resolveSocialShareImageUrl(best.path),
+    url,
     width: best.width,
     height: best.height,
     alt,
-    type: 'image/jpeg',
+    type: isDirectJpeg || NEEDS_PROXY_EXT.test(best.path) ? 'image/jpeg' : undefined,
   };
 }
 

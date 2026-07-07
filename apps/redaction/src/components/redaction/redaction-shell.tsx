@@ -49,6 +49,7 @@ interface RedactionShellProps {
   children: React.ReactNode;
   authorName?: string;
   isSuperAdmin?: boolean;
+  initialPendingComments?: number;
 }
 
 function MobileNavItem({
@@ -188,10 +189,15 @@ function RedactionSidebar({
   );
 }
 
-export function RedactionShell({ children, authorName, isSuperAdmin = false }: RedactionShellProps) {
+export function RedactionShell({
+  children,
+  authorName,
+  isSuperAdmin = false,
+  initialPendingComments = 0,
+}: RedactionShellProps) {
   const pathname = usePathname();
   const writing = isWritingPage(pathname);
-  const [pendingComments, setPendingComments] = useState(0);
+  const [pendingComments, setPendingComments] = useState(initialPendingComments);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,7 +211,6 @@ export function RedactionShell({ children, authorName, isSuperAdmin = false }: R
         .catch(() => undefined);
     };
 
-    loadCount();
     const interval = window.setInterval(loadCount, 60_000);
     return () => {
       cancelled = true;

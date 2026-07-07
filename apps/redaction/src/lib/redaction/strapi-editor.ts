@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
+import { unstable_cache } from 'next/cache';
 import qs from 'qs';
 import { getStrapiUrl, REDACTION_COOKIE } from '@/lib/redaction/config';
 import type {
@@ -23,6 +24,7 @@ import { DuplicateMediaError } from '@/lib/redaction/duplicate-media-error';
 export { isLiveRedactionArticle };
 
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
+const STATS_REVALIDATE_SEC = 60;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -523,24 +525,10 @@ async function getStrapiArticleTotal(
   return response.meta?.pagination?.total ?? 0;
 }
 
-async function fetchArticleEntitiesWindow(
-  listParams: Record<string, unknown>,
+async function fetchArticleDocumentIds(
   authorFilter: Record<string, unknown>,
   publicationStatus: 'published' | 'draft',
-  windowSize: number,
   extraFilters?: Record<string, unknown>
-): Promise<StrapiEntity[]> {
-  const response = await strapiFetch<StrapiListResponse>('/articles', {
-    ...listParams,
-    filters: { ...authorFilter, ...extraFilters },
-    pagination: { page: 1, pageSize: windowSize },
-    status: publicationStatus,
-  });
-  return response.data;
-}
-
-async function fetchPublishedDocumentIds(
-  authorFilter: Record<string, unknown>
 ): Promise<Set<string>> {
   const pageSize = 250;
   let page = 1;
@@ -548,10 +536,10 @@ async function fetchPublishedDocumentIds(
 
   while (true) {
     const response = await strapiFetch<StrapiListResponse>('/articles', {
-      filters: authorFilter,
+      filters: { ...authorFilter, ...extraFilters },
       fields: ['documentId'],
       pagination: { page, pageSize },
-      status: 'published',
+      status: publicationStatus,
     });
     for (const item of response.data) {
       if (item.documentId) ids.add(item.documentId);
@@ -564,20 +552,128 @@ async function fetchPublishedDocumentIds(
   return ids;
 }
 
-async function fetchPublishedEngagementTotals(
+async function fetchPublishedDocumentIds(
   authorFilter: Record<string, unknown>
+): Promise<Set<string>> {
+  return fetchArticleDocumentIds(authorFilter, 'published');
+}
+
+async function countDraftOnlyArticles(
+  authorFilter: Record<string, unknown>,
+  publishedIds: Set<string>
+): Promise<number> {
+  const draftIds = await fetchArticleDocumentIds(authorFilter, 'draft', {
+    status: { $eq: 'draft' },
+  });
+  let count = 0;
+  for (const id of draftIds) {
+    if (!publishedIds.has(id)) count += 1;
+  }
+  return count;
+}
+
+async function collectDraftOnlyArticles(
+  authorFilter: Record<string, unknown>,
+  listParams: Record<string, unknown>,
+  publishedIds: Set<string>,
+  skip: number,
+  take: number
+): Promise<RedactionArticle[]> {
+  const results: RedactionArticle[] = [];
+  let strapiPage = 1;
+  const fetchSize = Math.max(take + skip, 24);
+  let skipped = 0;
+  const maxPages = 40;
+
+  while (results.length < take && strapiPage <= maxPages) {
+    const response = await strapiFetch<StrapiListResponse>('/articles', {
+      ...listParams,
+      filters: { ...authorFilter, status: { $eq: 'draft' } },
+      pagination: { page: strapiPage, pageSize: fetchSize },
+      status: 'draft',
+    });
+
+    if (!response.data.length) break;
+
+    for (const entity of response.data) {
+      if (publishedIds.has(entity.documentId)) continue;
+      const article = mapArticle(entity);
+      if (article.status !== 'draft' || isLiveRedactionArticle(article)) continue;
+      if (skipped < skip) {
+        skipped += 1;
+        continue;
+      }
+      results.push(article);
+      if (results.length >= take) break;
+    }
+
+    const pageCount = response.meta?.pagination?.pageCount ?? 1;
+    if (strapiPage >= pageCount) break;
+    strapiPage += 1;
+  }
+
+  return results;
+}
+
+async function fetchPaginatedLivePublished(
+  authorFilter: Record<string, unknown>,
+  listParams: Record<string, unknown>,
+  page: number,
+  pageSize: number
+): Promise<RedactionArticle[]> {
+  const needSkip = (page - 1) * pageSize;
+  let strapiPage = 1;
+  let skipped = 0;
+  const collected: RedactionArticle[] = [];
+  const fetchSize = Math.max(pageSize, 24);
+  const maxPages = Math.max(page + 4, 12);
+
+  while (strapiPage <= maxPages && (skipped < needSkip || collected.length < pageSize)) {
+    const response = await strapiFetch<StrapiListResponse>('/articles', {
+      ...listParams,
+      filters: authorFilter,
+      pagination: { page: strapiPage, pageSize: fetchSize },
+      status: 'published',
+    });
+
+    for (const entity of response.data) {
+      const article = mapArticle(entity);
+      if (!isLiveRedactionArticle(article)) continue;
+      if (skipped < needSkip) {
+        skipped += 1;
+        continue;
+      }
+      collected.push(article);
+      if (collected.length >= pageSize) break;
+    }
+
+    if (collected.length >= pageSize) break;
+    const pageCount = response.meta?.pagination?.pageCount ?? 1;
+    if (strapiPage >= pageCount) break;
+    strapiPage += 1;
+  }
+
+  return collected;
+}
+
+async function fetchPublishedEngagementTotals(
+  authorFilter: Record<string, unknown>,
+  publishedCount?: number
 ): Promise<{ totalViews: number; breakingCount: number }> {
-  const publishedCount = await getStrapiArticleTotal(authorFilter, 'published');
+  const totalPublished = publishedCount ?? (await getStrapiArticleTotal(authorFilter, 'published'));
   const pageSize = 100;
-  const maxPages = publishedCount > 500 ? 5 : Math.ceil(publishedCount / pageSize) || 1;
+  const maxPages = totalPublished > 500 ? 5 : Math.ceil(totalPublished / pageSize) || 1;
   let page = 1;
   let totalViews = 0;
-  let breakingCount = 0;
+
+  const breakingCountPromise = getStrapiArticleTotal(authorFilter, 'published', {
+    isBreaking: { $eq: true },
+  });
 
   while (page <= maxPages) {
     const response = await strapiFetch<StrapiListResponse>('/articles', {
       filters: authorFilter,
-      fields: ['viewCount', 'isBreaking', 'publishedAt'],
+      fields: ['viewCount', 'publishedAt'],
       pagination: { page, pageSize },
       status: 'published',
     });
@@ -586,7 +682,6 @@ async function fetchPublishedEngagementTotals(
       const article = mapArticle(entity);
       if (!isLiveRedactionArticle(article)) continue;
       totalViews += article.viewCount ?? 0;
-      if (article.isBreaking) breakingCount += 1;
     }
 
     const pageCount = response.meta?.pagination?.pageCount ?? 1;
@@ -594,7 +689,7 @@ async function fetchPublishedEngagementTotals(
     page += 1;
   }
 
-  return { totalViews, breakingCount };
+  return { totalViews, breakingCount: await breakingCountPromise };
 }
 
 async function listEditorArticlesPage(
@@ -605,21 +700,17 @@ async function listEditorArticlesPage(
   pageSize: number
 ): Promise<ListEditorArticlesResult> {
   const start = (page - 1) * pageSize;
-  const windowSize = page * pageSize;
 
   if (status === 'published') {
-    const entities = await fetchArticleEntitiesWindow(
-      listParams,
+    const articles = await fetchPaginatedLivePublished(
       authorFilter,
-      'published',
-      windowSize
-    );
-    const articles = sortArticlesByUpdated(
-      entities.map(mapArticle).filter(isLiveRedactionArticle)
+      listParams,
+      page,
+      pageSize
     );
     const total = await getStrapiArticleTotal(authorFilter, 'published');
     return {
-      articles: articles.slice(start, start + pageSize),
+      articles,
       pagination: {
         page,
         pageSize,
@@ -652,8 +743,40 @@ async function listEditorArticlesPage(
       },
     };
   }
-  const merged = await mergeEditorArticles(authorFilter, listParams, status);
-  const total = merged.length;
+
+  if (status === 'draft') {
+    const publishedIds = await fetchPublishedDocumentIds(authorFilter);
+    const articles = await collectDraftOnlyArticles(
+      authorFilter,
+      listParams,
+      publishedIds,
+      start,
+      pageSize
+    );
+    const total = await countDraftOnlyArticles(authorFilter, publishedIds);
+    return {
+      articles,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        pageCount: Math.max(1, Math.ceil(total / pageSize)),
+      },
+    };
+  }
+
+  const publishedIds = await fetchPublishedDocumentIds(authorFilter);
+  const windowSize = page * pageSize;
+  const [publishedArticles, draftArticles] = await Promise.all([
+    fetchPaginatedLivePublished(authorFilter, listParams, 1, windowSize),
+    collectDraftOnlyArticles(authorFilter, listParams, publishedIds, 0, windowSize),
+  ]);
+  const merged = sortArticlesByUpdated([...publishedArticles, ...draftArticles]);
+  const [publishedTotal, draftTotal] = await Promise.all([
+    getStrapiArticleTotal(authorFilter, 'published'),
+    countDraftOnlyArticles(authorFilter, publishedIds),
+  ]);
+  const total = publishedTotal + draftTotal;
 
   return {
     articles: merged.slice(start, start + pageSize),
@@ -715,11 +838,13 @@ async function mergeEditorArticles(
   }
 
   if (status === 'draft') {
-    const [published, drafts] = await Promise.all([
-      fetchAllArticleEntities(listParams, authorFilter, 'published'),
-      fetchAllArticleEntities(listParams, authorFilter, 'draft', { status: { $eq: 'draft' } }),
-    ]);
-    const publishedIds = new Set(published.map((item) => item.documentId));
+    const publishedIds = await fetchPublishedDocumentIds(authorFilter);
+    const drafts = await fetchAllArticleEntities(
+      listParams,
+      authorFilter,
+      'draft',
+      { status: { $eq: 'draft' } }
+    );
     return sortByUpdated(
       drafts
         .filter((item) => !publishedIds.has(item.documentId))
@@ -728,15 +853,15 @@ async function mergeEditorArticles(
     );
   }
 
+  const publishedDocIds = await fetchPublishedDocumentIds(authorFilter);
   const [published, drafts] = await Promise.all([
     fetchAllArticleEntities(listParams, authorFilter, 'published'),
     fetchAllArticleEntities(listParams, authorFilter, 'draft'),
   ]);
-  const publishedIds = new Set(published.map((item) => item.documentId));
   const merged = new Map<string, RedactionArticle>();
 
   for (const item of drafts) {
-    if (!publishedIds.has(item.documentId)) {
+    if (!publishedDocIds.has(item.documentId)) {
       merged.set(item.documentId, mapArticle(item));
     }
   }
@@ -1273,13 +1398,25 @@ export function computeEditorStats(articles: RedactionArticle[]): RedactionStats
 }
 
 export async function getEditorStats(user: RedactionUser): Promise<RedactionStats> {
+  const scopeKey = isRedactionSuperAdmin(user)
+    ? `super-${user.id}`
+    : `author-${(await resolveAuthorForUser(user)).documentId}`;
+
+  return unstable_cache(() => computeEditorStatsFromStrapi(user), ['editor-stats', scopeKey], {
+    revalidate: STATS_REVALIDATE_SEC,
+    tags: ['redaction-stats'],
+  })();
+}
+
+async function computeEditorStatsFromStrapi(user: RedactionUser): Promise<RedactionStats> {
   const authorFilter = await buildListAuthorFilter(user);
+  const publishedCountPromise = getStrapiArticleTotal(authorFilter, 'published');
 
   const [publishedCount, scheduledCount, draftCount, engagement] = await Promise.all([
-    getStrapiArticleTotal(authorFilter, 'published'),
+    publishedCountPromise,
     getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'scheduled' } }),
     getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'draft' } }),
-    fetchPublishedEngagementTotals(authorFilter),
+    publishedCountPromise.then((count) => fetchPublishedEngagementTotals(authorFilter, count)),
   ]);
 
   return {
@@ -1739,11 +1876,17 @@ export async function listEditorComments(
 }
 
 export async function countPendingComments(): Promise<number> {
-  const response = await strapiFetch<{ meta: { pagination: { total: number } } }>('/comments', {
-    filters: { status: { $eq: 'pending' } },
-    pagination: { pageSize: 1 },
-  });
-  return response.meta.pagination.total;
+  return unstable_cache(
+    async () => {
+      const response = await strapiFetch<{ meta: { pagination: { total: number } } }>('/comments', {
+        filters: { status: { $eq: 'pending' } },
+        pagination: { pageSize: 1 },
+      });
+      return response.meta.pagination.total;
+    },
+    ['redaction-pending-comments'],
+    { revalidate: 30, tags: ['redaction-comments'] }
+  )();
 }
 
 export async function moderateEditorComment(

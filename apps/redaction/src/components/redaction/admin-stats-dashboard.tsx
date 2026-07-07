@@ -101,16 +101,35 @@ function tabPanelClass(active: boolean): string {
   return cn('space-y-4', !active && 'hidden');
 }
 
-export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
-  type StatsScope = 'mine' | 'site';
-  const [scope, setScope] = useState<StatsScope>(isSuperAdmin ? 'site' : 'mine');
+type StatsScope = 'mine' | 'site';
+
+export function AdminStatsDashboard({
+  isSuperAdmin = false,
+  initialAnalytics = null,
+  initialScope,
+  initialDays = 30,
+}: {
+  isSuperAdmin?: boolean;
+  initialAnalytics?: AdminAnalytics | null;
+  initialScope?: StatsScope;
+  initialDays?: AdminStatsRange;
+}) {
+  const [scope, setScope] = useState<StatsScope>(
+    initialScope ?? (isSuperAdmin ? 'site' : 'mine')
+  );
   const [tab, setTab] = useState<TabId>('traffic');
-  const [days, setDays] = useState<AdminStatsRange>(30);
-  const [data, setData] = useState<AdminAnalytics | null>(null);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [days, setDays] = useState<AdminStatsRange>(initialDays);
+  const [data, setData] = useState<AdminAnalytics | null>(initialAnalytics);
+  const [initialLoading, setInitialLoading] = useState(!initialAnalytics);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const cacheRef = useRef<Map<string, AdminAnalytics>>(new Map());
+
+  useEffect(() => {
+    if (!initialAnalytics) return;
+    const cacheKey = `${initialScope ?? (isSuperAdmin ? 'site' : 'mine')}-${initialDays}`;
+    cacheRef.current.set(cacheKey, initialAnalytics);
+  }, [initialAnalytics, initialDays, initialScope, isSuperAdmin]);
 
   const isSiteScope = scope === 'site';
   const tabs = isSiteScope ? SITE_TABS : AUTHOR_TABS;
@@ -147,8 +166,12 @@ export function AdminStatsDashboard({ isSuperAdmin = false }: { isSuperAdmin?: b
   }, []);
 
   useEffect(() => {
+    const cacheKey = `${scope}-${days}`;
+    if (initialAnalytics && scope === (initialScope ?? (isSuperAdmin ? 'site' : 'mine')) && days === initialDays) {
+      return;
+    }
     void load(days, scope);
-  }, [days, scope, load]);
+  }, [days, scope, load, initialAnalytics, initialDays, initialScope, isSuperAdmin]);
 
   useEffect(() => {
     if (!tabs.some((t) => t.id === tab)) {

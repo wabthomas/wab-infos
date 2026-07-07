@@ -1,7 +1,11 @@
 import { redirect } from 'next/navigation';
 import { RedactionShell } from '@/components/redaction/redaction-shell';
 import { RedactionPushBanner, RedactionPushSetup } from '@/components/redaction/redaction-push-setup';
-import { getEditorProfile, requireRedactionUser } from '@/lib/redaction/strapi-editor';
+import {
+  countPendingComments,
+  getEditorProfile,
+  requireRedactionUser,
+} from '@/lib/redaction/strapi-editor';
 
 export default async function RedactionEditorLayout({
   children,
@@ -10,12 +14,19 @@ export default async function RedactionEditorLayout({
 }) {
   try {
     const user = await requireRedactionUser();
-    const { author, isSuperAdmin } = await getEditorProfile(user);
+    const [{ author, isSuperAdmin }, pendingComments] = await Promise.all([
+      getEditorProfile(user),
+      countPendingComments(),
+    ]);
 
     return (
       <>
         <RedactionPushSetup />
-        <RedactionShell authorName={author.name} isSuperAdmin={isSuperAdmin}>
+        <RedactionShell
+          authorName={author.name}
+          isSuperAdmin={isSuperAdmin}
+          initialPendingComments={pendingComments}
+        >
           {children}
         </RedactionShell>
       </>

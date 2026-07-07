@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
@@ -12,18 +13,24 @@ import {
   Settings,
   Zap,
 } from 'lucide-react';
-import type { AdminAnalytics, RedactionArticle, RedactionStats } from '@/lib/redaction/types';
+import type { RedactionArticle, RedactionStats } from '@/lib/redaction/types';
 import { ArticleListItem } from '@/components/redaction/article-list-item';
-import { DashboardActivityChart } from '@/components/redaction/dashboard-activity-chart';
+import {
+  DashboardActivitySection,
+  DashboardAnalyticsSkeleton,
+  DashboardAnalyticsSummary,
+  DashboardPublishedWeekHint,
+  DashboardTopArticlesSection,
+} from '@/components/redaction/dashboard-analytics-sections';
 import { cn } from '@/lib/utils';
 
 interface RedactionDashboardHomeProps {
   firstName: string;
   authorName: string;
+  authorDocumentId: string;
   isSuperAdmin: boolean;
   canDeleteAnyArticle: boolean;
   stats: RedactionStats;
-  analytics: AdminAnalytics;
   latestPublished: RedactionArticle[];
   recentDrafts: RedactionArticle[];
   pendingComments: number;
@@ -41,10 +48,10 @@ const STAT_ACCENTS = {
 export function RedactionDashboardHome({
   firstName,
   authorName,
+  authorDocumentId,
   isSuperAdmin,
   canDeleteAnyArticle,
   stats,
-  analytics,
   latestPublished,
   recentDrafts,
   pendingComments,
@@ -170,36 +177,9 @@ export function RedactionDashboardHome({
       {/* Corps principal : 2 colonnes desktop */}
       <div className="grid gap-6 xl:grid-cols-12 xl:gap-8">
         <div className="space-y-6 xl:col-span-8 xl:space-y-8">
-          {/* Graphique activité */}
-          <section
-            className="rounded-2xl border border-border bg-card p-4 lg:p-6"
-            aria-labelledby="dashboard-activity-heading"
-          >
-            <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-              <div>
-                <h2 id="dashboard-activity-heading" className="font-display text-base font-bold lg:text-lg">
-                  Activité — 7 jours
-                </h2>
-                <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-                  Publications et commentaires reçus
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground sm:gap-4 sm:text-xs">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-primary" />
-                  Publications
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-blue-600" />
-                  Commentaires
-                </span>
-              </div>
-            </div>
-            <DashboardActivityChart
-              publications={analytics.trends.articles}
-              comments={analytics.trends.comments}
-            />
-          </section>
+          <Suspense fallback={<DashboardAnalyticsSkeleton variant="chart" />}>
+            <DashboardActivitySection authorDocumentId={authorDocumentId} />
+          </Suspense>
 
           {/* Articles récents */}
           <section
@@ -211,9 +191,9 @@ export function RedactionDashboardHome({
                 <h2 id="dashboard-recent-heading" className="font-display text-base font-bold lg:text-xl">
                   Dernières publications
                 </h2>
-                <p className="mt-0.5 hidden text-sm text-muted-foreground lg:block">
-                  {analytics.summary.published} publié{analytics.summary.published > 1 ? 's' : ''} cette semaine
-                </p>
+                <Suspense fallback={<DashboardAnalyticsSkeleton variant="hint" />}>
+                  <DashboardPublishedWeekHint authorDocumentId={authorDocumentId} />
+                </Suspense>
               </div>
               <Link
                 href="/articles?filter=published"
@@ -263,18 +243,12 @@ export function RedactionDashboardHome({
             <dl className="mt-4 space-y-3">
               <SummaryRow label="Articles au total" value={String(stats.totalArticles)} />
               <SummaryRow label="Taux publiés" value={`${publishRate} %`} />
-              <SummaryRow
-                label="Vues (7 j.)"
-                value={analytics.summary.views.toLocaleString('fr-FR')}
-                hint="cumul articles publiés"
-              />
-              {analytics.summary.pendingComments > 0 ? (
-                <SummaryRow
-                  label="Modération"
-                  value={String(analytics.summary.pendingComments)}
-                  valueClassName="text-amber-700"
+              <Suspense fallback={<DashboardAnalyticsSkeleton variant="summary" />}>
+                <DashboardAnalyticsSummary
+                  authorDocumentId={authorDocumentId}
+                  pendingComments={pendingComments}
                 />
-              ) : null}
+              </Suspense>
             </dl>
           </section>
 
@@ -328,38 +302,9 @@ export function RedactionDashboardHome({
             </section>
           ) : null}
 
-          {/* Top articles */}
-          {analytics.topArticles.length > 0 && showViews ? (
-            <section className="rounded-2xl border border-border bg-card p-5">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="font-display text-base font-bold">Top lectures</h2>
-                <Link href="/stats" className="text-xs font-medium text-primary hover:underline">
-                  Détails
-                </Link>
-              </div>
-              <ol className="mt-3 space-y-2">
-                {analytics.topArticles.slice(0, 5).map((article, index) => (
-                  <li key={article.documentId}>
-                    <Link
-                      href={`/articles/${article.documentId}/edit`}
-                      className="flex items-start gap-3 rounded-xl p-2 transition-colors hover:bg-muted/60"
-                    >
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-bold text-muted-foreground">
-                        {index + 1}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="line-clamp-2 text-sm font-medium leading-snug">{article.title}</span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
-                          {article.views.toLocaleString('fr-FR')} vues
-                          {article.category ? ` · ${article.category}` : ''}
-                        </span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : null}
+          <Suspense fallback={<DashboardAnalyticsSkeleton variant="top" />}>
+            <DashboardTopArticlesSection authorDocumentId={authorDocumentId} showViews={showViews} />
+          </Suspense>
         </aside>
       </div>
     </div>

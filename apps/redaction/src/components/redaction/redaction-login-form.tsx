@@ -69,16 +69,6 @@ export function RedactionLoginForm() {
         return;
       }
 
-      const meRes = await fetch('/api/redaction/auth/me', { credentials: 'same-origin' });
-      if (!meRes.ok) {
-        setError(
-          window.location.protocol === 'http:'
-            ? 'Session non enregistrée. Ouvrez https://redaction.app.wab-infos.com (cadenas) et réessayez.'
-            : 'Session non enregistrée. Videz les cookies du site et réessayez.'
-        );
-        return;
-      }
-
       router.replace('/');
       router.refresh();
     } catch {
