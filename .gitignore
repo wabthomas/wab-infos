@@ -27,6 +27,8 @@ apps/cms/public/uploads/*
 
 # Data
 data/
+!apps/web/src/data/
+!apps/web/src/data/wp-redirects.json
 *.sql.gz
 
 # OS
