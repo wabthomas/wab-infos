@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { IMAGE_QUALITY_LCP } from '@/lib/image-quality';
 import type { Author } from '@wab-infos/shared';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
 
@@ -75,7 +76,7 @@ function AuthorAvatar({ author, avatarUrl, onDark = false, size = 48 }: AuthorAv
           height={pixelSize}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           sizes={`${size}px`}
-          quality={95}
+          quality={IMAGE_QUALITY_LCP}
         />
       ) : (
         <span className="flex h-full w-full items-center justify-center bg-primary text-sm font-bold text-primary-foreground">

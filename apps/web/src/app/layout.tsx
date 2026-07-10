@@ -107,8 +107,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href={strapiOrigin} />
         <link rel="preconnect" href={redactionOrigin} />
         <link rel="dns-prefetch" href={redactionOrigin} />
-        <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
-        <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
@@ -124,9 +123,9 @@ export default function RootLayout({
             <Script
               async
               src={`https://www.googletagmanager.com/gtag/js?id=${siteConfig.gaId}`}
-              strategy="afterInteractive"
+              strategy="lazyOnload"
             />
-            <Script id="google-analytics" strategy="afterInteractive">
+            <Script id="google-analytics" strategy="lazyOnload">
               {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${siteConfig.gaId}');`}
             </Script>
           </>

@@ -31,6 +31,7 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname, '../..'),
   },
   images: {
+    // Sync avec src/lib/image-quality.ts — toute autre valeur `quality` → 400 sur /_next/image
     qualities: [75, 90],
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '8090', pathname: '/uploads/**' },

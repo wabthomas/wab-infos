@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { imageQualityForPriority } from '@/lib/image-quality';
 import { cn } from '@/lib/utils';
 
 interface ArticleImageProps {
@@ -43,7 +44,7 @@ export function ArticleImage({
       className={className}
       priority={priority}
       sizes={sizes}
-      quality={quality ?? (priority ? 85 : 75)}
+      quality={quality ?? imageQualityForPriority(priority)}
     />
   );
 }

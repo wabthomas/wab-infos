@@ -30,7 +30,7 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
           async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`}
           crossOrigin="anonymous"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
           onLoad={markAdsenseScriptLoaded}
         />
       ) : null}

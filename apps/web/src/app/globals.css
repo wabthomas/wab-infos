@@ -51,7 +51,7 @@
   --color-accent: var(--accent);
   --color-surface-elevated: var(--surface-elevated);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-display: var(--font-playfair);
 }
 
@@ -80,7 +80,7 @@ body {
 }
 
 .font-brand {
-  font-family: var(--font-brand), 'Arial Narrow', Arial, sans-serif;
+  font-family: var(--font-headline), 'Arial Narrow', Arial, sans-serif;
 }
 
 /* Cards */

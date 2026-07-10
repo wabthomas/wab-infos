@@ -70,14 +70,13 @@ export function ArticleCard({
             </div>
           </div>
 
-          {/* Desktop : overlay sur l'image */}
+          {/* Desktop : overlay sur l'image (pas de priority : le LCP mobile est déjà préchargé) */}
           <div className="relative hidden md:block">
             <div className="relative aspect-[16/9] overflow-hidden bg-muted">
               <ArticleImage
                 src={imageUrl}
                 alt={article.title}
                 className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-                priority={priority}
                 sizes="(max-width: 1024px) 100vw, 66vw"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />

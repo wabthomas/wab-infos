@@ -1,6 +1,5 @@
 import { Suspense } from 'react';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { preload } from 'react-dom';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArticleHero } from '@/components/articles/article-hero';
@@ -25,7 +24,7 @@ import {
 } from '@/lib/seo';
 import { getArticleBySlug } from '@/lib/strapi';
 import { getSiteSettings } from '@/lib/site-settings.server';
-import { formatArticleContent, resolveArticleImageUrl } from '@/lib/utils';
+import { formatArticleContent } from '@/lib/utils';
 import { GoogleSwgBasicScripts } from '@/components/google/swg-basic-scripts';
 import { MobileArticleBottomBar } from '@/components/layout/mobile-article-bottom-bar';
 
@@ -84,11 +83,6 @@ export default async function ArticlePage({ params }: PageProps) {
     { name: cat.name, url: `${siteConfig.url}/${categorySlug}` },
     { name: article.title, url: articleUrl },
   ]);
-
-  const heroImage = resolveArticleImageUrl(article.featuredImage, 'hero');
-  if (heroImage) {
-    preload(heroImage, { as: 'image' });
-  }
 
   return (
     <>

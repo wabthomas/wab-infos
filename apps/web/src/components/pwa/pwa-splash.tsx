@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useState } from 'react';
 import Image from 'next/image';
+import { IMAGE_QUALITY_LCP } from '@/lib/image-quality';
 import { siteConfig } from '@/config/site';
 import { getPwaVariant, persistPwaVariantFromPath } from '@/lib/pwa/detect';
 import {
@@ -107,7 +108,7 @@ export function PwaSplash() {
           className="app-launch-splash-logo"
           priority
           sizes="104px"
-          quality={85}
+          quality={IMAGE_QUALITY_LCP}
         />
       </div>
       <p className="app-launch-splash-title">{title}</p>

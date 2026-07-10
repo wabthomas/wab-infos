@@ -1,5 +1,6 @@
+import { IMAGE_QUALITY_DEFAULT } from '@/lib/image-quality';
+
 const CONTENT_IMAGE_WIDTH = 1200;
-const CONTENT_IMAGE_QUALITY = 75;
 
 function normalizeOptimizablePath(src: string): string | null {
   if (src.startsWith('data:') || src.includes('/_next/image')) {
@@ -36,7 +37,7 @@ function normalizeOptimizablePath(src: string): string | null {
 function buildNextImageSrc(
   src: string,
   width = CONTENT_IMAGE_WIDTH,
-  quality = CONTENT_IMAGE_QUALITY
+  quality = IMAGE_QUALITY_DEFAULT
 ): string | null {
   const path = normalizeOptimizablePath(src);
   if (!path) return null;

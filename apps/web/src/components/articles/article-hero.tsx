@@ -132,13 +132,12 @@ export function ArticleHero({
           </div>
         </div>
 
-        {/* Desktop : overlay */}
+        {/* Desktop : overlay (sans priority — une seule image LCP, côté mobile) */}
         <div className="relative hidden aspect-[16/9] w-full bg-muted md:block">
           <ArticleImage
             src={imageUrl}
             alt={article.title}
             className="object-cover"
-            priority
             sizes="66vw"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />

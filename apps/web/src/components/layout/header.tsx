@@ -160,10 +160,7 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
             className="group absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
             aria-label={`${siteConfig.name} — Accueil`}
           >
-            <SiteLogo
-              priority
-              className="h-10 w-auto transition-opacity group-hover:opacity-90 md:h-16"
-            />
+            <SiteLogo className="h-10 w-auto transition-opacity group-hover:opacity-90 md:h-16" />
           </Link>
 
           {/* Droite : alertes + TV (mobile) / thème + connexion + TV (desktop) */}

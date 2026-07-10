@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { preload } from 'react-dom';
 import { BreakingNewsTicker } from '@/components/articles/breaking-news-ticker';
 import { ArticleCard } from '@/components/articles/article-card';
 import { HomeRecentNews, RECENT_NEWS_DISPLAY_COUNT } from '@/components/home/home-recent-news';
@@ -17,7 +16,7 @@ import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { isLowMemBuild } from '@/lib/build-phase';
 import { getTopReadArticles } from '@/lib/sidebar-data';
 import { getBreakingNews, getArticles, getArticlesByCategories } from '@/lib/strapi';
-import { compareArticlesByDateDesc, resolveArticleImageUrl } from '@/lib/utils';
+import { compareArticlesByDateDesc } from '@/lib/utils';
 import { generateHomeMetadata } from '@/lib/seo';
 import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import Link from 'next/link';
@@ -78,7 +77,8 @@ async function getHomeData() {
   }
 }
 
-export const revalidate = 60;
+/** Cache home plus long → moins de cold Strapi sur le chemin TTFB critique. */
+export const revalidate = 120;
 
 function HomeVideoFallback() {
   return (
@@ -104,11 +104,6 @@ export default async function HomePage() {
   const bottomCategories = navCategories.filter((cat) =>
     (bottomSectionSlugs as readonly string[]).includes(cat.slug)
   );
-
-  const heroImage = resolveArticleImageUrl(recentNews[0]?.featuredImage, 'hero');
-  if (heroImage) {
-    preload(heroImage, { as: 'image' });
-  }
 
   return (
     <>

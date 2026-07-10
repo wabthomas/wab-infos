@@ -158,7 +158,7 @@ function mapTag(entity: StrapiEntity): Tag {
 
 function mapArticle(entity: StrapiEntity): Article {
   let featuredImage = mapMedia(entity.featuredImage as StrapiEntity);
-  const content = entity.content as string;
+  const content = typeof entity.content === 'string' ? entity.content : '';
 
   if (!featuredImage?.url && content) {
     const fallbackUrl = firstImageFromHtml(content);
@@ -236,6 +236,30 @@ const articlePopulate = {
   },
 };
 
+/** Listes / home : pas de content HTML ni tags/avatar — réponse Strapi nettement plus légère. */
+const listArticleQuery = {
+  fields: [
+    'title',
+    'slug',
+    'excerpt',
+    'status',
+    'publishedAt',
+    'updatedAt',
+    'createdAt',
+    'wpPublishedAt',
+    'isFeatured',
+    'isBreaking',
+    'isRecommended',
+    'viewCount',
+    'readingTime',
+  ],
+  populate: {
+    featuredImage: true,
+    author: { fields: ['name', 'slug'] },
+    category: true,
+  },
+};
+
 export async function getArticles(options?: {
   page?: number;
   pageSize?: number;
@@ -244,6 +268,8 @@ export async function getArticles(options?: {
   featured?: boolean;
   breaking?: boolean;
   recommended?: boolean;
+  /** Inclut content + tags + avatar (défaut listes légères). */
+  full?: boolean;
 }): Promise<{ articles: Article[]; pagination: { total: number; pageCount: number } }> {
   const filters: Record<string, unknown> = {};
 
@@ -255,7 +281,7 @@ export async function getArticles(options?: {
 
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
     filters,
-    ...articlePopulate,
+    ...(options?.full || options?.tag ? articlePopulate : listArticleQuery),
     sort: [...ARTICLE_SORT],
     pagination: { page: options?.page ?? 1, pageSize: options?.pageSize ?? 12 },
     status: 'published',
@@ -288,7 +314,7 @@ export async function getArticlesByCategories(
     filters: {
       category: { slug: { $in: uniqueSlugs } },
     },
-    ...articlePopulate,
+    ...listArticleQuery,
     sort: [...ARTICLE_SORT],
     pagination: { page: 1, pageSize },
     status: 'published',
@@ -352,7 +378,7 @@ export async function getTopReadArticles(
 
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
     filters,
-    ...articlePopulate,
+    ...listArticleQuery,
     sort: [...TOP_READ_SORT],
     pagination: { page: 1, pageSize: limit },
     status: 'published',
