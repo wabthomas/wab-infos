@@ -7,7 +7,7 @@ import { getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 export async function GET() {
   let articles;
   try {
-    const result = await getArticles({ pageSize: 50 });
+    const result = await getArticles({ pageSize: 50, full: true });
     articles = result.articles;
   } catch {
     articles = getMockArticlesIfEnabled({ pageSize: 50 });
