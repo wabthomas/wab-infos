@@ -2,20 +2,28 @@ import type { NextConfig } from 'next';
 import path from 'path';
 import { loadEnvConfig } from '@next/env';
 
+// Monorepo : charger .env racine puis apps/web/.env.local (priorité au web)
 const appDir = __dirname;
 const monorepoRoot = path.join(appDir, '../..');
 loadEnvConfig(monorepoRoot);
 loadEnvConfig(appDir);
 
 const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
-const wpUploadsOrigin = process.env.WP_UPLOADS_ORIGIN || process.env.WP_BASE_URL || 'https://wp.wab-infos.com';
-const redactionUrl = (process.env.NEXT_PUBLIC_REDACTION_URL || 'http://localhost:3001').replace(/\/$/, '');
+const wpUploadsOrigin =
+  process.env.WP_UPLOADS_ORIGIN || process.env.WP_BASE_URL || 'https://wp.wab-infos.com';
+const redactionUrl = (process.env.NEXT_PUBLIC_REDACTION_URL || 'http://localhost:3001').replace(
+  /\/$/,
+  ''
+);
 const isLowMemBuild = process.env.LOW_MEM_BUILD === '1';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
   productionBrowserSourceMaps: false,
+  // Mutualisé : Strapi lent ou indisponible pendant le build
   staticPageGenerationTimeout: Number(process.env.STATIC_PAGE_TIMEOUT_SEC || 180),
+  // Mutualisé : saute tsc pendant next build (économise ~500 Mo–1 Go de RAM)
+  // Vérifier les types en local / CI : npm run typecheck --workspace=apps/web
   typescript: {
     ignoreBuildErrors: isLowMemBuild,
   },
@@ -23,6 +31,7 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname, '../..'),
   },
   images: {
+    // Sync avec src/lib/image-quality.ts — toute autre valeur `quality` → 400 sur /_next/image
     qualities: [75, 90],
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '8090', pathname: '/uploads/**' },
@@ -39,8 +48,14 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
-      { source: '/uploads/:path*', destination: `${strapiUrl}/uploads/:path*` },
-      { source: '/wp-content/uploads/:path*', destination: `${wpUploadsOrigin.replace(/\/$/, '')}/wp-content/uploads/:path*` },
+      {
+        source: '/uploads/:path*',
+        destination: `${strapiUrl}/uploads/:path*`,
+      },
+      {
+        source: '/wp-content/uploads/:path*',
+        destination: `${wpUploadsOrigin.replace(/\/$/, '')}/wp-content/uploads/:path*`,
+      },
     ];
   },
   async redirects() {
@@ -58,9 +73,24 @@ const nextConfig: NextConfig = {
           { key: 'Service-Worker-Allowed', value: '/' },
         ],
       },
-      { source: '/uploads/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
-      { source: '/wp-content/uploads/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
-      { source: '/og-image', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
+      {
+        source: '/uploads/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/wp-content/uploads/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/og-image',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
       {
         source: '/downloads/apk-version.json',
         headers: [
@@ -75,34 +105,21 @@ const nextConfig: NextConfig = {
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://www.google-analytics.com",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https: blob:",
-              "font-src 'self' https:",
-              "connect-src 'self' https://cms.app.wab-infos.com https://redaction.app.wab-infos.com https://www.google-analytics.com https://pagead2.googlesyndication.com",
-              "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
-              "media-src 'self' https:",
-            ].join('; '),
-          },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload',
-          },
         ],
       },
     ];
   },
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns'],
+    // PlanetHoster / mutualisé : un seul worker, pas de processus Webpack séparé
     cpus: 1,
     webpackBuildWorker: false,
     staticGenerationMaxConcurrency: 1,
     staticGenerationMinPagesPerWorker: 50,
+    // CloudLinux : workerThreads=true → worker_threads (même processus)
+    // workerThreads=false → spawn processChild.js (EAGAIN si maxEntryProcs bas)
     workerThreads: isLowMemBuild,
+    // Mutualisé : SWC natif (tokio/rayon) peut paniquer (EAGAIN threads) — WASM d'abord
     useWasmBinary: isLowMemBuild,
   },
   webpack: (config, { dev, webpack }) => {
