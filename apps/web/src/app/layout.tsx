@@ -15,6 +15,7 @@ import { getAdsenseConfig } from '@/lib/adsense-config.server';
 import { generateOrganizationJsonLd, generateWebsiteJsonLd } from '@/lib/seo';
 import { resolveRedactionUrl } from '@wab-infos/shared';
 import { fontVariables } from '@/lib/fonts';
+import { SkipLink } from '@/components/accessibility/skip-link';
 import './globals.css';
 
 const strapiOrigin = (
@@ -64,6 +65,12 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: siteConfig.url,
+    languages: {
+      'fr-FR': siteConfig.url,
+      'fr-CD': siteConfig.url,
+      'fr-BE': siteConfig.url,
+      'fr': siteConfig.url,
+    },
     types: {
       'application/rss+xml': [
         { url: `${siteConfig.url}/feed.xml`, title: `${siteConfig.name} — Articles` },
@@ -107,7 +114,8 @@ export default function RootLayout({
         <link rel="dns-prefetch" href={strapiOrigin} />
         <link rel="preconnect" href={redactionOrigin} />
         <link rel="dns-prefetch" href={redactionOrigin} />
-        <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
+        <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
+        <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
@@ -123,9 +131,9 @@ export default function RootLayout({
             <Script
               async
               src={`https://www.googletagmanager.com/gtag/js?id=${siteConfig.gaId}`}
-              strategy="lazyOnload"
+              strategy="afterInteractive"
             />
-            <Script id="google-analytics" strategy="lazyOnload">
+            <Script id="google-analytics" strategy="afterInteractive">
               {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${siteConfig.gaId}');`}
             </Script>
           </>
@@ -146,10 +154,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col antialiased">
         <GoogleTagManagerBody />
+        <SkipLink />
         <div id="pwa-splash-bootstrap" className="pwa-splash-bootstrap app-launch-splash" aria-hidden suppressHydrationWarning>
           <div className="app-launch-splash-logo-wrap">
-            {/* img natif : affichage immédiat avant hydratation React */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/brand-icon.png"
               alt=""
