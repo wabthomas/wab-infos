@@ -2,6 +2,9 @@
     <string name="app_name">Wab-infos</string>
     <string name="app_tagline">S\'informer pour mieux s\'armer !</string>
     <string name="no_internet">Pas de connexion internet</string>
+    <string name="offline_title">Vous êtes hors ligne</string>
+    <string name="offline_message">Impossible de charger l’actualité pour le moment. Vérifiez votre Wi‑Fi ou vos données mobiles, puis réessayez.</string>
+    <string name="offline_hint">Dès que la connexion revient, appuyez sur Réessayer.</string>
     <string name="retry">Réessayer</string>
     <string name="update_available">Une nouvelle version est disponible</string>
     <string name="update_now">Mettre à jour</string>

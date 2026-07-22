@@ -8,13 +8,17 @@ import { NativeAppSetup } from '@/components/pwa/native-app-setup';
 import { NativeScrollManager } from '@/components/layout/native-scroll-manager';
 import { NativePullToRefresh } from '@/components/layout/native-pull-to-refresh';
 import { NativePushSetup } from '@/components/pwa/native-push-setup';
+import { NativeAppUpdate } from '@/components/pwa/native-app-update';
 import { PwaSplash } from '@/components/pwa/pwa-splash';
 import { GoogleTagManagerBody, GoogleTagManagerHead } from '@/components/google/google-tag-manager';
 import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
 import { getAdsenseConfig } from '@/lib/adsense-config.server';
+import { getSiteSettings } from '@/lib/site-settings.server';
 import { generateOrganizationJsonLd, generateWebsiteJsonLd } from '@/lib/seo';
 import { resolveRedactionUrl } from '@wab-infos/shared';
-import { fontVariables } from '@/lib/fonts';
+import { SiteChromeProvider } from '@/components/providers/site-chrome-context';
+import { UserPreferencesProvider } from '@/components/providers/user-preferences-provider';
+import { ToastProvider } from '@/components/ui/toast';
 import { SkipLink } from '@/components/accessibility/skip-link';
 import './globals.css';
 
@@ -63,14 +67,9 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
+  // Pas de canonical / hreflang ici : un canonical homepage hérité
+  // transformait les 404 articles en doublons de l’accueil (SEO).
   alternates: {
-    canonical: siteConfig.url,
-    languages: {
-      'fr-FR': siteConfig.url,
-      'fr-CD': siteConfig.url,
-      'fr-BE': siteConfig.url,
-      'fr': siteConfig.url,
-    },
     types: {
       'application/rss+xml': [
         { url: `${siteConfig.url}/feed.xml`, title: `${siteConfig.name} — Articles` },
@@ -98,7 +97,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -106,9 +105,10 @@ export default function RootLayout({
   const websiteJsonLd = generateWebsiteJsonLd();
   const organizationJsonLd = generateOrganizationJsonLd();
   const adsenseConfig = getAdsenseConfig();
+  const siteSettings = await getSiteSettings();
 
   return (
-    <html lang="fr" suppressHydrationWarning className={`h-full ${fontVariables}`}>
+    <html lang="fr" suppressHydrationWarning className="h-full">
       <head>
         <link rel="preconnect" href={strapiOrigin} />
         <link rel="dns-prefetch" href={strapiOrigin} />
@@ -177,10 +177,23 @@ export default function RootLayout({
           <NativePullToRefresh />
           <PwaSetup />
           <NativePushSetup />
+          <NativeAppUpdate
+            siteUrl={siteConfig.url}
+            versionManifestUrl={siteConfig.androidApkVersionUrl}
+          />
           <ThemeProvider>
-            <AdsenseConfigProvider config={adsenseConfig}>
-              <AppShell>{children}</AppShell>
-            </AdsenseConfigProvider>
+            <UserPreferencesProvider>
+              <ToastProvider>
+                <AdsenseConfigProvider config={adsenseConfig}>
+                  <SiteChromeProvider
+                    chrome={siteSettings.chrome}
+                    socialLinks={siteSettings.socialLinks}
+                  >
+                    <AppShell>{children}</AppShell>
+                  </SiteChromeProvider>
+                </AdsenseConfigProvider>
+              </ToastProvider>
+            </UserPreferencesProvider>
           </ThemeProvider>
         </div>
       </body>

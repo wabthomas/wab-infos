@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
-import { buildMainSitemapXml } from '@/lib/sitemap-data';
+import { buildSitemapIndexXml, SITEMAP_RESPONSE_HEADERS } from '@/lib/sitemap-data';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
 
 export async function GET() {
-  const xml = await buildMainSitemapXml();
-
-  return new NextResponse(xml, {
-    headers: {
-      'Content-Type': 'application/xml',
-      'Cache-Control': 'public, max-age=1800, s-maxage=3600',
-    },
-  });
+  try {
+    const xml = await buildSitemapIndexXml();
+    return new NextResponse(xml, { headers: SITEMAP_RESPONSE_HEADERS });
+  } catch {
+    const empty = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+</sitemapindex>`;
+    return new NextResponse(empty, { status: 200, headers: SITEMAP_RESPONSE_HEADERS });
+  }
 }

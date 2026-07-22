@@ -156,6 +156,12 @@ export function rewriteWordPressContent(html: string): string {
     );
   }
 
+  // Anciennes rubriques WP dans le corps HTML → slug canonique (ex. /sport/… → /sports/…)
+  out = out.replace(
+    /href=(["'])\/(sport|infos-sport|actusports)(\/[^"'#?]*)\1/gi,
+    'href=$1/sports$3$1'
+  );
+
   return out;
 }
 

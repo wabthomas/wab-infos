@@ -2,9 +2,19 @@
     <string name="app_name">Wab-infos</string>
     <string name="app_tagline">S\'informer pour mieux s\'armer !</string>
     <string name="no_internet">Pas de connexion internet</string>
+    <string name="offline_title">Vous êtes hors ligne</string>
+    <string name="offline_message">Impossible de charger l’actualité pour le moment. Vérifiez votre Wi‑Fi ou vos données mobiles, puis réessayez.</string>
+    <string name="offline_hint">L’app réessaie automatiquement dès que la connexion revient. Vous pouvez aussi appuyer sur Réessayer.</string>
     <string name="retry">Réessayer</string>
     <string name="update_available">Une nouvelle version est disponible</string>
+    <string name="update_dialog_title">Nouvelle version disponible</string>
+    <string name="update_dialog_subtitle">Version %1$s • Actuelle v%2$s</string>
+    <string name="update_dialog_message">Installez la dernière version pour corriger les bugs, améliorer la connexion rédaction et profiter des nouveautés.</string>
     <string name="update_now">Mettre à jour</string>
     <string name="update_later">Plus tard</string>
     <string name="downloading_update">Téléchargement de la mise à jour…</string>
+    <string name="update_install_ready">Téléchargement terminé — installez la mise à jour</string>
+    <string name="update_install_failed">Mise à jour impossible. Réessayez ou téléchargez l’APK depuis le site.</string>
+    <string name="update_install_permission">Autorisez l’installation d’applications pour Wab-infos</string>
+    <string name="update_success">Bravo, vous êtes à jour (v%1$s)</string>
 </resources>

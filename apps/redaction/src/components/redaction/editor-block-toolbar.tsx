@@ -27,22 +27,27 @@ export function EditorBlockToolbar({ editor, onHeadingClick }: EditorBlockToolba
   }, []);
 
   useEffect(() => {
+    let raf = 0;
     const update = () => {
-      if (!editor.isFocused) {
-        setBlock(null);
-        setStyle({});
-        return;
-      }
-      const info = getActiveBlockInfo(editor);
-      setBlock(info);
-      if (!info?.dom) {
-        setStyle({});
-        return;
-      }
-      const rect = info.dom.getBoundingClientRect();
-      setStyle({
-        top: rect.top + 6,
-        left: Math.max(8, rect.left + 6),
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        if (!editor.isFocused) {
+          setBlock(null);
+          setStyle({});
+          return;
+        }
+        const info = getActiveBlockInfo(editor);
+        setBlock(info);
+        if (!info?.dom) {
+          setStyle({});
+          return;
+        }
+        const rect = info.dom.getBoundingClientRect();
+        setStyle({
+          top: rect.top + 6,
+          left: Math.max(8, rect.left + 6),
+        });
       });
     };
 
@@ -56,6 +61,7 @@ export function EditorBlockToolbar({ editor, onHeadingClick }: EditorBlockToolba
     window.visualViewport?.addEventListener('scroll', update);
 
     return () => {
+      if (raf) window.cancelAnimationFrame(raf);
       editor.off('selectionUpdate', update);
       editor.off('transaction', update);
       editor.off('focus', update);

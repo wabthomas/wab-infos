@@ -1,20 +1,25 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
+import {
+  getActiveHomepageSections,
+  getEnabledHomepageCategorySlugs,
+  type Article,
+  type HomepageSection,
+} from '@wab-infos/shared';
 import { BreakingNewsTicker } from '@/components/articles/breaking-news-ticker';
 import { ArticleCard } from '@/components/articles/article-card';
 import { HomeRecentNews, RECENT_NEWS_DISPLAY_COUNT } from '@/components/home/home-recent-news';
 import { HeaderAd, SidebarAd } from '@/components/ads/adsense';
 import { HomeBottomSections } from '@/components/home/home-bottom-sections';
-import { HomeVideoSection } from '@/components/home/home-video-section';
 import { LiveNewsTimeline } from '@/components/home/live-news-timeline';
 import { NewsletterSignup } from '@/components/home/newsletter-signup';
 import { PushAlertsSignup } from '@/components/home/push-alerts-signup';
 import { HomeTopCategorySection } from '@/components/home/home-top-category-section';
 import { SectionHeader } from '@/components/ui/section-header';
-import { categories } from '@/config/site';
+import { categories, getCategoryBySlug } from '@/config/site';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { isLowMemBuild } from '@/lib/build-phase';
 import { getTopReadArticles } from '@/lib/sidebar-data';
+import { getSiteSettings } from '@/lib/site-settings.server';
 import { getBreakingNews, getArticles, getArticlesByCategories } from '@/lib/strapi';
 import { compareArticlesByDateDesc } from '@/lib/utils';
 import { generateHomeMetadata } from '@/lib/seo';
@@ -25,19 +30,6 @@ export const metadata: Metadata = generateHomeMetadata();
 
 const navCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
 
-const topSectionSlugs = ['actualite', 'actualites-rdc', 'politique', 'economie'] as const;
-
-const bottomSectionSlugs = [
-  'politique',
-  'sports',
-  'societe',
-  'securite',
-  'international',
-  'technologies',
-] as const;
-
-const homeSectionSlugs = [...new Set([...topSectionSlugs, ...bottomSectionSlugs])];
-
 function buildMockArticlesByCategory(slugs: readonly string[], limitPerCategory: number) {
   return Object.fromEntries(
     slugs.map((slug) => [
@@ -47,7 +39,7 @@ function buildMockArticlesByCategory(slugs: readonly string[], limitPerCategory:
   );
 }
 
-async function getHomeData() {
+async function getHomeData(homeSectionSlugs: readonly string[]) {
   const globalPageSize = isLowMemBuild() ? 16 : RECENT_NEWS_DISPLAY_COUNT + 9;
   const perCategoryLimit = 6;
 
@@ -80,34 +72,60 @@ async function getHomeData() {
 /** Cache home plus long → moins de cold Strapi sur le chemin TTFB critique. */
 export const revalidate = 120;
 
-function HomeVideoFallback() {
+function renderTopSection(section: HomepageSection, articlesByCategory: Record<string, Article[]>) {
+  if (section.type !== 'category' || !section.categorySlug) return null;
+
+  const category = getCategoryBySlug(section.categorySlug);
+  if (!category) return null;
+
+  const catArticles = (articlesByCategory[section.categorySlug] ?? []).slice(0, section.articleLimit);
+  if (!catArticles.length) return null;
+
+  if (section.layoutTheme === 'actualite-list' || section.layoutTheme === 'economie-list') {
+    return (
+      <HomeTopCategorySection
+        key={section.id}
+        category={category}
+        articles={catArticles}
+        variant={section.layoutTheme === 'economie-list' ? 'economie' : 'actualite'}
+      />
+    );
+  }
+
   return (
-    <div
-      className="h-64 animate-pulse rounded-2xl border border-border bg-muted/40 md:h-80"
-      aria-hidden
-    />
+    <section key={section.id}>
+      <SectionHeader title={category.name} color={category.color} href={`/${category.slug}`} />
+      <div className="grid grid-cols-2 gap-3 sm:gap-5">
+        {catArticles.map((article) => (
+          <ArticleCard key={article.id} article={article} />
+        ))}
+      </div>
+    </section>
   );
 }
 
 export default async function HomePage() {
-  const { breaking, latest, topRead, articlesByCategory } = await getHomeData();
+  const siteSettings = await getSiteSettings();
+  const topSections = getActiveHomepageSections(siteSettings.homepageSections, 'top');
+  const bottomSections = getActiveHomepageSections(siteSettings.homepageSections, 'bottom');
+  const homeSectionSlugs = getEnabledHomepageCategorySlugs(siteSettings.homepageSections);
+  const { chrome } = siteSettings;
+
+  const { breaking, latest, topRead, articlesByCategory } = await getHomeData(homeSectionSlugs);
 
   const recentNews = [...latest].sort(compareArticlesByDateDesc);
   const gridArticles = recentNews.slice(RECENT_NEWS_DISPLAY_COUNT, RECENT_NEWS_DISPLAY_COUNT + 9);
   const topReadPanel = topRead.slice(0, 4);
   const liveFeed = recentNews;
 
-  const topCategories = navCategories.filter((cat) =>
-    (topSectionSlugs as readonly string[]).includes(cat.slug)
-  );
-
-  const bottomCategories = navCategories.filter((cat) =>
-    (bottomSectionSlugs as readonly string[]).includes(cat.slug)
-  );
+  const bottomCategories = bottomSections
+    .filter((section) => section.type === 'category' && section.categorySlug)
+    .map((section) => getCategoryBySlug(section.categorySlug!))
+    .filter((category): category is NonNullable<typeof category> => category != null);
 
   return (
     <>
-      <BreakingNewsTicker articles={breaking} />
+      {chrome.breakingTickerEnabled ? <BreakingNewsTicker articles={breaking} /> : null}
       <HeaderAd />
 
       <div className="container mx-auto px-3 py-5 sm:px-4 sm:py-8">
@@ -118,36 +136,7 @@ export default async function HomePage() {
 
         <div className="grid gap-8 lg:grid-cols-3 lg:gap-10">
           <div className="space-y-10 lg:col-span-2 lg:space-y-12">
-            {topCategories.map((cat) => {
-              const catArticles = (articlesByCategory[cat.slug] ?? []).slice(0, 4);
-              if (!catArticles.length) return null;
-
-              if (cat.slug === 'actualite' || cat.slug === 'economie') {
-                return (
-                  <HomeTopCategorySection
-                    key={cat.slug}
-                    category={cat}
-                    articles={catArticles}
-                    variant={cat.slug === 'economie' ? 'economie' : 'actualite'}
-                  />
-                );
-              }
-
-              return (
-                <section key={cat.slug}>
-                  <SectionHeader
-                    title={cat.name}
-                    color={cat.color}
-                    href={`/${cat.slug}`}
-                  />
-                  <div className="grid grid-cols-2 gap-3 sm:gap-5">
-                    {catArticles.map((article) => (
-                      <ArticleCard key={article.id} article={article} />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
+            {topSections.map((section) => renderTopSection(section, articlesByCategory))}
 
             <section>
               <SectionHeader title="Dernières actualités" href="/recherche" linkLabel="Tout voir" />
@@ -164,9 +153,9 @@ export default async function HomePage() {
 
             <LiveNewsTimeline articles={liveFeed} />
 
-            <NewsletterSignup />
+            {chrome.newsletterWidgetEnabled ? <NewsletterSignup /> : null}
 
-            <PushAlertsSignup />
+            {chrome.pushAlertsWidgetEnabled ? <PushAlertsSignup /> : null}
 
             <div className="widget-card">
               <div className="widget-card-header">
@@ -204,10 +193,11 @@ export default async function HomePage() {
         </div>
 
         <div className="mt-12 space-y-12">
-          <Suspense fallback={<HomeVideoFallback />}>
-            <HomeVideoSection />
-          </Suspense>
-          <HomeBottomSections categories={bottomCategories} articlesByCategory={articlesByCategory} />
+          <HomeBottomSections
+            sections={bottomSections}
+            categories={bottomCategories}
+            articlesByCategory={articlesByCategory}
+          />
         </div>
       </div>
     </>

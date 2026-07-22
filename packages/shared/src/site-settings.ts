@@ -1,3 +1,46 @@
+import {
+  DEFAULT_HOMEPAGE_SECTIONS,
+  normalizeHomepageSections,
+  type HomepageSection,
+} from './homepage-sections';
+import {
+  DEFAULT_SITE_CHROME,
+  normalizeSiteChromeSettings,
+  type SiteChromeSettings,
+} from './site-chrome-settings';
+
+export type {
+  SiteChromeSettings,
+  SiteFooterCta,
+  SiteNavLink,
+} from './site-chrome-settings';
+export {
+  DEFAULT_FOOTER_CTA,
+  DEFAULT_FOOTER_LEGAL_LINKS,
+  DEFAULT_INFO_LINKS,
+  DEFAULT_SERVICE_LINKS,
+  DEFAULT_SITE_CHROME,
+  DEFAULT_UTILITY_LINKS,
+  getVisibleNavLinks,
+  normalizeSiteChromeSettings,
+} from './site-chrome-settings';
+
+export type { HomepageSection, HomepageSectionLayoutTheme, HomepageSectionType, HomepageSectionZone } from './homepage-sections';
+export {
+  BOTTOM_HOMEPAGE_LAYOUT_THEMES,
+  createHomepageSection,
+  createVideoHomepageSection,
+  DEFAULT_HOMEPAGE_SECTIONS,
+  getActiveHomepageSections,
+  getEnabledHomepageCategorySlugs,
+  getHomepageSectionLabel,
+  HOMEPAGE_LAYOUT_THEME_LABELS,
+  normalizeHomepageSection,
+  normalizeHomepageSections,
+  TOP_HOMEPAGE_LAYOUT_THEMES,
+  VIDEO_HOMEPAGE_LAYOUT_THEMES,
+} from './homepage-sections';
+
 export type SocialFollowPlatform = 'whatsapp' | 'facebook' | 'x' | 'youtube' | 'tiktok';
 
 export interface SiteSocialLink {
@@ -19,6 +62,8 @@ export interface SiteSettings {
   apkBannerVisible: boolean;
   showArticleViewCounts: boolean;
   socialLinks: SiteSocialLink[];
+  homepageSections: HomepageSection[];
+  chrome: SiteChromeSettings;
 }
 
 export const DEFAULT_SITE_SOCIAL_LINKS: SiteSocialLink[] = [
@@ -81,7 +126,19 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   apkBannerVisible: true,
   showArticleViewCounts: true,
   socialLinks: DEFAULT_SITE_SOCIAL_LINKS,
+  homepageSections: DEFAULT_HOMEPAGE_SECTIONS,
+  chrome: DEFAULT_SITE_CHROME,
 };
+
+export const SITE_SETTINGS_EMBEDDED_VERSION = 2;
+
+/** Stockage de secours dans le champ JSON `socialLinks` (Strapi sans colonnes dédiées). */
+export interface SiteSettingsEmbeddedInSocialLinks {
+  v: typeof SITE_SETTINGS_EMBEDDED_VERSION;
+  links: SiteSocialLink[];
+  homepageSections: HomepageSection[];
+  chrome: SiteChromeSettings;
+}
 
 const PLATFORMS = new Set<SocialFollowPlatform>([
   'whatsapp',
@@ -90,6 +147,86 @@ const PLATFORMS = new Set<SocialFollowPlatform>([
   'youtube',
   'tiktok',
 ]);
+
+export function isEmbeddedSocialLinksStorage(
+  raw: unknown
+): raw is SiteSettingsEmbeddedInSocialLinks {
+  return (
+    raw !== null &&
+    typeof raw === 'object' &&
+    (raw as SiteSettingsEmbeddedInSocialLinks).v === SITE_SETTINGS_EMBEDDED_VERSION &&
+    Array.isArray((raw as SiteSettingsEmbeddedInSocialLinks).links)
+  );
+}
+
+function normalizeSocialLinksList(raw: unknown): SiteSocialLink[] {
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map(normalizeSiteSocialLink)
+    .filter((link): link is SiteSocialLink => link != null)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export function unpackSocialLinksStorage(raw: unknown): {
+  socialLinks: SiteSocialLink[];
+  homepageSections?: HomepageSection[];
+  chrome?: SiteChromeSettings;
+} {
+  if (Array.isArray(raw)) {
+    return { socialLinks: normalizeSocialLinksList(raw) };
+  }
+
+  if (isEmbeddedSocialLinksStorage(raw)) {
+    return {
+      socialLinks: normalizeSocialLinksList(raw.links),
+      homepageSections: normalizeHomepageSections(raw.homepageSections),
+      chrome: normalizeSiteChromeSettings(raw.chrome),
+    };
+  }
+
+  return { socialLinks: [] };
+}
+
+export function packSocialLinksStorage(settings: SiteSettings): SiteSettingsEmbeddedInSocialLinks {
+  return {
+    v: SITE_SETTINGS_EMBEDDED_VERSION,
+    links: settings.socialLinks,
+    homepageSections: settings.homepageSections,
+    chrome: settings.chrome,
+  };
+}
+
+export function strapiSupportsDedicatedLayoutFields(row: Record<string, unknown> | null): boolean {
+  if (!row) return false;
+  return 'homepageSections' in row && 'chrome' in row;
+}
+
+export function buildStrapiSiteSettingsPayload(
+  settings: SiteSettings,
+  existingRow: Record<string, unknown> | null
+): Record<string, unknown> {
+  const base = {
+    pwaBannerEnabled: settings.pwaBannerEnabled,
+    pwaBannerVisible: settings.pwaBannerVisible,
+    apkBannerEnabled: settings.apkBannerEnabled,
+    apkBannerVisible: settings.apkBannerVisible,
+    showArticleViewCounts: settings.showArticleViewCounts,
+  };
+
+  if (strapiSupportsDedicatedLayoutFields(existingRow)) {
+    return {
+      ...base,
+      socialLinks: settings.socialLinks,
+      homepageSections: settings.homepageSections,
+      chrome: settings.chrome,
+    };
+  }
+
+  return {
+    ...base,
+    socialLinks: packSocialLinksStorage(settings),
+  };
+}
 
 export function normalizeSiteSocialLink(raw: unknown): SiteSocialLink | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -127,11 +264,10 @@ export function normalizeSiteSocialLink(raw: unknown): SiteSocialLink | null {
 export function normalizeSiteSettings(raw: unknown): SiteSettings {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_SITE_SETTINGS };
   const row = raw as Record<string, unknown>;
-  const socialRaw = Array.isArray(row.socialLinks) ? row.socialLinks : [];
-  const socialLinks = socialRaw
-    .map(normalizeSiteSocialLink)
-    .filter((link): link is SiteSocialLink => link != null)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const unpacked = unpackSocialLinksStorage(row.socialLinks);
+
+  const socialLinks =
+    unpacked.socialLinks.length > 0 ? unpacked.socialLinks : [...DEFAULT_SITE_SOCIAL_LINKS];
 
   return {
     pwaBannerEnabled: row.pwaBannerEnabled !== false,
@@ -139,6 +275,10 @@ export function normalizeSiteSettings(raw: unknown): SiteSettings {
     apkBannerEnabled: row.apkBannerEnabled !== false,
     apkBannerVisible: row.apkBannerVisible !== false,
     showArticleViewCounts: row.showArticleViewCounts !== false,
-    socialLinks: socialLinks.length > 0 ? socialLinks : [...DEFAULT_SITE_SOCIAL_LINKS],
+    socialLinks,
+    homepageSections: normalizeHomepageSections(
+      row.homepageSections ?? unpacked.homepageSections
+    ),
+    chrome: normalizeSiteChromeSettings(row.chrome ?? row.siteChrome ?? unpacked.chrome),
   };
 }

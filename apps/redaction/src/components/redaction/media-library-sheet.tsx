@@ -11,6 +11,7 @@ import {
   isDeletableDuplicate,
 } from '@/lib/redaction/media-fingerprint';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
+import { useToast } from '@/components/ui/toast';
 
 type LibraryTab = 'library' | 'upload';
 
@@ -87,6 +88,7 @@ export function MediaLibrarySheet({
   onSelect,
   title = 'Choisir une image',
 }: MediaLibrarySheetProps) {
+  const toast = useToast();
   const [tab, setTab] = useState<LibraryTab>('library');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -235,6 +237,7 @@ export function MediaLibrarySheet({
 
       if (res.status === 409 && data.duplicate && data.media) {
         cacheRef.current.clear();
+        toast.info('Image déjà en médiathèque', 'Le fichier existant a été réutilisé.');
         onSelect({
           id: data.media.id,
           url: data.media.url,
@@ -256,10 +259,13 @@ export function MediaLibrarySheet({
         mime: data.media.mime ?? prepared.type,
       };
       cacheRef.current.clear();
+      toast.success('Image importée');
       onSelect(media);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload échoué');
+      const message = err instanceof Error ? err.message : 'Upload échoué';
+      setError(message);
+      toast.error('Import impossible', message);
     } finally {
       setUploading(false);
     }
@@ -280,8 +286,11 @@ export function MediaLibrarySheet({
       if (!res.ok) throw new Error(data.error ?? 'Suppression impossible');
       cacheRef.current.clear();
       setItems((prev) => prev.filter((entry) => entry.id !== item.id));
+      toast.success('Doublon supprimé');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Suppression impossible');
+      const message = err instanceof Error ? err.message : 'Suppression impossible';
+      setError(message);
+      toast.error('Suppression impossible', message);
     } finally {
       setDeletingId(null);
     }

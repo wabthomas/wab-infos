@@ -9,18 +9,21 @@ import { markAdsenseScriptLoaded } from '@/lib/adsense-loader';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
+import { SiteOptInPrompts } from '@/components/opt-in/site-opt-in-prompts';
 import { PwaInstallBanner } from '@/components/pwa/pwa-install-banner';
+import { useSiteChrome } from '@/components/providers/site-chrome-context';
 
 const AUTH_ONLY_PREFIXES = ['/connexion'];
 
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { client } = useAdsenseConfig();
+  const { chrome } = useSiteChrome();
   const [adsEnabled, setAdsEnabled] = useState(true);
 
   useEffect(() => {
-    setAdsEnabled(shouldShowAdsClient());
-  }, []);
+    setAdsEnabled(shouldShowAdsClient() && chrome.adsGloballyEnabled);
+  }, [chrome.adsGloballyEnabled]);
 
   return (
     <>
@@ -30,8 +33,9 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
           async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`}
           crossOrigin="anonymous"
-          strategy="lazyOnload"
+          strategy="afterInteractive"
           onLoad={markAdsenseScriptLoaded}
+          onReady={markAdsenseScriptLoaded}
         />
       ) : null}
       <Header menuOpen={menuOpen} onMenuOpenChange={setMenuOpen} />
@@ -39,12 +43,12 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <Footer />
-      <Suspense fallback={null}>
-        <MobileBottomNav
-          onOpenMenu={() => setMenuOpen((open) => !open)}
-          menuOpen={menuOpen}
-        />
-      </Suspense>
+      {chrome.mobileBottomNavEnabled ? (
+        <Suspense fallback={null}>
+          <MobileBottomNav onOpenMenu={() => setMenuOpen((open) => !open)} menuOpen={menuOpen} />
+        </Suspense>
+      ) : null}
+      <SiteOptInPrompts />
     </>
   );
 }

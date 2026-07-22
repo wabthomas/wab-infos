@@ -2,7 +2,11 @@ import wpRedirects from '@/data/wp-redirects.json';
 import manualRedirects from '@/data/wp-redirects-manual.json';
 import { isValidCategorySlug } from '@/config/site';
 
-/** Anciennes rubriques WordPress → rubrique Next.js */
+/**
+ * Anciennes rubriques WordPress → rubrique Next.js.
+ * Ne jamais y mettre un slug de rubrique actuelle (securite, societe, etc.) :
+ * sinon `/rubrique/{article}` non mappé redirige à tort vers la rubrique.
+ */
 export const LEGACY_CATEGORY_REDIRECTS: Record<string, string> = {
   sante: '/societe',
   'infos-sport': '/sports',
@@ -19,9 +23,6 @@ export const LEGACY_CATEGORY_REDIRECTS: Record<string, string> = {
   finance: '/economie',
   tech: '/technologies',
   technologie: '/technologies',
-  international: '/international',
-  societe: '/societe',
-  securite: '/securite',
   culture: '/societe',
   people: '/societe',
 };
@@ -83,10 +84,14 @@ export function resolveWpRedirect(pathname: string): string | null {
   const bySlug = data.slugs?.[lastSlug];
   if (bySlug && normalized !== bySlug) return bySlug;
 
-  if (segments.length === 2) {
+  // Repli 2 segments : anciens préfixes WP (ex. /sport/foo → /sports/foo).
+  // Toujours conserver le slug article — ne jamais renvoyer seulement la rubrique
+  // (sinon l’article est inaccessible et « Lire aussi » / similaires n’apparaissent jamais).
+  // Jamais pour une rubrique actuelle (/securite/foo doit atteindre la page article).
+  if (segments.length === 2 && !isValidCategorySlug(segments[0])) {
     const legacyPrefix = LEGACY_CATEGORY_REDIRECTS[segments[0]];
     if (legacyPrefix && !data.slugs?.[segments[1]]) {
-      return legacyPrefix;
+      return `${legacyPrefix}/${segments[1]}`;
     }
   }
 

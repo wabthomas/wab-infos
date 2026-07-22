@@ -13,20 +13,22 @@ import {
 } from '@/components/articles/article-page-async';
 import {
   ArticleBottomAd,
+  ArticleTopAd,
 } from '@/components/ads/adsense';
 import { ArticleBodyWithAds } from '@/components/articles/article-body-with-ads';
-import { siteConfig, resolveArticleCategorySlug, resolveCategoryMeta, isValidCategorySlug } from '@/config/site';
+import { siteConfig, resolveArticleCategorySlug, resolveCategoryMeta, isValidCategorySlug, canonicalizeCategorySlug } from '@/config/site';
 import { findMockArticleBySlug } from '@/lib/mock-data';
 import {
   generateArticleJsonLd,
   generateArticleMetadata,
   generateBreadcrumbJsonLd,
 } from '@/lib/seo';
-import { getArticleBySlug } from '@/lib/strapi';
+import { getArticleBySlug, getRelatedArticles } from '@/lib/strapi';
 import { getSiteSettings } from '@/lib/site-settings.server';
 import { formatArticleContent } from '@/lib/utils';
 import { GoogleSwgBasicScripts } from '@/components/google/swg-basic-scripts';
 import { MobileArticleBottomBar } from '@/components/layout/mobile-article-bottom-bar';
+import { pickRelatedArticles } from '@/lib/pick-related-articles';
 
 interface PageProps {
   params: Promise<{ category: string; slug: string }>;
@@ -41,7 +43,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const mock = findMockArticleBySlug(slug);
     if (mock) return generateArticleMetadata(mock, category);
   }
-  return { title: 'Article non trouvé' };
+  return {
+    title: 'Article non trouvé',
+    robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
+    alternates: {
+      // Évite d’hériter du canonical accueil si le layout en définit un.
+      canonical: `${siteConfig.url}/${category}/${slug}`,
+    },
+  };
 }
 
 export const revalidate = 60;
@@ -60,21 +69,29 @@ export default async function ArticlePage({ params }: PageProps) {
 
   const siteSettings = await getSiteSettings();
 
-  const articleCategorySlug = article.category?.slug;
-  if (articleCategorySlug && articleCategorySlug !== category) {
+  const articleCategorySlug = article.category?.slug
+    ? canonicalizeCategorySlug(article.category.slug)
+    : undefined;
+  const urlCategorySlug = canonicalizeCategorySlug(category);
+
+  if (articleCategorySlug && articleCategorySlug !== urlCategorySlug) {
     // Rubrique canonique différente de l’URL (ancien permalien ou lien incorrect)
     permanentRedirect(`/${articleCategorySlug}/${slug}`);
   }
 
-  if (!articleCategorySlug && !isValidCategorySlug(category)) {
+  if (!articleCategorySlug && !isValidCategorySlug(urlCategorySlug)) {
     notFound();
   }
 
-  const categorySlug = resolveArticleCategorySlug(article, category);
+  const categorySlug = resolveArticleCategorySlug(article, urlCategorySlug);
   const cat = resolveCategoryMeta(categorySlug, {
     name: article.category?.name,
     color: article.category?.color,
   });
+
+  const tagSlugs = article.tags?.map((tag) => tag.slug) ?? [];
+  const relatedPool = await getRelatedArticles(slug, categorySlug, 10, tagSlugs, article.title);
+  const readAlsoArticles = pickRelatedArticles(relatedPool, slug, 3);
 
   const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;
   const articleJsonLd = generateArticleJsonLd(article, category);
@@ -108,7 +125,12 @@ export default async function ArticlePage({ params }: PageProps) {
               showViewCounts={siteSettings.showArticleViewCounts}
             />
 
-            <ArticleBodyWithAds html={formatArticleContent(article.content)} />
+            <ArticleTopAd />
+
+            <ArticleBodyWithAds
+              html={formatArticleContent(article.content)}
+              readAlsoArticles={readAlsoArticles}
+            />
 
             <ArticleBottomAd />
 
@@ -131,6 +153,9 @@ export default async function ArticlePage({ params }: PageProps) {
                 slug={slug}
                 categorySlug={categorySlug}
                 categoryName={cat.name}
+                tagSlugs={tagSlugs}
+                title={article.title}
+                excludeSlugs={readAlsoArticles.map((article) => article.slug)}
               />
             </Suspense>
 
@@ -145,6 +170,8 @@ export default async function ArticlePage({ params }: PageProps) {
               categorySlug={categorySlug}
               categoryName={cat.name}
               categoryColor={cat.color}
+              tagSlugs={tagSlugs}
+              title={article.title}
             />
           </Suspense>
         </div>

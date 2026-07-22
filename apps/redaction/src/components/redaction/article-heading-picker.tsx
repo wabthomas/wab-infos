@@ -56,6 +56,9 @@ export function ArticleHeadingPicker({
               <button
                 key={id}
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() => {
                   setBlockHeading(editor, level);
                   onClose();

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useReducer } from 'react';
 import type { Editor } from '@tiptap/react';
 import {
   Bold,
@@ -19,10 +20,12 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-function withOptionalFocus(editor: Editor) {
-  const chain = editor.chain();
-  if (editor.isFocused) chain.focus();
-  return chain;
+/** Toujours recentrer TipTap sans scroll — sinon les outils échouent dès que le focus a quitté l’éditeur (ex. mobile). */
+function runCommand(
+  editor: Editor,
+  apply: (chain: ReturnType<Editor['chain']>) => ReturnType<Editor['chain']>
+) {
+  return apply(editor.chain().focus(undefined, { scrollIntoView: false })).run();
 }
 
 function Btn({
@@ -30,30 +33,51 @@ function Btn({
   disabled,
   label,
   onClick,
+  className,
   children,
 }: {
   active?: boolean;
   disabled?: boolean;
   label: string;
   onClick: () => void;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active}
       disabled={disabled}
-      onMouseDown={(e) => e.preventDefault()}
+      // Empêche le blur / la perte de sélection avant le click (souris + tactile).
+      onPointerDown={(e) => {
+        if (e.button === 0) e.preventDefault();
+      }}
       onClick={onClick}
       className={cn(
-        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors',
+        'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors',
+        'disabled:pointer-events-none disabled:opacity-40',
         active
-          ? 'bg-primary/15 text-primary'
-          : 'text-foreground active:bg-muted lg:hover:bg-muted'
+          ? 'bg-primary text-primary-foreground shadow-sm'
+          : 'text-foreground/85 active:bg-muted lg:hover:bg-muted lg:hover:text-foreground',
+        className
       )}
     >
       {children}
     </button>
+  );
+}
+
+function Group({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn(
+        'flex shrink-0 items-center gap-0.5 rounded-xl bg-muted/55 p-0.5 ring-1 ring-border/60',
+        className
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -88,107 +112,128 @@ export function ArticleEditorToolbar({
   onEmbedClick,
   className,
 }: ArticleEditorToolbarProps) {
+  const [, bump] = useReducer((n: number) => n + 1, 0);
+
+  useEffect(() => {
+    let frame = 0;
+    const onUpdate = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        bump();
+      });
+    };
+    editor.on('selectionUpdate', onUpdate);
+    editor.on('transaction', onUpdate);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      editor.off('selectionUpdate', onUpdate);
+      editor.off('transaction', onUpdate);
+    };
+  }, [editor]);
+
   return (
     <div
       className={cn(
-        'border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90',
+        'border-t border-border/80 bg-background/95 shadow-[0_-6px_24px_rgba(0,0,0,0.06)] backdrop-blur-md supports-[backdrop-filter]:bg-background/90',
         className
       )}
       role="toolbar"
       aria-label="Mise en forme"
     >
-      <div className="flex items-center gap-0.5 overflow-x-auto px-2 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:justify-center lg:gap-1 lg:overflow-visible lg:px-4 lg:py-2 [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-1.5 overflow-x-auto px-2.5 py-2 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:justify-center lg:gap-2 lg:overflow-visible lg:px-4 [&::-webkit-scrollbar]:hidden">
         {showDismissKeyboard && onDismissKeyboard ? (
-          <>
-            <Btn label="Masquer le clavier" onClick={onDismissKeyboard}>
-              <ChevronDown className="h-[18px] w-[18px]" strokeWidth={2.5} />
-            </Btn>
-            <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden />
-          </>
+          <Btn label="Masquer le clavier" onClick={onDismissKeyboard}>
+            <ChevronDown className="h-[18px] w-[18px]" strokeWidth={2.25} />
+          </Btn>
         ) : null}
-        <Btn label="Plus de blocs" onClick={onBlocksClick}>
+
+        <Btn
+          label="Ajouter un bloc"
+          onClick={onBlocksClick}
+          className="bg-primary text-primary-foreground shadow-sm shadow-primary/25 lg:hover:bg-primary/90 lg:hover:text-primary-foreground"
+        >
           <Plus className="h-[18px] w-[18px]" strokeWidth={2.5} />
         </Btn>
-        <Btn
-          label="Séparateur"
-          onClick={() => withOptionalFocus(editor).setHorizontalRule().run()}
-        >
-          <SeparatorHorizontal className="h-[18px] w-[18px]" strokeWidth={2.5} />
-        </Btn>
 
-        <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden />
+        <Group>
+          <Btn
+            label="Gras"
+            active={editor.isActive('bold')}
+            onClick={() => runCommand(editor, (c) => c.toggleBold())}
+          >
+            <Bold className="h-[17px] w-[17px]" strokeWidth={2.5} />
+          </Btn>
+          <Btn
+            label="Italique"
+            active={editor.isActive('italic')}
+            onClick={() => runCommand(editor, (c) => c.toggleItalic())}
+          >
+            <Italic className="h-[17px] w-[17px]" strokeWidth={2.5} />
+          </Btn>
+          <Btn
+            label="Souligné"
+            active={editor.isActive('underline')}
+            onClick={() => runCommand(editor, (c) => c.toggleUnderline())}
+          >
+            <UnderlineIcon className="h-[17px] w-[17px]" strokeWidth={2.5} />
+          </Btn>
+        </Group>
 
-        <Btn
-          label="Gras"
-          active={editor.isActive('bold')}
-          onClick={() => withOptionalFocus(editor).toggleBold().run()}
-        >
-          <Bold className="h-[18px] w-[18px]" strokeWidth={2.5} />
-        </Btn>
-        <Btn
-          label="Italique"
-          active={editor.isActive('italic')}
-          onClick={() => withOptionalFocus(editor).toggleItalic().run()}
-        >
-          <Italic className="h-[18px] w-[18px]" strokeWidth={2.5} />
-        </Btn>
-        <Btn
-          label="Souligné"
-          active={editor.isActive('underline')}
-          onClick={() => withOptionalFocus(editor).toggleUnderline().run()}
-        >
-          <UnderlineIcon className="h-[18px] w-[18px]" strokeWidth={2.5} />
-        </Btn>
+        <Group>
+          <Btn
+            label="Style de titre"
+            active={editor.isActive('heading')}
+            onClick={onHeadingClick}
+            className="w-auto min-w-10 gap-0.5 px-2"
+          >
+            <Heading2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <span className="text-[11px] font-bold tracking-wide">{headingToolbarLabel(editor)}</span>
+          </Btn>
+          <Btn
+            label="Citation"
+            active={editor.isActive('blockquote')}
+            onClick={() => runCommand(editor, (c) => c.toggleBlockquote())}
+          >
+            <Quote className="h-[17px] w-[17px]" strokeWidth={2.5} />
+          </Btn>
+          <Btn
+            label="Liste"
+            active={editor.isActive('bulletList')}
+            onClick={() => runCommand(editor, (c) => c.toggleBulletList())}
+          >
+            <List className="h-[17px] w-[17px]" strokeWidth={2.5} />
+          </Btn>
+          <Btn
+            label="Liste numérotée"
+            active={editor.isActive('orderedList')}
+            onClick={() => runCommand(editor, (c) => c.toggleOrderedList())}
+          >
+            <ListOrdered className="h-[17px] w-[17px]" strokeWidth={2.5} />
+          </Btn>
+        </Group>
 
-        <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden />
-
-        <Btn
-          label="Style de titre"
-          active={editor.isActive('heading')}
-          onClick={onHeadingClick}
-        >
-          <span className="flex items-center gap-0.5 text-[11px] font-bold leading-none">
-            <Heading2 className="h-4 w-4" strokeWidth={2.5} />
-            {headingToolbarLabel(editor)}
-          </span>
-        </Btn>
-        <Btn
-          label="Citation"
-          active={editor.isActive('blockquote')}
-          onClick={() => withOptionalFocus(editor).toggleBlockquote().run()}
-        >
-          <Quote className="h-[18px] w-[18px]" strokeWidth={2.5} />
-        </Btn>
-        <Btn
-          label="Liste"
-          active={editor.isActive('bulletList')}
-          onClick={() => withOptionalFocus(editor).toggleBulletList().run()}
-        >
-          <List className="h-[18px] w-[18px]" strokeWidth={2.5} />
-        </Btn>
-        <Btn
-          label="Liste numérotée"
-          active={editor.isActive('orderedList')}
-          onClick={() => withOptionalFocus(editor).toggleOrderedList().run()}
-        >
-          <ListOrdered className="h-[18px] w-[18px]" strokeWidth={2.5} />
-        </Btn>
-
-        <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden />
-
-        <Btn label="Lien" active={editor.isActive('link')} onClick={onLinkClick}>
-          <Link2 className="h-[18px] w-[18px]" strokeWidth={2.5} />
-        </Btn>
-        <Btn label="Image" disabled={uploading} onClick={onImageClick}>
-          {uploading ? (
-            <Loader2 className="h-[18px] w-[18px] animate-spin" />
-          ) : (
-            <ImageIcon className="h-[18px] w-[18px]" strokeWidth={2.5} />
-          )}
-        </Btn>
-        <Btn label="Vidéo ou réseau social" onClick={onEmbedClick}>
-          <Video className="h-[18px] w-[18px]" strokeWidth={2.5} />
-        </Btn>
+        <Group>
+          <Btn label="Lien" active={editor.isActive('link')} onClick={onLinkClick}>
+            <Link2 className="h-[17px] w-[17px]" strokeWidth={2.5} />
+          </Btn>
+          <Btn label="Image" disabled={uploading} onClick={onImageClick}>
+            {uploading ? (
+              <Loader2 className="h-[17px] w-[17px] animate-spin" />
+            ) : (
+              <ImageIcon className="h-[17px] w-[17px]" strokeWidth={2.5} />
+            )}
+          </Btn>
+          <Btn label="Vidéo ou réseau social" onClick={onEmbedClick}>
+            <Video className="h-[17px] w-[17px]" strokeWidth={2.5} />
+          </Btn>
+          <Btn
+            label="Séparateur"
+            onClick={() => runCommand(editor, (c) => c.setHorizontalRule())}
+          >
+            <SeparatorHorizontal className="h-[17px] w-[17px]" strokeWidth={2.5} />
+          </Btn>
+        </Group>
       </div>
     </div>
   );

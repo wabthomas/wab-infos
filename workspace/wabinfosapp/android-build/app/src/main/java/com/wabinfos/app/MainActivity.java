@@ -28,7 +28,6 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -60,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
     private ProgressBar progressBar;
-    private LinearLayout offlineLayout;
+    private View offlineLayout;
     private View launchOverlay;
     private boolean launchOverlayDismissed = false;
 
@@ -262,9 +261,35 @@ public class MainActivity extends AppCompatActivity {
                 super.onPageFinished(view, url);
                 swipeRefresh.setRefreshing(false);
                 progressBar.setVisibility(View.GONE);
+                if (isOnline()) {
+                    hideOffline();
+                }
                 injectNativeShareBridge(view);
                 injectStatusBarColorSync(view);
                 dismissLaunchOverlay();
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, android.webkit.WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                if (request == null || !request.isForMainFrame()) return;
+                runOnUiThread(() -> {
+                    if (!isOnline()) {
+                        showOffline();
+                    }
+                });
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) return;
+                runOnUiThread(() -> {
+                    if (!isOnline()) {
+                        showOffline();
+                    }
+                });
             }
 
             @Override
@@ -542,6 +567,8 @@ public class MainActivity extends AppCompatActivity {
     private void showOffline() {
         offlineLayout.setVisibility(View.VISIBLE);
         webView.setVisibility(View.GONE);
+        swipeRefresh.setRefreshing(false);
+        progressBar.setVisibility(View.GONE);
         dismissLaunchOverlay();
     }
 

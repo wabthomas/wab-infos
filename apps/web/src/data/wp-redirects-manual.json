@@ -1,5 +1,8 @@
 {
   "paths": {
-    "/urgent-les-etats-unis-annonce-son-soutien-800-millions-a-lukraine": "/international"
+    "/urgent-les-etats-unis-annonce-son-soutien-800-millions-a-lukraine": "/international",
+    "/direct": "/tv",
+    "/direct-tv": "/tv",
+    "/live": "/tv"
   }
 }

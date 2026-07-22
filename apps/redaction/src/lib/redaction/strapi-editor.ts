@@ -92,8 +92,7 @@ async function verifyUsersPermissionsUser(jwt: string): Promise<RedactionUser | 
   const user = (await res.json()) as { id: number; email: string; username: string };
   if (!user.email) return null;
 
-  const strapiRoleName = await fetchUsersPermissionsRoleName(user.id, jwt);
-  return mapUsersPermissionsToRedactionUser(user, strapiRoleName);
+  return resolveRedactionUserAfterAuth(user, jwt);
 }
 
 function normalizeStrapiRoleName(name: string): string {
@@ -182,6 +181,78 @@ function mapAdminPanelToRedactionUser(
     role,
     strapiRoleName: strapiRoleNames.join(', ') || undefined,
   };
+}
+
+async function fetchUsersPermissionsRoleNameByEmail(
+  email: string
+): Promise<string | undefined> {
+  try {
+    const response = await strapiFetch<{
+      data?: Array<{ role?: { name?: string } }>;
+    }>('/users', {
+      filters: { email: { $eqi: email.toLowerCase() } },
+      populate: { role: true },
+      pagination: { pageSize: 1 },
+    });
+    const row = response.data?.[0];
+    return row?.role?.name;
+  } catch {
+    return undefined;
+  }
+}
+
+async function fetchRedactionProfileFromCms(email: string): Promise<{
+  adminPanelRoles: string[];
+  usersPermissionsRole: string | null;
+} | null> {
+  const secret =
+    process.env.REVALIDATION_SECRET?.trim() || process.env.PUSH_SECRET?.trim();
+  if (!secret) return null;
+
+  try {
+    const url = new URL(`${getStrapiUrl()}/auth/redaction-profile`);
+    url.searchParams.set('email', email.toLowerCase());
+    const res = await fetch(url, {
+      headers: { 'x-revalidation-secret': secret },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as {
+      adminPanelRoles?: string[];
+      usersPermissionsRole?: string | null;
+    };
+    return {
+      adminPanelRoles: body.adminPanelRoles ?? [],
+      usersPermissionsRole: body.usersPermissionsRole ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function resolveRedactionUserAfterAuth(
+  user: { id: number; email: string; username: string },
+  jwt: string
+): Promise<RedactionUser> {
+  const email = user.email.toLowerCase();
+  const username = user.username || email.split('@')[0] || 'user';
+
+  let strapiRoleName = await fetchUsersPermissionsRoleName(user.id, jwt);
+  if (!strapiRoleName) {
+    strapiRoleName = await fetchUsersPermissionsRoleNameByEmail(email);
+  }
+
+  const profile = await fetchRedactionProfileFromCms(email);
+  if (!strapiRoleName && profile?.usersPermissionsRole) {
+    strapiRoleName = profile.usersPermissionsRole;
+  }
+
+  const adminPanelRoles = profile?.adminPanelRoles ?? [];
+  if (adminPanelRoles.length > 0) {
+    return mapAdminPanelToRedactionUser({ id: user.id, email, username }, adminPanelRoles);
+  }
+
+  return mapUsersPermissionsToRedactionUser({ id: user.id, email, username }, strapiRoleName);
 }
 
 async function fetchUsersPermissionsRoleName(
@@ -1779,11 +1850,11 @@ async function loginUsersPermissionsUser(
 
   if (!res.ok || !data.jwt || !data.user?.email) return null;
 
-  const strapiRoleName = await fetchUsersPermissionsRoleName(data.user.id, data.jwt);
+  const user = await resolveRedactionUserAfterAuth(data.user, data.jwt);
 
   return {
     jwt: data.jwt,
-    user: mapUsersPermissionsToRedactionUser(data.user, strapiRoleName),
+    user,
   };
 }
 
@@ -1833,6 +1904,79 @@ export async function loginRedactionUser(
   }
 
   throw new RedactionAuthError('Identifiants incorrects');
+}
+
+function isGoogleEmailAllowed(email: string): boolean {
+  const domains = (process.env.REDACTION_GOOGLE_ALLOWED_DOMAINS || '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (domains.length === 0) {
+    // Sécurité : en prod, exiger une allowlist de domaines.
+    return process.env.NODE_ENV !== 'production';
+  }
+
+  const domain = email.split('@')[1]?.toLowerCase();
+  return Boolean(domain && domains.includes(domain));
+}
+
+/**
+ * Échange le access_token renvoyé par `/api/connect/google` contre un JWT rédaction.
+ */
+export async function loginRedactionUserWithGoogleAccessToken(
+  accessToken: string
+): Promise<{ jwt: string; user: RedactionUser }> {
+  const token = accessToken.trim();
+  if (!token) {
+    throw new RedactionAuthError('Jeton Google manquant');
+  }
+
+  const res = await fetch(
+    `${getStrapiUrl()}/api/auth/google/callback?access_token=${encodeURIComponent(token)}`,
+    { cache: 'no-store', redirect: 'manual' }
+  );
+
+  if (res.status >= 300 && res.status < 400) {
+    throw new RedactionAuthError(
+      'Le CMS a redirigé au lieu de renvoyer un JWT — vérifiez redirect-google-auth (ne pas intercepter /api/auth/google/callback)'
+    );
+  }
+
+  let data: {
+    jwt?: string;
+    user?: { id: number; email?: string; username?: string };
+    error?: { message?: string };
+  };
+  try {
+    data = (await res.json()) as typeof data;
+  } catch {
+    throw new RedactionAuthError('Réponse CMS invalide lors de la connexion Google');
+  }
+
+  if (!res.ok || !data.jwt || !data.user?.email) {
+    throw new RedactionAuthError(
+      data.error?.message || 'Connexion Google refusée ou compte inconnu'
+    );
+  }
+
+  const email = data.user.email.toLowerCase();
+  if (!isGoogleEmailAllowed(email)) {
+    throw new RedactionAuthError(
+      'Ce compte Google n’est pas autorisé pour l’espace rédaction'
+    );
+  }
+
+  const user = await resolveRedactionUserAfterAuth(
+    {
+      id: data.user.id,
+      email,
+      username: data.user.username || email.split('@')[0] || 'user',
+    },
+    data.jwt
+  );
+
+  return { jwt: data.jwt, user };
 }
 
 function mapComment(entity: StrapiEntity): RedactionComment {

@@ -107,6 +107,31 @@ export function getCategoryBySlug(slug: string) {
   return categories.find((c) => c.slug === slug);
 }
 
+/** Anciens slugs WP / variantes → slug canonique du site */
+const CATEGORY_SLUG_ALIASES: Record<string, CategorySlug> = {
+  sport: 'sports',
+  'infos-sport': 'sports',
+  actusports: 'sports',
+  sante: 'societe',
+  culture: 'societe',
+  people: 'societe',
+  tech: 'technologies',
+  technologie: 'technologies',
+  'economie-finance': 'economie',
+  finance: 'economie',
+  rdc: 'actualites-rdc',
+  congo: 'actualites-rdc',
+  urgent: 'actualite',
+  flash: 'actualite',
+  'actualite-politique': 'politique',
+  'actualites-politique': 'politique',
+  'politique-rdc': 'politique',
+};
+
+export function canonicalizeCategorySlug(slug: string): string {
+  return CATEGORY_SLUG_ALIASES[slug] ?? slug;
+}
+
 /** URL relative d'un article */
 export function getArticlePath(
   article: { slug: string; category?: { slug?: string } },
@@ -120,7 +145,8 @@ export function resolveArticleCategorySlug(
   article: { category?: { slug?: string } },
   urlCategory?: string
 ): string {
-  return article.category?.slug ?? urlCategory ?? 'actualite';
+  const raw = article.category?.slug ?? urlCategory ?? 'actualite';
+  return canonicalizeCategorySlug(raw);
 }
 
 /** URL absolue d'une page vidéo sur le site */

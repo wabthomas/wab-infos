@@ -42,8 +42,31 @@ function publisherLogoObject() {
 function resolveCanonicalUrl(article: Article, defaultUrl: string): string {
   const raw = article.canonicalUrl?.trim();
   if (!raw) return defaultUrl;
-  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-  return `${siteConfig.url}${raw.startsWith('/') ? raw : `/${raw}`}`;
+
+  try {
+    const site = new URL(siteConfig.url);
+    const candidate = raw.startsWith('http://') || raw.startsWith('https://')
+      ? new URL(raw)
+      : new URL(raw.startsWith('/') ? raw : `/${raw}`, site.origin);
+
+    const host = candidate.hostname.replace(/^www\./, '');
+    const siteHost = site.hostname.replace(/^www\./, '');
+    if (host !== siteHost) {
+      // Ignore les canonicals WP / domaines externes (ex. app.wab-infos.com).
+      return defaultUrl;
+    }
+
+    // Canonical vers l’accueil ou une URL trop courte = donnée d’import invalide.
+    const path = candidate.pathname.replace(/\/$/, '') || '/';
+    if (path === '/' || path.split('/').filter(Boolean).length < 2) {
+      return defaultUrl;
+    }
+
+    candidate.hash = '';
+    return candidate.toString().replace(/\/$/, '');
+  } catch {
+    return defaultUrl;
+  }
 }
 
 export function generateOrganizationJsonLd(): WithContext<NewsMediaOrganization> {
@@ -442,7 +465,14 @@ export function generateHomeMetadata() {
   return {
     title: `${siteConfig.name} — Actualités RDC et International`,
     description: siteConfig.description,
-    alternates: { canonical: siteConfig.url },
+    alternates: {
+      canonical: siteConfig.url,
+      languages: {
+        'fr-FR': siteConfig.url,
+        'fr-CD': siteConfig.url,
+        fr: siteConfig.url,
+      },
+    },
     openGraph: {
       type: 'website' as const,
       title: `${siteConfig.name} — Actualités RDC et International`,

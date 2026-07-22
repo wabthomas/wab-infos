@@ -22,8 +22,8 @@ android {
         applicationId "com.wabinfos.app"
         minSdk 22
         targetSdk 34
-        versionCode 18
-        versionName "1.1.5"
+        versionCode 25
+        versionName "1.2.2"
 
         buildConfigField "boolean", "HAS_FIREBASE", hasFirebase.toString()
         buildConfigField "String", "SITE_URL", '"https://wab-infos.com"'
@@ -85,6 +85,7 @@ dependencies {
     implementation 'androidx.coordinatorlayout:coordinatorlayout:1.2.0'
     implementation 'androidx.activity:activity:1.9.0'
     implementation 'com.google.android.material:material:1.11.0'
+    implementation 'com.google.android.gms:play-services-auth:21.2.0'
 
     withFcmImplementation platform('com.google.firebase:firebase-bom:33.1.2')
     withFcmImplementation 'com.google.firebase:firebase-messaging'

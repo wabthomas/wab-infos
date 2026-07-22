@@ -1,39 +1,31 @@
+'use client';
+
 import Link from 'next/link';
 import { ExternalLink, Mail, Radio, Rss, Tv } from 'lucide-react';
-import { categories, siteConfig } from '@/config/site';
+import { siteConfig } from '@/config/site';
+import { getVisibleNavLinks, type SocialFollowPlatform } from '@wab-infos/shared';
 import { SiteLogo } from '@/components/brand/site-logo';
+import { useSiteChrome } from '@/components/providers/site-chrome-context';
+import { resolveNavCategories } from '@/lib/resolve-nav-categories';
 
-const socialLinks = [
-  {
-    href: 'https://facebook.com/wabinfos',
-    label: 'Facebook',
-    abbr: 'f',
-    hover: 'hover:bg-[#1877F2] hover:border-[#1877F2]',
-  },
-  {
-    href: 'https://twitter.com/wabinfos',
-    label: 'X (Twitter)',
-    abbr: '𝕏',
-    hover: 'hover:bg-foreground hover:border-foreground hover:text-background',
-  },
-  {
-    href: siteConfig.youtubeChannelUrl,
-    label: 'YouTube — Wab-infos TV',
-    abbr: '▶',
-    hover: 'hover:bg-red-600 hover:border-red-600',
-  },
-] as const;
-
-const footerLinks = [
-  { href: '/a-propos', label: 'À propos' },
-  { href: '/contact', label: 'Contact' },
-  { href: '/mentions-legales', label: 'Mentions légales' },
-  { href: '/politique-confidentialite', label: 'Confidentialité' },
-] as const;
+const SOCIAL_ABBR: Record<SocialFollowPlatform, string> = {
+  whatsapp: 'WA',
+  facebook: 'f',
+  x: '𝕏',
+  youtube: '▶',
+  tiktok: '♪',
+};
 
 export function Footer() {
+  const { chrome, socialLinks } = useSiteChrome();
   const currentYear = new Date().getFullYear();
-  const mainCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
+  const mainCategories = resolveNavCategories(chrome.navCategorySlugs);
+  const footerLegalLinks = getVisibleNavLinks(chrome.footerLegalLinks);
+  const footerSocialLinks = chrome.footerSocialFromSettings
+    ? socialLinks.filter((link) => link.visible)
+    : [];
+
+  if (!chrome.footerEnabled) return null;
 
   return (
     <footer className="relative mt-auto hidden overflow-hidden bg-[#0c0c0f] text-white md:block">
@@ -48,66 +40,65 @@ export function Footer() {
       />
 
       <div className="container relative mx-auto px-4 pb-8 pt-12">
-        <div className="mb-10 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm md:p-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-lg">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-primary">
-                Restez informé
-              </p>
-              <h2 className="font-display mt-1 text-2xl font-bold tracking-tight text-white md:text-3xl">
-                L&apos;actualité RDC &amp; Afrique, chaque jour
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-white/65">
-                Newsletter, Wab-infos TV et flux RSS pour ne rien manquer.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/#newsletter"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-colors hover:bg-primary/90"
-              >
-                <Mail className="h-4 w-4" />
-                Newsletter
-              </Link>
-              <Link
-                href="/tv"
-                className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 hover:bg-white/10"
-              >
-                <Tv className="h-4 w-4 text-red-400" />
-                Wab-infos TV
-              </Link>
+        {chrome.footerCta.enabled ? (
+          <div className="mb-10 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-sm md:p-8">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-lg">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-primary">
+                  {chrome.footerCta.eyebrow}
+                </p>
+                <h2 className="font-display mt-1 text-2xl font-bold tracking-tight text-white md:text-3xl">
+                  {chrome.footerCta.title}
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">{chrome.footerCta.subtitle}</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href={chrome.footerCta.primaryHref}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-colors hover:bg-primary/90"
+                >
+                  <Mail className="h-4 w-4" />
+                  {chrome.footerCta.primaryLabel}
+                </Link>
+                <Link
+                  href={chrome.footerCta.secondaryHref}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white/30 hover:bg-white/10"
+                >
+                  <Tv className="h-4 w-4 text-red-400" />
+                  {chrome.footerCta.secondaryLabel}
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-4">
             <Link href="/" className="group inline-flex items-center">
               <SiteLogo variant="mono" className="h-14 sm:h-16 transition-opacity group-hover:opacity-90" />
             </Link>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/60">
-              {siteConfig.description}
-            </p>
-            <div className="mt-6 flex gap-2.5">
-              {socialLinks.map(({ href, label, abbr, hover }) => (
-                <a
-                  key={href}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={label}
-                  className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-sm font-bold text-white/80 transition-all ${hover} hover:text-white`}
-                >
-                  {abbr}
-                </a>
-              ))}
-            </div>
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/60">{siteConfig.description}</p>
+            {footerSocialLinks.length > 0 ? (
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                {footerSocialLinks.map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={link.label}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-sm font-bold text-white/80 transition-all hover:text-white"
+                    style={{ borderColor: `${link.brandColor}55` }}
+                  >
+                    {SOCIAL_ABBR[link.id]}
+                  </a>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="lg:col-span-3">
-            <h3 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-white/45">
-              Rubriques
-            </h3>
+            <h3 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-white/45">Rubriques</h3>
             <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-1">
               {mainCategories.map((cat) => (
                 <li key={cat.slug}>
@@ -127,17 +118,15 @@ export function Footer() {
           </div>
 
           <div className="lg:col-span-2">
-            <h3 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-white/45">
-              Wab-infos
-            </h3>
+            <h3 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-white/45">Wab-infos</h3>
             <ul className="space-y-2.5">
-              {footerLinks.map(({ href, label }) => (
-                <li key={href}>
+              {footerLegalLinks.map((link) => (
+                <li key={link.id}>
                   <Link
-                    href={href}
+                    href={link.href}
                     className="text-sm text-white/70 transition-colors hover:text-primary"
                   >
-                    {label}
+                    {link.label}
                   </Link>
                 </li>
               ))}
@@ -188,8 +177,7 @@ export function Footer() {
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 text-center text-xs text-white/45 sm:flex-row sm:text-left">
           <p>
             &copy; {currentYear}{' '}
-            <span className="font-semibold text-white/70">{siteConfig.name}</span>. Tous droits
-            réservés.
+            <span className="font-semibold text-white/70">{siteConfig.name}</span>. Tous droits réservés.
           </p>
           <p>Actualités RDC &amp; International — Information fiable en continu</p>
         </div>

@@ -1,11 +1,14 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Article, Video } from '@wab-infos/shared';
 import { ArrowRight, Play, Radio, Tv } from 'lucide-react';
-import { categories, getVideoPagePath, siteConfig } from '@/config/site';
+import { getVideoPagePath, siteConfig } from '@/config/site';
 import { LiveNewsTimeline } from '@/components/home/live-news-timeline';
 import { NewsletterSignup } from '@/components/home/newsletter-signup';
 import { PushAlertsSignup } from '@/components/home/push-alerts-signup';
+import { useSiteChrome } from '@/components/providers/site-chrome-context';
 import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { ArticleCard } from '@/components/articles/article-card';
 import { SidebarAd } from '@/components/ads/adsense';
@@ -13,9 +16,8 @@ import { getYoutubeThumbnailUrl } from '@/lib/seo';
 import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
 import { VideoViewCount } from '@/components/tv/video-view-count';
 import { formatRelativeDate } from '@/lib/utils';
+import { resolveNavCategories } from '@/lib/resolve-nav-categories';
 import { cn } from '@/lib/utils';
-
-const navCategories = categories.filter((cat) => cat.slug !== 'wab-infos-tv');
 
 const SIDEBAR_LIST_LIMIT = 4;
 
@@ -116,6 +118,8 @@ export function ContentSidebar({
   showTvPromo = true,
   articlesGridOnMobile = false,
 }: ContentSidebarProps) {
+  const { chrome } = useSiteChrome();
+  const navCategories = resolveNavCategories(chrome.navCategorySlugs);
   const excludedSlugs = new Set([
     ...excludeArticleSlugs,
     ...liveFeed.slice(0, SIDEBAR_LIST_LIMIT).map((a) => a.slug),
@@ -305,9 +309,9 @@ export function ContentSidebar({
         </div>
       )}
 
-      <NewsletterSignup variant="compact" />
+      {chrome.newsletterWidgetEnabled ? <NewsletterSignup variant="compact" /> : null}
 
-      <PushAlertsSignup variant="compact" />
+      {chrome.pushAlertsWidgetEnabled ? <PushAlertsSignup variant="compact" /> : null}
     </aside>
   );
 }

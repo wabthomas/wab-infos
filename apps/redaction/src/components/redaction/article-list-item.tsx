@@ -10,6 +10,7 @@ import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
 import { getRedactionArticleStatusLabel } from '@/lib/redaction/status-label';
 import { cn, formatArticleDate, getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
 import { ArticleListOptionsMenu } from '@/components/redaction/article-list-options-menu';
+import { useToast } from '@/components/ui/toast';
 
 interface ArticleListItemProps {
   article: RedactionArticle;
@@ -35,6 +36,7 @@ export function ArticleListItem({
   onDeleted,
   onPublicationChange,
 }: ArticleListItemProps) {
+  const toast = useToast();
   const publicUrl = getPublicArticleUrl(article);
   const editHref = `/articles/${article.documentId}/edit`;
   const thumbnailUrl = getStrapiMediaUrl(article.featuredImage?.url);
@@ -53,7 +55,7 @@ export function ArticleListItem({
         return;
       }
       await navigator.clipboard.writeText(publicUrl);
-      window.alert('Lien copié dans le presse-papiers.');
+      toast.success('Lien copié', 'Adresse de l’article placée dans le presse-papiers.');
     } catch {
       // annulation partage
     }
@@ -76,9 +78,13 @@ export function ArticleListItem({
       });
       const data = await readApiJsonResponse<{ error?: string }>(res);
       if (!res.ok) throw new Error(data.error ?? 'Suppression impossible');
+      toast.success('Article supprimé');
       onDeleted?.(article.documentId);
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Suppression impossible');
+      toast.error(
+        'Suppression impossible',
+        err instanceof Error ? err.message : 'Une erreur est survenue.'
+      );
     } finally {
       setDeleting(false);
     }
@@ -106,9 +112,18 @@ export function ArticleListItem({
       if (!res.ok || !data.article) {
         throw new Error(data.error ?? 'Action impossible');
       }
+      toast.success(
+        publish ? 'Article publié' : 'Article dépublié',
+        publish
+          ? 'L’article est maintenant visible sur le site.'
+          : 'L’article n’est plus visible sur le site.'
+      );
       onPublicationChange?.(article.documentId, data.article);
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Action impossible');
+      toast.error(
+        publish ? 'Publication impossible' : 'Dépublication impossible',
+        err instanceof Error ? err.message : 'Une erreur est survenue.'
+      );
     } finally {
       setTogglingPublication(false);
     }

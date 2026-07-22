@@ -1,6 +1,7 @@
 import qs from 'qs';
 import {
   DEFAULT_SITE_SETTINGS,
+  buildStrapiSiteSettingsPayload,
   normalizeSiteSettings,
   type SiteSettings,
 } from '@wab-infos/shared';
@@ -62,9 +63,21 @@ export async function updateEditorSiteSettings(
   }
 
   const data = normalizeSiteSettings(payload);
+
+  let existingRow: Record<string, unknown> | null = null;
+  try {
+    const existing = await strapiSettingsFetch<{ data?: unknown }>('/site-setting');
+    if (existing.data && typeof existing.data === 'object') {
+      existingRow = existing.data as Record<string, unknown>;
+    }
+  } catch {
+    // Enregistrement possible même si la lecture préalable échoue.
+  }
+
+  const strapiPayload = buildStrapiSiteSettingsPayload(data, existingRow);
   const response = await strapiSettingsFetch<{ data?: unknown }>('/site-setting', {
     method: 'PUT',
-    body: JSON.stringify({ data }),
+    body: JSON.stringify({ data: strapiPayload }),
   });
-  return normalizeSiteSettings(response.data ?? data);
+  return normalizeSiteSettings(response.data ?? strapiPayload);
 }

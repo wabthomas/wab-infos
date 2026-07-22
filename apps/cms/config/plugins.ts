@@ -1,5 +1,35 @@
 import type { Core } from '@strapi/strapi';
 
+const REDACTION_GOOGLE_PATH = '/auth/google/callback';
+
+function allowedGoogleCallbackOrigins(env: Core.Config.Shared.ConfigParams['env']): Set<string> {
+  const origins = new Set<string>([
+    'https://redaction.app.wab-infos.com',
+    'http://localhost:3001',
+    'http://localhost:3002',
+  ]);
+
+  for (const raw of [
+    env('REDACTION_GOOGLE_CALLBACK_URL', ''),
+    env('REDACTION_APP_URL', ''),
+    env('NEXT_PUBLIC_REDACTION_URL', ''),
+  ]) {
+    const value = String(raw || '').trim();
+    if (!value) continue;
+    try {
+      origins.add(new URL(value).origin);
+    } catch {
+      try {
+        origins.add(new URL(`https://${value}`).origin);
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  return origins;
+}
+
 const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Plugin => ({
   'users-permissions': {
     config: {
@@ -8,9 +38,30 @@ const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Plugin =>
       jwt: {
         expiresIn: '7d',
       },
+      // OAuth + retries : 5/min est trop bas et bloque le flux Google
       ratelimit: {
-        max: 5,
+        max: 30,
         interval: 60000,
+      },
+      /**
+       * Autorise le callback dynamique vers l’app rédaction
+       * (par défaut Strapi n’accepte que l’origine exacte du provider.callback en store).
+       */
+      callback: {
+        validate(callback: string) {
+          let url: URL;
+          try {
+            url = new URL(callback);
+          } catch {
+            throw new Error('The callback is not a valid URL');
+          }
+          const origins = allowedGoogleCallbackOrigins(env);
+          if (!origins.has(url.origin) || url.pathname !== REDACTION_GOOGLE_PATH) {
+            throw new Error(
+              `Forbidden callback provided: expected origin in redaction app and path ${REDACTION_GOOGLE_PATH}`
+            );
+          }
+        },
       },
     },
   },

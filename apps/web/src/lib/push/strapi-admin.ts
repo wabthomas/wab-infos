@@ -11,15 +11,25 @@ export async function strapiAdminFetch<T>(
   if (!STRAPI_TOKEN) throw new Error('STRAPI_API_TOKEN manquant');
 
   const query = params ? `?${qs.stringify(params, { encodeValuesOnly: true })}` : '';
-  const res = await fetch(`${STRAPI_URL}/api${path}${query}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${STRAPI_TOKEN}`,
-      ...options?.headers,
-    },
-    cache: 'no-store',
-  });
+  const url = `${STRAPI_URL}/api${path}${query}`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${STRAPI_TOKEN}`,
+        ...options?.headers,
+      },
+      cache: 'no-store',
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'erreur réseau';
+    throw new Error(
+      `CMS inaccessible (${STRAPI_URL}). Vérifiez STRAPI_URL et que Strapi est démarré. (${detail})`
+    );
+  }
 
   if (!res.ok) {
     const text = await res.text();

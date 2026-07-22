@@ -1,6 +1,12 @@
+/** Fermetures de blocs comptés comme « paragraphes » pour pubs / Lire aussi. */
+const BLOCK_CLOSE_RE = /<\/(?:p|h[1-6]|blockquote)>/i;
+const BLOCK_CLOSE_SPLIT_RE = /(<\/(?:p|h[1-6]|blockquote)>)/i;
+const BLOCK_CLOSE_GLOBAL_RE = /<\/(?:p|h[1-6]|blockquote)>/gi;
+
 /**
- * Découpe le HTML article après les n-ièmes paragraphes (indices 1-based).
- * Ex. [2, 5] → blocs paras 1–2 | 3–5 | reste.
+ * Découpe le HTML article après les n-ièmes blocs (indices 1-based).
+ * Ex. [2, 5] → blocs 1–2 | 3–5 | reste.
+ * Compte aussi titres et citations (contenu WP souvent pauvre en `<p>`).
  */
 export function splitHtmlAtParagraphs(html: string, breakpoints: number[]): string[] {
   if (!html.trim() || breakpoints.length === 0) return [html];
@@ -11,11 +17,11 @@ export function splitHtmlAtParagraphs(html: string, breakpoints: number[]): stri
   let paragraphIndex = 0;
   let targetIndex = 0;
 
-  const chunks = html.split(/(<\/p>)/i);
+  const chunks = html.split(BLOCK_CLOSE_SPLIT_RE);
 
   for (const chunk of chunks) {
     buffer += chunk;
-    if (!/<\/p>/i.test(chunk)) continue;
+    if (!BLOCK_CLOSE_RE.test(chunk)) continue;
 
     paragraphIndex++;
     const target = targets[targetIndex];
@@ -34,5 +40,5 @@ export function splitHtmlAtParagraphs(html: string, breakpoints: number[]): stri
 }
 
 export function countArticleParagraphs(html: string): number {
-  return (html.match(/<\/p>/gi) ?? []).length;
+  return (html.match(BLOCK_CLOSE_GLOBAL_RE) ?? []).length;
 }

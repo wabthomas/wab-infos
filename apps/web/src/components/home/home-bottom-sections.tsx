@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { ArrowRight } from 'lucide-react';
-import type { Article } from '@wab-infos/shared';
+import type { Article, HomepageSection, HomepageSectionLayoutTheme } from '@wab-infos/shared';
 import { ArticleCard } from '@/components/articles/article-card';
+import { HomeVideoSection } from '@/components/home/home-video-section';
 import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { SectionHeader } from '@/components/ui/section-header';
 
@@ -11,25 +13,34 @@ type CategoryMeta = {
   color: string;
 };
 
-type LayoutVariant =
-  | 'featured-sidebar'
-  | 'bento'
-  | 'sports'
-  | 'magazine-sidebar'
-  | 'stack-list'
-  | 'three-up'
-  | 'carousel';
+type BottomLayoutVariant = Exclude<
+  HomepageSectionLayoutTheme,
+  'default-grid' | 'actualite-list' | 'economie-list' | 'video-tv'
+>;
 
-const layoutBySlug: Record<string, LayoutVariant> = {
-  politique: 'featured-sidebar',
-  sports: 'sports',
-  societe: 'magazine-sidebar',
-  securite: 'three-up',
-  international: 'three-up',
-  technologies: 'carousel',
-};
+function HomeVideoFallback() {
+  return (
+    <div
+      className="h-64 animate-pulse rounded-2xl border border-border bg-muted/40 md:h-80"
+      aria-hidden
+    />
+  );
+}
+
+function toBottomLayoutVariant(theme: HomepageSectionLayoutTheme): BottomLayoutVariant {
+  if (
+    theme === 'default-grid' ||
+    theme === 'actualite-list' ||
+    theme === 'economie-list' ||
+    theme === 'video-tv'
+  ) {
+    return 'featured-sidebar';
+  }
+  return theme;
+}
 
 interface HomeBottomSectionsProps {
+  sections: readonly HomepageSection[];
   categories: readonly CategoryMeta[];
   articlesByCategory: Record<string, Article[]>;
 }
@@ -375,7 +386,7 @@ function CarouselSection({ category, articles }: { category: CategoryMeta; artic
   );
 }
 
-function renderSection(variant: LayoutVariant, category: CategoryMeta, articles: Article[]) {
+function renderSection(variant: BottomLayoutVariant, category: CategoryMeta, articles: Article[]) {
   switch (variant) {
     case 'featured-sidebar':
       return <FeaturedSidebarSection category={category} articles={articles} />;
@@ -396,18 +407,39 @@ function renderSection(variant: LayoutVariant, category: CategoryMeta, articles:
   }
 }
 
-export function HomeBottomSections({ categories, articlesByCategory }: HomeBottomSectionsProps) {
+export function HomeBottomSections({
+  sections,
+  categories,
+  articlesByCategory,
+}: HomeBottomSectionsProps) {
+  const categoriesBySlug = Object.fromEntries(categories.map((category) => [category.slug, category]));
+
   return (
     <div className="space-y-10 md:space-y-14">
-      {categories.map((category) => {
-        const limit = category.slug === 'sports' ? 6 : 5;
-        const catArticles = (articlesByCategory[category.slug] ?? []).slice(0, limit);
+      {sections.map((section) => {
+        if (section.type === 'video') {
+          return (
+            <div key={section.id}>
+              <Suspense fallback={<HomeVideoFallback />}>
+                <HomeVideoSection />
+              </Suspense>
+            </div>
+          );
+        }
+
+        const category = categoriesBySlug[section.categorySlug ?? ''];
+        if (!category) return null;
+
+        const catArticles = (articlesByCategory[section.categorySlug ?? ''] ?? []).slice(
+          0,
+          section.articleLimit
+        );
         if (!catArticles.length) return null;
 
-        const variant = layoutBySlug[category.slug] ?? 'featured-sidebar';
+        const variant = toBottomLayoutVariant(section.layoutTheme);
 
         return (
-          <div key={`bottom-${category.slug}`}>
+          <div key={section.id}>
             {renderSection(variant, category, catArticles)}
           </div>
         );

@@ -30,6 +30,12 @@ interface AppUpdatePlugin {
   ): Promise<PluginListenerHandle>;
 }
 
+type AndroidUpdateBridge = {
+  getAppVersionJson?: () => string;
+  downloadAndInstallApkUpdate?: (url: string) => void;
+  showToast?: (message: string) => void;
+};
+
 let appUpdatePlugin: AppUpdatePlugin | null = null;
 
 function getAppUpdatePlugin(): AppUpdatePlugin {
@@ -37,6 +43,11 @@ function getAppUpdatePlugin(): AppUpdatePlugin {
     appUpdatePlugin = registerPlugin<AppUpdatePlugin>('AppUpdate');
   }
   return appUpdatePlugin;
+}
+
+function getAndroidUpdateBridge(): AndroidUpdateBridge | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return (window as Window & { AndroidBridge?: AndroidUpdateBridge }).AndroidBridge;
 }
 
 const APK_UPDATE_DISMISS_KEY = 'wab-apk-update-dismissed-code';
@@ -49,6 +60,21 @@ export function resolveApkAssetUrl(baseUrl: string, assetPath: string): string {
 }
 
 export async function getInstalledAppVersion(): Promise<InstalledAppVersion | null> {
+  const bridge = getAndroidUpdateBridge();
+  if (bridge?.getAppVersionJson) {
+    try {
+      const parsed = JSON.parse(bridge.getAppVersionJson()) as Partial<InstalledAppVersion>;
+      if (typeof parsed.versionCode === 'number') {
+        return {
+          versionCode: parsed.versionCode,
+          versionName: parsed.versionName ?? String(parsed.versionCode),
+        };
+      }
+    } catch {
+      // Repli Capacitor ci-dessous.
+    }
+  }
+
   if (!isNativeCapacitorFromUserAgent()) return null;
   try {
     return await getAppUpdatePlugin().getAppVersion();
@@ -103,13 +129,16 @@ export async function checkForApkUpdate(options: {
   }
 
   const apkDownloadUrl = resolveApkAssetUrl(options.siteUrl, remote.apkUrl);
+  const cacheBustedUrl = apkDownloadUrl.includes('v=')
+    ? apkDownloadUrl
+    : `${apkDownloadUrl}${apkDownloadUrl.includes('?') ? '&' : '?'}v=${remote.versionCode}`;
   const updateAvailable = remote.versionCode > installed.versionCode;
 
   return {
     updateAvailable,
     installed,
     remote,
-    apkDownloadUrl,
+    apkDownloadUrl: cacheBustedUrl,
   };
 }
 
@@ -117,6 +146,13 @@ export async function downloadAndInstallApkUpdate(
   apkUrl: string,
   onProgress?: (progress: number) => void
 ): Promise<void> {
+  const bridge = getAndroidUpdateBridge();
+  if (bridge?.downloadAndInstallApkUpdate) {
+    onProgress?.(100);
+    bridge.downloadAndInstallApkUpdate(apkUrl);
+    return;
+  }
+
   let listener: PluginListenerHandle | undefined;
   if (onProgress) {
     listener = await getAppUpdatePlugin().addListener('downloadProgress', (event) => {
@@ -128,5 +164,16 @@ export async function downloadAndInstallApkUpdate(
     await getAppUpdatePlugin().downloadAndInstall({ url: apkUrl });
   } finally {
     await listener?.remove();
+  }
+}
+
+export function usesNativeAndroidUpdateBridge(): boolean {
+  return Boolean(getAndroidUpdateBridge()?.downloadAndInstallApkUpdate);
+}
+
+export function showNativeAndroidToast(message: string): void {
+  const bridge = getAndroidUpdateBridge();
+  if (bridge?.showToast) {
+    bridge.showToast(message);
   }
 }

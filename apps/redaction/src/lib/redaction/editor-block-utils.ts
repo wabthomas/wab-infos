@@ -140,7 +140,7 @@ export function deleteActiveBlock(editor: Editor): boolean {
 }
 
 export function setBlockHeading(editor: Editor, level: 2 | 3 | null): boolean {
-  const chain = editor.chain().focus();
+  const chain = editor.chain().focus(undefined, { scrollIntoView: false });
   if (level === null) {
     return chain.setParagraph().run();
   }

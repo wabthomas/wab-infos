@@ -22,6 +22,17 @@ function errorMessage(reason?: string, serverMessage?: string): string {
   if (serverMessage?.includes('404') || serverMessage?.includes('reader-push-subscription')) {
     return 'Les alertes push ne sont pas encore activées côté serveur. L\'équipe technique doit mettre à jour le CMS.';
   }
+  if (
+    serverMessage &&
+    (/failed to fetch/i.test(serverMessage) ||
+      /fetch failed/i.test(serverMessage) ||
+      /cms inaccessible/i.test(serverMessage) ||
+      /connexion firebase/i.test(serverMessage))
+  ) {
+    return serverMessage.includes('Firebase') || /firebase/i.test(serverMessage)
+      ? serverMessage
+      : 'Connexion au serveur impossible. Vérifiez votre réseau et réessayez.';
+  }
   if (serverMessage) return serverMessage;
 
   switch (reason) {

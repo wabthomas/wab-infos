@@ -6,6 +6,25 @@ export function getStrapiUrl(): string {
   ).replace(/\/$/, '');
 }
 
+export function getRedactionPublicUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_REDACTION_URL ||
+    process.env.REDACTION_APP_URL ||
+    'http://localhost:3002'
+  ).replace(/\/$/, '');
+}
+
+/**
+ * Bouton « Continuer avec Google » sur /login.
+ * Activé par défaut (OAuth direct rédaction → Google → Strapi JWT).
+ * Masquer avec NEXT_PUBLIC_REDACTION_GOOGLE_AUTH=false.
+ */
+export function isGoogleAuthEnabled(): boolean {
+  const flag = process.env.NEXT_PUBLIC_REDACTION_GOOGLE_AUTH?.trim().toLowerCase();
+  if (flag === '0' || flag === 'false' || flag === 'off') return false;
+  return true;
+}
+
 export const REDACTION_COOKIE = 'redaction_jwt';
 export const REDACTION_REMEMBER_COOKIE = 'redaction_remember';
 

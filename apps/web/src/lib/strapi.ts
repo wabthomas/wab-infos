@@ -11,6 +11,7 @@ import type {
   StrapiResponse,
   StrapiMedia,
 } from '@wab-infos/shared';
+import { canonicalizeCategorySlug } from '@/config/site';
 
 const STRAPI_URL = process.env.STRAPI_URL || process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
@@ -397,42 +398,121 @@ export async function getRecommendedArticles(excludeSlug?: string): Promise<Arti
   return excludeSlug ? articles.filter((a) => a.slug !== excludeSlug) : articles;
 }
 
-/** Articles liés : même rubrique, puis récents — ne dépend pas de isRecommended */
+function scoreSharedTags(article: Article, tagSlugs: ReadonlySet<string>): number {
+  if (!tagSlugs.size || !article.tags?.length) return 0;
+  return article.tags.reduce((score, tag) => score + (tagSlugs.has(tag.slug) ? 1 : 0), 0);
+}
+
+const RELATED_TITLE_STOPWORDS = new Set([
+  'avec', 'dans', 'pour', 'plus', 'dont', 'cette', 'chez', 'sous', 'vers', 'après',
+  'apres', 'avant', 'entre', 'selon', 'alors', 'aussi', 'donc', 'mais', 'comme',
+  'leur', 'leurs', 'elle', 'elles', 'nous', 'vous', 'sont', 'être', 'etre', 'fait',
+  'faites', 'sans', 'tout', 'tous', 'toute', 'toutes', 'autre', 'autres', 'encore',
+  'contre', 'depuis', 'parce', 'quoi', 'quand', 'comment', 'rdc', 'congo', 'kinshasa',
+]);
+
+/** Mots significatifs du titre pour retrouver d’anciens articles sur le même sujet. */
+function significantTitleTerms(title: string): string[] {
+  const seen = new Set<string>();
+  const terms: string[] = [];
+  const normalized = title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  for (const token of normalized.split(/[^a-z0-9]+/)) {
+    if (token.length < 5 || RELATED_TITLE_STOPWORDS.has(token) || seen.has(token)) continue;
+    seen.add(token);
+    terms.push(token);
+    if (terms.length >= 4) break;
+  }
+  return terms;
+}
+
+/**
+ * Articles liés : d’abord même sujet (tags partagés, y compris articles plus anciens),
+ * puis mots-clés du titre, puis même rubrique, puis récents du site.
+ */
 export const getRelatedArticles = cache(async (
   slug: string,
   categorySlug?: string,
-  pageSize = 4
+  pageSize = 4,
+  tagSlugs: readonly string[] = [],
+  title = ''
 ): Promise<Article[]> => {
   const seen = new Set<string>([slug]);
   const result: Article[] = [];
+  const tagSet = new Set(tagSlugs.filter(Boolean));
 
-  const [categoryResult, recentResult] = await Promise.all([
-    categorySlug
-      ? getArticles({ category: categorySlug, pageSize: pageSize + 5 })
-      : Promise.resolve({ articles: [] as Article[], pagination: { total: 0, pageCount: 0 } }),
-    getArticles({ pageSize: pageSize + 10 }),
-  ]);
-
-  for (const article of categoryResult.articles) {
-    if (result.length >= pageSize) break;
-    if (seen.has(article.slug)) continue;
-    seen.add(article.slug);
-    result.push(article);
-  }
-
-  if (result.length < pageSize) {
-    for (const article of recentResult.articles) {
+  const pushUnique = (articles: Article[]) => {
+    for (const article of articles) {
       if (result.length >= pageSize) break;
       if (seen.has(article.slug)) continue;
       seen.add(article.slug);
       result.push(article);
+    }
+  };
+
+  if (tagSet.size > 0) {
+    const taggedResponse = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
+      filters: {
+        tags: { slug: { $in: [...tagSet] } },
+        slug: { $ne: slug },
+      },
+      ...articlePopulate,
+      sort: [...ARTICLE_SORT],
+      pagination: { page: 1, pageSize: Math.max(pageSize * 4, 16) },
+      status: 'published',
+    });
+
+    const ranked = taggedResponse.data
+      .map(mapArticle)
+      .map((article) => ({ article, score: scoreSharedTags(article, tagSet) }))
+      .filter((row) => row.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    pushUnique(ranked.map((row) => row.article));
+  }
+
+  if (result.length < pageSize) {
+    const titleTerms = significantTitleTerms(title);
+    if (titleTerms.length > 0) {
+      const titleResponse = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
+        filters: {
+          slug: { $ne: slug },
+          $or: titleTerms.map((term) => ({ title: { $containsi: term } })),
+        },
+        ...listArticleQuery,
+        sort: [...ARTICLE_SORT],
+        pagination: { page: 1, pageSize: Math.max(pageSize * 3, 12) },
+        status: 'published',
+      });
+      pushUnique(titleResponse.data.map(mapArticle));
+    }
+  }
+
+  if (result.length < pageSize) {
+    const [categoryResult, recentResult] = await Promise.all([
+      categorySlug
+        ? getArticles({ category: categorySlug, pageSize: pageSize + 8 })
+        : Promise.resolve({ articles: [] as Article[], pagination: { total: 0, pageCount: 0 } }),
+      getArticles({ pageSize: pageSize + 10 }),
+    ]);
+
+    pushUnique(categoryResult.articles);
+    if (result.length < pageSize) {
+      pushUnique(recentResult.articles);
     }
   }
 
   return result;
 });
 
-export async function searchArticles(query: string, page = 1): Promise<{
+export async function searchArticles(
+  query: string,
+  page = 1,
+  pageSize = 12
+): Promise<{
   articles: Article[];
   pagination: { total: number; pageCount: number };
 }> {
@@ -444,9 +524,9 @@ export async function searchArticles(query: string, page = 1): Promise<{
         { content: { $containsi: query } },
       ],
     },
-    ...articlePopulate,
+    ...listArticleQuery,
     sort: [...ARTICLE_SORT],
-    pagination: { page, pageSize: 12 },
+    pagination: { page, pageSize },
     status: 'published',
   });
 
@@ -607,6 +687,61 @@ export async function getApprovedComments(articleDocumentId: string): Promise<Ar
   }
 }
 
+function mapArticlePathEntity(entity: StrapiEntity): {
+  slug: string;
+  categorySlug: string;
+  updatedAt: string;
+} {
+  const category = entity.category as StrapiEntity | undefined;
+  const rawCategory = (category?.slug as string) ?? 'actualite';
+  return {
+    slug: entity.slug as string,
+    categorySlug: canonicalizeCategorySlug(rawCategory),
+    updatedAt: (entity.updatedAt as string) ?? (entity.publishedAt as string),
+  };
+}
+
+export async function getPublishedArticleCount(): Promise<number> {
+  const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
+    fields: ['slug'],
+    pagination: { page: 1, pageSize: 1 },
+    status: 'published',
+  });
+  return response.meta?.pagination?.total ?? 0;
+}
+
+/** Chunk paginé pour les sitemaps articles (évite de charger ~20k URLs d’un coup). */
+export async function getArticlePathsChunk(
+  chunkIndex: number,
+  chunkSize: number
+): Promise<{ slug: string; categorySlug: string; updatedAt: string }[]> {
+  const pageSize = 100;
+  const startOffset = chunkIndex * chunkSize;
+  const startPage = Math.floor(startOffset / pageSize) + 1;
+  const endPage = Math.floor((startOffset + chunkSize - 1) / pageSize) + 1;
+  const paths: { slug: string; categorySlug: string; updatedAt: string }[] = [];
+
+  for (let page = startPage; page <= endPage; page++) {
+    const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
+      fields: ['slug', 'updatedAt', 'publishedAt'],
+      populate: { category: { fields: ['slug'] } },
+      sort: ['updatedAt:desc'],
+      pagination: { page, pageSize },
+      status: 'published',
+    });
+
+    const pageCount = response.meta?.pagination?.pageCount ?? 1;
+    for (const entity of response.data) {
+      paths.push(mapArticlePathEntity(entity));
+    }
+
+    if (page >= pageCount) break;
+  }
+
+  const sliceStart = startOffset % pageSize;
+  return paths.slice(sliceStart, sliceStart + chunkSize);
+}
+
 export async function getAllArticlePaths(): Promise<
   { slug: string; categorySlug: string; updatedAt: string }[]
 > {
@@ -623,12 +758,7 @@ export async function getAllArticlePaths(): Promise<
     });
 
     for (const entity of response.data) {
-      const category = entity.category as StrapiEntity | undefined;
-      paths.push({
-        slug: entity.slug as string,
-        categorySlug: (category?.slug as string) ?? 'actualite',
-        updatedAt: (entity.updatedAt as string) ?? (entity.publishedAt as string),
-      });
+      paths.push(mapArticlePathEntity(entity));
     }
 
     pageCount = response.meta?.pagination?.pageCount ?? 1;

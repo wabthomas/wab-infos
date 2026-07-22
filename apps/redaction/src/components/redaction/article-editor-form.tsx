@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -26,6 +26,7 @@ import { ArticleEditorOptionsMenu } from '@/components/redaction/article-editor-
 import { ArticlePublishSheet } from '@/components/redaction/article-publish-sheet';
 import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
 import type { RedactionAuthor } from '@/lib/redaction/types';
+import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
@@ -179,6 +180,7 @@ interface ArticleEditorFormProps {
 
 export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEditorFormProps) {
   const router = useRouter();
+  const toast = useToast();
   const [categories, setCategories] = useState<RedactionCategory[]>([]);
   const [authors, setAuthors] = useState<RedactionAuthor[]>([]);
   const [canAssignAuthor, setCanAssignAuthor] = useState(false);
@@ -532,9 +534,12 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       });
       const data = await readApiJsonResponse<{ error?: string }>(res);
       if (!res.ok) throw new Error(data.error ?? 'Suppression impossible');
+      toast.success('Article supprimé');
       router.push('/articles');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Suppression impossible');
+      const message = err instanceof Error ? err.message : 'Suppression impossible';
+      setError(message);
+      toast.error('Suppression impossible', message);
     } finally {
       setDeleting(false);
     }
@@ -603,8 +608,11 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       if (!res.ok) throw new Error(data.error ?? 'Mise à jour impossible');
       setValues((v) => ({ ...v, featuredImageAlt: featuredAltDraft.trim() }));
       setEditingFeaturedAlt(false);
+      toast.success('Texte alternatif enregistré');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur');
+      const message = err instanceof Error ? err.message : 'Erreur';
+      setError(message);
+      toast.error('Enregistrement impossible', message);
     } finally {
       setSavingFeaturedAlt(false);
     }
@@ -619,12 +627,17 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       try {
         const savedId = await persistDraft({ manual: true });
         if (!savedId) {
-          setError('Ajoutez un titre ou du contenu pour enregistrer le brouillon');
+          const message = 'Ajoutez un titre ou du contenu pour enregistrer le brouillon';
+          setError(message);
+          toast.error('Brouillon incomplet', message);
         } else {
+          toast.success('Brouillon enregistré');
           onSuccess?.(savedId, mode);
         }
       } catch (err) {
-        setError(formatSaveError(err));
+        const message = formatSaveError(err);
+        setError(message);
+        toast.error('Enregistrement impossible', message);
       } finally {
         setSaving(null);
       }
@@ -635,7 +648,9 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
     });
     if (!payload) {
-      setError('Titre, contenu et rubrique requis');
+      const message = 'Titre, contenu et rubrique requis';
+      setError(message);
+      toast.error('Champs manquants', message);
       setSaving(null);
       return;
     }
@@ -668,6 +683,12 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         window.history.replaceState(null, '', `/articles/${savedId}/edit`);
       }
 
+      toast.success(
+        mode === 'schedule' ? 'Article planifié' : 'Article publié',
+        mode === 'schedule'
+          ? 'La publication aura lieu à la date choisie.'
+          : 'L’article est visible sur le site.'
+      );
       onSuccess?.(savedId, mode);
     } catch (err) {
       const documentId = activeDocumentId;
@@ -675,11 +696,17 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         const recovered = await recoverPublishAfterNetworkError(documentId, mode);
         if (recovered) {
           lastSavedSnapshot.current = createSnapshot(values, scheduledAt);
+          toast.success(
+            mode === 'schedule' ? 'Article planifié' : 'Article publié',
+            'Enregistrement confirmé après vérification réseau.'
+          );
           onSuccess?.(documentId, mode);
           return;
         }
       }
-      setError(formatSaveError(err));
+      const message = formatSaveError(err);
+      setError(message);
+      toast.error(mode === 'schedule' ? 'Planification impossible' : 'Publication impossible', message);
     } finally {
       setSaving(null);
     }
@@ -864,7 +891,11 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           <div className="mt-3">
             <ArticleRichEditor
               value={values.content}
-              onChange={(content) => setValues((v) => applyDerivedFields({ ...v, content }))}
+              onChange={(content) => {
+                startTransition(() => {
+                  setValues((v) => applyDerivedFields({ ...v, content }));
+                });
+              }}
               onEditorReady={setEditor}
               onKeyboardInsetChange={setKeyboardInset}
             />

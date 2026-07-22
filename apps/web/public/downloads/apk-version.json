@@ -1,6 +1,7 @@
 {
-  "versionCode": 18,
-  "versionName": "1.1.5",
+  "versionCode": 25,
+  "versionName": "1.2.2",
   "apkUrl": "/downloads/wab-infos.apk",
-  "releasedAt": "2026-07-07T11:24:25.892Z"
+  "releaseNotes": "Correctif boucle Google + installation mise à jour fiable.",
+  "releasedAt": "2026-07-20T17:40:00.000Z"
 }

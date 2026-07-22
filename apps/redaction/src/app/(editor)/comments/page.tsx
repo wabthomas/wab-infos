@@ -6,10 +6,12 @@ import { Check, Loader2, X } from 'lucide-react';
 import { formatArticleDate } from '@/lib/utils';
 import type { RedactionComment } from '@/lib/redaction/types';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/toast';
 
 type Filter = 'pending' | 'approved' | 'rejected';
 
 export default function RedactionCommentsPage() {
+  const toast = useToast();
   const [filter, setFilter] = useState<Filter>('pending');
   const [comments, setComments] = useState<RedactionComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,9 +37,19 @@ export default function RedactionCommentsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ documentId, status }),
       });
-      if (res.ok) {
-        setComments((list) => list.filter((c) => c.documentId !== documentId));
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? 'Action impossible');
       }
+      setComments((list) => list.filter((c) => c.documentId !== documentId));
+      toast.success(
+        status === 'approved' ? 'Commentaire approuvé' : 'Commentaire refusé'
+      );
+    } catch (err) {
+      toast.error(
+        'Modération impossible',
+        err instanceof Error ? err.message : 'Une erreur est survenue.'
+      );
     } finally {
       setActing(null);
     }

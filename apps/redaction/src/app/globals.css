@@ -166,11 +166,16 @@ html.dark body {
 }
 
 .redaction-editor-prose blockquote {
+  position: relative;
+  margin: 1.25rem 0;
+  padding: 1rem 1rem 1rem 1.15rem;
   border-left: 3px solid var(--primary);
-  padding-left: 1rem;
-  margin: 1rem 0;
+  border-radius: 0 0.75rem 0.75rem 0;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, transparent), transparent 55%),
+    var(--muted);
   font-style: italic;
-  color: var(--muted-foreground);
+  color: var(--foreground);
 }
 
 .redaction-editor-prose ul,
@@ -336,5 +341,22 @@ html.native-capacitor #redaction-main-scroll {
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--primary) 3%, transparent) 0%, transparent 12rem),
       var(--background);
+  }
+}
+
+@keyframes redaction-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.6rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*='redaction-toast-in'] {
+    animation: none !important;
   }
 }

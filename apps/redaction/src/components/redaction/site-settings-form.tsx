@@ -6,6 +6,8 @@ import {
   Eye,
   EyeOff,
   Globe2,
+  Home,
+  LayoutTemplate,
   Loader2,
   Plus,
   Save,
@@ -16,11 +18,22 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_SITE_SETTINGS,
+  getVisibleNavLinks,
   type SiteSettings,
   type SiteSocialLink,
   type SocialFollowPlatform,
 } from '@wab-infos/shared';
 import { readApiJsonResponse } from '@/lib/redaction/api-response';
+import {
+  HomepageSectionsEditor,
+  HomepageSectionsSettingCard,
+} from '@/components/redaction/homepage-sections-editor';
+import { useToast } from '@/components/ui/toast';
+import {
+  SiteChromeEditor,
+  SiteChromeSettingCard,
+} from '@/components/redaction/site-chrome-editor';
+import { cn } from '@/lib/utils';
 
 const PLATFORMS: { id: SocialFollowPlatform; label: string }[] = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -37,7 +50,49 @@ type SheetKey =
   | 'apk-visible'
   | 'views'
   | 'social-links'
+  | 'homepage-sections'
+  | 'site-chrome'
   | null;
+
+type SettingsSectionId = 'pwa' | 'chrome' | 'homepage' | 'articles' | 'social';
+
+const DESKTOP_SECTIONS: {
+  id: SettingsSectionId;
+  label: string;
+  description: string;
+  icon: typeof Smartphone;
+}[] = [
+  {
+    id: 'pwa',
+    label: 'PWA & APK',
+    description: 'Bandeaux d’installation',
+    icon: Smartphone,
+  },
+  {
+    id: 'chrome',
+    label: 'En-tête & navigation',
+    description: 'Header, footer, widgets',
+    icon: LayoutTemplate,
+  },
+  {
+    id: 'homepage',
+    label: 'Page d’accueil',
+    description: 'Sections et thèmes',
+    icon: Home,
+  },
+  {
+    id: 'articles',
+    label: 'Articles',
+    description: 'Affichage public',
+    icon: Eye,
+  },
+  {
+    id: 'social',
+    label: 'Réseaux sociaux',
+    description: 'Liens « Nous suivre »',
+    icon: Users,
+  },
+];
 
 function emptySocialLink(platform: SocialFollowPlatform): SiteSocialLink {
   const preset = DEFAULT_SITE_SETTINGS.socialLinks.find((l) => l.id === platform);
@@ -109,14 +164,14 @@ function BottomSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col justify-end lg:items-center lg:justify-center lg:p-6">
+    <div className="fixed inset-0 z-[70] flex flex-col justify-end lg:hidden">
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         aria-label="Fermer"
         onClick={onClose}
       />
-      <div className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-background shadow-2xl lg:max-h-[80vh] lg:max-w-2xl lg:rounded-3xl">
+      <div className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-background shadow-2xl">
         <div className="sticky top-0 z-10 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -182,6 +237,36 @@ function ToggleEditor({
   );
 }
 
+function CompactToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/25">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+        <span className="mt-2 inline-flex rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-foreground">
+          {boolSummary(checked, 'Activé', 'Désactivé')}
+        </span>
+      </div>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
+      />
+    </label>
+  );
+}
+
 function SocialLinkRow({
   link,
   onEdit,
@@ -237,6 +322,55 @@ function SocialLinkRow({
   );
 }
 
+function SocialLinksPanel({
+  socialLinks,
+  availablePlatforms,
+  onEdit,
+  onToggleVisible,
+  onRemove,
+  onAdd,
+}: {
+  socialLinks: SiteSocialLink[];
+  availablePlatforms: { id: SocialFollowPlatform; label: string }[];
+  onEdit: (index: number) => void;
+  onToggleVisible: (index: number) => void;
+  onRemove: (index: number) => void;
+  onAdd: (platform: SocialFollowPlatform) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {socialLinks.map((link, index) => (
+        <SocialLinkRow
+          key={`${link.id}-${index}`}
+          link={link}
+          onEdit={() => onEdit(index)}
+          onToggleVisible={() => onToggleVisible(index)}
+          onRemove={() => onRemove(index)}
+        />
+      ))}
+
+      {availablePlatforms.length > 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-4">
+          <p className="text-sm font-semibold text-foreground">Ajouter un réseau</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {availablePlatforms.map((platform) => (
+              <button
+                key={platform.id}
+                type="button"
+                onClick={() => onAdd(platform.id)}
+                className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:border-primary hover:text-primary"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {platform.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SocialLinkEditorSheet({
   open,
   link,
@@ -263,86 +397,359 @@ function SocialLinkEditorSheet({
       title={draft.label || draft.id}
       description="Modifiez le lien, le libellé affiché et les informations sociales."
     >
-      <div className="space-y-3 pb-4">
-        <input
-          type="text"
-          value={draft.label}
-          onChange={(e) => setDraft({ ...draft, label: e.target.value })}
-          placeholder="Libellé"
-          className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
-        />
-        <input
-          type="url"
-          value={draft.href}
-          onChange={(e) => setDraft({ ...draft, href: e.target.value })}
-          placeholder="URL"
-          className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
-        />
-        <input
-          type="text"
-          value={draft.handle}
-          onChange={(e) => setDraft({ ...draft, handle: e.target.value })}
-          placeholder="Identifiant affiché (@...)"
-          className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
-        />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <input
-            type="text"
-            value={draft.brandColor}
-            onChange={(e) => setDraft({ ...draft, brandColor: e.target.value })}
-            placeholder="Couleur (#hex)"
-            className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
-          />
-          <input
-            type="number"
-            min={0}
-            value={draft.followers ?? ''}
-            onChange={(e) =>
-              setDraft({
-                ...draft,
-                followers: e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0),
-              })
-            }
-            placeholder="Abonnés (manuel)"
-            className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
-          />
-        </div>
-        <label className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
-          <div>
-            <p className="text-sm font-semibold text-foreground">Afficher ce lien</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Masquez-le temporairement sans le supprimer.
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            checked={draft.visible}
-            onChange={(e) => setDraft({ ...draft, visible: e.target.checked })}
-            className="h-5 w-5 accent-primary"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={() => {
-            onSave(draft);
-            onClose();
-          }}
-          className="mt-2 h-12 w-full rounded-xl bg-primary text-sm font-bold text-primary-foreground"
-        >
-          Valider
-        </button>
-      </div>
+      <SocialLinkEditorForm
+        draft={draft}
+        setDraft={setDraft}
+        onCancel={onClose}
+        onSave={() => {
+          onSave(draft);
+          onClose();
+        }}
+      />
     </BottomSheet>
   );
 }
 
-export function SiteSettingsForm() {
+function SocialLinkEditorForm({
+  draft,
+  setDraft,
+  onCancel,
+  onSave,
+}: {
+  draft: SiteSocialLink;
+  setDraft: React.Dispatch<React.SetStateAction<SiteSocialLink | null>>;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="space-y-3 pb-4">
+      <input
+        type="text"
+        value={draft.label}
+        onChange={(e) => setDraft({ ...draft, label: e.target.value })}
+        placeholder="Libellé"
+        className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+      />
+      <input
+        type="url"
+        value={draft.href}
+        onChange={(e) => setDraft({ ...draft, href: e.target.value })}
+        placeholder="URL"
+        className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+      />
+      <input
+        type="text"
+        value={draft.handle}
+        onChange={(e) => setDraft({ ...draft, handle: e.target.value })}
+        placeholder="Identifiant affiché (@...)"
+        className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+      />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <input
+          type="text"
+          value={draft.brandColor}
+          onChange={(e) => setDraft({ ...draft, brandColor: e.target.value })}
+          placeholder="Couleur (#hex)"
+          className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+        />
+        <input
+          type="number"
+          min={0}
+          value={draft.followers ?? ''}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              followers: e.target.value === '' ? null : Math.max(0, Number(e.target.value) || 0),
+            })
+          }
+          placeholder="Abonnés (manuel)"
+          className="h-12 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+        />
+      </div>
+      <label className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Afficher ce lien</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Masquez-le temporairement sans le supprimer.
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          checked={draft.visible}
+          onChange={(e) => setDraft({ ...draft, visible: e.target.checked })}
+          className="h-5 w-5 accent-primary"
+        />
+      </label>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-12 flex-1 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:bg-muted"
+        >
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          className="h-12 flex-1 rounded-xl bg-primary text-sm font-bold text-primary-foreground"
+        >
+          Valider
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SaveButton({
+  saving,
+  saved,
+  onClick,
+  className,
+}: {
+  saving: boolean;
+  saved: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={saving}
+      className={cn(
+        'inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-60',
+        className
+      )}
+    >
+      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+      {saving ? 'Enregistrement…' : saved ? 'Enregistré' : 'Enregistrer'}
+    </button>
+  );
+}
+
+function DesktopSectionNav({
+  activeSection,
+  settings,
+  onSelect,
+}: {
+  activeSection: SettingsSectionId;
+  settings: SiteSettings;
+  onSelect: (id: SettingsSectionId) => void;
+}) {
+  const activeHomeSections = settings.homepageSections.filter((section) => section.enabled).length;
+  const visibleSocial = settings.socialLinks.filter((link) => link.visible).length;
+
+  const summaries: Record<SettingsSectionId, string> = {
+    pwa: `${boolSummary(settings.pwaBannerEnabled)} · APK ${boolSummary(settings.apkBannerEnabled).toLowerCase()}`,
+    chrome: `${getVisibleNavLinks(settings.chrome.utilityLinks).length} liens utilitaires`,
+    homepage: `${activeHomeSections} section${activeHomeSections > 1 ? 's' : ''} active${activeHomeSections > 1 ? 's' : ''}`,
+    articles: boolSummary(settings.showArticleViewCounts, 'Vues affichées', 'Vues masquées'),
+    social: `${visibleSocial}/${settings.socialLinks.length} visible${visibleSocial > 1 ? 's' : ''}`,
+  };
+
+  return (
+    <nav className="space-y-1" aria-label="Sections des paramètres">
+      {DESKTOP_SECTIONS.map(({ id, label, description, icon: Icon }) => {
+        const active = activeSection === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onSelect(id)}
+            className={cn(
+              'group relative flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors',
+              active
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            {active ? (
+              <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+            ) : null}
+            <span
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                active ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground group-hover:text-foreground'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">{label}</span>
+              <span className="mt-0.5 block text-[11px] leading-snug opacity-80">{description}</span>
+              <span className="mt-1.5 block truncate text-[10px] font-medium opacity-70">{summaries[id]}</span>
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function DesktopSettingsPanel({
+  section,
+  settings,
+  setSettings,
+  availablePlatforms,
+  editingSocialIndex,
+  setEditingSocialIndex,
+  updateSocialLink,
+  removeSocialLink,
+  addSocialLink,
+}: {
+  section: SettingsSectionId;
+  settings: SiteSettings;
+  setSettings: React.Dispatch<React.SetStateAction<SiteSettings>>;
+  availablePlatforms: { id: SocialFollowPlatform; label: string }[];
+  editingSocialIndex: number | null;
+  setEditingSocialIndex: (index: number | null) => void;
+  updateSocialLink: (index: number, patch: Partial<SiteSocialLink>) => void;
+  removeSocialLink: (index: number) => void;
+  addSocialLink: (platform: SocialFollowPlatform) => void;
+}) {
+  const sectionMeta = DESKTOP_SECTIONS.find((item) => item.id === section)!;
+  const editingSocialLink =
+    editingSocialIndex == null ? null : settings.socialLinks[editingSocialIndex] ?? null;
+  const [socialDraft, setSocialDraft] = useState<SiteSocialLink | null>(editingSocialLink);
+
+  useEffect(() => {
+    setSocialDraft(editingSocialLink);
+  }, [editingSocialLink]);
+
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="mb-6 border-b border-border pb-5">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+          {sectionMeta.label}
+        </p>
+        <h2 className="mt-1 font-display text-2xl font-bold text-foreground">{sectionMeta.description}</h2>
+      </div>
+
+      {section === 'pwa' ? (
+        <div className="grid gap-4 xl:grid-cols-2">
+          <CompactToggleRow
+            label="Option PWA"
+            description="Propose l’installation de l’application web sur le site public."
+            checked={settings.pwaBannerEnabled}
+            onChange={(pwaBannerEnabled) =>
+              setSettings((current) => ({ ...current, pwaBannerEnabled }))
+            }
+          />
+          <CompactToggleRow
+            label="Affichage du bandeau PWA"
+            description="Masque le bandeau sans désactiver la fonctionnalité PWA."
+            checked={settings.pwaBannerVisible}
+            onChange={(pwaBannerVisible) =>
+              setSettings((current) => ({ ...current, pwaBannerVisible }))
+            }
+          />
+          <CompactToggleRow
+            label="Option APK"
+            description="Propose le téléchargement de l’APK Android Wab-infos."
+            checked={settings.apkBannerEnabled}
+            onChange={(apkBannerEnabled) =>
+              setSettings((current) => ({ ...current, apkBannerEnabled }))
+            }
+          />
+          <CompactToggleRow
+            label="Affichage du lien APK"
+            description="Affiche ou masque le lien APK dans le bandeau d’installation."
+            checked={settings.apkBannerVisible}
+            onChange={(apkBannerVisible) =>
+              setSettings((current) => ({ ...current, apkBannerVisible }))
+            }
+          />
+        </div>
+      ) : null}
+
+      {section === 'chrome' ? (
+        <SiteChromeEditor
+          chrome={settings.chrome}
+          onChange={(chrome) => setSettings((current) => ({ ...current, chrome }))}
+        />
+      ) : null}
+
+      {section === 'homepage' ? (
+        <HomepageSectionsEditor
+          sections={settings.homepageSections}
+          onChange={(homepageSections) =>
+            setSettings((current) => ({ ...current, homepageSections }))
+          }
+        />
+      ) : null}
+
+      {section === 'articles' ? (
+        <div className="max-w-xl">
+          <CompactToggleRow
+            label="Compteur de vues"
+            description="Affiche le nombre de vues sur les articles du site public."
+            checked={settings.showArticleViewCounts}
+            onChange={(showArticleViewCounts) =>
+              setSettings((current) => ({ ...current, showArticleViewCounts }))
+            }
+          />
+        </div>
+      ) : null}
+
+      {section === 'social' ? (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+          <div>
+            <p className="mb-3 text-sm text-muted-foreground">
+              Gérez les liens du panneau « Nous suivre ». Laissez les abonnés vides pour la récupération
+              automatique.
+            </p>
+            <SocialLinksPanel
+              socialLinks={settings.socialLinks}
+              availablePlatforms={availablePlatforms}
+              onEdit={setEditingSocialIndex}
+              onToggleVisible={(index) => {
+                const link = settings.socialLinks[index];
+                if (link) updateSocialLink(index, { visible: !link.visible });
+              }}
+              onRemove={removeSocialLink}
+              onAdd={addSocialLink}
+            />
+          </div>
+
+          {editingSocialLink && socialDraft ? (
+            <div className="h-fit rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <p className="text-sm font-bold text-foreground">Modifier {editingSocialLink.label}</p>
+              <div className="mt-4">
+                <SocialLinkEditorForm
+                  draft={socialDraft}
+                  setDraft={setSocialDraft}
+                  onCancel={() => setEditingSocialIndex(null)}
+                  onSave={() => {
+                    if (editingSocialIndex == null) return;
+                    updateSocialLink(editingSocialIndex, socialDraft);
+                    setEditingSocialIndex(null);
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="hidden h-fit rounded-2xl border border-dashed border-border bg-muted/30 p-5 xl:block">
+              <p className="text-sm font-semibold text-foreground">Édition d’un lien</p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                Sélectionnez un réseau dans la liste pour modifier son URL, son libellé et sa visibilité.
+              </p>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function SiteSettingsForm({ authorName }: { authorName?: string }) {
+  const toast = useToast();
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [sheet, setSheet] = useState<SheetKey>(null);
+  const [desktopSection, setDesktopSection] = useState<SettingsSectionId>('pwa');
   const [editingSocialIndex, setEditingSocialIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -374,9 +781,12 @@ export function SiteSettingsForm() {
       if (!res.ok) throw new Error(data.error ?? 'Enregistrement impossible');
       if (data.settings) setSettings(data.settings);
       setSaved(true);
+      toast.success('Paramètres enregistrés', 'Les changements sont pris en compte sur le site.');
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Enregistrement impossible');
+      const message = err instanceof Error ? err.message : 'Enregistrement impossible';
+      setError(message);
+      toast.error('Enregistrement impossible', message);
     } finally {
       setSaving(false);
     }
@@ -389,6 +799,14 @@ export function SiteSettingsForm() {
         i === index ? { ...link, ...patch } : link
       ),
     }));
+  }
+
+  function applySettingPatch(patch: Partial<SiteSettings>) {
+    setSettings((current) => ({ ...current, ...patch }));
+  }
+
+  function applyHomepageSections(homepageSections: SiteSettings['homepageSections']) {
+    setSettings((current) => ({ ...current, homepageSections }));
   }
 
   function removeSocialLink(index: number) {
@@ -433,25 +851,68 @@ export function SiteSettingsForm() {
 
   return (
     <>
-      <div className="space-y-6 pb-32">
+      {error ? (
+        <p className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+
+      {/* Desktop layout */}
+      <div className="hidden lg:block">
+        <div className="mb-6 flex items-start justify-between gap-6 rounded-2xl border border-border bg-gradient-to-br from-primary/8 via-card to-card p-6 shadow-sm">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+              Administration du site
+            </p>
+            <h2 className="mt-1 font-display text-2xl font-bold text-foreground">
+              Configuration publique Wab-infos
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              Navigation latérale, édition directe des sections et enregistrement global.
+              {authorName ? ` Connecté en tant que ${authorName}.` : ''}
+            </p>
+          </div>
+          <SaveButton saving={saving} saved={saved} onClick={() => void save()} className="shrink-0" />
+        </div>
+
+        <div className="flex gap-8">
+          <aside className="w-64 shrink-0">
+            <div className="sticky top-0">
+              <DesktopSectionNav
+                activeSection={desktopSection}
+                settings={settings}
+                onSelect={setDesktopSection}
+              />
+            </div>
+          </aside>
+
+          <DesktopSettingsPanel
+            section={desktopSection}
+            settings={settings}
+            setSettings={setSettings}
+            availablePlatforms={availablePlatforms}
+            editingSocialIndex={editingSocialIndex}
+            setEditingSocialIndex={setEditingSocialIndex}
+            updateSocialLink={updateSocialLink}
+            removeSocialLink={removeSocialLink}
+            addSocialLink={addSocialLink}
+          />
+        </div>
+      </div>
+
+      {/* Mobile layout */}
+      <div className="space-y-6 pb-32 lg:hidden">
         <div className="rounded-3xl border border-border bg-gradient-to-br from-primary/10 via-card to-card p-5 shadow-sm">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
             Paramètres site
           </p>
           <h2 className="mt-2 font-display text-xl font-bold text-foreground">
-            Réglages rapides et navigation plus fluide
+            Réglages rapides et navigation fluide
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Chaque réglage s’ouvre maintenant dans sa propre feuille basse pour éviter les longues
-            listes et rendre la modification plus rapide sur mobile.
+            Chaque réglage s’ouvre dans sa propre feuille pour une modification rapide sur mobile.
           </p>
         </div>
-
-        {error ? (
-          <p className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
 
         <section className="space-y-3">
           <div className="flex items-center gap-2">
@@ -493,6 +954,28 @@ export function SiteSettingsForm() {
         <section className="space-y-3">
           <div className="flex items-center gap-2">
             <Globe2 className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-bold">En-tête &amp; navigation</h3>
+          </div>
+          <SiteChromeSettingCard
+            chrome={settings.chrome}
+            onOpen={() => setSheet('site-chrome')}
+          />
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Globe2 className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-bold">Page d&apos;accueil</h3>
+          </div>
+          <HomepageSectionsSettingCard
+            sections={settings.homepageSections}
+            onOpen={() => setSheet('homepage-sections')}
+          />
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Globe2 className="h-5 w-5 text-primary" />
             <h3 className="text-base font-bold">Articles</h3>
           </div>
           <SettingCard
@@ -529,17 +1012,9 @@ export function SiteSettingsForm() {
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-lg items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={saving}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm disabled:opacity-60"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {saving ? 'Enregistrement…' : saved ? 'Enregistré' : 'Enregistrer'}
-          </button>
+          <SaveButton saving={saving} saved={saved} onClick={() => void save()} className="flex-1 rounded-2xl py-3" />
         </div>
       </div>
 
@@ -553,7 +1028,9 @@ export function SiteSettingsForm() {
           label="Activer l’option PWA"
           description="Propose l’installation de l’app web (PWA) sur le site public."
           checked={settings.pwaBannerEnabled}
-          onChange={(pwaBannerEnabled) => setSettings((s) => ({ ...s, pwaBannerEnabled }))}
+          onChange={(pwaBannerEnabled) =>
+            applySettingPatch({  pwaBannerEnabled  })
+          }
         />
       </BottomSheet>
 
@@ -567,7 +1044,9 @@ export function SiteSettingsForm() {
           label="Afficher le bandeau PWA"
           description="Le bandeau reste prêt, mais peut être rendu invisible côté site."
           checked={settings.pwaBannerVisible}
-          onChange={(pwaBannerVisible) => setSettings((s) => ({ ...s, pwaBannerVisible }))}
+          onChange={(pwaBannerVisible) =>
+            applySettingPatch({  pwaBannerVisible  })
+          }
         />
       </BottomSheet>
 
@@ -581,7 +1060,9 @@ export function SiteSettingsForm() {
           label="Activer l’option APK"
           description="Affiche la possibilité de télécharger l’APK Wab-infos sur Android."
           checked={settings.apkBannerEnabled}
-          onChange={(apkBannerEnabled) => setSettings((s) => ({ ...s, apkBannerEnabled }))}
+          onChange={(apkBannerEnabled) =>
+            applySettingPatch({  apkBannerEnabled  })
+          }
         />
       </BottomSheet>
 
@@ -595,7 +1076,9 @@ export function SiteSettingsForm() {
           label="Afficher le lien APK"
           description="Utile si vous voulez garder l’APK actif sans l’exposer sur le site."
           checked={settings.apkBannerVisible}
-          onChange={(apkBannerVisible) => setSettings((s) => ({ ...s, apkBannerVisible }))}
+          onChange={(apkBannerVisible) =>
+            applySettingPatch({  apkBannerVisible  })
+          }
         />
       </BottomSheet>
 
@@ -610,8 +1093,32 @@ export function SiteSettingsForm() {
           description="Le compteur est visible sur le site public si ce réglage est activé."
           checked={settings.showArticleViewCounts}
           onChange={(showArticleViewCounts) =>
-            setSettings((s) => ({ ...s, showArticleViewCounts }))
+            applySettingPatch({  showArticleViewCounts  })
           }
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'site-chrome'}
+        onClose={() => setSheet(null)}
+        title="En-tête, pied de page & widgets"
+        description="Navigation, footer, bandeau breaking, newsletter, pubs et ordre des rubriques."
+      >
+        <SiteChromeEditor
+          chrome={settings.chrome}
+          onChange={(chrome) => setSettings((current) => ({ ...current, chrome }))}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'homepage-sections'}
+        onClose={() => setSheet(null)}
+        title="Sections d'accueil"
+        description="Ajoutez, activez ou désactivez les blocs rubriques et choisissez le thème d'affichage pour chaque section."
+      >
+        <HomepageSectionsEditor
+          sections={settings.homepageSections}
+          onChange={applyHomepageSections}
         />
       </BottomSheet>
 
@@ -621,35 +1128,18 @@ export function SiteSettingsForm() {
         title="Liens sociaux"
         description="Gérez les liens du panneau mobile « Nous suivre ». Laissez les abonnés vides pour la récupération automatique."
       >
-        <div className="space-y-3 pb-4">
-          {settings.socialLinks.map((link, index) => (
-            <SocialLinkRow
-              key={`${link.id}-${index}`}
-              link={link}
-              onEdit={() => setEditingSocialIndex(index)}
-              onToggleVisible={() => updateSocialLink(index, { visible: !link.visible })}
-              onRemove={() => removeSocialLink(index)}
-            />
-          ))}
-
-          {availablePlatforms.length > 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-4">
-              <p className="text-sm font-semibold text-foreground">Ajouter un réseau</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {availablePlatforms.map((platform) => (
-                  <button
-                    key={platform.id}
-                    type="button"
-                    onClick={() => addSocialLink(platform.id)}
-                    className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:border-primary hover:text-primary"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    {platform.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
+        <div className="pb-4">
+          <SocialLinksPanel
+            socialLinks={settings.socialLinks}
+            availablePlatforms={availablePlatforms}
+            onEdit={setEditingSocialIndex}
+            onToggleVisible={(index) => {
+              const link = settings.socialLinks[index];
+              if (link) updateSocialLink(index, { visible: !link.visible });
+            }}
+            onRemove={removeSocialLink}
+            onAdd={addSocialLink}
+          />
         </div>
       </BottomSheet>
 

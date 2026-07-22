@@ -206,7 +206,9 @@ export function RedactionShell({
       fetch('/api/redaction/comments/count')
         .then((r) => r.json())
         .then((d: { count?: number }) => {
-          if (!cancelled) setPendingComments(d.count ?? 0);
+          if (cancelled) return;
+          const next = d.count ?? 0;
+          setPendingComments((prev) => (prev === next ? prev : next));
         })
         .catch(() => undefined);
     };
@@ -233,18 +235,18 @@ export function RedactionShell({
 
   if (writing) {
     return (
-      <>
-        <div className="fixed inset-0 z-50 bg-background lg:hidden">{children}</div>
-        <div className="hidden h-[100dvh] max-h-[100dvh] overflow-hidden bg-background lg:flex">
-          <RedactionSidebar
-            pathname={pathname}
-            authorName={authorName}
-            isSuperAdmin={isSuperAdmin}
-            pendingComments={pendingComments}
-          />
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+      <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-background">
+        <RedactionSidebar
+          pathname={pathname}
+          authorName={authorName}
+          isSuperAdmin={isSuperAdmin}
+          pendingComments={pendingComments}
+        />
+        {/* Un seul mount de {children} — mobile plein écran, desktop à côté de la sidebar */}
+        <div className="fixed inset-0 z-50 flex min-w-0 flex-col overflow-hidden bg-background lg:static lg:z-auto lg:flex-1">
+          {children}
         </div>
-      </>
+      </div>
     );
   }
 
@@ -272,7 +274,10 @@ export function RedactionShell({
 
         <main
           id="redaction-main-scroll"
-          className="redaction-main-scroll mx-auto w-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] lg:max-w-6xl lg:px-8 lg:py-8 lg:pb-8"
+          className={cn(
+            'redaction-main-scroll mx-auto w-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] lg:px-8 lg:py-8 lg:pb-8',
+            pathname === '/parametres' ? 'lg:max-w-[1440px]' : 'lg:max-w-6xl'
+          )}
         >
           <RedactionPushBanner />
           {children}

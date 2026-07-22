@@ -62,6 +62,32 @@ export function ArticleRichEditor({
   const [editorFocused, setEditorFocused] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const lastEmitted = useRef(value);
+  const onChangeRef = useRef(onChange);
+  const syncTimerRef = useRef<number | null>(null);
+
+  onChangeRef.current = onChange;
+
+  const flushContentToParent = useCallback((html: string) => {
+    if (syncTimerRef.current != null) {
+      window.clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
+    lastEmitted.current = html;
+    onChangeRef.current(html);
+  }, []);
+
+  const scheduleContentToParent = useCallback(
+    (html: string) => {
+      lastEmitted.current = html;
+      if (syncTimerRef.current != null) window.clearTimeout(syncTimerRef.current);
+      // Découple TipTap du formulaire React pendant la frappe.
+      syncTimerRef.current = window.setTimeout(() => {
+        syncTimerRef.current = null;
+        onChangeRef.current(html);
+      }, 280);
+    },
+    []
+  );
 
   const editorPlaceholder = useCallback(
     ({ editor: ed }: { editor: Editor }) => {
@@ -112,13 +138,24 @@ export function ArticleRichEditor({
       },
     },
     onUpdate: ({ editor: ed }) => {
-      const html = ed.getHTML();
-      lastEmitted.current = html;
-      onChange(html);
+      scheduleContentToParent(ed.getHTML());
     },
     onFocus: () => setEditorFocused(true),
-    onBlur: () => setEditorFocused(false),
+    onBlur: ({ editor: ed }) => {
+      setEditorFocused(false);
+      flushContentToParent(ed.getHTML());
+    },
   });
+
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current != null) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+        onChangeRef.current(lastEmitted.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!editor) return;
@@ -393,8 +430,13 @@ export function ArticleRichEditor({
             <div className="grid max-h-[42dvh] grid-cols-3 gap-2 overflow-y-auto text-center text-xs font-medium">
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() =>
-                  insertBlock(() => editor.chain().focus().setParagraph().run())
+                  insertBlock(() =>
+                    editor.chain().focus(undefined, { scrollIntoView: false }).setParagraph().run()
+                  )
                 }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
@@ -403,8 +445,17 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() =>
-                  insertBlock(() => editor.chain().focus().setHeading({ level: 2 }).run())
+                  insertBlock(() =>
+                    editor
+                      .chain()
+                      .focus(undefined, { scrollIntoView: false })
+                      .setHeading({ level: 2 })
+                      .run()
+                  )
                 }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
@@ -413,8 +464,17 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() =>
-                  insertBlock(() => editor.chain().focus().setHeading({ level: 3 }).run())
+                  insertBlock(() =>
+                    editor
+                      .chain()
+                      .focus(undefined, { scrollIntoView: false })
+                      .setHeading({ level: 3 })
+                      .run()
+                  )
                 }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
@@ -423,8 +483,17 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() =>
-                  insertBlock(() => editor.chain().focus().toggleBulletList().run())
+                  insertBlock(() =>
+                    editor
+                      .chain()
+                      .focus(undefined, { scrollIntoView: false })
+                      .toggleBulletList()
+                      .run()
+                  )
                 }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
@@ -433,8 +502,17 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() =>
-                  insertBlock(() => editor.chain().focus().toggleOrderedList().run())
+                  insertBlock(() =>
+                    editor
+                      .chain()
+                      .focus(undefined, { scrollIntoView: false })
+                      .toggleOrderedList()
+                      .run()
+                  )
                 }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
@@ -443,8 +521,17 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() =>
-                  insertBlock(() => editor.chain().focus().toggleBlockquote().run())
+                  insertBlock(() =>
+                    editor
+                      .chain()
+                      .focus(undefined, { scrollIntoView: false })
+                      .toggleBlockquote()
+                      .run()
+                  )
                 }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
@@ -453,6 +540,9 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() => {
                   closeBlockSheet();
                   fileRef.current?.click();
@@ -464,8 +554,17 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() =>
-                  insertBlock(() => editor.chain().focus().setHorizontalRule().run())
+                  insertBlock(() =>
+                    editor
+                      .chain()
+                      .focus(undefined, { scrollIntoView: false })
+                      .setHorizontalRule()
+                      .run()
+                  )
                 }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
@@ -474,6 +573,9 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() => {
                   closeBlockSheet();
                   setInputValue('');
@@ -486,6 +588,9 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() => {
                   closeBlockSheet();
                   const prev = editor.getAttributes('link').href as string | undefined;
@@ -499,9 +604,16 @@ export function ArticleRichEditor({
               </button>
               <button
                 type="button"
+                onPointerDown={(e) => {
+                  if (e.button === 0) e.preventDefault();
+                }}
                 onClick={() =>
                   insertBlock(() =>
-                    editor.chain().focus().insertContent('<p>[shortcode]</p>').run()
+                    editor
+                      .chain()
+                      .focus(undefined, { scrollIntoView: false })
+                      .insertContent('<p>[shortcode]</p>')
+                      .run()
                   )
                 }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"

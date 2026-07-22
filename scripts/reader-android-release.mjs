@@ -30,10 +30,21 @@ if (!existsSync(googleServices)) {
 
 const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
 const task = `assemble${flavor.charAt(0).toUpperCase()}${flavor.slice(1)}Release`;
+// Windows AV/proxy MITM certs are in the OS store but often missing from JDK cacerts.
+const buildEnv =
+  process.platform === 'win32'
+    ? {
+        ...process.env,
+        JAVA_TOOL_OPTIONS: [process.env.JAVA_TOOL_OPTIONS, '-Djavax.net.ssl.trustStoreType=Windows-ROOT']
+          .filter(Boolean)
+          .join(' '),
+      }
+    : process.env;
 const build = spawnSync(gradlew, [task], {
   cwd: androidDir,
   stdio: 'inherit',
   shell: true,
+  env: buildEnv,
 });
 
 if (build.status !== 0) process.exit(build.status ?? 1);

@@ -4,13 +4,14 @@ import {
   getCapacitorPushPermission,
   initCapacitorPush,
   isNativeCapacitorApp,
+  isNativeCapacitorFromUserAgent,
   subscribeViaCapacitorPush as subscribeCapacitorPush,
   syncCapacitorPushIfGranted as syncCapacitorPush,
   type NativePushResult,
 } from '@wab-infos/shared';
 
 export type { NativePushResult };
-export { getCapacitorPushPermission, isNativeCapacitorApp };
+export { getCapacitorPushPermission, isNativeCapacitorApp, isNativeCapacitorFromUserAgent };
 
 const EDITOR_SUBSCRIBE_PATH = '/api/redaction/push/subscribe';
 

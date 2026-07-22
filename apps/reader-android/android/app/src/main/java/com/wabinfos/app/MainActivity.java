@@ -12,6 +12,8 @@ import android.net.http.SslError;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -28,7 +30,6 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -43,14 +44,27 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import java.io.ByteArrayInputStream;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+
+import org.json.JSONObject;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -60,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
     private ProgressBar progressBar;
-    private LinearLayout offlineLayout;
+    private View offlineLayout;
     private View launchOverlay;
     private boolean launchOverlayDismissed = false;
     /** Mis à jour par le JS de la page (conteneurs internes type #redaction-main-scroll). */
@@ -70,6 +84,26 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> filePathCallback;
     private String cameraPhotoPath;
     private ActivityResultLauncher<Intent> fileChooserLauncher;
+    private ActivityResultLauncher<Intent> googleSignInLauncher;
+    private GoogleSignInClient googleSignInClient;
+    private String pendingGoogleCompleteUrl;
+    private boolean pendingGoogleRemember = true;
+    private String lastRequestedUrl = SITE_URL;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable offlineReconnectRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (offlineLayout == null || offlineLayout.getVisibility() != View.VISIBLE) {
+                return;
+            }
+            if (isOnline()) {
+                hideOffline();
+                loadUrlInWebView(lastRequestedUrl);
+                return;
+            }
+            mainHandler.postDelayed(this, 5000);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
 
         playLaunchOverlayEntrance();
         registerFileChooserLauncher();
+        registerGoogleSignInLauncher();
         setupWebView();
         requestRuntimePermissionsIfNeeded();
 
@@ -103,18 +138,22 @@ public class MainActivity extends AppCompatActivity {
         retryButton.setOnClickListener(v -> {
             if (isOnline()) {
                 hideOffline();
-                webView.loadUrl(SITE_URL);
+                loadUrlInWebView(lastRequestedUrl);
             }
         });
 
+        UpdateManager.bindActivity(this);
+        // Toast « à jour » uniquement au froid (évite doublon onResume).
+        UpdateManager.showUpdatedToastIfNeeded(this);
+
+        String targetUrl = resolveTargetUrl(getIntent());
         if (isOnline()) {
-            String targetUrl = resolveTargetUrl(getIntent());
-            webView.loadUrl(targetUrl);
+            loadUrlInWebView(targetUrl);
         } else {
+            lastRequestedUrl = targetUrl;
             showOffline();
         }
 
-        UpdateManager.checkForUpdate(this);
     }
 
     @Override
@@ -123,7 +162,10 @@ public class MainActivity extends AppCompatActivity {
         setIntent(intent);
         String targetUrl = resolveTargetUrl(intent);
         if (isOnline()) {
-            webView.loadUrl(targetUrl);
+            loadUrlInWebView(targetUrl);
+        } else {
+            lastRequestedUrl = targetUrl;
+            showOffline();
         }
     }
 
@@ -246,23 +288,24 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                String url = request.getUrl().toString();
-                // Le site web intègre son propre bandeau de mise à jour qui pointe vers
-                // l'APK officielle (signée différemment de la nôtre). On neutralise cette
-                // vérification en répondant nous-mêmes avec la version de CETTE app native,
-                // afin que le site ne propose jamais une mise à jour incompatible.
-                if (url.contains("/api/apk-version")) {
-                    return buildLocalVersionResponse();
-                }
-                return super.shouldInterceptRequest(view, request);
-            }
-
-            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 Uri parsed = Uri.parse(url);
                 String host = parsed.getHost();
+                if (isNativeGoogleStartUrl(parsed)) {
+                    // ?preferWeb=1 : repli OAuth navigateur (évite boucle natif → start → natif).
+                    if (!"1".equals(parsed.getQueryParameter("preferWeb"))) {
+                        startNativeGoogleSignIn(true);
+                        return true;
+                    }
+                }
+                if (isGoogleOAuthCallbackUrl(parsed)) {
+                    String sanitized = sanitizeGoogleOAuthCallbackUrl(parsed);
+                    if (sanitized != null) {
+                        view.loadUrl(sanitized);
+                        return true;
+                    }
+                }
                 if (url.startsWith(SITE_URL) || (host != null && host.endsWith("wab-infos.com"))) {
                     return false;
                 }
@@ -278,12 +321,43 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                if (url != null && !url.isEmpty()) {
+                    lastRequestedUrl = url;
+                }
                 swipeRefresh.setRefreshing(false);
                 progressBar.setVisibility(View.GONE);
+                if (isOnline()) {
+                    hideOffline();
+                }
                 injectNativeShareBridge(view);
                 injectStatusBarColorSync(view);
                 injectPullRefreshScrollSync(view);
                 dismissLaunchOverlay();
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, android.webkit.WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                if (request == null || !request.isForMainFrame()) return;
+                runOnUiThread(MainActivity.this::showOffline);
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) return;
+                runOnUiThread(MainActivity.this::showOffline);
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+                super.onReceivedHttpError(view, request, errorResponse);
+                if (request == null || !request.isForMainFrame() || errorResponse == null) return;
+                int statusCode = errorResponse.getStatusCode();
+                if (statusCode == 502 || statusCode == 503 || statusCode == 504) {
+                    runOnUiThread(MainActivity.this::showOffline);
+                }
             }
 
             @Override
@@ -419,6 +493,36 @@ public class MainActivity extends AppCompatActivity {
                     }
                     filePathCallback.onReceiveValue(results);
                     filePathCallback = null;
+                });
+    }
+
+    private void registerGoogleSignInLauncher() {
+        googleSignInLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (googleSignInClient == null) {
+                        return;
+                    }
+                    try {
+                        GoogleSignInAccount account = GoogleSignIn
+                                .getSignedInAccountFromIntent(result.getData())
+                                .getResult(ApiException.class);
+                        String authCode = account != null ? account.getServerAuthCode() : null;
+                        if (authCode == null || authCode.isEmpty() || pendingGoogleCompleteUrl == null || pendingGoogleCompleteUrl.isEmpty()) {
+                            throw new IllegalStateException("Code Google manquant");
+                        }
+
+                        String completeUrl = pendingGoogleCompleteUrl
+                                + "?code=" + URLEncoder.encode(authCode, "UTF-8")
+                                + "&remember=" + (pendingGoogleRemember ? "1" : "0");
+                        loadUrlInWebView(completeUrl);
+                    } catch (ApiException e) {
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(MainActivity.this, "Connexion Google annulée ou refusée", Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(MainActivity.this, "Connexion Google impossible", Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -566,24 +670,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private WebResourceResponse buildLocalVersionResponse() {
-        try {
-            int versionCode = getPackageManager()
-                    .getPackageInfo(getPackageName(), 0).versionCode;
-            String versionName = BuildConfig.VERSION_NAME;
-            String json = "{\"versionCode\":" + versionCode
-                    + ",\"versionName\":\"" + versionName + "\","
-                    + "\"apkUrl\":\"\",\"releasedAt\":\"\"}";
-            return new WebResourceResponse(
-                    "application/json",
-                    "UTF-8",
-                    new ByteArrayInputStream(json.getBytes("UTF-8"))
-            );
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     private boolean isOnline() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         if (cm == null) return false;
@@ -594,12 +680,173 @@ public class MainActivity extends AppCompatActivity {
     private void showOffline() {
         offlineLayout.setVisibility(View.VISIBLE);
         webView.setVisibility(View.GONE);
+        swipeRefresh.setRefreshing(false);
+        progressBar.setVisibility(View.GONE);
         dismissLaunchOverlay();
+        mainHandler.removeCallbacks(offlineReconnectRunnable);
+        mainHandler.postDelayed(offlineReconnectRunnable, 5000);
     }
 
     private void hideOffline() {
+        mainHandler.removeCallbacks(offlineReconnectRunnable);
         offlineLayout.setVisibility(View.GONE);
         webView.setVisibility(View.VISIBLE);
+    }
+
+    private void loadUrlInWebView(String url) {
+        lastRequestedUrl = (url != null && !url.isEmpty()) ? url : SITE_URL;
+        webView.loadUrl(lastRequestedUrl);
+    }
+
+    private boolean isNativeGoogleStartUrl(Uri uri) {
+        if (uri == null) return false;
+        String host = uri.getHost();
+        String path = uri.getPath();
+        return host != null
+                && host.endsWith("wab-infos.com")
+                && "/api/redaction/auth/google/start".equals(path);
+    }
+
+    /** Retour Google OAuth web : le WAF N0C bloque `iss=accounts.google.com` (403). */
+    private boolean isGoogleOAuthCallbackUrl(Uri uri) {
+        if (uri == null) return false;
+        String host = uri.getHost();
+        String path = uri.getPath();
+        return host != null
+                && host.endsWith("wab-infos.com")
+                && "/api/redaction/auth/google/oauth-callback".equals(path)
+                && uri.getQueryParameter("code") != null;
+    }
+
+    private String sanitizeGoogleOAuthCallbackUrl(Uri uri) {
+        if (uri == null) return null;
+        Uri.Builder builder = uri.buildUpon().clearQuery();
+        String code = uri.getQueryParameter("code");
+        String state = uri.getQueryParameter("state");
+        if (code == null || code.isEmpty()) return null;
+        builder.appendQueryParameter("code", code);
+        if (state != null && !state.isEmpty()) {
+            builder.appendQueryParameter("state", state);
+        }
+        return builder.build().toString();
+    }
+
+    private void startNativeGoogleSignIn(boolean remember) {
+        pendingGoogleRemember = remember;
+        progressBar.setVisibility(View.VISIBLE);
+        progressBar.setIndeterminate(true);
+
+        // WebView doit être lu uniquement sur le thread UI (sinon crash silencieux → toast).
+        String currentUrl = webView != null ? webView.getUrl() : null;
+        String configBase = resolveRedactionBaseUrl(currentUrl);
+
+        new Thread(() -> {
+            try {
+                GoogleNativeConfig config = fetchGoogleNativeConfig(configBase);
+                pendingGoogleCompleteUrl = config.completeUrl;
+
+                runOnUiThread(() -> {
+                    try {
+                        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                .requestEmail()
+                                .requestProfile()
+                                .requestServerAuthCode(config.serverClientId, false)
+                                .build();
+
+                        googleSignInClient = GoogleSignIn.getClient(MainActivity.this, gso);
+                        googleSignInClient.signOut().addOnCompleteListener(task -> {
+                            if (googleSignInLauncher == null || googleSignInClient == null) {
+                                fallbackGoogleWebSignIn(configBase);
+                                return;
+                            }
+                            googleSignInLauncher.launch(googleSignInClient.getSignInIntent());
+                        });
+                    } catch (Exception e) {
+                        Log.e("WabInfos", "GoogleSignInOptions: échec", e);
+                        fallbackGoogleWebSignIn(configBase);
+                    }
+                });
+            } catch (Exception e) {
+                Log.e("WabInfos", "startNativeGoogleSignIn: échec", e);
+                runOnUiThread(() -> fallbackGoogleWebSignIn(configBase));
+            }
+        }).start();
+    }
+
+    private String resolveRedactionBaseUrl(String currentUrl) {
+        if (currentUrl != null && !currentUrl.isEmpty()) {
+            Uri currentUri = Uri.parse(currentUrl);
+            String host = currentUri.getHost();
+            if ("https".equalsIgnoreCase(currentUri.getScheme())
+                    && host != null
+                    && host.endsWith("wab-infos.com")) {
+                // Si on est sur le site lecteur, forcer le host rédaction.
+                if ("redaction.app.wab-infos.com".equalsIgnoreCase(host)
+                        || host.startsWith("redaction.")) {
+                    return currentUri.getScheme() + "://" + host;
+                }
+            }
+        }
+        return "https://redaction.app.wab-infos.com";
+    }
+
+    /** Repli OAuth web si le flux Play Services / native-config échoue. */
+    private void fallbackGoogleWebSignIn(String configBase) {
+        progressBar.setIndeterminate(false);
+        progressBar.setVisibility(View.GONE);
+        String base = (configBase != null && !configBase.isEmpty())
+                ? configBase
+                : "https://redaction.app.wab-infos.com";
+        // preferWeb=1 empêche shouldOverrideUrlLoading de relancer le flux natif en boucle.
+        loadUrlInWebView(base + "/api/redaction/auth/google/start?preferWeb=1");
+    }
+
+    private GoogleNativeConfig fetchGoogleNativeConfig(String base) throws Exception {
+        String configBase = (base != null && !base.isEmpty())
+                ? base
+                : "https://redaction.app.wab-infos.com";
+
+        URL url = new URL(configBase + "/api/redaction/auth/google/native-config");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(15000);
+        connection.setRequestProperty("Accept", "application/json");
+        connection.connect();
+
+        int code = connection.getResponseCode();
+        InputStream stream = code >= 200 && code < 300
+                ? connection.getInputStream()
+                : connection.getErrorStream();
+        if (stream == null) {
+            connection.disconnect();
+            throw new IOException("HTTP " + code + " (corps vide)");
+        }
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+        StringBuilder body = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            body.append(line);
+        }
+        reader.close();
+        connection.disconnect();
+
+        if (code < 200 || code >= 300) {
+            throw new IOException("HTTP " + code + ": " + body);
+        }
+
+        JSONObject json = new JSONObject(body.toString());
+        String serverClientId = json.optString("serverClientId", "");
+        String completeUrl = json.optString("completeUrl", "");
+        if (serverClientId.isEmpty() || completeUrl.isEmpty()) {
+            throw new IOException("Config Google native incomplète");
+        }
+
+        GoogleNativeConfig config = new GoogleNativeConfig();
+        config.serverClientId = serverClientId;
+        config.completeUrl = completeUrl;
+        return config;
     }
 
     @Override
@@ -625,6 +872,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        UpdateManager.unbindActivity();
+        mainHandler.removeCallbacks(offlineReconnectRunnable);
         if (webView != null) {
             webView.destroy();
         }
@@ -654,5 +903,37 @@ public class MainActivity extends AppCompatActivity {
         public void setWebCanScrollUp(boolean canScrollUp) {
             webCanScrollUp = canScrollUp;
         }
+
+        @android.webkit.JavascriptInterface
+        public void signInWithGoogle(boolean remember) {
+            runOnUiThread(() -> startNativeGoogleSignIn(remember));
+        }
+
+        @android.webkit.JavascriptInterface
+        public String getAppVersionJson() {
+            try {
+                return UpdateManager.getLocalVersionJson(MainActivity.this).toString();
+            } catch (Exception e) {
+                return "{}";
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public void downloadAndInstallApkUpdate(String url) {
+            if (url == null || url.trim().isEmpty()) {
+                return;
+            }
+            runOnUiThread(() -> UpdateManager.downloadAndInstall(MainActivity.this, url.trim()));
+        }
+
+        @android.webkit.JavascriptInterface
+        public void showToast(String message) {
+            UpdateManager.showNativeToast(MainActivity.this, message);
+        }
+    }
+
+    private static class GoogleNativeConfig {
+        String serverClientId;
+        String completeUrl;
     }
 }

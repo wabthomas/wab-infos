@@ -33,6 +33,14 @@
     "socialLinks": {
       "type": "json",
       "default": []
+    },
+    "homepageSections": {
+      "type": "json",
+      "default": []
+    },
+    "chrome": {
+      "type": "json",
+      "default": {}
     }
   }
 }

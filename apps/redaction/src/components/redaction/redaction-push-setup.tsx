@@ -10,6 +10,7 @@ import { isFirebaseClientConfigured, requestFcmToken, setupForegroundFcmListener
 import {
   getCapacitorPushPermission,
   isNativeCapacitorApp,
+  isNativeCapacitorFromUserAgent,
   setupCapacitorPushListeners,
   subscribeEditorViaCapacitorPush,
   syncEditorCapacitorPushIfGranted,
@@ -45,7 +46,7 @@ async function registerWebPushSubscription(): Promise<boolean> {
 }
 
 async function registerPushSubscription(): Promise<boolean> {
-  if (await isNativeCapacitorApp()) {
+  if (isNativeCapacitorFromUserAgent() || (await isNativeCapacitorApp())) {
     const result = await subscribeEditorViaCapacitorPush();
     if (!result.ok) {
       console.warn('[push/native]', result.reason, result.message);
@@ -59,7 +60,7 @@ async function registerPushSubscription(): Promise<boolean> {
 export function RedactionPushSetup() {
   useEffect(() => {
     void (async () => {
-      if (await isNativeCapacitorApp()) {
+      if (isNativeCapacitorFromUserAgent() || (await isNativeCapacitorApp())) {
         await setupCapacitorPushListeners();
         const permission = await getCapacitorPushPermission();
         if (permission === 'granted') {
@@ -74,7 +75,7 @@ export function RedactionPushSetup() {
 
   useEffect(() => {
     void (async () => {
-      if (await isNativeCapacitorApp()) return;
+      if (isNativeCapacitorFromUserAgent() || (await isNativeCapacitorApp())) return;
       if (!('Notification' in window) || Notification.permission !== 'granted') return;
       void setupForegroundFcmListener();
       void registerWebPushSubscription();
@@ -93,7 +94,7 @@ export function RedactionPushBanner() {
     void (async () => {
       if (localStorage.getItem(DISMISS_KEY) === '1') return;
 
-      if (await isNativeCapacitorApp()) {
+      if (isNativeCapacitorFromUserAgent() || (await isNativeCapacitorApp())) {
         const permission = await getCapacitorPushPermission();
         if (permission === 'granted' || permission === 'denied') return;
         setVisible(true);

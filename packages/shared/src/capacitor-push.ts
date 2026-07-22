@@ -61,19 +61,31 @@ async function postNativeToken(
     // ignore
   }
 
-  const res = await fetch(subscribePath, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fcmToken, platform }),
-    credentials: 'include',
-  });
+  try {
+    const res = await fetch(subscribePath, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fcmToken, platform }),
+      credentials: 'include',
+    });
 
-  if (!res.ok) {
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    return { ok: false, reason: 'server_error', message: data.error };
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, reason: 'server_error', message: data.error };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : '';
+    return {
+      ok: false,
+      reason: 'server_error',
+      message:
+        detail.toLowerCase().includes('failed to fetch') || detail.toLowerCase().includes('fetch failed')
+          ? 'Impossible de joindre le serveur pour enregistrer les alertes. Vérifiez la connexion.'
+          : detail || 'Impossible d’enregistrer l’abonnement push.',
+    };
   }
-
-  return { ok: true };
 }
 
 async function repostCachedToken(subscribePath: string, platform: 'android' | 'ios'): Promise<void> {

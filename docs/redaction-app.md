@@ -30,10 +30,41 @@ Le token doit permettre : articles (CRUD), auteurs, catégories, commentaires, a
 **Settings → Users & Permissions → Roles → Public**
 
 - Cocher **Auth → Local** (connexion `/api/auth/local`)
+- Cocher **Auth → callback** et **Auth → connect** (requis pour Google)
 
 **Settings → Users & Permissions → Roles → Authenticated**
 
 - Cocher **User → me** (vérification de session)
+
+### 2bis. Connexion Google (optionnel)
+
+1. Google Cloud Console → Credentials → OAuth client **Web**
+2. **Authorized redirect URI** (obligatoire) :
+   `https://redaction.app.wab-infos.com/api/redaction/auth/google/oauth-callback`
+   (ancien URI CMS `/api/connect/google/callback` : laisser si besoin, mais le login rédaction ne l’utilise plus)
+3. **APK Android** : client OAuth **Android** dans Google Cloud Console :
+   - Type : **Android**
+   - Nom du package : `com.wabinfos.app`
+   - Empreinte SHA-1 : certificat **release** (`android/keystore.properties` → `storeFile`)
+   ```bash
+   keytool -list -v -keystore apps/reader-android/android/wab-infos-release.jks -alias wab-infos
+   ```
+   (sans ce client, le sélecteur Google natif renvoie une erreur « connexion annulée » / code 10)
+4. **WAF N0C / LiteSpeed** : Google ajoute `iss=https://accounts.google.com` au retour OAuth **GET**. Le pare-feu bloque souvent cette URL (403/503). Contournements :
+   - **Navigateur web** : en prod, OAuth utilise `response_mode=form_post` → Google **POST** le code (sans `iss=` dans l’URL).
+   - **APK** : connexion Google native (sélecteur in-app) + retrait de `iss=` si un retour web arrive dans le WebView.
+   - **Secours** : e-mail / mot de passe, ou exception ModSecurity N0C sur le callback.
+3. Variables **rédaction** (OAuth direct — secrets requis côté app) :
+   - `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`
+   - `REDACTION_GOOGLE_ALLOWED_DOMAINS=wab-infos.com,gmail.com` (domaines autorisés, séparés par des virgules)
+   - `REDACTION_GOOGLE_OAUTH_REDIRECT_URI=https://redaction.app.wab-infos.com/api/redaction/auth/google/oauth-callback`
+   - `NEXT_PUBLIC_REDACTION_GOOGLE_AUTH=false` seulement pour masquer le bouton (affiché par défaut)
+4. Variables **CMS** (toujours utiles pour `/api/auth/google/callback` JWT) :
+   - Provider Google activé au bootstrap si les secrets CMS sont présents
+   - Public role : Auth → **callback**
+5. Sur `/login` : **Continuer avec Google** → Google → `/api/redaction/auth/google/oauth-callback` → `/auth/google/callback`.
+
+Désactiver l’inscription publique Users & Permissions pour éviter qu’un compte Gmail quelconque crée un user.
 
 ### 3. Créer les comptes journalistes
 

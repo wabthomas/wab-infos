@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { NativeAppSetup } from '@/components/pwa/native-app-setup';
 import { ThemeProvider } from '@/components/providers/theme-provider';
+import { ToastProvider } from '@/components/ui/toast';
 
 export const metadata: Metadata = {
   title: 'Rédaction',
@@ -40,8 +41,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full antialiased">
         <ThemeProvider>
-          <NativeAppSetup />
-          {children}
+          <ToastProvider>
+            <NativeAppSetup />
+            {children}
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

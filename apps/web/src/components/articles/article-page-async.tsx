@@ -10,6 +10,8 @@ interface ArticleSidebarAsyncProps {
   categorySlug: string;
   categoryName: string;
   categoryColor: string;
+  tagSlugs?: string[];
+  title?: string;
 }
 
 export async function ArticleSidebarAsync({
@@ -17,9 +19,11 @@ export async function ArticleSidebarAsync({
   categorySlug,
   categoryName,
   categoryColor,
+  tagSlugs = [],
+  title = '',
 }: ArticleSidebarAsyncProps) {
   const [related, liveFeed] = await Promise.all([
-    getRelatedArticles(slug, categorySlug, 4),
+    getRelatedArticles(slug, categorySlug, 4, tagSlugs, title),
     getLiveFeed(8),
   ]);
 
@@ -39,18 +43,26 @@ interface ArticleRelatedAsyncProps {
   slug: string;
   categorySlug: string;
   categoryName: string;
+  tagSlugs?: string[];
+  title?: string;
+  excludeSlugs?: string[];
 }
 
 export async function ArticleRelatedAsync({
   slug,
   categorySlug,
   categoryName,
+  tagSlugs = [],
+  title = '',
+  excludeSlugs = [],
 }: ArticleRelatedAsyncProps) {
-  const related = await getRelatedArticles(slug, categorySlug, 4);
+  const related = await getRelatedArticles(slug, categorySlug, 4 + excludeSlugs.length, tagSlugs, title);
+  const exclude = new Set([slug, ...excludeSlugs]);
+  const articles = related.filter((article) => !exclude.has(article.slug)).slice(0, 4);
 
   return (
     <RelatedArticles
-      articles={related}
+      articles={articles}
       categoryName={categoryName}
       categorySlug={categorySlug}
     />

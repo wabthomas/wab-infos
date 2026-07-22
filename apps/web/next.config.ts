@@ -69,6 +69,13 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: '/downloads/wab-infos.apk',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' },
+          { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -79,11 +86,14 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://www.google-analytics.com",
+              // gstatic : scripts Firebase Messaging (SW + client)
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://www.googletagmanager.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://www.google-analytics.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https: blob:",
               "font-src 'self' https:",
-              "connect-src 'self' https://cms.app.wab-infos.com https://redaction.app.wab-infos.com https://www.google-analytics.com https://pagead2.googlesyndication.com",
+              // Firebase / FCM : sans ces hosts, getToken() échoue avec « Failed to fetch »
+              "connect-src 'self' https://cms.app.wab-infos.com https://redaction.app.wab-infos.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://*.googleapis.com https://*.gstatic.com https://*.firebaseio.com https://*.firebase.com wss://*.firebaseio.com",
+              "worker-src 'self' blob:",
               "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
               "media-src 'self' https:",
             ].join('; '),

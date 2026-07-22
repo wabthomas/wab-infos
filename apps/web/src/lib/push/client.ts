@@ -5,6 +5,7 @@ import {
   syncCapacitorPushIfGranted,
 } from '@/lib/push/capacitor-native';
 import { isFirebaseClientConfigured, requestFcmToken } from '@/lib/firebase/client';
+import { showWelcomePushNotification } from '@/lib/push/welcome-notification';
 
 export async function waitForServiceWorker(timeoutMs = 8000): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return null;
@@ -54,6 +55,7 @@ export async function subscribeToPushNotifications(): Promise<{
         message: native.message,
       };
     }
+    void showWelcomePushNotification();
     return { ok: true };
   }
 
@@ -84,21 +86,30 @@ export async function subscribeToPushNotifications(): Promise<{
     };
   }
 
-  const res = await fetch('/api/push/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fcmToken: tokenResult.token }),
-  });
+  try {
+    const res = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fcmToken: tokenResult.token }),
+    });
 
-  if (!res.ok) {
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      return {
+        ok: false,
+        reason: 'server_error',
+        message: data.error || 'Le serveur a refusé l’abonnement push.',
+      };
+    }
+  } catch {
     return {
       ok: false,
       reason: 'server_error',
-      message: data.error,
+      message: 'Impossible de joindre le serveur pour enregistrer les alertes. Réessayez.',
     };
   }
 
+  void showWelcomePushNotification(registration);
   return { ok: true };
 }
 
@@ -123,11 +134,14 @@ export async function syncPushSubscriptionIfGranted(): Promise<boolean> {
   const tokenResult = await requestFcmToken(registration);
   if (!tokenResult.ok) return false;
 
-  const res = await fetch('/api/push/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fcmToken: tokenResult.token }),
-  });
-
-  return res.ok;
+  try {
+    const res = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fcmToken: tokenResult.token }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

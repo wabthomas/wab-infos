@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { shouldShowAdsClient } from '@/lib/ads/should-show-ads';
 import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
+import { useSiteChrome } from '@/components/providers/site-chrome-context';
 import { pushAdsenseSlot, waitForAdsenseScript } from '@/lib/adsense-loader';
 import { cn } from '@/lib/utils';
 
@@ -37,28 +38,39 @@ export function AdSense({
   const loaded = useRef(false);
   const resolvedSlot = resolveSlot(slot);
   const { client } = useAdsenseConfig();
+  const { chrome } = useSiteChrome();
   const [adsEnabled, setAdsEnabled] = useState(true);
 
   useEffect(() => {
-    setAdsEnabled(shouldShowAdsClient());
-  }, []);
+    setAdsEnabled(shouldShowAdsClient() && chrome.adsGloballyEnabled);
+  }, [chrome.adsGloballyEnabled]);
 
   useEffect(() => {
     if (!adsEnabled || !client || !resolvedSlot || loaded.current) return;
+
     let cancelled = false;
     let observer: IntersectionObserver | null = null;
+    let fallbackTimer = 0;
 
     const fillAd = async () => {
+      if (cancelled || loaded.current) return;
       try {
         await waitForAdsenseScript();
       } catch {
         return;
       }
+      if (cancelled || loaded.current) return;
 
       for (let attempt = 0; attempt < 24 && !cancelled && !loaded.current; attempt += 1) {
+        // L’élément doit être connecté avant push{}, sinon AdSense ignore le slot.
+        if (!adRef.current?.isConnected) {
+          await new Promise((resolve) => window.setTimeout(resolve, 100));
+          continue;
+        }
         if (pushAdsenseSlot()) {
           loaded.current = true;
           observer?.disconnect();
+          if (fallbackTimer) window.clearTimeout(fallbackTimer);
           return;
         }
         await new Promise((resolve) => window.setTimeout(resolve, 150));
@@ -74,18 +86,23 @@ export function AdSense({
 
     observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          void fillAd();
-        }
+        if (entry?.isIntersecting) void fillAd();
       },
-      { rootMargin: '240px' }
+      { rootMargin: '320px 0px', threshold: 0 }
     );
 
-    if (adRef.current) observer.observe(adRef.current);
+    const node = adRef.current;
+    if (node) observer.observe(node);
+
+    // Filet de sécurité si l’IO ne déclenche pas (conteneurs / contain CSS).
+    fallbackTimer = window.setTimeout(() => {
+      if (!loaded.current) void fillAd();
+    }, 2800);
 
     return () => {
       cancelled = true;
       observer?.disconnect();
+      if (fallbackTimer) window.clearTimeout(fallbackTimer);
     };
   }, [adsEnabled, client, lazy, resolvedSlot]);
 
@@ -111,7 +128,7 @@ export function AdSense({
 
   return (
     <div
-      className={cn('ad-container my-6 overflow-hidden', className)}
+      className={cn('ad-container my-6', className)}
       style={{ minHeight }}
       data-ad-placement={label}
     >
@@ -159,10 +176,10 @@ export function SidebarAd() {
 
 export function ArticleTopAd() {
   const { client, slots } = useAdsenseConfig();
-  const slot = slots.articleTop?.trim();
+  const slot = slots.articleTop?.trim() || slots.articleInContent?.trim();
   if (!client || !slot) return null;
 
-  return <AdSense slot={slot} format="horizontal" lazy label="article-top" />;
+  return <AdSense slot={slot} format="horizontal" lazy={false} label="article-top" />;
 }
 
 /** Format « In-article » AdSense — à placer entre les paragraphes */
@@ -181,7 +198,7 @@ export function ArticleMidAd() {
   const slot = slots.articleMid?.trim();
   if (!client || !slot) return null;
 
-  return <AdSense slot={slot} format="rectangle" label="article-mid" />;
+  return <AdSense slot={slot} format="rectangle" lazy={false} label="article-mid" />;
 }
 
 export function ArticleBottomAd() {
@@ -189,7 +206,7 @@ export function ArticleBottomAd() {
   const slot = slots.articleBottom?.trim();
   if (!client || !slot) return null;
 
-  return <AdSense slot={slot} format="horizontal" lazy label="article-bottom" />;
+  return <AdSense slot={slot} format="horizontal" lazy={false} label="article-bottom" />;
 }
 
 /** @deprecated Utiliser ArticleBottomAd */
@@ -199,11 +216,12 @@ export function InArticleAd() {
 
 export function StickyMobileAd() {
   const { client, slots } = useAdsenseConfig();
+  const { chrome } = useSiteChrome();
   const [adsEnabled, setAdsEnabled] = useState(true);
 
   useEffect(() => {
-    setAdsEnabled(shouldShowAdsClient());
-  }, []);
+    setAdsEnabled(shouldShowAdsClient() && chrome.adsGloballyEnabled);
+  }, [chrome.adsGloballyEnabled]);
 
   const slot = slots.mobileSticky?.trim();
   if (!adsEnabled || !client || !slot) return null;

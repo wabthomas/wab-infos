@@ -106,10 +106,24 @@ function firebaseErrorMessage(code: string): string {
   }
 }
 
+function isNetworkFetchError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes('failed to fetch') ||
+    lower.includes('fetch failed') ||
+    lower.includes('networkerror') ||
+    lower.includes('network request failed') ||
+    lower.includes('load failed')
+  );
+}
+
 function extractErrorMessage(error: unknown, code: string): string {
   if (error && typeof error === 'object' && 'message' in error) {
     const raw = (error as { message?: unknown }).message;
     if (typeof raw === 'string' && raw.trim()) {
+      if (isNetworkFetchError(raw)) {
+        return 'Connexion Firebase bloquée (réseau ou sécurité du navigateur). Vérifiez votre connexion, un bloqueur de pubs, puis réessayez.';
+      }
       return raw;
     }
   }
