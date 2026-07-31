@@ -11,10 +11,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const androidDir = join(root, 'apps/reader-android/android');
 const keystoreProps = join(androidDir, 'keystore.properties');
 const googleServices = join(androidDir, 'app/google-services.json');
-const flavor = existsSync(googleServices) ? 'withFcm' : 'noFcm';
+const product = (process.env.READER_ANDROID_PRODUCT || 'reader').trim().toLowerCase();
+const pushFlavor = existsSync(googleServices) ? 'withFcm' : 'noFcm';
+const flavorCombo = `${product}${pushFlavor.charAt(0).toUpperCase()}${pushFlavor.slice(1)}`;
 const aabOut = join(
   androidDir,
-  `app/build/outputs/bundle/${flavor}Release/app-${flavor}-release.aab`
+  `app/build/outputs/bundle/${flavorCombo}Release/app-${product}-${pushFlavor}-release.aab`
 );
 
 if (!existsSync(keystoreProps)) {
@@ -23,7 +25,7 @@ if (!existsSync(keystoreProps)) {
 }
 
 const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
-const task = `bundle${flavor.charAt(0).toUpperCase()}${flavor.slice(1)}Release`;
+const task = `bundle${flavorCombo.charAt(0).toUpperCase()}${flavorCombo.slice(1)}Release`;
 const build = spawnSync(gradlew, [task], {
   cwd: androidDir,
   stdio: 'inherit',
@@ -32,6 +34,7 @@ const build = spawnSync(gradlew, [task], {
 
 if (build.status !== 0) process.exit(build.status ?? 1);
 
-console.log(`\n[bundle] Flavor : ${flavor}`);
+console.log(`\n[bundle] Product : ${product}`);
+console.log(`[bundle] Push : ${pushFlavor}`);
 console.log(`[bundle] AAB : ${aabOut.replace(/\\/g, '/')}`);
 console.log('[bundle] Play Console → Production ou Test interne → Créer une version → Importer le AAB');

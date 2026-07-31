@@ -48,7 +48,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes;
 import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.CommonStatusCodes;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -262,7 +264,9 @@ public class MainActivity extends AppCompatActivity {
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-        settings.setUserAgentString(settings.getUserAgentString() + " WabInfosNative/" + BuildConfig.VERSION_NAME);
+        settings.setUserAgentString(
+                settings.getUserAgentString() + " " + BuildConfig.UA_MARKER + "/" + BuildConfig.VERSION_NAME
+        );
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
 
@@ -518,10 +522,20 @@ public class MainActivity extends AppCompatActivity {
                         loadUrlInWebView(completeUrl);
                     } catch (ApiException e) {
                         progressBar.setVisibility(View.GONE);
-                        Toast.makeText(MainActivity.this, "Connexion Google annulée ou refusée", Toast.LENGTH_SHORT).show();
+                        int status = e.getStatusCode();
+                        // Annulation utilisateur : ne pas forcer le repli web.
+                        if (status == GoogleSignInStatusCodes.SIGN_IN_CANCELLED
+                                || status == CommonStatusCodes.CANCELED) {
+                            Toast.makeText(MainActivity.this, "Connexion Google annulée", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        // Ex. DEVELOPER_ERROR (10) si le package n’est pas enregistré dans Google Cloud.
+                        Log.w("WabInfos", "Google Sign-In natif échoué (status=" + status + "), repli web", e);
+                        fallbackGoogleWebSignIn(resolveRedactionBaseUrl(webView != null ? webView.getUrl() : null));
                     } catch (Exception e) {
+                        Log.w("WabInfos", "Google Sign-In natif impossible, repli web", e);
                         progressBar.setVisibility(View.GONE);
-                        Toast.makeText(MainActivity.this, "Connexion Google impossible", Toast.LENGTH_SHORT).show();
+                        fallbackGoogleWebSignIn(resolveRedactionBaseUrl(webView != null ? webView.getUrl() : null));
                     }
                 });
     }
@@ -733,13 +747,20 @@ public class MainActivity extends AppCompatActivity {
 
     private void startNativeGoogleSignIn(boolean remember) {
         pendingGoogleRemember = remember;
+        String currentUrl = webView != null ? webView.getUrl() : null;
+        String configBase = resolveRedactionBaseUrl(currentUrl);
+
+        // Wab-Redaction : pas encore de client OAuth Android pour com.wabinfos.redaction
+        // → OAuth web direct (évite DEVELOPER_ERROR + toast trompeur).
+        if (!BuildConfig.USE_NATIVE_GOOGLE) {
+            fallbackGoogleWebSignIn(configBase);
+            return;
+        }
+
         progressBar.setVisibility(View.VISIBLE);
         progressBar.setIndeterminate(true);
 
         // WebView doit être lu uniquement sur le thread UI (sinon crash silencieux → toast).
-        String currentUrl = webView != null ? webView.getUrl() : null;
-        String configBase = resolveRedactionBaseUrl(currentUrl);
-
         new Thread(() -> {
             try {
                 GoogleNativeConfig config = fetchGoogleNativeConfig(configBase);

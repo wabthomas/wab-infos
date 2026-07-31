@@ -25,14 +25,19 @@ const COPY = {
   },
   redaction: {
     iosTitle: 'Ajouter l’app rédaction à l’écran d’accueil',
-    androidTitle: 'Installer l’app Wab-infos',
+    androidTitle: 'Installer Wab-Redaction',
     androidSubtitle: 'Notifications rédaction et publication depuis votre mobile.',
   },
 } as const;
 
-const APK_URL =
-  process.env.NEXT_PUBLIC_ANDROID_APK_URL ||
-  `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '')}/downloads/wab-infos.apk`;
+const APK_URL_BY_VARIANT: Record<PwaVariant, string> = {
+  site:
+    process.env.NEXT_PUBLIC_ANDROID_APK_URL ||
+    `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '')}/downloads/wab-infos.apk`,
+  redaction:
+    process.env.NEXT_PUBLIC_REDACTION_ANDROID_APK_URL ||
+    `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '')}/downloads/wab-redaction.apk`,
+};
 
 function DismissButton({ onClick }: { onClick: () => void }) {
   return (
@@ -105,7 +110,7 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
 
   let content: React.ReactNode = null;
 
-  if (android && APK_URL) {
+  if (android && APK_URL_BY_VARIANT[variant]) {
     content = (
       <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-card p-4 shadow-lg">
         <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
@@ -113,7 +118,7 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
           <p className="text-sm font-semibold text-foreground">{labels.androidTitle}</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{labels.androidSubtitle}</p>
           <a
-            href={APK_URL}
+            href={APK_URL_BY_VARIANT[variant]}
             download
             className="mt-3 inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground"
           >

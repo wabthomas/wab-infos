@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Wab-Redaction</string>
+    <string name="app_tagline">Publiez depuis votre mobile</string>
+    <string name="offline_title">Vous êtes hors ligne</string>
+    <string name="offline_message">Impossible de charger l’espace rédaction. Vérifiez votre Wi‑Fi ou vos données mobiles, puis réessayez.</string>
+    <string name="offline_hint">L’app réessaie automatiquement dès que la connexion revient. Vous pouvez aussi appuyer sur Réessayer.</string>
+    <string name="update_dialog_message">Installez la dernière version pour corriger les bugs et profiter des nouveautés de l’app rédaction.</string>
+    <string name="update_install_permission">Autorisez l’installation d’applications pour Wab-Redaction</string>
+</resources>

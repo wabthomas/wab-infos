@@ -19,15 +19,10 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.wabinfos.app"
         minSdk 22
         targetSdk 34
-        versionCode 25
-        versionName "1.2.2"
 
         buildConfigField "boolean", "HAS_FIREBASE", hasFirebase.toString()
-        buildConfigField "String", "SITE_URL", '"https://wab-infos.com"'
-        buildConfigField "String", "VERSION_MANIFEST_URL", '"https://wab-infos.com/downloads/apk-version.json"'
     }
 
     signingConfigs {
@@ -61,8 +56,31 @@ android {
         buildConfig true
     }
 
-    flavorDimensions = ["push"]
+    flavorDimensions = ["product", "push"]
     productFlavors {
+        reader {
+            dimension "product"
+            applicationId "com.wabinfos.app"
+            versionCode 25
+            versionName "1.2.2"
+            buildConfigField "String", "SITE_URL", '"https://wab-infos.com"'
+            buildConfigField "String", "VERSION_MANIFEST_URL", '"https://wab-infos.com/downloads/apk-version.json"'
+            buildConfigField "String", "UA_MARKER", '"WabInfosNative"'
+            buildConfigField "boolean", "USE_NATIVE_GOOGLE", "true"
+            manifestPlaceholders = [deepLinkHost: "wab-infos.com"]
+        }
+        redaction {
+            dimension "product"
+            applicationId "com.wabinfos.redaction"
+            versionCode 2
+            versionName "1.0.1"
+            buildConfigField "String", "SITE_URL", '"https://redaction.app.wab-infos.com"'
+            buildConfigField "String", "VERSION_MANIFEST_URL", '"https://wab-infos.com/downloads/wab-redaction-apk-version.json"'
+            buildConfigField "String", "UA_MARKER", '"WabRedactionNative"'
+            // Pas de client OAuth Android pour ce package → OAuth web (form_post).
+            buildConfigField "boolean", "USE_NATIVE_GOOGLE", "false"
+            manifestPlaceholders = [deepLinkHost: "redaction.app.wab-infos.com"]
+        }
         withFcm {
             dimension "push"
         }

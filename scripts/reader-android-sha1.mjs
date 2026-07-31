@@ -85,9 +85,10 @@ if (!sha1) {
 }
 
 console.log('\n[sha1] Keystore release — Google Cloud OAuth Android');
-console.log(`       Package : com.wabinfos.app`);
 console.log(`       Fichier : ${keystore.replace(/\\/g, '/')}`);
 if (sha1) console.log(`\n       SHA-1   : ${sha1}`);
 if (sha256) console.log(`       SHA-256 : ${sha256}`);
 console.log('\n       Google Cloud → Credentials → OAuth client ID → Android');
-console.log('       Collez SHA-1 + package com.wabinfos.app\n');
+console.log('       1) Package com.wabinfos.app         + SHA-1 (app lecteur)');
+console.log('       2) Package com.wabinfos.redaction   + même SHA-1 (Wab-Redaction)');
+console.log('          → requis pour activer Google Sign-In natif dans Wab-Redaction\n');
