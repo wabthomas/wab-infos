@@ -74,16 +74,16 @@ curl -X POST https://app.wab-infos.com/api/revalidate \
 
 ## Gestion des publicités
 
-Les emplacements AdSense sont configurés dans `src/components/ads/adsense.tsx` :
+Les emplacements AdSense sont dans `apps/web/src/components/ads/adsense.tsx`.
 
-| Slot | Position | Composant |
-|------|----------|-----------|
-| header-ad | Bannière haute | `HeaderAd` |
-| sidebar-ad | Colonne droite | `SidebarAd` |
-| in-article-ad | Dans le contenu | `InArticleAd` |
-| sticky-mobile-ad | Bas mobile | `StickyMobileAd` |
+Configurer dans `.env` (lu à l’exécution via `getAdsenseConfig`) :
 
-Configurer `NEXT_PUBLIC_ADSENSE_CLIENT` dans `.env`.
+- `ADSENSE_CLIENT` / `NEXT_PUBLIC_ADSENSE_CLIENT` = `ca-pub-…`
+- slots : `ADSENSE_SLOT_HEADER`, `SIDEBAR`, `ARTICLE_TOP`, `ARTICLE_IN_CONTENT`, `ARTICLE_BOTTOM`, etc.
+
+`ads.txt` versionné : `apps/web/public/ads.txt`.
+
+La CSP (`next.config.ts`) doit autoriser les iframes AdSense (`frame-src` googlesyndication / doubleclick).
 
 ## Sauvegardes
 

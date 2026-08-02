@@ -36,24 +36,18 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug, category } = await params;
+  let article = null;
   try {
-    const article = await getArticleBySlug(slug);
-    if (article) return generateArticleMetadata(article, category);
+    article = await getArticleBySlug(slug);
   } catch {
-    const mock = findMockArticleBySlug(slug);
-    if (mock) return generateArticleMetadata(mock, category);
+    article = findMockArticleBySlug(slug);
   }
-  return {
-    title: 'Article non trouvé',
-    robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
-    alternates: {
-      // Évite d’hériter du canonical accueil si le layout en définit un.
-      canonical: `${siteConfig.url}/${category}/${slug}`,
-    },
-  };
+  // Appeler notFound() ici : sinon Next peut servir 200 avec le fallback metadata.
+  if (!article) notFound();
+  return generateArticleMetadata(article, category);
 }
 
-export const revalidate = 60;
+export const revalidate = 300;
 
 export default async function ArticlePage({ params }: PageProps) {
   const { category, slug } = await params;

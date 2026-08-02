@@ -13,7 +13,7 @@ import { isLowMemBuild } from '@/lib/build-phase';
 import { resolveLegacyArticlePath } from '@/lib/legacy-url';
 import { generateCategoryMetadata } from '@/lib/seo';
 import { getLiveFeed } from '@/lib/sidebar-data';
-import { getArticles } from '@/lib/strapi';
+import { getArticles, getCategoryBySlug as getStrapiCategoryBySlug } from '@/lib/strapi';
 
 interface PageProps {
   params: Promise<{ category: string }>;
@@ -32,13 +32,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
   const cat = getCategoryBySlug(category)!;
-  return generateCategoryMetadata({
-    id: 0,
-    documentId: '',
-    name: cat.name,
-    slug: cat.slug,
-    color: cat.color,
-  });
+  let description: string | undefined;
+  let indexable = true;
+
+  try {
+    const [strapiCat, articlesResult] = await Promise.all([
+      getStrapiCategoryBySlug(category),
+      getArticles({ category, pageSize: 1, page: 1 }),
+    ]);
+    if (strapiCat?.description?.trim()) {
+      description = strapiCat.description.trim();
+    }
+    indexable = (articlesResult.pagination?.total ?? articlesResult.articles.length) > 0;
+  } catch {
+    // Keep generic description from generateCategoryMetadata.
+  }
+
+  return generateCategoryMetadata(
+    {
+      id: 0,
+      documentId: '',
+      name: cat.name,
+      slug: cat.slug,
+      color: cat.color,
+      description,
+    },
+    { indexable }
+  );
 }
 
 export const revalidate = 60;
@@ -59,9 +79,10 @@ export default async function CategoryPage({ params }: PageProps) {
     ? CATEGORY_INITIAL_PAGE_SIZE_LOW_MEM
     : CATEGORY_INITIAL_PAGE_SIZE;
 
-  const [categoryResult, liveResult] = await Promise.allSettled([
+  const [categoryResult, liveResult, strapiCatResult] = await Promise.allSettled([
     getArticles({ category, pageSize, page: 1 }),
     getLiveFeed(4),
+    getStrapiCategoryBySlug(category),
   ]);
 
   const fulfilled =
@@ -74,6 +95,10 @@ export default async function CategoryPage({ params }: PageProps) {
 
   const articles = fulfilled.articles;
   const pagination = fulfilled.pagination;
+  const strapiDescription =
+    strapiCatResult.status === 'fulfilled'
+      ? strapiCatResult.value?.description?.trim()
+      : undefined;
 
   const liveFeed =
     liveResult.status === 'fulfilled'
@@ -84,6 +109,10 @@ export default async function CategoryPage({ params }: PageProps) {
     pagination.total > 0
       ? `${pagination.total} article${pagination.total > 1 ? 's' : ''}`
       : null;
+
+  const introText =
+    strapiDescription ||
+    `Toute l'actualité ${cat.name.toLowerCase()} sur ${siteConfig.name}`;
 
   return (
     <div className="container mx-auto px-3 pb-10 pt-4 sm:px-4 sm:py-8">
@@ -129,7 +158,7 @@ export default async function CategoryPage({ params }: PageProps) {
             {cat.name}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-base">
-            Toute l&apos;actualité {cat.name.toLowerCase()} sur {siteConfig.name}
+            {introText}
           </p>
         </div>
       </header>

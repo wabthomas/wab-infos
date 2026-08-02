@@ -572,28 +572,6 @@ export async function getTagBySlug(slug: string): Promise<Tag | null> {
   return mapTag(response.data[0]);
 }
 
-export async function getAllAuthorSlugs(): Promise<string[]> {
-  const slugs: string[] = [];
-  let page = 1;
-  let pageCount = 1;
-
-  while (page <= pageCount) {
-    const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/authors', {
-      fields: ['slug'],
-      pagination: { page, pageSize: 100 },
-    });
-
-    for (const entity of response.data) {
-      if (typeof entity.slug === 'string') slugs.push(entity.slug);
-    }
-
-    pageCount = response.meta?.pagination?.pageCount ?? 1;
-    page++;
-  }
-
-  return slugs;
-}
-
 export async function getAllTagSlugs(): Promise<string[]> {
   const slugs: string[] = [];
   let page = 1;
@@ -613,7 +591,56 @@ export async function getAllTagSlugs(): Promise<string[]> {
     page++;
   }
 
-  return slugs;
+  return [...new Set(slugs)];
+}
+
+/** Tags avec assez d’articles pour mériter d’être crawlés (évite le thin content). */
+export async function getTagSlugsWithMinArticles(minArticles = 3): Promise<string[]> {
+  const all = await getAllTagSlugs();
+  const rich: string[] = [];
+
+  // Lots pour ne pas saturuer Strapi
+  const batchSize = 8;
+  for (let i = 0; i < all.length; i += batchSize) {
+    const batch = all.slice(i, i + batchSize);
+    const counts = await Promise.all(
+      batch.map(async (slug) => {
+        try {
+          const result = await getArticles({ tag: slug, pageSize: 1 });
+          return { slug, total: result.pagination.total ?? result.articles.length };
+        } catch {
+          return { slug, total: 0 };
+        }
+      })
+    );
+    for (const row of counts) {
+      if (row.total >= minArticles) rich.push(row.slug);
+    }
+  }
+
+  return rich;
+}
+
+export async function getAllAuthorSlugs(): Promise<string[]> {
+  const slugs: string[] = [];
+  let page = 1;
+  let pageCount = 1;
+
+  while (page <= pageCount) {
+    const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/authors', {
+      fields: ['slug'],
+      pagination: { page, pageSize: 100 },
+    });
+
+    for (const entity of response.data) {
+      if (typeof entity.slug === 'string') slugs.push(entity.slug);
+    }
+
+    pageCount = response.meta?.pagination?.pageCount ?? 1;
+    page++;
+  }
+
+  return [...new Set(slugs)];
 }
 
 export async function getVideos(options?: { type?: Video['type']; pageSize?: number }): Promise<Video[]> {
@@ -822,10 +849,7 @@ export async function getRecentArticlesForNewsSitemap(hours = 48): Promise<Artic
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
     filters: {
-      $or: [
-        { wpPublishedAt: { $gte: since } },
-        { publishedAt: { $gte: since }, wpPublishedAt: { $null: true } },
-      ],
+      $or: [{ wpPublishedAt: { $gte: since } }, { publishedAt: { $gte: since } }],
     },
     fields: ['title', 'slug', 'publishedAt', 'wpPublishedAt', 'updatedAt', 'seoTitle'],
     populate: { category: true, tags: true },

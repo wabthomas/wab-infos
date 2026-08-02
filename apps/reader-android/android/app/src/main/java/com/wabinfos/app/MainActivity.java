@@ -90,6 +90,8 @@ public class MainActivity extends AppCompatActivity {
     private GoogleSignInClient googleSignInClient;
     private String pendingGoogleCompleteUrl;
     private boolean pendingGoogleRemember = true;
+    private String defaultWebViewUserAgent;
+    private boolean googleOAuthChromeUaActive = false;
     private String lastRequestedUrl = SITE_URL;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Runnable offlineReconnectRunnable = new Runnable() {
@@ -147,6 +149,10 @@ public class MainActivity extends AppCompatActivity {
         UpdateManager.bindActivity(this);
         // Toast « à jour » uniquement au froid (évite doublon onResume).
         UpdateManager.showUpdatedToastIfNeeded(this);
+        // Wab-Redaction : dialog natif en secours (le bandeau web couvre aussi le cas).
+        if (!BuildConfig.USE_NATIVE_GOOGLE) {
+            mainHandler.postDelayed(() -> UpdateManager.checkForUpdate(MainActivity.this), 2800);
+        }
 
         String targetUrl = resolveTargetUrl(getIntent());
         if (isOnline()) {
@@ -267,6 +273,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setUserAgentString(
                 settings.getUserAgentString() + " " + BuildConfig.UA_MARKER + "/" + BuildConfig.VERSION_NAME
         );
+        defaultWebViewUserAgent = settings.getUserAgentString();
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
 
@@ -297,11 +304,13 @@ public class MainActivity extends AppCompatActivity {
                 Uri parsed = Uri.parse(url);
                 String host = parsed.getHost();
                 if (isNativeGoogleStartUrl(parsed)) {
-                    // ?preferWeb=1 : repli OAuth navigateur (évite boucle natif → start → natif).
-                    if (!"1".equals(parsed.getQueryParameter("preferWeb"))) {
-                        startNativeGoogleSignIn(true);
+                    // preferWeb=1 ou app sans Google natif → OAuth dans la WebView (UA Chrome).
+                    if ("1".equals(parsed.getQueryParameter("preferWeb")) || !BuildConfig.USE_NATIVE_GOOGLE) {
+                        beginGoogleOAuthInWebView(url);
                         return true;
                     }
+                    startNativeGoogleSignIn(true);
+                    return true;
                 }
                 if (isGoogleOAuthCallbackUrl(parsed)) {
                     String sanitized = sanitizeGoogleOAuthCallbackUrl(parsed);
@@ -309,6 +318,19 @@ public class MainActivity extends AppCompatActivity {
                         view.loadUrl(sanitized);
                         return true;
                     }
+                }
+                // Pendant la connexion Google : rester dans l’APK (ne pas ouvrir Chrome).
+                if (googleOAuthChromeUaActive) {
+                    String scheme = parsed.getScheme();
+                    if (scheme != null
+                            && !"http".equalsIgnoreCase(scheme)
+                            && !"https".equalsIgnoreCase(scheme)) {
+                        return true; // ignore intent:/market: pendant OAuth
+                    }
+                    return false;
+                }
+                if (isGoogleOAuthHost(host)) {
+                    return false;
                 }
                 if (url.startsWith(SITE_URL) || (host != null && host.endsWith("wab-infos.com"))) {
                     return false;
@@ -328,6 +350,7 @@ public class MainActivity extends AppCompatActivity {
                 if (url != null && !url.isEmpty()) {
                     lastRequestedUrl = url;
                 }
+                maybeRestoreDefaultUserAgent(url);
                 swipeRefresh.setRefreshing(false);
                 progressBar.setVisibility(View.GONE);
                 if (isOnline()) {
@@ -721,6 +744,21 @@ public class MainActivity extends AppCompatActivity {
                 && "/api/redaction/auth/google/start".equals(path);
     }
 
+    /** Domaines Google à garder dans la WebView pour l’OAuth (sinon Chrome externe). */
+    private boolean isGoogleOAuthHost(String host) {
+        if (host == null || host.isEmpty()) return false;
+        String h = host.toLowerCase(Locale.ROOT);
+        return h.equals("accounts.google.com")
+                || h.equals("accounts.youtube.com")
+                || h.equals("myaccount.google.com")
+                || h.equals("oauthaccountmanager.googleapis.com")
+                || h.endsWith(".google.com")
+                || h.endsWith(".googleusercontent.com")
+                || h.endsWith(".googleapis.com")
+                || h.equals("gstatic.com")
+                || h.endsWith(".gstatic.com");
+    }
+
     /** Retour Google OAuth web : le WAF N0C bloque `iss=accounts.google.com` (403). */
     private boolean isGoogleOAuthCallbackUrl(Uri uri) {
         if (uri == null) return false;
@@ -811,6 +849,46 @@ public class MainActivity extends AppCompatActivity {
         return "https://redaction.app.wab-infos.com";
     }
 
+    /** OAuth Google dans la WebView avec UA Chrome (Google refuse le marqueur "; wv)"). */
+    private void beginGoogleOAuthInWebView(String startUrl) {
+        if (webView == null || startUrl == null || startUrl.isEmpty()) return;
+        WebSettings settings = webView.getSettings();
+        if (defaultWebViewUserAgent == null || defaultWebViewUserAgent.isEmpty()) {
+            defaultWebViewUserAgent = settings.getUserAgentString();
+        }
+        // UA Chrome mobile sans "; wv)" ni marqueur app.
+        settings.setUserAgentString(
+                "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 "
+                        + "(KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36"
+        );
+        googleOAuthChromeUaActive = true;
+        progressBar.setVisibility(View.VISIBLE);
+        progressBar.setIndeterminate(true);
+        loadUrlInWebView(startUrl);
+    }
+
+    private void maybeRestoreDefaultUserAgent(String url) {
+        if (!googleOAuthChromeUaActive || webView == null || defaultWebViewUserAgent == null) {
+            return;
+        }
+        if (url == null || url.isEmpty()) return;
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost();
+        String path = uri.getPath() != null ? uri.getPath() : "";
+        if (host == null || !host.endsWith("wab-infos.com")) {
+            return;
+        }
+        // Une fois revenus sur l’app rédaction (hors endpoints OAuth), restaurer l’UA natif.
+        if (path.contains("/api/redaction/auth/google/")) {
+            return;
+        }
+        if (path.contains("/auth/google/")) {
+            return;
+        }
+        webView.getSettings().setUserAgentString(defaultWebViewUserAgent);
+        googleOAuthChromeUaActive = false;
+    }
+
     /** Repli OAuth web si le flux Play Services / native-config échoue. */
     private void fallbackGoogleWebSignIn(String configBase) {
         progressBar.setIndeterminate(false);
@@ -819,7 +897,7 @@ public class MainActivity extends AppCompatActivity {
                 ? configBase
                 : "https://redaction.app.wab-infos.com";
         // preferWeb=1 empêche shouldOverrideUrlLoading de relancer le flux natif en boucle.
-        loadUrlInWebView(base + "/api/redaction/auth/google/start?preferWeb=1");
+        beginGoogleOAuthInWebView(base + "/api/redaction/auth/google/start?preferWeb=1");
     }
 
     private GoogleNativeConfig fetchGoogleNativeConfig(String base) throws Exception {

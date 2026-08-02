@@ -15,7 +15,7 @@ import { NewsletterSignup } from '@/components/home/newsletter-signup';
 import { PushAlertsSignup } from '@/components/home/push-alerts-signup';
 import { HomeTopCategorySection } from '@/components/home/home-top-category-section';
 import { SectionHeader } from '@/components/ui/section-header';
-import { categories, getCategoryBySlug } from '@/config/site';
+import { categories, getCategoryBySlug, siteConfig } from '@/config/site';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { isLowMemBuild } from '@/lib/build-phase';
 import { getTopReadArticles } from '@/lib/sidebar-data';
@@ -129,6 +129,9 @@ export default async function HomePage() {
       <HeaderAd />
 
       <div className="container mx-auto px-3 py-5 sm:px-4 sm:py-8">
+        <h1 className="sr-only">
+          {siteConfig.name} — Actualités RDC et International
+        </h1>
         <HomeRecentNews
           articles={recentNews.slice(0, RECENT_NEWS_DISPLAY_COUNT)}
           popularArticles={topReadPanel}
@@ -139,7 +142,7 @@ export default async function HomePage() {
             {topSections.map((section) => renderTopSection(section, articlesByCategory))}
 
             <section>
-              <SectionHeader title="Dernières actualités" href="/recherche" linkLabel="Tout voir" />
+              <SectionHeader title="Dernières actualités" href="/actualite" linkLabel="Tout voir" />
               <div className="grid grid-cols-2 gap-3 sm:gap-5">
                 {gridArticles.map((article) => (
                   <ArticleCard key={article.id} article={article} />

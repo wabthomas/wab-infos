@@ -15,12 +15,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const author = await getAuthorBySlug(slug);
     if (author) {
-      return generateAuthorMetadata(author);
+      try {
+        const result = await getArticles({ pageSize: 50 });
+        const count = result.articles.filter((a) => a.author?.slug === slug).length;
+        return generateAuthorMetadata(author, { indexable: count > 0 });
+      } catch {
+        return generateAuthorMetadata(author);
+      }
     }
   } catch {
     // fallback
   }
-  return { title: 'Auteur' };
+  return {
+    title: 'Auteur',
+    robots: { index: false, follow: false },
+  };
 }
 
 export default async function AuthorPage({ params }: PageProps) {

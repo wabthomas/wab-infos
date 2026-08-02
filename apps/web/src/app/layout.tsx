@@ -125,6 +125,9 @@ export default async function RootLayout({
             content={siteConfig.googleSiteVerification}
           />
         )}
+        {adsenseConfig.client && (
+          <meta name="google-adsense-account" content={adsenseConfig.client} />
+        )}
         <GoogleTagManagerHead />
         {siteConfig.gaId && (
           <>

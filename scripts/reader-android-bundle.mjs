@@ -12,7 +12,17 @@ const androidDir = join(root, 'apps/reader-android/android');
 const keystoreProps = join(androidDir, 'keystore.properties');
 const googleServices = join(androidDir, 'app/google-services.json');
 const product = (process.env.READER_ANDROID_PRODUCT || 'reader').trim().toLowerCase();
-const pushFlavor = existsSync(googleServices) ? 'withFcm' : 'noFcm';
+if (product !== 'reader' && product !== 'redaction') {
+  console.error('[bundle] READER_ANDROID_PRODUCT invalide (reader|redaction)');
+  process.exit(1);
+}
+// Wab-Redaction : noFcm tant que Firebase n’a pas d’app Android com.wabinfos.redaction.
+const pushFlavor =
+  product === 'redaction'
+    ? 'noFcm'
+    : existsSync(googleServices)
+      ? 'withFcm'
+      : 'noFcm';
 const flavorCombo = `${product}${pushFlavor.charAt(0).toUpperCase()}${pushFlavor.slice(1)}`;
 const aabOut = join(
   androidDir,
@@ -22,6 +32,10 @@ const aabOut = join(
 if (!existsSync(keystoreProps)) {
   console.error('[bundle] Fichier manquant : apps/reader-android/android/keystore.properties');
   process.exit(1);
+}
+
+if (product !== 'redaction' && !existsSync(googleServices)) {
+  console.warn('[bundle] google-services.json absent → build noFcm (sans push FCM)');
 }
 
 const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';

@@ -3,7 +3,6 @@ import { canonicalizeCategorySlug, categories, getVideoPagePath, siteConfig } fr
 import { isProductionBuild } from '@/lib/build-phase';
 import {
   getAllAuthorSlugs,
-  getAllTagSlugs,
   getAllVideosForSitemap,
   getArticlePathsChunk,
   getPublishedArticleCount,
@@ -67,12 +66,11 @@ ${urls}
 }
 
 export function toSitemapIndexXml(sitemapUrls: string[]): string {
-  const now = new Date().toISOString();
+  // Pas de lastmod sur l’index : une horodatage « maintenant » est trompeur.
   const body = sitemapUrls
     .map(
       (loc) => `  <sitemap>
     <loc>${escapeXml(loc)}</loc>
-    <lastmod>${now}</lastmod>
   </sitemap>`
     )
     .join('\n');
@@ -84,15 +82,15 @@ ${body}
 }
 
 function staticAndCategoryEntries(): MetadataRoute.Sitemap {
+  // Pas de lastmod = now() : Google ignore les lastmod non fiables pour tout le domaine.
   const staticPages: MetadataRoute.Sitemap = [
-    { url: siteConfig.url, lastModified: new Date(), changeFrequency: 'always', priority: 1 },
-    { url: `${siteConfig.url}/tv`, lastModified: new Date(), changeFrequency: 'hourly', priority: 0.8 },
-    { url: `${siteConfig.url}/a-propos`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${siteConfig.url}/contact`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${siteConfig.url}/mentions-legales`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.3 },
+    { url: siteConfig.url, changeFrequency: 'always', priority: 1 },
+    { url: `${siteConfig.url}/tv`, changeFrequency: 'hourly', priority: 0.8 },
+    { url: `${siteConfig.url}/a-propos`, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${siteConfig.url}/contact`, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${siteConfig.url}/mentions-legales`, changeFrequency: 'yearly', priority: 0.3 },
     {
       url: `${siteConfig.url}/politique-confidentialite`,
-      lastModified: new Date(),
       changeFrequency: 'yearly',
       priority: 0.3,
     },
@@ -100,7 +98,6 @@ function staticAndCategoryEntries(): MetadataRoute.Sitemap {
 
   const categoryPages: MetadataRoute.Sitemap = categories.map((cat) => ({
     url: `${siteConfig.url}/${cat.slug}`,
-    lastModified: new Date(),
     changeFrequency: 'hourly' as const,
     priority: 0.9,
   }));
@@ -111,14 +108,18 @@ function staticAndCategoryEntries(): MetadataRoute.Sitemap {
 async function videoAuthorTagEntries(): Promise<MetadataRoute.Sitemap> {
   let videoPages: MetadataRoute.Sitemap = [];
   const seenVideoIds = new Set<string>();
+  const seenUrls = new Set<string>();
 
   try {
     const strapiVideos = await getAllVideosForSitemap();
     for (const video of strapiVideos) {
       if (!video.youtubeId || seenVideoIds.has(video.youtubeId)) continue;
       seenVideoIds.add(video.youtubeId);
+      const url = `${siteConfig.url}${getVideoPagePath(video.youtubeId)}`;
+      if (seenUrls.has(url)) continue;
+      seenUrls.add(url);
       videoPages.push({
-        url: `${siteConfig.url}${getVideoPagePath(video.youtubeId)}`,
+        url,
         lastModified: new Date(video.publishedAt),
         changeFrequency: 'weekly' as const,
         priority: 0.6,
@@ -135,8 +136,11 @@ async function videoAuthorTagEntries(): Promise<MetadataRoute.Sitemap> {
       for (const entry of recent) {
         if (seenVideoIds.has(entry.videoId)) continue;
         seenVideoIds.add(entry.videoId);
+        const url = `${siteConfig.url}${getVideoPagePath(entry.videoId)}`;
+        if (seenUrls.has(url)) continue;
+        seenUrls.add(url);
         videoPages.push({
-          url: `${siteConfig.url}${getVideoPagePath(entry.videoId)}`,
+          url,
           lastModified: new Date(entry.publishedAt),
           changeFrequency: 'weekly' as const,
           priority: 0.6,
@@ -148,26 +152,25 @@ async function videoAuthorTagEntries(): Promise<MetadataRoute.Sitemap> {
   }
 
   let authorPages: MetadataRoute.Sitemap = [];
-  let tagPages: MetadataRoute.Sitemap = [];
   try {
-    const [authorSlugs, tagSlugs] = await Promise.all([getAllAuthorSlugs(), getAllTagSlugs()]);
-    authorPages = authorSlugs.map((slug) => ({
-      url: `${siteConfig.url}/auteur/${slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.5,
-    }));
-    tagPages = tagSlugs.map((slug) => ({
-      url: `${siteConfig.url}/tag/${slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.4,
-    }));
+    const authorSlugs = await getAllAuthorSlugs();
+    const uniqueAuthors = [...new Set(authorSlugs.filter(Boolean))];
+    for (const slug of uniqueAuthors) {
+      const url = `${siteConfig.url}/auteur/${slug}`;
+      if (seenUrls.has(url)) continue;
+      seenUrls.add(url);
+      authorPages.push({
+        url,
+        changeFrequency: 'weekly' as const,
+        priority: 0.5,
+      });
+    }
   } catch {
     // Strapi indisponible
   }
 
-  return [...videoPages, ...authorPages, ...tagPages];
+  // Tags : hors sitemap (beaucoup de thin content). noindex si < 3 articles côté page.
+  return [...videoPages, ...authorPages];
 }
 
 export async function getArticleSitemapChunkCount(): Promise<number> {

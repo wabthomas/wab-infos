@@ -100,60 +100,49 @@ export function ArticleHero({
   return (
     <header className={cn('mb-6 md:mb-8', className)}>
       <div className="overflow-hidden rounded-2xl bg-card shadow-lg ring-1 ring-black/5 dark:ring-white/10">
-        {/* Mobile : image nette + contenu en dessous */}
-        <div className="md:hidden">
-          <div className="relative aspect-[16/10] w-full bg-muted">
-            <ArticleImage
-              src={imageUrl}
-              alt={article.title}
-              className="object-cover"
-              priority
-              sizes="100vw"
-            />
-          </div>
-          <div className="p-4">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              {article.isBreaking && (
-                <span className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-                  Flash info
-                </span>
-              )}
-              <Link
-                href={`/${categorySlug}`}
-                className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
-                style={{ backgroundColor: categoryColor }}
-              >
-                {categoryName}
-              </Link>
-            </div>
-            <h1 className="font-headline text-xl font-bold leading-snug md:text-2xl">{article.title}</h1>
-            <div className="mt-3">{metaRow()}</div>
-            <ArticleShareButtons url={articleUrl} title={article.title} className="mt-4" />
-          </div>
+        {/* Mobile : image */}
+        <div className="relative aspect-[16/10] w-full bg-muted md:hidden">
+          <ArticleImage
+            src={imageUrl}
+            alt={article.featuredImage?.alternativeText || article.title}
+            className="object-cover"
+            priority
+            sizes="100vw"
+          />
         </div>
 
-        {/* Desktop : overlay (sans priority — une seule image LCP, côté mobile) */}
+        {/* Desktop : image + badges en overlay */}
         <div className="relative hidden aspect-[16/9] w-full bg-muted md:block">
           <ArticleImage
             src={imageUrl}
-            alt={article.title}
+            alt={article.featuredImage?.alternativeText || article.title}
             className="object-cover"
             sizes="66vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-8">
-            {badges}
-            <h1 className="font-headline text-2xl font-bold leading-tight text-white drop-shadow-sm lg:text-3xl">
-              {article.title}
-            </h1>
-            <div className="mt-3">{metaRow(true)}</div>
-            <ArticleShareButtons
-              url={articleUrl}
-              title={article.title}
-              variant="overlay"
-              className="mt-4"
-            />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/15 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-8">{badges}</div>
+        </div>
+
+        <div className="p-4 sm:p-6">
+          <div className="mb-2 flex flex-wrap items-center gap-2 md:hidden">
+            {article.isBreaking && (
+              <span className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                Flash info
+              </span>
+            )}
+            <Link
+              href={`/${categorySlug}`}
+              className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
+              style={{ backgroundColor: categoryColor }}
+            >
+              {categoryName}
+            </Link>
           </div>
+          <h1 className="font-headline text-xl font-bold leading-snug md:text-2xl lg:text-3xl">
+            {article.title}
+          </h1>
+          <div className="mt-3">{metaRow()}</div>
+          <ArticleShareButtons url={articleUrl} title={article.title} className="mt-4" />
         </div>
       </div>
 

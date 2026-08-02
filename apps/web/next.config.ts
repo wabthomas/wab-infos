@@ -47,10 +47,30 @@ const nextConfig: NextConfig = {
     return [
       { source: '/redaction', destination: redactionUrl, permanent: false },
       { source: '/redaction/:path*', destination: `${redactionUrl}/:path*`, permanent: false },
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.wab-infos.com' }],
+        destination: 'https://wab-infos.com/:path*',
+        permanent: true,
+      },
+      { source: '/television', destination: '/tv', permanent: true },
+      { source: '/television/:path*', destination: '/tv', permanent: true },
+      { source: '/login-page', destination: '/', permanent: true },
+      { source: '/wab-infos', destination: '/a-propos', permanent: true },
     ];
   },
   async headers() {
     return [
+      {
+        // Articles : cache CDN / crawl (ISR 5 min côté page)
+        source: '/:category/:slug',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=86400',
+          },
+        ],
+      },
       {
         source: '/sw.js',
         headers: [
@@ -69,7 +89,21 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: '/downloads/wab-redaction-apk-version.json',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=60, must-revalidate' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+        ],
+      },
+      {
         source: '/downloads/wab-infos.apk',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' },
+          { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
+        ],
+      },
+      {
+        source: '/downloads/wab-redaction.apk',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' },
           { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
@@ -86,15 +120,16 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // gstatic : scripts Firebase Messaging (SW + client)
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://www.googletagmanager.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://www.google-analytics.com",
+              // gstatic : Firebase Messaging ; AdSense / Google Ads scripts
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://www.googletagmanager.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://www.google-analytics.com https://www.google.com https://www.googleadservices.com https://*.adtrafficquality.google",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https: blob:",
               "font-src 'self' https:",
-              // Firebase / FCM : sans ces hosts, getToken() échoue avec « Failed to fetch »
-              "connect-src 'self' https://cms.app.wab-infos.com https://redaction.app.wab-infos.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://*.googleapis.com https://*.gstatic.com https://*.firebaseio.com https://*.firebase.com wss://*.firebaseio.com",
+              // Firebase / FCM + AdSense network
+              "connect-src 'self' https://cms.app.wab-infos.com https://redaction.app.wab-infos.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.googleapis.com https://*.gstatic.com https://*.firebaseio.com https://*.firebase.com wss://*.firebaseio.com https://*.doubleclick.net https://googleads.g.doubleclick.net https://*.google.com https://www.googleadservices.com https://*.adtrafficquality.google",
               "worker-src 'self' blob:",
-              "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+              // YouTube embeds + AdSense creatives (iframes)
+              "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://*.googlesyndication.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://www.googleadservices.com https://*.adtrafficquality.google",
               "media-src 'self' https:",
             ].join('; '),
           },

@@ -9,6 +9,7 @@ import { SiteLogo } from '@/components/brand/site-logo';
 import { PwaInstallBanner } from '@/components/pwa/pwa-install-banner';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { isGoogleAuthEnabled } from '@/lib/redaction/config';
+import { isNativeRedactionAppFromUserAgent } from '@wab-infos/shared';
 
 type AndroidGoogleBridge = {
   signInWithGoogle: (remember: boolean) => void;
@@ -129,6 +130,12 @@ export function RedactionLoginForm() {
       window.sessionStorage.setItem('redaction_google_remember', remember ? '1' : '0');
     } catch {
       // ignore
+    }
+    // Wab-Redaction : OAuth web (UA Chrome) — pas de Google Sign-In natif
+    // (package com.wabinfos.redaction pas encore enregistré dans Google Cloud).
+    if (isNativeRedactionAppFromUserAgent()) {
+      window.location.href = '/api/redaction/auth/google/start?preferWeb=1';
+      return;
     }
     const nativeBridge = (window as Window & { AndroidBridge?: AndroidGoogleBridge }).AndroidBridge;
     if (nativeBridge?.signInWithGoogle) {

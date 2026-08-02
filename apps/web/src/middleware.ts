@@ -3,6 +3,15 @@ import { resolveWpRedirect } from '@/lib/wp-redirects';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = request.headers.get('host')?.split(':')[0]?.toLowerCase() ?? '';
+
+  // Canonique HTTPS apex (complément Cloudflare Always HTTPS / www → apex)
+  if (host === 'www.wab-infos.com') {
+    const url = request.nextUrl.clone();
+    url.protocol = 'https:';
+    url.host = 'wab-infos.com';
+    return NextResponse.redirect(url, 301);
+  }
 
   const indexNowKey = process.env.INDEXNOW_KEY?.trim();
   if (indexNowKey && pathname === `/${indexNowKey}.txt`) {

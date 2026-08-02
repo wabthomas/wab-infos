@@ -9,10 +9,17 @@ export async function GET() {
   try {
     articles = await getRecentArticlesForNewsSitemap(48);
   } catch {
-    // Fallback empty sitemap
+    return new NextResponse('News sitemap temporarily unavailable', {
+      status: 503,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Retry-After': '300',
+      },
+    });
   }
 
-  const publicationName = siteConfig.googleNewsPublication || siteConfig.name;
+  const publicationName = siteConfig.googleNewsPublication || siteConfig.publisher;
 
   const urls = articles
     .map((article) => {

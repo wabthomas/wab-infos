@@ -5,6 +5,13 @@ import { NativeAppUpdate } from '@/components/pwa/native-app-update';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 
+const siteDownloadsUrl = (
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com'
+).replace(/\/$/, '');
+const redactionPublicUrl = (
+  process.env.NEXT_PUBLIC_REDACTION_URL || 'https://redaction.app.wab-infos.com'
+).replace(/\/$/, '');
+
 export const metadata: Metadata = {
   title: 'Rédaction',
   description: 'Application mobile de rédaction Wab-infos',
@@ -45,8 +52,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ToastProvider>
             <NativeAppSetup />
             <NativeAppUpdate
-              siteUrl="https://wab-infos.com"
-              versionManifestUrl="/downloads/wab-redaction-apk-version.json"
+              siteUrl={siteDownloadsUrl}
+              versionManifestUrl={`${redactionPublicUrl}/api/redaction/apk-version`}
             />
             {children}
           </ToastProvider>

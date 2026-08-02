@@ -14,11 +14,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   try {
     const tag = await getTagBySlug(slug);
-    if (tag) return generateTagMetadata(tag);
+    if (tag) {
+      try {
+        const result = await getArticles({ tag: slug, pageSize: 1 });
+        const indexable = (result.pagination.total ?? result.articles.length) >= 3;
+        return generateTagMetadata(tag, { indexable });
+      } catch {
+        return generateTagMetadata(tag);
+      }
+    }
   } catch {
     // fallback
   }
-  return { title: 'Tag' };
+  return {
+    title: 'Tag',
+    robots: { index: false, follow: false },
+  };
 }
 
 export const revalidate = 300;
@@ -47,7 +58,7 @@ export default async function TagPage({ params }: PageProps) {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <Breadcrumbs items={[{ name: 'Tags', href: '/recherche' }, { name: tag.name }]} />
+      <Breadcrumbs items={[{ name: 'Tags', href: '/actualite' }, { name: tag.name }]} />
 
       <header className="mb-8 border-b border-border pb-6">
         <p className="text-sm font-medium uppercase tracking-wide text-primary">Tag</p>

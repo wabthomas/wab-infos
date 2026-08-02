@@ -127,15 +127,24 @@ export function generateArticleJsonLd(
   const categorySlug = resolveArticleCategorySlug(article, urlCategory);
   const articleUrl = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
   const plainBody = stripHtml(article.content);
+  const ogImage = resolveArticleOgImage(article);
 
   const displayDate = getArticleDisplayDate(article);
+  const imageObjects = images.map((url) => ({
+    '@type': 'ImageObject' as const,
+    url,
+    ...(ogImage.width && ogImage.height
+      ? { width: String(ogImage.width), height: String(ogImage.height) }
+      : { width: '1200', height: '630' }),
+  }));
 
   return {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
-    headline: article.seoTitle || article.title,
+    headline: article.title,
     description: article.seoDescription || article.excerpt,
-    image: images,
+    image: imageObjects,
+    url: articleUrl,
     datePublished: displayDate,
     dateModified: article.updatedAt || displayDate,
     author: article.author
@@ -144,15 +153,19 @@ export function generateArticleJsonLd(
           name: article.author.name,
           url: `${siteConfig.url}/auteur/${article.author.slug}`,
         }
-      : { '@type': 'Organization', name: siteConfig.publisher },
+      : { '@type': 'NewsMediaOrganization', name: siteConfig.publisher },
     publisher: {
-      '@type': 'Organization',
+      '@type': 'NewsMediaOrganization',
       name: siteConfig.publisher,
       logo: publisherLogoObject(),
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
       '@id': articleUrl,
+    },
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['article h1', 'header h1'],
     },
     articleSection: article.category?.name,
     keywords: article.tags?.map((t) => t.name).join(', '),
@@ -187,7 +200,7 @@ export function generateWebsiteJsonLd(): WithContext<WebSite> {
     description: siteConfig.description,
     inLanguage: 'fr',
     publisher: {
-      '@type': 'Organization',
+      '@type': 'NewsMediaOrganization',
       name: siteConfig.publisher,
       logo: publisherLogoObject(),
     },
@@ -220,7 +233,7 @@ export function generateVideoJsonLd(video: Video): WithContext<VideoObject> {
     inLanguage: 'fr',
     isFamilyFriendly: true,
     publisher: {
-      '@type': 'Organization',
+      '@type': 'NewsMediaOrganization',
       name: siteConfig.publisher,
       logo: publisherLogoObject(),
     },
@@ -285,7 +298,9 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
   };
 
   return {
-    title: article.seoTitle || article.title,
+    title: {
+      absolute: article.seoTitle || article.title,
+    },
     description: article.seoDescription || article.excerpt,
     alternates: {
       canonical,
@@ -321,7 +336,10 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
   };
 }
 
-export function generateCategoryMetadata(category: Category) {
+export function generateCategoryMetadata(
+  category: Category,
+  options?: { indexable?: boolean }
+) {
   const title = `${category.name} — ${siteConfig.name}`;
   const rdcBoost =
     category.slug === 'actualites-rdc' || category.slug === 'actualite'
@@ -331,9 +349,10 @@ export function generateCategoryMetadata(category: Category) {
     category.description ||
     `Toute l'actualité ${category.name} en RDC et à l'international sur ${siteConfig.name}${rdcBoost}.`;
   const url = `${siteConfig.url}/${category.slug}`;
+  const indexable = options?.indexable !== false;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: url },
     openGraph: {
@@ -353,7 +372,7 @@ export function generateCategoryMetadata(category: Category) {
       images: [siteConfig.ogImage],
     },
     robots: {
-      index: true,
+      index: indexable,
       follow: true,
       'max-image-preview': 'large' as const,
       'max-snippet': -1,
@@ -361,13 +380,17 @@ export function generateCategoryMetadata(category: Category) {
   };
 }
 
-export function generateTagMetadata(tag: { name: string; slug: string }) {
+export function generateTagMetadata(
+  tag: { name: string; slug: string },
+  options?: { indexable?: boolean }
+) {
   const title = `${tag.name} — actualités`;
   const description = `Articles et actualités sur « ${tag.name} » publiés par ${siteConfig.name}, média d'information en RDC.`;
   const url = `${siteConfig.url}/tag/${tag.slug}`;
+  const indexable = options?.indexable !== false;
 
   return {
-    title,
+    title: { absolute: `${title} — ${siteConfig.name}` },
     description,
     alternates: { canonical: url },
     openGraph: {
@@ -387,20 +410,24 @@ export function generateTagMetadata(tag: { name: string; slug: string }) {
       images: [siteConfig.ogImage],
     },
     robots: {
-      index: true,
+      index: indexable,
       follow: true,
       'max-image-preview': 'large' as const,
     },
   };
 }
 
-export function generateAuthorMetadata(author: { name: string; slug: string; bio?: string }) {
+export function generateAuthorMetadata(
+  author: { name: string; slug: string; bio?: string },
+  options?: { indexable?: boolean }
+) {
   const title = author.name;
   const description = author.bio ?? `Articles de ${author.name} sur ${siteConfig.name}`;
   const url = `${siteConfig.url}/auteur/${author.slug}`;
+  const indexable = options?.indexable !== false;
 
   return {
-    title,
+    title: { absolute: `${title} — ${siteConfig.name}` },
     description,
     alternates: { canonical: url },
     openGraph: {
@@ -420,7 +447,7 @@ export function generateAuthorMetadata(author: { name: string; slug: string; bio
       images: [siteConfig.ogImage],
     },
     robots: {
-      index: true,
+      index: indexable,
       follow: true,
       'max-image-preview': 'large' as const,
     },
@@ -435,7 +462,7 @@ export function generateStaticPageMetadata(options: {
   const url = `${siteConfig.url}${options.path}`;
 
   return {
-    title: options.title,
+    title: { absolute: options.title.includes(siteConfig.name) ? options.title : `${options.title} — ${siteConfig.name}` },
     description: options.description,
     alternates: { canonical: url },
     openGraph: {
@@ -462,8 +489,9 @@ export function generateStaticPageMetadata(options: {
 }
 
 export function generateHomeMetadata() {
+  const title = `${siteConfig.name} — Actualités RDC et International`;
   return {
-    title: `${siteConfig.name} — Actualités RDC et International`,
+    title: { absolute: title },
     description: siteConfig.description,
     alternates: {
       canonical: siteConfig.url,
@@ -471,11 +499,12 @@ export function generateHomeMetadata() {
         'fr-FR': siteConfig.url,
         'fr-CD': siteConfig.url,
         fr: siteConfig.url,
+        'x-default': siteConfig.url,
       },
     },
     openGraph: {
       type: 'website' as const,
-      title: `${siteConfig.name} — Actualités RDC et International`,
+      title,
       description: siteConfig.description,
       url: siteConfig.url,
       siteName: siteConfig.name,
@@ -485,7 +514,7 @@ export function generateHomeMetadata() {
     twitter: {
       card: 'summary_large_image' as const,
       site: siteConfig.twitter,
-      title: `${siteConfig.name} — Actualités RDC et International`,
+      title,
       description: siteConfig.description,
       images: [siteConfig.ogImage],
     },
@@ -499,7 +528,7 @@ export function generateVideoMetadata(video: Video) {
   const description = video.description || `${video.title} — Wab-infos TV`;
 
   return {
-    title: `${video.title} — Wab-infos TV`,
+    title: { absolute: `${video.title} — Wab-infos TV` },
     description,
     alternates: {
       canonical: pageUrl,

@@ -6,6 +6,7 @@ import Script from 'next/script';
 import { shouldShowAdsClient } from '@/lib/ads/should-show-ads';
 import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { markAdsenseScriptLoaded } from '@/lib/adsense-loader';
+import { StickyMobileAd } from '@/components/ads/adsense';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
@@ -48,6 +49,7 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
           <MobileBottomNav onOpenMenu={() => setMenuOpen((open) => !open)} menuOpen={menuOpen} />
         </Suspense>
       ) : null}
+      <StickyMobileAd />
       <SiteOptInPrompts />
     </>
   );

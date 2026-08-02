@@ -12,7 +12,8 @@ export const siteConfig = {
   language: 'fr',
   twitter: process.env.NEXT_PUBLIC_TWITTER_HANDLE || '@wabinfos',
   publisher: 'Wab-infos',
-  googleNewsPublication: process.env.NEXT_PUBLIC_GOOGLE_NEWS_PUBLICATION || 'wab-infos',
+  googleNewsPublication:
+    process.env.NEXT_PUBLIC_GOOGLE_NEWS_PUBLICATION || 'Wab-infos',
   adsenseClient: process.env.NEXT_PUBLIC_ADSENSE_CLIENT || '',
   adsenseSlots: {
     header: process.env.NEXT_PUBLIC_ADSENSE_SLOT_HEADER || '',
