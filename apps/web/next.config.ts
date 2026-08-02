@@ -62,16 +62,6 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Articles : cache CDN / crawl (ISR 5 min côté page)
-        source: '/:category/:slug',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, s-maxage=300, stale-while-revalidate=86400',
-          },
-        ],
-      },
-      {
         source: '/sw.js',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },

@@ -34,16 +34,25 @@ interface PageProps {
   params: Promise<{ category: string; slug: string }>;
 }
 
+async function loadArticle(slug: string) {
+  try {
+    return await getArticleBySlug(slug);
+  } catch {
+    return findMockArticleBySlug(slug);
+  }
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug, category } = await params;
-  let article = null;
-  try {
-    article = await getArticleBySlug(slug);
-  } catch {
-    article = findMockArticleBySlug(slug);
+  const article = await loadArticle(slug);
+  if (!article) {
+    // Ne pas appeler notFound() ici : sous Next 16 ça peut forcer HTTP 200.
+    // Le 404 réel est déclenché dans la page (comme pour les rubriques invalides).
+    return {
+      title: { absolute: 'Page non trouvée' },
+      robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
+    };
   }
-  // Appeler notFound() ici : sinon Next peut servir 200 avec le fallback metadata.
-  if (!article) notFound();
   return generateArticleMetadata(article, category);
 }
 
@@ -52,12 +61,7 @@ export const revalidate = 300;
 export default async function ArticlePage({ params }: PageProps) {
   const { category, slug } = await params;
 
-  let article;
-  try {
-    article = await getArticleBySlug(slug);
-  } catch {
-    article = findMockArticleBySlug(slug);
-  }
+  const article = await loadArticle(slug);
 
   if (!article) notFound();
 
@@ -108,8 +112,8 @@ export default async function ArticlePage({ params }: PageProps) {
       />
 
       <article className="container mx-auto px-4 py-6">
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <div className="grid items-start gap-8 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2">
             <ArticleHero
               article={article}
               categoryName={cat.name}

@@ -54,17 +54,28 @@ interface AuthorAvatarProps {
   author: Author;
   avatarUrl: string | null;
   onDark?: boolean;
+  onDarkFromMd?: boolean;
   size?: number;
 }
 
-function AuthorAvatar({ author, avatarUrl, onDark = false, size = 48 }: AuthorAvatarProps) {
+function AuthorAvatar({
+  author,
+  avatarUrl,
+  onDark = false,
+  onDarkFromMd = false,
+  size = 48,
+}: AuthorAvatarProps) {
   const pixelSize = size * 2;
 
   return (
     <span
       className={cn(
         'relative block shrink-0 overflow-hidden rounded-full bg-muted ring-2',
-        onDark ? 'ring-white/70' : 'ring-border'
+        onDark
+          ? 'ring-white/70'
+          : onDarkFromMd
+            ? 'ring-border md:ring-white/70'
+            : 'ring-border'
       )}
       style={{ width: size, height: size }}
     >
@@ -90,12 +101,15 @@ function AuthorAvatar({ author, avatarUrl, onDark = false, size = 48 }: AuthorAv
 interface ArticleAuthorMetaProps {
   author: Author;
   onDark?: boolean;
+  /** Texte / anneau clairs à partir de md (ex. titre article en overlay). */
+  onDarkFromMd?: boolean;
   className?: string;
 }
 
 export function ArticleAuthorMeta({
   author,
   onDark = false,
+  onDarkFromMd = false,
   className,
 }: ArticleAuthorMetaProps) {
   const avatarUrl = resolveAuthorAvatarUrl(author);
@@ -107,10 +121,20 @@ export function ArticleAuthorMeta({
         href={`/auteur/${author.slug}`}
         className={cn(
           'group flex min-w-0 items-center gap-3',
-          onDark ? 'text-white' : 'text-foreground'
+          onDark
+            ? 'text-white'
+            : onDarkFromMd
+              ? 'text-foreground md:text-white'
+              : 'text-foreground'
         )}
       >
-        <AuthorAvatar author={author} avatarUrl={avatarUrl} onDark={onDark} size={44} />
+        <AuthorAvatar
+          author={author}
+          avatarUrl={avatarUrl}
+          onDark={onDark}
+          onDarkFromMd={onDarkFromMd}
+          size={44}
+        />
         <span className="min-w-0 text-sm font-semibold leading-tight transition-opacity group-hover:opacity-80 md:text-base">
           {author.name}
         </span>
@@ -125,7 +149,9 @@ export function ArticleAuthorMeta({
             'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors',
             onDark
               ? 'border-white/25 bg-white/10 text-white hover:bg-white/20'
-              : 'border-border bg-background text-foreground hover:bg-muted'
+              : onDarkFromMd
+                ? 'border-border bg-background text-foreground hover:bg-muted md:border-white/25 md:bg-white/10 md:text-white md:hover:bg-white/20'
+                : 'border-border bg-background text-foreground hover:bg-muted'
           )}
           aria-label={`Compte X de ${author.name} : ${xProfile.handle}`}
         >

@@ -266,6 +266,7 @@ export async function getArticles(options?: {
   pageSize?: number;
   category?: string;
   tag?: string;
+  author?: string;
   featured?: boolean;
   breaking?: boolean;
   recommended?: boolean;
@@ -276,6 +277,7 @@ export async function getArticles(options?: {
 
   if (options?.category) filters.category = { slug: { $eq: options.category } };
   if (options?.tag) filters.tags = { slug: { $eq: options.tag } };
+  if (options?.author) filters.author = { slug: { $eq: options.author } };
   if (options?.featured) filters.isFeatured = { $eq: true };
   if (options?.breaking) filters.isBreaking = { $eq: true };
   if (options?.recommended) filters.isRecommended = { $eq: true };

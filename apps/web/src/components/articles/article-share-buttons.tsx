@@ -9,7 +9,8 @@ interface ArticleShareButtonsProps {
   url: string;
   title: string;
   className?: string;
-  variant?: 'default' | 'overlay';
+  /** overlay-md : style normal mobile, overlay à partir de md */
+  variant?: 'default' | 'overlay' | 'overlay-md';
 }
 
 function FacebookIcon({ className }: { className?: string }) {
@@ -48,6 +49,7 @@ export function ArticleShareButtons({ url, title, className, variant = 'default'
   const [copied, setCopied] = useState(false);
   const [canNativeShare, setCanNativeShare] = useState(false);
   const isOverlay = variant === 'overlay';
+  const isOverlayMd = variant === 'overlay-md';
 
   useEffect(() => {
     setCanNativeShare(typeof navigator !== 'undefined' && 'share' in navigator);
@@ -111,17 +113,29 @@ export function ArticleShareButtons({ url, title, className, variant = 'default'
         'flex flex-wrap items-center gap-2',
         isOverlay
           ? 'rounded-xl border border-white/15 bg-black/30 px-3 py-2 backdrop-blur-sm'
-          : 'gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3',
+          : isOverlayMd
+            ? 'gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 md:gap-2 md:border-white/15 md:bg-black/30 md:px-3 md:py-2 md:backdrop-blur-sm'
+            : 'gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3',
         className
       )}
     >
       <span
         className={cn(
           'flex items-center gap-2 text-xs font-semibold sm:text-sm',
-          isOverlay ? 'text-white/90' : 'text-foreground'
+          isOverlay
+            ? 'text-white/90'
+            : isOverlayMd
+              ? 'text-foreground md:text-white/90'
+              : 'text-foreground'
         )}
       >
-        <Share2 className={cn('h-3.5 w-3.5', isOverlay ? 'text-white' : 'text-primary')} aria-hidden />
+        <Share2
+          className={cn(
+            'h-3.5 w-3.5',
+            isOverlay ? 'text-white' : isOverlayMd ? 'text-primary md:text-white' : 'text-primary'
+          )}
+          aria-hidden
+        />
         Partager
       </span>
 
@@ -136,7 +150,9 @@ export function ArticleShareButtons({ url, title, className, variant = 'default'
               'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
               isOverlay
                 ? 'border-white/20 bg-white/10 text-white/90 hover:bg-white/20 hover:text-white'
-                : 'border-border bg-background text-muted-foreground hover:bg-foreground/5'
+                : isOverlayMd
+                  ? 'border-border bg-background text-muted-foreground hover:bg-foreground/5 md:border-white/20 md:bg-white/10 md:text-white/90 md:hover:bg-white/20 md:hover:text-white'
+                  : 'border-border bg-background text-muted-foreground hover:bg-foreground/5'
             )}
             aria-label={`Partager sur ${label}`}
           >
@@ -154,9 +170,13 @@ export function ArticleShareButtons({ url, title, className, variant = 'default'
               ? copied
                 ? 'border-emerald-400/50 bg-emerald-500/20 text-emerald-200'
                 : 'border-white/20 bg-white/10 text-white/90 hover:bg-white/20'
-              : copied
-                ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
-                : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-primary'
+              : isOverlayMd
+                ? copied
+                  ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 md:border-emerald-400/50 md:bg-emerald-500/20 md:text-emerald-200'
+                  : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-primary md:border-white/20 md:bg-white/10 md:text-white/90 md:hover:bg-white/20'
+                : copied
+                  ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+                  : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-primary'
           )}
           aria-label="Copier le lien"
         >
@@ -172,7 +192,9 @@ export function ArticleShareButtons({ url, title, className, variant = 'default'
               'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors sm:hidden',
               isOverlay
                 ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
-                : 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10'
+                : isOverlayMd
+                  ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 md:border-white/20 md:bg-white/10 md:text-white md:hover:bg-white/20'
+                  : 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10'
             )}
           >
             <Link2 className="h-3.5 w-3.5" />

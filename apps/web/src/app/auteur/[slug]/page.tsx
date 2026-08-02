@@ -16,9 +16,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const author = await getAuthorBySlug(slug);
     if (author) {
       try {
-        const result = await getArticles({ pageSize: 50 });
-        const count = result.articles.filter((a) => a.author?.slug === slug).length;
-        return generateAuthorMetadata(author, { indexable: count > 0 });
+        const result = await getArticles({ author: slug, pageSize: 1 });
+        const indexable = (result.pagination.total ?? result.articles.length) > 0;
+        return generateAuthorMetadata(author, { indexable });
       } catch {
         return generateAuthorMetadata(author);
       }
@@ -31,6 +31,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     robots: { index: false, follow: false },
   };
 }
+
+export const revalidate = 300;
 
 export default async function AuthorPage({ params }: PageProps) {
   const { slug } = await params;
@@ -48,8 +50,8 @@ export default async function AuthorPage({ params }: PageProps) {
 
   let articles: Awaited<ReturnType<typeof getArticles>>['articles'] = [];
   try {
-    const result = await getArticles({ pageSize: 20 });
-    articles = result.articles.filter((a) => a.author?.slug === slug);
+    const result = await getArticles({ author: slug, pageSize: 20 });
+    articles = result.articles;
   } catch {
     articles = [];
   }
