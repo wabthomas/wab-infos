@@ -41,6 +41,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -113,7 +114,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
+        // Android 15 (targetSdk 35) force le edge-to-edge : garder la barre de notification visible.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         setContentView(R.layout.activity_main);
+        ensureSystemBarsVisible();
 
         webView = findViewById(R.id.webView);
         swipeRefresh = findViewById(R.id.swipeRefresh);
@@ -240,7 +244,7 @@ public class MainActivity extends AppCompatActivity {
         toRequest.add(android.Manifest.permission.CAMERA);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             toRequest.add(android.Manifest.permission.POST_NOTIFICATIONS);
-            toRequest.add(android.Manifest.permission.READ_MEDIA_IMAGES);
+            // Galerie via ACTION_GET_CONTENT — pas besoin de READ_MEDIA_* (Play Policy).
         } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
             toRequest.add(android.Manifest.permission.READ_EXTERNAL_STORAGE);
             toRequest.add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
@@ -687,8 +691,20 @@ public class MainActivity extends AppCompatActivity {
         view.evaluateJavascript(observerScript, null);
     }
 
+    /** Empêche le contenu de passer sous / de masquer la barre de statut (SDK 35+). */
+    private void ensureSystemBarsVisible() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        WindowInsetsControllerCompat controller =
+                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        if (controller != null) {
+            controller.show(WindowInsetsCompat.Type.systemBars());
+            controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_DEFAULT);
+        }
+    }
+
     private void applyStatusBarColor(String colorString) {
         try {
+            ensureSystemBarsVisible();
             int color = android.graphics.Color.parseColor(colorString);
             getWindow().setStatusBarColor(color);
             getWindow().setNavigationBarColor(color);
@@ -700,8 +716,10 @@ public class MainActivity extends AppCompatActivity {
 
             WindowInsetsControllerCompat controller =
                     WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-            controller.setAppearanceLightStatusBars(useDarkIcons);
-            controller.setAppearanceLightNavigationBars(useDarkIcons);
+            if (controller != null) {
+                controller.setAppearanceLightStatusBars(useDarkIcons);
+                controller.setAppearanceLightNavigationBars(useDarkIcons);
+            }
         } catch (Exception ignored) {
             // Couleur invalide : on garde la barre de statut telle quelle.
         }

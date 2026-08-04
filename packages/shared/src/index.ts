@@ -2,6 +2,7 @@ export * from './types';
 export * from './site-settings';
 export * from './homepage-sections';
 export * from './site-chrome-settings';
+export * from './article-ui-settings';
 export * from './capacitor-push';
 export * from './capacitor-nav';
 export * from './capacitor-detect';

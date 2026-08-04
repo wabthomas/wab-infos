@@ -16,11 +16,11 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace 'com.wabinfos.app'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         minSdk 22
-        targetSdk 34
+        targetSdk 35
 
         buildConfigField "boolean", "HAS_FIREBASE", hasFirebase.toString()
     }
@@ -61,8 +61,8 @@ android {
         reader {
             dimension "product"
             applicationId "com.wabinfos.app"
-            versionCode 25
-            versionName "1.2.2"
+            versionCode 28
+            versionName "1.2.5"
             buildConfigField "String", "SITE_URL", '"https://wab-infos.com"'
             buildConfigField "String", "VERSION_MANIFEST_URL", '"https://wab-infos.com/downloads/apk-version.json"'
             buildConfigField "String", "UA_MARKER", '"WabInfosNative"'

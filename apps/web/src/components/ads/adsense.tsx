@@ -18,6 +18,8 @@ interface AdSenseProps {
   style?: React.CSSProperties;
   lazy?: boolean;
   label?: string;
+  /** Si false, ne réserve pas de hauteur vide (évite un trou blanc avant chargement). */
+  reserveMinHeight?: boolean;
 }
 
 function resolveSlot(slot?: string): string | undefined {
@@ -33,6 +35,7 @@ export function AdSense({
   style,
   lazy = true,
   label,
+  reserveMinHeight = true,
 }: AdSenseProps) {
   const adRef = useRef<HTMLModElement>(null);
   const loaded = useRef(false);
@@ -124,12 +127,20 @@ export function AdSense({
   }
 
   const minHeight =
-    layout === 'in-article' ? 250 : format === 'vertical' ? 600 : format === 'horizontal' ? 90 : 90;
+    !reserveMinHeight
+      ? undefined
+      : layout === 'in-article'
+        ? 250
+        : format === 'vertical'
+          ? 600
+          : format === 'horizontal'
+            ? 90
+            : 90;
 
   return (
     <div
       className={cn('ad-container my-6', className)}
-      style={{ minHeight }}
+      style={minHeight != null ? { minHeight } : undefined}
       data-ad-placement={label}
     >
       <ins
@@ -155,9 +166,17 @@ export function HeaderAd() {
   const headerSlot = slots.header?.trim();
   if (!client || !headerSlot) return null;
 
+  // Pas de min-height réservée : un slot vide ne doit pas créer de bande blanche sous le menu.
   return (
-    <div className="container mx-auto hidden px-4 py-2 md:block">
-      <AdSense slot={headerSlot} format="horizontal" lazy className="my-0" label="header" />
+    <div className="container mx-auto hidden px-4 md:block">
+      <AdSense
+        slot={headerSlot}
+        format="horizontal"
+        lazy
+        reserveMinHeight={false}
+        className="my-0"
+        label="header"
+      />
     </div>
   );
 }
@@ -167,8 +186,9 @@ export function SidebarAd() {
   const sidebarSlot = slots.sidebar?.trim();
   if (!client || !sidebarSlot) return null;
 
+  // Sticky géré par ContentSidebar — éviter un sticky imbriqué.
   return (
-    <div className="sticky top-20 hidden lg:block">
+    <div className="hidden lg:block">
       <AdSense slot={sidebarSlot} format="vertical" className="mb-6" label="sidebar" />
     </div>
   );

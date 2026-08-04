@@ -1,7 +1,7 @@
 {
-  "versionCode": 25,
-  "versionName": "1.2.2",
+  "versionCode": 28,
+  "versionName": "1.2.5",
   "apkUrl": "/downloads/wab-infos.apk",
-  "releaseNotes": "Correctif boucle Google + installation mise à jour fiable.",
-  "releasedAt": "2026-07-20T17:40:00.000Z"
+  "releaseNotes": "Correction barre de notification (Android 15) — l’app n’est plus en plein écran.",
+  "releasedAt": "2026-08-04T11:05:00.000Z"
 }

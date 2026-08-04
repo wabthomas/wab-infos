@@ -1,8 +1,10 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Article, Video } from '@wab-infos/shared';
+import { deviceVisibilityClass, type DeviceVisibility } from '@wab-infos/shared';
 import { ArrowRight, Play, Radio, Tv } from 'lucide-react';
 import { getVideoPagePath, siteConfig } from '@/config/site';
 import { LiveNewsTimeline } from '@/components/home/live-news-timeline';
@@ -15,11 +17,27 @@ import { SidebarAd } from '@/components/ads/adsense';
 import { getYoutubeThumbnailUrl } from '@/lib/seo';
 import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
 import { VideoViewCount } from '@/components/tv/video-view-count';
-import { formatRelativeDate } from '@/lib/utils';
+import { formatRelativeDate, cn } from '@/lib/utils';
 import { resolveNavCategories } from '@/lib/resolve-nav-categories';
-import { cn } from '@/lib/utils';
 
 const SIDEBAR_LIST_LIMIT = 4;
+
+function DeviceGate({
+  visibility,
+  enabled = true,
+  className,
+  children,
+}: {
+  visibility?: DeviceVisibility;
+  enabled?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  if (!enabled) return null;
+  if (!visibility) return <div className={className}>{children}</div>;
+  if (!visibility.desktop && !visibility.mobile) return null;
+  return <div className={cn(deviceVisibilityClass(visibility), className)}>{children}</div>;
+}
 
 interface SidebarVideoItemProps {
   video: Pick<Video, 'youtubeId' | 'title' | 'publishedAt' | 'viewCount'>;
@@ -85,6 +103,8 @@ export interface ContentSidebarProps {
   showTvPromo?: boolean;
   /** Grille 2 colonnes sur mobile pour les articles (ex. sidebar article) */
   articlesGridOnMobile?: boolean;
+  /** Appliquer les toggles Desktop/Mobile définis en rédaction (page article) */
+  applyArticleUi?: boolean;
 }
 
 function dedupeArticles(articles: Article[], excludeSlugs: Set<string>, limit: number): Article[] {
@@ -117,8 +137,10 @@ export function ContentSidebar({
   showCategories = false,
   showTvPromo = true,
   articlesGridOnMobile = false,
+  applyArticleUi = false,
 }: ContentSidebarProps) {
   const { chrome } = useSiteChrome();
+  const articleUi = applyArticleUi ? chrome.articleUi : null;
   const navCategories = resolveNavCategories(chrome.navCategorySlugs);
   const excludedSlugs = new Set([
     ...excludeArticleSlugs,
@@ -135,42 +157,58 @@ export function ContentSidebar({
 
   return (
     <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
-      <SidebarAd />
+      <DeviceGate visibility={articleUi?.sidebarAd}>
+        <SidebarAd />
+      </DeviceGate>
 
-      <LiveNewsTimeline
-        articles={liveFeed}
-        maxItems={SIDEBAR_LIST_LIMIT}
-        excludeSlugs={excludeArticleSlugs}
-        footerHref={currentCategorySlug ? `/${currentCategorySlug}` : '/actualite'}
-        footerLabel={
-          currentCategorySlug && categoryName
-            ? `Toute la rubrique ${categoryName}`
-            : 'Toute l\'actualité'
-        }
-      />
+      <DeviceGate visibility={articleUi?.sidebarLiveFeed}>
+        <LiveNewsTimeline
+          articles={liveFeed}
+          maxItems={SIDEBAR_LIST_LIMIT}
+          excludeSlugs={excludeArticleSlugs}
+          footerHref={currentCategorySlug ? `/${currentCategorySlug}` : '/actualite'}
+          footerLabel={
+            currentCategorySlug && categoryName
+              ? `Toute la rubrique ${categoryName}`
+              : 'Toute l\'actualité'
+          }
+        />
+      </DeviceGate>
 
       {sidebarArticles.length > 0 && (
-        <div className="widget-card">
-          <div className="widget-card-header flex items-center justify-between gap-2">
-            <h3 className="text-xs font-bold uppercase tracking-widest">{articlesTitle}</h3>
-            {articlesLink && (
-              <Link
-                href={articlesLink.href}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-              >
-                {articlesLink.label}
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            )}
-          </div>
-          {articlesGridOnMobile ? (
-            <>
-              <div className="grid grid-cols-2 gap-3 p-2 lg:hidden">
-                {sidebarArticles.map((article) => (
-                  <ArticleCard key={article.id} article={article} showExcerpt={false} />
-                ))}
-              </div>
-              <div className="hidden divide-y divide-border p-1 lg:block">
+        <DeviceGate visibility={articleUi?.sidebarRelated}>
+          <div className="widget-card">
+            <div className="widget-card-header flex items-center justify-between gap-2">
+              <h3 className="text-xs font-bold uppercase tracking-widest">{articlesTitle}</h3>
+              {articlesLink && (
+                <Link
+                  href={articlesLink.href}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                >
+                  {articlesLink.label}
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
+            </div>
+            {articlesGridOnMobile ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 p-2 lg:hidden">
+                  {sidebarArticles.map((article) => (
+                    <ArticleCard key={article.id} article={article} showExcerpt={false} />
+                  ))}
+                </div>
+                <div className="hidden divide-y divide-border p-1 lg:block">
+                  {sidebarArticles.map((article, index) => (
+                    <SidebarArticleItem
+                      key={article.id}
+                      article={article}
+                      rank={articlesTitle.toLowerCase().includes('lus') ? index + 1 : undefined}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="divide-y divide-border p-1">
                 {sidebarArticles.map((article, index) => (
                   <SidebarArticleItem
                     key={article.id}
@@ -179,19 +217,9 @@ export function ContentSidebar({
                   />
                 ))}
               </div>
-            </>
-          ) : (
-            <div className="divide-y divide-border p-1">
-              {sidebarArticles.map((article, index) => (
-                <SidebarArticleItem
-                  key={article.id}
-                  article={article}
-                  rank={articlesTitle.toLowerCase().includes('lus') ? index + 1 : undefined}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </DeviceGate>
       )}
 
       {sidebarVideos.length > 0 && (
@@ -214,7 +242,7 @@ export function ContentSidebar({
         </div>
       )}
 
-      {showTvPromo && (
+      <DeviceGate visibility={articleUi?.sidebarTvPromo} enabled={showTvPromo}>
         <div className="overflow-hidden rounded-xl border border-border bg-gradient-to-br from-[#1a1a1a] to-black p-4 text-white shadow-md">
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-600">
@@ -247,7 +275,7 @@ export function ContentSidebar({
             </a>
           </div>
         </div>
-      )}
+      </DeviceGate>
 
       {showCategoryBlock && (
         <div
@@ -309,9 +337,19 @@ export function ContentSidebar({
         </div>
       )}
 
-      {chrome.newsletterWidgetEnabled ? <NewsletterSignup variant="compact" /> : null}
+      <DeviceGate
+        visibility={articleUi?.sidebarNewsletter}
+        enabled={chrome.newsletterWidgetEnabled}
+      >
+        <NewsletterSignup variant="compact" />
+      </DeviceGate>
 
-      {chrome.pushAlertsWidgetEnabled ? <PushAlertsSignup variant="compact" /> : null}
+      <DeviceGate
+        visibility={articleUi?.sidebarPushAlerts}
+        enabled={chrome.pushAlertsWidgetEnabled}
+      >
+        <PushAlertsSignup variant="compact" />
+      </DeviceGate>
     </aside>
   );
 }

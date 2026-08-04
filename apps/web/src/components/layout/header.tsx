@@ -30,13 +30,11 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
   const setMenuOpen = onMenuOpenChange ?? setMenuOpenInternal;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
-  const [barHeight, setBarHeight] = useState(64);
   const [menuMounted, setMenuMounted] = useState(false);
   const [menuLeaving, setMenuLeaving] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const chromeRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
   const rubricsScrollRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
   const headerVisible = useAutoHideOnScroll({ threshold: 40, delta: 6 });
 
   const mainNavCategories = useMemo(
@@ -95,18 +93,6 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
   }, []);
 
   useEffect(() => {
-    const chromeEl = chromeRef.current;
-    if (!chromeEl) return;
-
-    const updateHeight = () => setBarHeight(chromeEl.offsetHeight);
-    updateHeight();
-
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(chromeEl);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
     const scrollEl = rubricsScrollRef.current;
     if (!scrollEl) return;
 
@@ -150,14 +136,12 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
       <div ref={sentinelRef} className="h-px w-full" aria-hidden />
 
       <div
-        ref={chromeRef}
         className={cn(
-          'z-50 w-full border-b border-border bg-background supports-[backdrop-filter]:bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm',
+          // sticky (pas fixed+spacer) : évite la bande vide sous le menu sur mobile / APK.
+          'sticky top-0 z-50 w-full border-b border-border bg-background supports-[backdrop-filter]:bg-background/95 supports-[backdrop-filter]:backdrop-blur-sm',
           'max-md:will-change-transform max-md:transition-[transform,opacity,box-shadow] max-md:duration-[380ms] max-md:ease-[cubic-bezier(0.22,1,0.36,1)]',
           'md:transition-[box-shadow] md:duration-300 md:ease-out',
-          isPinned
-            ? 'fixed left-0 right-0 top-0 shadow-md'
-            : 'relative shadow-[0_1px_0_0_rgba(0,0,0,0.04)]',
+          isPinned && 'shadow-md',
           isPinned && !showChrome && 'max-md:-translate-y-full max-md:opacity-0 max-md:pointer-events-none',
           isPinned && showChrome && 'max-md:translate-y-0 max-md:opacity-100'
         )}
@@ -250,8 +234,6 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
           </div>
         </nav>
       </div>
-
-      {isPinned && <div aria-hidden style={{ height: barHeight }} />}
 
       <nav className="hidden border-b border-border bg-background lg:block" aria-label="Rubriques">
         <div className="container mx-auto px-4">

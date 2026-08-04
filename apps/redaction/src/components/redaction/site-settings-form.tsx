@@ -19,6 +19,7 @@ import {
 import {
   DEFAULT_SITE_SETTINGS,
   getVisibleNavLinks,
+  type DeviceVisibility,
   type SiteSettings,
   type SiteSocialLink,
   type SocialFollowPlatform,
@@ -49,9 +50,11 @@ type SheetKey =
   | 'apk-enabled'
   | 'apk-visible'
   | 'views'
-  | 'social-links'
-  | 'homepage-sections'
+  | 'article-layout'
   | 'site-chrome'
+  | 'homepage-sections'
+  | 'social-links'
+  | 'social-edit'
   | null;
 
 type SettingsSectionId = 'pwa' | 'chrome' | 'homepage' | 'articles' | 'social';
@@ -264,6 +267,45 @@ function CompactToggleRow({
         className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
       />
     </label>
+  );
+}
+
+function DualDeviceToggle({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  value: DeviceVisibility;
+  onChange: (value: DeviceVisibility) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <p className="text-sm font-semibold text-foreground">{label}</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
+          <span className="text-xs font-semibold text-foreground">Desktop</span>
+          <input
+            type="checkbox"
+            checked={value.desktop}
+            onChange={(e) => onChange({ ...value, desktop: e.target.checked })}
+            className="h-4 w-4 accent-primary"
+          />
+        </label>
+        <label className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
+          <span className="text-xs font-semibold text-foreground">Mobile</span>
+          <input
+            type="checkbox"
+            checked={value.mobile}
+            onChange={(e) => onChange({ ...value, mobile: e.target.checked })}
+            className="h-4 w-4 accent-primary"
+          />
+        </label>
+      </div>
+    </div>
   );
 }
 
@@ -543,7 +585,12 @@ function DesktopSectionNav({
     pwa: `${boolSummary(settings.pwaBannerEnabled)} · APK ${boolSummary(settings.apkBannerEnabled).toLowerCase()}`,
     chrome: `${getVisibleNavLinks(settings.chrome.utilityLinks).length} liens utilitaires`,
     homepage: `${activeHomeSections} section${activeHomeSections > 1 ? 's' : ''} active${activeHomeSections > 1 ? 's' : ''}`,
-    articles: boolSummary(settings.showArticleViewCounts, 'Vues affichées', 'Vues masquées'),
+    articles: [
+      boolSummary(settings.showArticleViewCounts, 'Vues affichées', 'Vues masquées'),
+      settings.chrome.articleUi.comments.desktop || settings.chrome.articleUi.comments.mobile
+        ? 'Commentaires OK'
+        : 'Commentaires off',
+    ].join(' · '),
     social: `${visibleSocial}/${settings.socialLinks.length} visible${visibleSocial > 1 ? 's' : ''}`,
   };
 
@@ -679,7 +726,7 @@ function DesktopSettingsPanel({
       ) : null}
 
       {section === 'articles' ? (
-        <div className="max-w-xl">
+        <div className="mx-auto max-w-2xl space-y-6">
           <CompactToggleRow
             label="Compteur de vues"
             description="Affiche le nombre de vues sur les articles du site public."
@@ -688,6 +735,64 @@ function DesktopSettingsPanel({
               setSettings((current) => ({ ...current, showArticleViewCounts }))
             }
           />
+
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Commentaires</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Afficher ou masquer le formulaire / la liste de commentaires sous l’article.
+              </p>
+            </div>
+            <DualDeviceToggle
+              label="Bloc commentaires"
+              description="Contrôle indépendant Desktop (lg+) et Mobile."
+              value={settings.chrome.articleUi.comments}
+              onChange={(comments) =>
+                setSettings((current) => ({
+                  ...current,
+                  chrome: {
+                    ...current.chrome,
+                    articleUi: { ...current.chrome.articleUi, comments },
+                  },
+                }))
+              }
+            />
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Sidebar article</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Sections de la colonne droite sur la page article (Desktop / Mobile).
+              </p>
+            </div>
+            {(
+              [
+                ['sidebarAd', 'Publicité sidebar', 'Emplacement AdSense vertical'],
+                ['sidebarLiveFeed', 'Fil en direct', 'Timeline des dernières actus'],
+                ['sidebarRelated', 'À lire aussi', 'Articles liés / suggérés'],
+                ['sidebarTvPromo', 'Promo Wab-infos TV', 'Carte d’accès TV'],
+                ['sidebarNewsletter', 'Newsletter', 'Widget d’inscription'],
+                ['sidebarPushAlerts', 'Alertes push', 'Widget notifications'],
+              ] as const
+            ).map(([key, label, description]) => (
+              <DualDeviceToggle
+                key={key}
+                label={label}
+                description={description}
+                value={settings.chrome.articleUi[key]}
+                onChange={(next) =>
+                  setSettings((current) => ({
+                    ...current,
+                    chrome: {
+                      ...current.chrome,
+                      articleUi: { ...current.chrome.articleUi, [key]: next },
+                    },
+                  }))
+                }
+              />
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -985,6 +1090,13 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             description="Affichage du nombre de vues sur les articles publics."
             onClick={() => setSheet('views')}
           />
+          <SettingCard
+            icon={LayoutTemplate}
+            label="Sidebar & commentaires"
+            value="Desktop / Mobile"
+            description="Afficher ou masquer les blocs de la page article."
+            onClick={() => setSheet('article-layout')}
+          />
         </section>
 
         <section className="space-y-3">
@@ -1096,6 +1208,59 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             applySettingPatch({  showArticleViewCounts  })
           }
         />
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'article-layout'}
+        onClose={() => setSheet(null)}
+        title="Sidebar & commentaires"
+        description="Affichage Desktop / Mobile sur la page article publique."
+      >
+        <div className="space-y-3 pb-4">
+          <DualDeviceToggle
+            label="Bloc commentaires"
+            description="Formulaire et liste sous l’article."
+            value={settings.chrome.articleUi.comments}
+            onChange={(comments) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, comments },
+                },
+              }))
+            }
+          />
+          {(
+            [
+              ['sidebarAd', 'Publicité sidebar', 'Emplacement AdSense vertical'],
+              ['sidebarLiveFeed', 'Fil en direct', 'Timeline des dernières actus'],
+              ['sidebarRelated', 'À lire aussi', 'Articles liés / suggérés'],
+              ['sidebarTvPromo', 'Promo Wab-infos TV', 'Carte d’accès TV'],
+              ['sidebarNewsletter', 'Newsletter', 'Widget d’inscription'],
+              ['sidebarPushAlerts', 'Alertes push', 'Widget notifications'],
+            ] as const
+          ).map(([key, label, description]) => (
+            <DualDeviceToggle
+              key={key}
+              label={label}
+              description={description}
+              value={settings.chrome.articleUi[key]}
+              onChange={(next) =>
+                setSettings((current) => ({
+                  ...current,
+                  chrome: {
+                    ...current.chrome,
+                    articleUi: { ...current.chrome.articleUi, [key]: next },
+                  },
+                }))
+              }
+            />
+          ))}
+          <p className="pt-2 text-center text-[11px] text-muted-foreground">
+            Enregistrez via le bouton Enregistrer en haut de page.
+          </p>
+        </div>
       </BottomSheet>
 
       <BottomSheet

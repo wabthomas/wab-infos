@@ -116,6 +116,11 @@ export default async function RootLayout({
         <link rel="dns-prefetch" href={redactionOrigin} />
         <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
         <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://fonts.bunny.net" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.bunny.net/css?family=source-serif-4:400,400i,600,700"
+        />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />

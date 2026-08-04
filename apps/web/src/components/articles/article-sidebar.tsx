@@ -34,6 +34,7 @@ export function ArticleSidebar({
       currentCategorySlug={categorySlug}
       excludeArticleSlugs={excludeArticleSlugs}
       articlesGridOnMobile
+      applyArticleUi
     />
   );
 }

@@ -16,6 +16,7 @@ import {
   ArticleTopAd,
 } from '@/components/ads/adsense';
 import { ArticleBodyWithAds } from '@/components/articles/article-body-with-ads';
+import { ArticleCommentsVisibility } from '@/components/comments/article-comments-visibility';
 import { siteConfig, resolveArticleCategorySlug, resolveCategoryMeta, isValidCategorySlug, canonicalizeCategorySlug } from '@/config/site';
 import { findMockArticleBySlug } from '@/lib/mock-data';
 import {
@@ -88,7 +89,12 @@ export default async function ArticlePage({ params }: PageProps) {
   });
 
   const tagSlugs = article.tags?.map((tag) => tag.slug) ?? [];
-  const relatedPool = await getRelatedArticles(slug, categorySlug, 10, tagSlugs, article.title);
+  let relatedPool: Awaited<ReturnType<typeof getRelatedArticles>> = [];
+  try {
+    relatedPool = await getRelatedArticles(slug, categorySlug, 10, tagSlugs, article.title);
+  } catch {
+    relatedPool = [];
+  }
   const readAlsoArticles = pickRelatedArticles(relatedPool, slug, 3);
 
   const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;
@@ -158,7 +164,9 @@ export default async function ArticlePage({ params }: PageProps) {
             </Suspense>
 
             <Suspense fallback={<ArticleCommentsSkeleton />}>
-              <ArticleCommentsAsync documentId={article.documentId} />
+              <ArticleCommentsVisibility>
+                <ArticleCommentsAsync documentId={article.documentId} />
+              </ArticleCommentsVisibility>
             </Suspense>
           </div>
 

@@ -65,7 +65,7 @@ Source : `apps/reader-android/assets/app-icon.png`
 
 ## Version
 
-Modifier `versionCode` / `versionName` dans `android/app/build.gradle` (actuellement **1.1.4** / **16**).
+Modifier `versionCode` / `versionName` dans `android/app/build.gradle` (actuellement **1.2.5** / **28**).
 
 ## Ouvrir dans Android Studio
 

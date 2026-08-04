@@ -1,3 +1,9 @@
+import {
+  DEFAULT_ARTICLE_UI,
+  normalizeArticleUiSettings,
+  type ArticleUiSettings,
+} from './article-ui-settings';
+
 export interface SiteNavLink {
   id: string;
   label: string;
@@ -39,6 +45,8 @@ export interface SiteChromeSettings {
   serviceLinks: SiteNavLink[];
   infoLinks: SiteNavLink[];
   footerLegalLinks: SiteNavLink[];
+  /** Affichage sidebar / commentaires article (desktop & mobile) */
+  articleUi: ArticleUiSettings;
 }
 
 export const DEFAULT_UTILITY_LINKS: SiteNavLink[] = [
@@ -124,6 +132,7 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
   serviceLinks: DEFAULT_SERVICE_LINKS,
   infoLinks: DEFAULT_INFO_LINKS,
   footerLegalLinks: DEFAULT_FOOTER_LEGAL_LINKS,
+  articleUi: normalizeArticleUiSettings(undefined),
 };
 
 function normalizeNavLink(raw: unknown, fallbackId: string): SiteNavLink | null {
@@ -170,7 +179,13 @@ function normalizeFooterCta(raw: unknown): SiteFooterCta {
 }
 
 export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
-  if (!raw || typeof raw !== 'object') return { ...DEFAULT_SITE_CHROME, footerCta: { ...DEFAULT_FOOTER_CTA } };
+  if (!raw || typeof raw !== 'object') {
+    return {
+      ...DEFAULT_SITE_CHROME,
+      footerCta: { ...DEFAULT_FOOTER_CTA },
+      articleUi: normalizeArticleUiSettings(undefined),
+    };
+  }
   const row = raw as Record<string, unknown>;
   const navCategorySlugs = Array.isArray(row.navCategorySlugs)
     ? row.navCategorySlugs
@@ -198,6 +213,7 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
     serviceLinks: normalizeNavLinks(row.serviceLinks, DEFAULT_SERVICE_LINKS),
     infoLinks: normalizeNavLinks(row.infoLinks, DEFAULT_INFO_LINKS),
     footerLegalLinks: normalizeNavLinks(row.footerLegalLinks, DEFAULT_FOOTER_LEGAL_LINKS),
+    articleUi: normalizeArticleUiSettings(row.articleUi),
   };
 }
 

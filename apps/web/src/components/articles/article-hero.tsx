@@ -105,7 +105,7 @@ export function ArticleHero({
           <div className="relative aspect-[16/10] w-full bg-muted">
             <ArticleImage
               src={imageUrl}
-              alt={article.title}
+              alt={article.featuredImage?.alternativeText || article.title}
               className="object-cover"
               priority
               sizes="100vw"
@@ -126,7 +126,7 @@ export function ArticleHero({
                 {categoryName}
               </Link>
             </div>
-            <h1 className="font-headline text-xl font-bold leading-snug md:text-2xl">{article.title}</h1>
+            <h1 className="font-article text-xl font-bold leading-snug md:text-2xl">{article.title}</h1>
             <div className="mt-3">{metaRow()}</div>
             <ArticleShareButtons url={articleUrl} title={article.title} className="mt-4" />
           </div>
@@ -136,14 +136,14 @@ export function ArticleHero({
         <div className="relative hidden aspect-[16/9] w-full bg-muted md:block">
           <ArticleImage
             src={imageUrl}
-            alt={article.title}
+            alt={article.featuredImage?.alternativeText || article.title}
             className="object-cover"
             sizes="66vw"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 p-8">
             {badges}
-            <h1 className="font-headline text-2xl font-bold leading-tight text-white drop-shadow-sm lg:text-3xl">
+            <h1 className="font-article text-2xl font-bold leading-tight text-white drop-shadow-sm lg:text-3xl">
               {article.title}
             </h1>
             <div className="mt-3">{metaRow(true)}</div>

@@ -128,7 +128,7 @@ export default async function HomePage() {
       {chrome.breakingTickerEnabled ? <BreakingNewsTicker articles={breaking} /> : null}
       <HeaderAd />
 
-      <div className="container mx-auto px-3 py-5 sm:px-4 sm:py-8">
+      <div className="container mx-auto px-3 pb-5 pt-2 sm:px-4 sm:pb-8 sm:pt-3">
         <h1 className="sr-only">
           {siteConfig.name} — Actualités RDC et International
         </h1>
