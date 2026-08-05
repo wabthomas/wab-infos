@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { IMAGE_QUALITY_LCP } from '@/lib/image-quality';
 import type { Author } from '@wab-infos/shared';
-import { cn, getStrapiMediaUrl } from '@/lib/utils';
+import { cn, getStrapiMediaUrl, shouldBypassNextImageOptimization } from '@/lib/utils';
 
 function resolveAuthorAvatarUrl(author: Author): string | null {
   const avatar = author.avatar;
@@ -88,6 +88,7 @@ function AuthorAvatar({
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           sizes={`${size}px`}
           quality={IMAGE_QUALITY_LCP}
+          unoptimized={shouldBypassNextImageOptimization(avatarUrl)}
         />
       ) : (
         <span className="flex h-full w-full items-center justify-center bg-primary text-sm font-bold text-primary-foreground">

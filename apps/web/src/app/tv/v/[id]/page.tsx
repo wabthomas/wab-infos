@@ -108,8 +108,8 @@ export default async function VideoWatchPage({ params }: PageProps) {
           ]}
         />
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          <article className="lg:col-span-2">
+        <div className="grid items-start gap-8 lg:grid-cols-3">
+          <article className="min-w-0 lg:col-span-2">
             <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
               <YouTubeEmbed videoId={id} title={video.title} />
               <div className="p-5 md:p-8">
@@ -162,14 +162,16 @@ export default async function VideoWatchPage({ params }: PageProps) {
             </div>
           </article>
 
-          <ContentSidebar
-            liveFeed={liveFeed}
-            videos={sidebarVideos}
-            videosTitle="Autres vidéos"
-            excludeVideoId={id}
-            showTvPromo={false}
-            showCategories
-          />
+          <div className="min-w-0 h-fit w-full lg:self-start">
+            <ContentSidebar
+              liveFeed={liveFeed}
+              videos={sidebarVideos}
+              videosTitle="Autres vidéos"
+              excludeVideoId={id}
+              showTvPromo={false}
+              showCategories
+            />
+          </div>
         </div>
       </div>
     </>

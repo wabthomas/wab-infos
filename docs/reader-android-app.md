@@ -27,7 +27,7 @@ L’APK charge `https://wab-infos.com`. Les sous-domaines `*.wab-infos.com` (ré
 
 - Node 20+
 - JDK 17+
-- Android SDK (compileSdk 34)
+- Android SDK (compileSdk / targetSdk 36)
 - `android/keystore.properties` + keystore release
 - `android/app/google-services.json` (Firebase, package `com.wabinfos.app`)
 

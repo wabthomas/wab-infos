@@ -187,9 +187,16 @@ export function SidebarAd() {
   if (!client || !sidebarSlot) return null;
 
   // Sticky géré par ContentSidebar — éviter un sticky imbriqué.
+  // Pas de min-height 600px : un slot vide poussait toute la sidebar vers le bas.
   return (
     <div className="hidden lg:block">
-      <AdSense slot={sidebarSlot} format="vertical" className="mb-6" label="sidebar" />
+      <AdSense
+        slot={sidebarSlot}
+        format="vertical"
+        className="mb-6"
+        label="sidebar"
+        reserveMinHeight={false}
+      />
     </div>
   );
 }

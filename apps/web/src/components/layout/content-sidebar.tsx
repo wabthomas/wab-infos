@@ -156,7 +156,7 @@ export function ContentSidebar({
     categorySlug && categoryName && categorySlug !== currentCategorySlug;
 
   return (
-    <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+    <aside className="h-fit w-full space-y-5 lg:sticky lg:top-24 lg:self-start">
       <DeviceGate visibility={articleUi?.sidebarAd}>
         <SidebarAd />
       </DeviceGate>

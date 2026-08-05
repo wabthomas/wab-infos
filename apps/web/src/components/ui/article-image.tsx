@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import { imageQualityForPriority } from '@/lib/image-quality';
-import { cn } from '@/lib/utils';
+import { cn, shouldBypassNextImageOptimization } from '@/lib/utils';
 
 interface ArticleImageProps {
   src: string | null;
@@ -36,6 +36,8 @@ export function ArticleImage({
     );
   }
 
+  const unoptimized = shouldBypassNextImageOptimization(src);
+
   return (
     <Image
       src={src}
@@ -45,6 +47,7 @@ export function ArticleImage({
       priority={priority}
       sizes={sizes}
       quality={quality ?? imageQualityForPriority(priority)}
+      unoptimized={unoptimized}
     />
   );
 }

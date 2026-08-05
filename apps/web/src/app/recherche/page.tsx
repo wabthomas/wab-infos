@@ -136,8 +136,8 @@ export default async function SearchPage({ searchParams }: PageProps) {
       </header>
 
       {query ? (
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <div className="grid items-start gap-8 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2">
             <SearchArticlesFeed
               query={query}
               initialArticles={articles}
@@ -146,7 +146,7 @@ export default async function SearchPage({ searchParams }: PageProps) {
               total={pagination.total}
             />
           </div>
-          <div className="hidden lg:block">
+          <div className="hidden min-w-0 h-fit w-full lg:block lg:self-start">
             <ContentSidebar
               liveFeed={liveFeed}
               articles={articles.length > 4 ? articles.slice(4, 12) : articles}
@@ -157,13 +157,13 @@ export default async function SearchPage({ searchParams }: PageProps) {
           </div>
         </div>
       ) : (
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <div className="grid items-start gap-8 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2">
             <p className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-10 text-center text-sm text-muted-foreground">
               Saisissez un mot-clé pour lancer la recherche.
             </p>
           </div>
-          <div className="hidden lg:block">
+          <div className="hidden min-w-0 h-fit w-full lg:block lg:self-start">
             <ContentSidebar liveFeed={liveFeed} showCategories />
           </div>
         </div>

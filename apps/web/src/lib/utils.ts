@@ -246,6 +246,29 @@ export function getStrapiMediaUrl(url?: string): string | null {
   return path;
 }
 
+/**
+ * `/_next/image` timeout en prod sur les médias CMS/WP (fetch serveur → origine distante).
+ * Les assets locaux (`/logo.png`, etc.) passent encore par l’optimiseur.
+ */
+export function shouldBypassNextImageOptimization(src?: string | null): boolean {
+  if (!src) return false;
+  if (src.includes('/_next/image')) return true;
+  if (src.startsWith('/uploads/') || src.startsWith('/wp-content/')) return true;
+  if (src.startsWith('uploads/') || src.startsWith('wp-content/')) return true;
+  if (!(src.startsWith('http://') || src.startsWith('https://'))) return false;
+  try {
+    const { hostname, pathname } = new URL(src);
+    if (pathname.startsWith('/uploads/') || pathname.startsWith('/wp-content/')) return true;
+    return (
+      hostname === 'cms.app.wab-infos.com' ||
+      hostname === 'wp.wab-infos.com' ||
+      hostname === 'app.wab-infos.com'
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** URL nette pour l’affichage (évite les miniatures Strapi ~150px). */
 export function resolveArticleImageUrl(
   image?: StrapiMedia | null,

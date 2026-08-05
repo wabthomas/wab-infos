@@ -1,7 +1,6 @@
 {
-  "versionCode": 32,
-  "versionName": "1.2.9",
+  "versionCode": 33,
+  "versionName": "1.3.0",
   "apkUrl": "/downloads/wab-infos.apk",
-  "releaseNotes": "Conformité Google Play — cible Android 16 (API 36).",
-  "releasedAt": "2026-08-05T00:20:00.000Z"
+  "releasedAt": "2026-08-05T06:21:15.085Z"
 }

@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Android 15 force le edge-to-edge : on restaure la barre de statut / navigation. -->
+    <!--
+      Android 15+ force edge-to-edge. L’opt-out windowOptOutEdgeToEdgeEnforcement
+      est désactivé dès targetSdk 36 sur Android 16 — les insets sont gérés en code
+      (MainActivity.applySystemBarInsets).
+    -->
     <style name="Theme.WabInfos" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:statusBarColor">@color/brand_background</item>
         <item name="android:navigationBarColor">@color/brand_background</item>
         <item name="android:windowBackground">@color/brand_background</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
         <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
-        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
+        <item name="android:enforceStatusBarContrast" tools:targetApi="q">false</item>
+        <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>
     </style>
 </resources>

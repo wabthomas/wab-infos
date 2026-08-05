@@ -68,6 +68,7 @@ export function ArticleReadAlso({ article, index = 0 }: ArticleReadAlsoProps) {
               fill
               className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
               sizes="112px"
+              unoptimized
             />
             <span
               className="absolute inset-0 bg-gradient-to-r from-transparent to-muted/30 dark:to-background/20"

@@ -33,13 +33,16 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
+import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -74,6 +77,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String SITE_URL = BuildConfig.SITE_URL;
     private static final int PERMISSION_REQUEST_CODE = 4321;
 
+    private View rootLayout;
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
     private ProgressBar progressBar;
@@ -114,9 +118,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
-        // Android 15+ (targetSdk 35/36) : edge-to-edge par défaut — garder les barres système visibles.
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        // SDK 36 : edge-to-edge obligatoire — on insette le contenu sous les barres système.
+        EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+        rootLayout = findViewById(R.id.rootLayout);
+        applySystemBarInsets();
         ensureSystemBarsVisible();
 
         webView = findViewById(R.id.webView);
@@ -730,9 +736,28 @@ public class MainActivity extends AppCompatActivity {
         view.evaluateJavascript(observerScript, null);
     }
 
-    /** Empêche le contenu de passer sous / de masquer la barre de statut (SDK 35+). */
+    /**
+     * SDK 36 impose le edge-to-edge (plus d’opt-out). On pad le layout racine avec
+     * les insets statut / navigation / cutout pour que la WebView ne passe pas
+     * sous la barre de notification.
+     */
+    private void applySystemBarInsets() {
+        if (rootLayout == null) return;
+        ViewCompat.setOnApplyWindowInsetsListener(rootLayout, (view, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars()
+                            | WindowInsetsCompat.Type.displayCutout()
+                            | WindowInsetsCompat.Type.ime()
+            );
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return WindowInsetsCompat.CONSUMED;
+        });
+        ViewCompat.requestApplyInsets(rootLayout);
+    }
+
+    /** Garde la barre de statut / navigation visibles (pas de mode immersif). */
     private void ensureSystemBarsVisible() {
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         WindowInsetsControllerCompat controller =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         if (controller != null) {
@@ -745,8 +770,13 @@ public class MainActivity extends AppCompatActivity {
         try {
             ensureSystemBarsVisible();
             int color = android.graphics.Color.parseColor(colorString);
+            // En edge-to-edge la couleur de barre peut être ignorée : on colore aussi
+            // la zone de padding du layout racine (derrière statut / navigation).
             getWindow().setStatusBarColor(color);
             getWindow().setNavigationBarColor(color);
+            if (rootLayout != null) {
+                rootLayout.setBackgroundColor(color);
+            }
 
             double luminance = (0.299 * android.graphics.Color.red(color)
                     + 0.587 * android.graphics.Color.green(color)
@@ -1023,6 +1053,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        ensureSystemBarsVisible();
         webView.onResume();
     }
 

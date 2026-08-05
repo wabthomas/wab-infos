@@ -171,14 +171,16 @@ export default async function ArticlePage({ params }: PageProps) {
           </div>
 
           <Suspense fallback={<ArticleSidebarSkeleton />}>
-            <ArticleSidebarAsync
-              slug={slug}
-              categorySlug={categorySlug}
-              categoryName={cat.name}
-              categoryColor={cat.color}
-              tagSlugs={tagSlugs}
-              title={article.title}
-            />
+            <div className="min-w-0 h-fit w-full lg:self-start">
+              <ArticleSidebarAsync
+                slug={slug}
+                categorySlug={categorySlug}
+                categoryName={cat.name}
+                categoryColor={cat.color}
+                tagSlugs={tagSlugs}
+                title={article.title}
+              />
+            </div>
           </Suspense>
         </div>
       </article>

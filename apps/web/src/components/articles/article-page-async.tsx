@@ -86,7 +86,7 @@ export async function ArticleCommentsAsync({ documentId }: ArticleCommentsAsyncP
 
 export function ArticleSidebarSkeleton() {
   return (
-    <aside className="space-y-5 lg:sticky lg:top-24 lg:self-start" aria-hidden>
+    <aside className="h-fit w-full space-y-5 lg:sticky lg:top-24 lg:self-start" aria-hidden>
       <div className="h-64 animate-pulse rounded-xl bg-muted/50" />
       <div className="h-48 animate-pulse rounded-xl bg-muted/40" />
       <div className="h-40 animate-pulse rounded-xl bg-muted/40" />
