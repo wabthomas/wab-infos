@@ -39,6 +39,10 @@ export const siteConfig = {
   androidApkUrl: process.env.NEXT_PUBLIC_ANDROID_APK_URL || '/downloads/wab-infos.apk',
   androidApkVersionUrl:
     process.env.NEXT_PUBLIC_ANDROID_APK_VERSION_URL || '/api/apk-version',
+  /** Fiche Google Play (menu mobile « Télécharger »). */
+  androidPlayStoreUrl:
+    process.env.NEXT_PUBLIC_ANDROID_PLAY_STORE_URL ||
+    'https://play.google.com/store/apps/details?id=com.wabinfos.app',
   /** Logo rectangulaire Publisher Center / JSON-LD (400×200) — public/publisher-logo.png */
   publisherLogoUrl: `${SITE_URL}/publisher-logo.png`,
 } as const;

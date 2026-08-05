@@ -9,6 +9,8 @@ import { getVisibleNavLinks, isNativeCapacitorFromUserAgent } from '@wab-infos/s
 import { SiteLogo } from '@/components/brand/site-logo';
 import { HeaderAuthLink } from '@/components/layout/header-auth-link';
 import { HeaderSearch } from '@/components/layout/header-search';
+import { MobileMenuAppVersion } from '@/components/layout/mobile-menu-app-version';
+import { MobileMenuFooterCta } from '@/components/layout/mobile-menu-footer-cta';
 import { MobileMenuToolbar } from '@/components/layout/mobile-menu-toolbar';
 import { MobileSiteSettings } from '@/components/layout/mobile-site-settings';
 import { PushAlertsIconButton } from '@/components/layout/push-alerts-icon-button';
@@ -160,7 +162,13 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
                 Menu
               </button>
 
-              {chrome.headerSearchEnabled ? <HeaderSearch className="min-w-0" /> : null}
+              {chrome.headerSearchEnabled ? (
+                <HeaderSearch
+                  className="min-w-0"
+                  showMobileTrigger={chrome.mobileHeaderSearchEnabled}
+                  showDesktopTrigger
+                />
+              ) : null}
             </div>
 
             <Link
@@ -186,13 +194,11 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
               {chrome.headerTvButtonEnabled ? (
                 <Link
                   href="/tv"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 md:h-auto md:w-auto md:gap-1.5 md:px-4 md:py-2"
+                  className="hidden h-auto w-auto items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2 text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 md:inline-flex"
                   aria-label="Wab-infos TV"
                 >
-                  <Tv className="h-5 w-5 shrink-0 md:h-4 md:w-4" />
-                  <span className="hidden text-sm font-bold uppercase tracking-wider md:inline">
-                    Wab-infos TV
-                  </span>
+                  <Tv className="h-4 w-4 shrink-0" />
+                  <span className="text-sm font-bold uppercase tracking-wider">Wab-infos TV</span>
                 </Link>
               ) : null}
             </div>
@@ -309,8 +315,8 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
                   onOpenSettings={() => setSettingsOpen(true)}
                 />
 
-                {chrome.headerSearchEnabled ? (
-                  <div className="border-b border-border px-4 py-4">
+                {chrome.headerSearchEnabled && chrome.mobileMenuSearchEnabled ? (
+                  <div className="border-b border-border px-4 py-4 md:hidden">
                     <HeaderSearch compact onSubmit={() => setMenuOpen(false)} />
                   </div>
                 ) : null}
@@ -447,17 +453,14 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
                   </section>
                 </div>
 
-                {chrome.headerTvButtonEnabled ? (
-                  <div className="border-t border-border px-4 py-4 md:hidden">
-                    <Link
-                      href="/tv"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-primary-foreground transition-colors hover:bg-primary/90"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <Tv className="h-4 w-4" />
-                      Wab-infos TV
-                    </Link>
-                  </div>
+                <MobileMenuFooterCta
+                  action={chrome.mobileMenuFooterAction}
+                  playStoreUrl={chrome.mobileMenuPlayStoreUrl}
+                  onNavigate={() => setMenuOpen(false)}
+                />
+
+                {chrome.mobileMenuShowAppVersion ? (
+                  <MobileMenuAppVersion />
                 ) : null}
               </>
             )}

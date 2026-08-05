@@ -10,7 +10,10 @@
 -keepattributes JavascriptInterface
 -keepattributes *Annotation*
 
-# Firebase Cloud Messaging
+# Google Play In-App Updates (reader)
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.**
+
 -keep class com.google.firebase.messaging.** { *; }
 -dontwarn com.google.firebase.**
 

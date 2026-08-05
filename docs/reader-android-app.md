@@ -20,7 +20,7 @@ L’APK charge `https://wab-infos.com`. Les sous-domaines `*.wab-infos.com` (ré
 - Partage natif (`navigator.share` → Android)
 - Sync barre de statut avec thème clair/sombre du site
 - Upload fichiers / photo depuis la WebView
-- Mise à jour APK via `downloads/apk-version.json`
+- Mise à jour : **Google Play In-App Updates** si l’app est installée depuis le Play Store ; sinon téléchargement APK via `downloads/apk-version.json` (bandeau web + dialogue natif).
 - FCM topics `all_users` et `news` (flavor `withFcm`)
 
 ## Prérequis

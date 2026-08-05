@@ -10,6 +10,8 @@
     <string name="update_dialog_title">Nouvelle version disponible</string>
     <string name="update_dialog_subtitle">Version %1$s • Actuelle v%2$s</string>
     <string name="update_dialog_message">Installez la dernière version pour corriger les bugs, améliorer la connexion rédaction et profiter des nouveautés.</string>
+    <string name="update_dialog_message_play">Une nouvelle version est disponible sur le Google Play Store. Mettez à jour pour profiter des dernières améliorations.</string>
+    <string name="update_play_restart">Mise à jour téléchargée — redémarrage…</string>
     <string name="update_now">Mettre à jour</string>
     <string name="update_later">Plus tard</string>
     <string name="downloading_update">Téléchargement de la mise à jour…</string>

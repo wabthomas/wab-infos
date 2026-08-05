@@ -157,12 +157,10 @@ public class MainActivity extends AppCompatActivity {
         });
 
         UpdateManager.bindActivity(this);
+        UpdateManager.registerPlayInAppUpdates(this);
         // Toast « à jour » uniquement au froid (évite doublon onResume).
         UpdateManager.showUpdatedToastIfNeeded(this);
-        // Wab-Redaction : dialog natif en secours (le bandeau web couvre aussi le cas).
-        if (!BuildConfig.USE_NATIVE_GOOGLE) {
-            mainHandler.postDelayed(() -> UpdateManager.checkForUpdate(MainActivity.this), 2800);
-        }
+        mainHandler.postDelayed(() -> UpdateManager.checkForUpdate(MainActivity.this), 2800);
 
         String targetUrl = resolveTargetUrl(getIntent());
         if (isOnline()) {
@@ -1054,6 +1052,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         ensureSystemBarsVisible();
+        UpdateManager.resumePlayInAppUpdateIfNeeded(this);
         webView.onResume();
     }
 
@@ -1110,7 +1109,23 @@ public class MainActivity extends AppCompatActivity {
             if (url == null || url.trim().isEmpty()) {
                 return;
             }
-            runOnUiThread(() -> UpdateManager.downloadAndInstall(MainActivity.this, url.trim()));
+            runOnUiThread(() -> {
+                if (UpdateManager.shouldUsePlayStoreUpdate(MainActivity.this)) {
+                    UpdateManager.checkForUpdate(MainActivity.this);
+                } else {
+                    UpdateManager.downloadAndInstall(MainActivity.this, url.trim());
+                }
+            });
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean isInstalledFromPlayStore() {
+            return UpdateManager.shouldUsePlayStoreUpdate(MainActivity.this);
+        }
+
+        @android.webkit.JavascriptInterface
+        public void checkForAppUpdate() {
+            runOnUiThread(() -> UpdateManager.checkForUpdate(MainActivity.this));
         }
 
         @android.webkit.JavascriptInterface

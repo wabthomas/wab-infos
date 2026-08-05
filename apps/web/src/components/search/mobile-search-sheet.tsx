@@ -11,13 +11,14 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Clock3, Loader2, Search, X } from 'lucide-react';
+import { Clock3, Loader2, Mic, MicOff, Search, X } from 'lucide-react';
 import type { SearchSuggestion } from '@/lib/search-suggestions';
 import {
   clearRecentSearches,
   pushRecentSearch,
   readRecentSearches,
 } from '@/lib/recent-searches';
+import { cn } from '@/lib/utils';
 
 type DiscoverArticle = {
   id: number;
@@ -93,6 +94,8 @@ export function MobileSearchSheet({ open, onClose }: MobileSearchSheetProps) {
   const [loadingDiscover, setLoadingDiscover] = useState(false);
   const [loadingSuggest, setLoadingSuggest] = useState(false);
   const [discoverError, setDiscoverError] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
 
   const trimmed = query.trim();
   const showSuggest = trimmed.length >= 2;
@@ -123,6 +126,59 @@ export function MobileSearchSheet({ open, onClose }: MobileSearchSheetProps) {
     },
     [router, onClose]
   );
+
+  const startVoiceSearch = useCallback(() => {
+    setVoiceError(null);
+    if (typeof window === 'undefined') return;
+
+    type SpeechRecognitionCtor = new () => {
+      lang: string;
+      interimResults: boolean;
+      maxAlternatives: number;
+      onresult: ((event: {
+        results: { [index: number]: { [index: number]: { transcript: string } } };
+      }) => void) | null;
+      onerror: (() => void) | null;
+      onend: (() => void) | null;
+      start: () => void;
+    };
+
+    const Win = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionCtor;
+      webkitSpeechRecognition?: SpeechRecognitionCtor;
+    };
+    const SpeechRecognition = Win.SpeechRecognition || Win.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceError('Reconnaissance vocale non disponible sur cet appareil.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = document.documentElement.lang === 'en' ? 'en-US' : 'fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (transcript) {
+        setQuery(transcript);
+        goSearch(transcript);
+      }
+    };
+    recognition.onerror = () => {
+      setVoiceError('Impossible d’écouter. Réessayez ou saisissez votre recherche.');
+      setListening(false);
+    };
+    recognition.onend = () => setListening(false);
+
+    try {
+      setListening(true);
+      recognition.start();
+    } catch {
+      setListening(false);
+      setVoiceError('Microphone indisponible.');
+    }
+  }, [goSearch]);
 
   useEffect(() => {
     if (!open) return;
@@ -222,13 +278,31 @@ export function MobileSearchSheet({ open, onClose }: MobileSearchSheetProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Rechercher un article…"
-              className="w-full rounded-full border border-border bg-muted/60 py-2.5 pl-10 pr-10 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 sm:text-sm"
+              className="w-full rounded-full border border-border bg-muted/60 py-2.5 pl-10 pr-[4.5rem] text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 sm:text-sm"
               aria-controls={listId}
               autoComplete="off"
               enterKeyHint="search"
               // iOS : évite le zoom sur focus
               style={{ fontSize: '16px' }}
             />
+            <button
+              type="button"
+              onClick={startVoiceSearch}
+              disabled={listening}
+              className={cn(
+                'absolute right-10 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition-colors',
+                listening
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+              aria-label={listening ? 'Écoute en cours' : 'Recherche vocale'}
+            >
+              {listening ? (
+                <MicOff className="h-4 w-4 animate-pulse" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </button>
             {query ? (
               <button
                 type="button"
@@ -252,6 +326,11 @@ export function MobileSearchSheet({ open, onClose }: MobileSearchSheetProps) {
             Annuler
           </button>
         </form>
+        {voiceError ? (
+          <p className="mt-2 px-1 text-xs text-destructive" role="status">
+            {voiceError}
+          </p>
+        ) : null}
       </div>
 
       <div

@@ -34,6 +34,8 @@ type AndroidUpdateBridge = {
   getAppVersionJson?: () => string;
   downloadAndInstallApkUpdate?: (url: string) => void;
   showToast?: (message: string) => void;
+  isInstalledFromPlayStore?: () => boolean;
+  checkForAppUpdate?: () => void;
 };
 
 let appUpdatePlugin: AppUpdatePlugin | null = null;
@@ -149,7 +151,11 @@ export async function downloadAndInstallApkUpdate(
   const bridge = getAndroidUpdateBridge();
   if (bridge?.downloadAndInstallApkUpdate) {
     onProgress?.(100);
-    bridge.downloadAndInstallApkUpdate(apkUrl);
+    if (prefersPlayStoreAppUpdate()) {
+      bridge.checkForAppUpdate?.();
+    } else {
+      bridge.downloadAndInstallApkUpdate(apkUrl);
+    }
     return;
   }
 
@@ -169,6 +175,20 @@ export async function downloadAndInstallApkUpdate(
 
 export function usesNativeAndroidUpdateBridge(): boolean {
   return Boolean(getAndroidUpdateBridge()?.downloadAndInstallApkUpdate);
+}
+
+export function prefersPlayStoreAppUpdate(): boolean {
+  const bridge = getAndroidUpdateBridge();
+  if (!bridge?.isInstalledFromPlayStore) return false;
+  try {
+    return bridge.isInstalledFromPlayStore();
+  } catch {
+    return false;
+  }
+}
+
+export function triggerNativeAppUpdateCheck(): void {
+  getAndroidUpdateBridge()?.checkForAppUpdate?.();
 }
 
 export function showNativeAndroidToast(message: string): void {

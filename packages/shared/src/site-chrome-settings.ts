@@ -28,11 +28,24 @@ export interface SiteFooterCta {
   secondaryHref: string;
 }
 
+/** Pied du menu latéral mobile (sous les rubriques). */
+export type MobileMenuFooterAction = 'none' | 'tv' | 'play_store';
+
 export interface SiteChromeSettings {
   headerUtilityBarEnabled: boolean;
   headerTvButtonEnabled: boolean;
   headerPushAlertsEnabled: boolean;
   headerSearchEnabled: boolean;
+  /** Loupe dans la barre du haut (mobile). */
+  mobileHeaderSearchEnabled: boolean;
+  /** Champ recherche dans le panneau menu (mobile). */
+  mobileMenuSearchEnabled: boolean;
+  /** Bouton bas de menu : TV, Play Store ou masqué. */
+  mobileMenuFooterAction: MobileMenuFooterAction;
+  /** Lien Play Store (si mobileMenuFooterAction = play_store). */
+  mobileMenuPlayStoreUrl: string;
+  /** Afficher « App vX.Y.Z » en bas du menu mobile. */
+  mobileMenuShowAppVersion: boolean;
   headerThemeToggleEnabled: boolean;
   headerAuthLinkEnabled: boolean;
   footerEnabled: boolean;
@@ -125,6 +138,12 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
   headerTvButtonEnabled: true,
   headerPushAlertsEnabled: true,
   headerSearchEnabled: true,
+  mobileHeaderSearchEnabled: true,
+  mobileMenuSearchEnabled: false,
+  mobileMenuFooterAction: 'play_store',
+  mobileMenuPlayStoreUrl:
+    'https://play.google.com/store/apps/details?id=com.wabinfos.app',
+  mobileMenuShowAppVersion: true,
   headerThemeToggleEnabled: true,
   headerAuthLinkEnabled: true,
   footerEnabled: true,
@@ -171,6 +190,11 @@ function normalizeNavLinks(raw: unknown, defaults: SiteNavLink[]): SiteNavLink[]
   return links.length > 0 ? links : defaults.map((link) => ({ ...link }));
 }
 
+function normalizeMobileMenuFooterAction(raw: unknown): MobileMenuFooterAction {
+  if (raw === 'none' || raw === 'tv' || raw === 'play_store') return raw;
+  return DEFAULT_SITE_CHROME.mobileMenuFooterAction;
+}
+
 function normalizeFooterCta(raw: unknown): SiteFooterCta {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_FOOTER_CTA };
   const row = raw as Record<string, unknown>;
@@ -210,6 +234,23 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
     headerTvButtonEnabled: row.headerTvButtonEnabled !== false,
     headerPushAlertsEnabled: row.headerPushAlertsEnabled !== false,
     headerSearchEnabled: row.headerSearchEnabled !== false,
+    mobileHeaderSearchEnabled:
+      row.mobileHeaderSearchEnabled !== undefined
+        ? row.mobileHeaderSearchEnabled !== false
+        : DEFAULT_SITE_CHROME.mobileHeaderSearchEnabled,
+    mobileMenuSearchEnabled:
+      row.mobileMenuSearchEnabled !== undefined
+        ? row.mobileMenuSearchEnabled !== false
+        : DEFAULT_SITE_CHROME.mobileMenuSearchEnabled,
+    mobileMenuFooterAction: normalizeMobileMenuFooterAction(row.mobileMenuFooterAction),
+    mobileMenuPlayStoreUrl:
+      typeof row.mobileMenuPlayStoreUrl === 'string' && row.mobileMenuPlayStoreUrl.trim()
+        ? row.mobileMenuPlayStoreUrl.trim()
+        : DEFAULT_SITE_CHROME.mobileMenuPlayStoreUrl,
+    mobileMenuShowAppVersion:
+      row.mobileMenuShowAppVersion !== undefined
+        ? row.mobileMenuShowAppVersion !== false
+        : DEFAULT_SITE_CHROME.mobileMenuShowAppVersion,
     headerThemeToggleEnabled: row.headerThemeToggleEnabled !== false,
     headerAuthLinkEnabled: row.headerAuthLinkEnabled !== false,
     footerEnabled: row.footerEnabled !== false,

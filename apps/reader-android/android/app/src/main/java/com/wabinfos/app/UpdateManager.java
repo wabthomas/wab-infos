@@ -19,9 +19,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.play.core.appupdate.AppUpdateInfo;
 
 import org.json.JSONObject;
 
@@ -117,8 +119,39 @@ public class UpdateManager {
         );
     }
 
+    public static boolean shouldUsePlayStoreUpdate(Context context) {
+        return "com.wabinfos.app".equals(context.getPackageName())
+                && PlayInAppUpdateHelper.isInstalledFromPlayStore(context);
+    }
+
+    public static void registerPlayInAppUpdates(AppCompatActivity activity) {
+        PlayInAppUpdateHelper.registerLauncher(activity);
+    }
+
+    public static void resumePlayInAppUpdateIfNeeded(AppCompatActivity activity) {
+        if (shouldUsePlayStoreUpdate(activity)) {
+            PlayInAppUpdateHelper.resumeIfFlexibleUpdateDownloaded(activity);
+        }
+    }
+
+    public static void showPlayStoreUpdateDialog(AppCompatActivity activity, AppUpdateInfo appUpdateInfo) {
+        String remoteLabel = String.valueOf(appUpdateInfo.availableVersionCode());
+        presentUpdateDialog(activity, remoteLabel, null, true, appUpdateInfo);
+    }
+
     public static void showUpdateDialog(Activity activity, String remoteVersionName, String apkUrl) {
-        if (activity == null || apkUrl == null || apkUrl.trim().isEmpty()) return;
+        presentUpdateDialog(activity, remoteVersionName, apkUrl, false, null);
+    }
+
+    private static void presentUpdateDialog(
+            Activity activity,
+            String remoteVersionName,
+            String apkUrl,
+            boolean playStoreFlow,
+            AppUpdateInfo playUpdateInfo
+    ) {
+        if (activity == null) return;
+        if (!playStoreFlow && (apkUrl == null || apkUrl.trim().isEmpty())) return;
 
         String localVersionName;
         try {
@@ -141,7 +174,11 @@ public class UpdateManager {
             ));
         }
         if (message != null) {
-            message.setText(R.string.update_dialog_message);
+            message.setText(
+                    playStoreFlow
+                            ? R.string.update_dialog_message_play
+                            : R.string.update_dialog_message
+            );
         }
 
         AlertDialog dialog = new AlertDialog.Builder(activity)
@@ -155,7 +192,16 @@ public class UpdateManager {
         if (nowButton != null) {
             nowButton.setOnClickListener(v -> {
                 dialog.dismiss();
-                downloadAndInstall(activity, apkUrl.trim());
+                if (playStoreFlow && activity instanceof AppCompatActivity) {
+                    AppCompatActivity host = (AppCompatActivity) activity;
+                    if (playUpdateInfo != null) {
+                        PlayInAppUpdateHelper.startUpdateFlow(host, playUpdateInfo);
+                    } else {
+                        PlayInAppUpdateHelper.openPlayStoreListing(activity);
+                    }
+                } else {
+                    downloadAndInstall(activity, apkUrl != null ? apkUrl.trim() : "");
+                }
             });
         }
 
@@ -376,8 +422,23 @@ public class UpdateManager {
         }
     }
 
-    /** Vérifie le manifeste distant (hors WebView) — réservé aux usages natifs optionnels. */
+    /** Vérifie Play Store (si install depuis Play) puis le manifeste APK du site. */
     public static void checkForUpdate(Activity activity) {
+        if (!(activity instanceof AppCompatActivity)) {
+            checkManifestUpdate(activity);
+            return;
+        }
+        AppCompatActivity host = (AppCompatActivity) activity;
+        if (shouldUsePlayStoreUpdate(host)) {
+            host.runOnUiThread(() ->
+                    PlayInAppUpdateHelper.checkForUpdate(host, () -> checkManifestUpdate(host))
+            );
+        } else {
+            checkManifestUpdate(host);
+        }
+    }
+
+    private static void checkManifestUpdate(Activity activity) {
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
                 URL url = new URL(BuildConfig.VERSION_MANIFEST_URL);
@@ -410,6 +471,24 @@ public class UpdateManager {
                     return;
                 }
 
+                String remoteVersionName = json.optString("versionName", String.valueOf(remoteVersionCode));
+                final boolean playInstall = shouldUsePlayStoreUpdate(activity);
+
+                if (playInstall) {
+                    activity.runOnUiThread(() -> {
+                        if (activity instanceof AppCompatActivity) {
+                            presentUpdateDialog(
+                                    activity,
+                                    remoteVersionName,
+                                    null,
+                                    true,
+                                    null
+                            );
+                        }
+                    });
+                    return;
+                }
+
                 String apkUrl = apkPath.startsWith("http")
                         ? apkPath
                         : BuildConfig.SITE_URL + apkPath;
@@ -417,7 +496,6 @@ public class UpdateManager {
                     apkUrl += (apkUrl.contains("?") ? "&" : "?") + "v=" + remoteVersionCode;
                 }
 
-                String remoteVersionName = json.optString("versionName", String.valueOf(remoteVersionCode));
                 final String finalApkUrl = apkUrl;
                 activity.runOnUiThread(() -> showUpdateDialog(activity, remoteVersionName, finalApkUrl));
             } catch (Exception e) {

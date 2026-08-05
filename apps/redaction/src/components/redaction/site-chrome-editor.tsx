@@ -276,23 +276,70 @@ export function SiteChromeEditor({
           onChange={(headerUtilityBarEnabled) => patch({ headerUtilityBarEnabled })}
         />
         <ToggleRow
-          label="Recherche"
-          description="Champ de recherche dans l'en-tête et le menu."
+          label="Recherche (desktop + barre du haut)"
+          description="Champ de recherche sur desktop et loupe dans l'en-tête mobile."
           checked={chrome.headerSearchEnabled}
           onChange={(headerSearchEnabled) => patch({ headerSearchEnabled })}
         />
         <ToggleRow
-          label="Bouton Wab-infos TV"
-          description="Accès rapide à la rubrique TV."
+          label="Recherche — barre du haut mobile"
+          description="Loupe à gauche du logo (Recherche + Logo + Notifications)."
+          checked={chrome.mobileHeaderSearchEnabled}
+          onChange={(mobileHeaderSearchEnabled) => patch({ mobileHeaderSearchEnabled })}
+        />
+        <ToggleRow
+          label="Recherche — panneau menu mobile"
+          description="Champ de recherche dans le menu latéral (séparé de la barre du haut)."
+          checked={chrome.mobileMenuSearchEnabled}
+          onChange={(mobileMenuSearchEnabled) => patch({ mobileMenuSearchEnabled })}
+        />
+        <ToggleRow
+          label="Bouton Wab-infos TV (desktop)"
+          description="Accès TV dans l'en-tête desktop uniquement (masqué sur mobile)."
           checked={chrome.headerTvButtonEnabled}
           onChange={(headerTvButtonEnabled) => patch({ headerTvButtonEnabled })}
         />
         <ToggleRow
           label="Alertes push (mobile)"
-          description="Icône de notifications dans l'en-tête mobile."
+          description="Icône notifications à droite du logo sur mobile (à la place de TV)."
           checked={chrome.headerPushAlertsEnabled}
           onChange={(headerPushAlertsEnabled) => patch({ headerPushAlertsEnabled })}
         />
+        <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Bas du menu mobile
+          </p>
+          <label className="block text-xs font-medium text-foreground">
+            Bouton d’action
+            <select
+              value={chrome.mobileMenuFooterAction}
+              onChange={(e) =>
+                patch({
+                  mobileMenuFooterAction: e.target.value as SiteChromeSettings['mobileMenuFooterAction'],
+                })
+              }
+              className="mt-1 h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
+            >
+              <option value="none">Masqué</option>
+              <option value="tv">Wab-infos TV</option>
+              <option value="play_store">Télécharger (Play Store / APK)</option>
+            </select>
+          </label>
+          {chrome.mobileMenuFooterAction === 'play_store' ? (
+            <input
+              value={chrome.mobileMenuPlayStoreUrl}
+              onChange={(e) => patch({ mobileMenuPlayStoreUrl: e.target.value })}
+              placeholder="https://play.google.com/store/apps/details?id=com.wabinfos.app"
+              className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
+            />
+          ) : null}
+          <ToggleRow
+            label="Version de l’application"
+            description="Affiche « Application vX.Y.Z » tout en bas du menu."
+            checked={chrome.mobileMenuShowAppVersion}
+            onChange={(mobileMenuShowAppVersion) => patch({ mobileMenuShowAppVersion })}
+          />
+        </div>
         <ToggleRow
           label="Thème clair/sombre"
           description="Bouton de bascule sur desktop."

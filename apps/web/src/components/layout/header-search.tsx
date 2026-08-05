@@ -10,9 +10,17 @@ interface HeaderSearchProps {
   className?: string;
   compact?: boolean;
   onSubmit?: () => void;
+  showMobileTrigger?: boolean;
+  showDesktopTrigger?: boolean;
 }
 
-export function HeaderSearch({ className, compact = false, onSubmit }: HeaderSearchProps) {
+export function HeaderSearch({
+  className,
+  compact = false,
+  onSubmit,
+  showMobileTrigger = true,
+  showDesktopTrigger = true,
+}: HeaderSearchProps) {
   const [open, setOpen] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
@@ -30,22 +38,24 @@ export function HeaderSearch({ className, compact = false, onSubmit }: HeaderSea
 
   return (
     <>
-      {/* Mobile / APK : loupe → overlay plein écran (portal) */}
-      <button
-        type="button"
-        onClick={() => setMobileSheetOpen(true)}
-        className={cn(
-          'inline-flex h-10 w-10 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground md:hidden',
-          className
-        )}
-        aria-label="Ouvrir la recherche"
-      >
-        <Search className="h-5 w-5" />
-      </button>
-      <MobileSearchSheet open={mobileSheetOpen} onClose={() => setMobileSheetOpen(false)} />
+      {showMobileTrigger ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setMobileSheetOpen(true)}
+            className={cn(
+              'inline-flex h-10 w-10 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground md:hidden',
+              className
+            )}
+            aria-label="Ouvrir la recherche"
+          >
+            <Search className="h-5 w-5" />
+          </button>
+          <MobileSearchSheet open={mobileSheetOpen} onClose={() => setMobileSheetOpen(false)} />
+        </>
+      ) : null}
 
-      {/* Desktop : expansion inline dans le header */}
-      {!open ? (
+      {showDesktopTrigger && !open ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -58,7 +68,7 @@ export function HeaderSearch({ className, compact = false, onSubmit }: HeaderSea
           <Search className="h-4 w-4" />
           <span>Rechercher</span>
         </button>
-      ) : (
+      ) : showDesktopTrigger ? (
         <div
           className={cn(
             'hidden min-w-0 flex-1 items-center gap-1 sm:max-w-xs md:flex md:max-w-sm',
@@ -84,7 +94,7 @@ export function HeaderSearch({ className, compact = false, onSubmit }: HeaderSea
             <X className="h-4 w-4" />
           </button>
         </div>
-      )}
+      ) : null}
     </>
   );
 }

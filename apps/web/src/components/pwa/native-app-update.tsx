@@ -6,6 +6,7 @@ import {
   dismissApkUpdate,
   downloadAndInstallApkUpdate,
   isApkUpdateDismissed,
+  prefersPlayStoreAppUpdate,
   usesNativeAndroidUpdateBridge,
   type AppUpdateCheckResult,
 } from '@wab-infos/shared/capacitor-app-update';
@@ -198,8 +199,9 @@ export function NativeAppUpdate({ siteUrl, versionManifestUrl }: NativeAppUpdate
             <p className="text-sm leading-relaxed text-neutral-600">{check.remote.releaseNotes}</p>
           ) : (
             <p className="text-sm leading-relaxed text-neutral-600">
-              Corrections, performances et nouveautés — l&apos;installation se fait sans quitter
-              l&apos;application.
+              {prefersPlayStoreAppUpdate()
+                ? 'La mise à jour se fait via le Google Play Store (téléchargement sécurisé).'
+                : 'Corrections, performances et nouveautés — l\u2019installation se fait sans quitter l\u2019application.'}
             </p>
           )}
 
@@ -212,9 +214,11 @@ export function NativeAppUpdate({ siteUrl, versionManifestUrl }: NativeAppUpdate
                 />
               </div>
               <p className="mt-2 text-xs text-neutral-500">
-                {usesNativeAndroidUpdateBridge()
-                  ? `Installation de la version ${remoteLabel}…`
-                  : `Téléchargement de la version ${remoteLabel}… ${progress}%`}
+                {prefersPlayStoreAppUpdate()
+                  ? `Mise à jour via le Play Store (v${remoteLabel})…`
+                  : usesNativeAndroidUpdateBridge()
+                    ? `Installation de la version ${remoteLabel}…`
+                    : `Téléchargement de la version ${remoteLabel}… ${progress}%`}
               </p>
             </div>
           ) : null}
