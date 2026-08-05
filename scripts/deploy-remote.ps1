@@ -1,8 +1,8 @@
-# Déploiement Wab-infos → N0C via SSH (Windows).
+﻿# Deploiement Wab-infos -> N0C via SSH (Windows).
 # Usage:
 #   npm run deploy:web
 #   npm run deploy:redaction
-#   npm run deploy:remote          (web + rédaction, sans rebuild local)
+#   npm run deploy:remote          (web + redaction, sans rebuild local)
 #   powershell -File scripts/deploy-remote.ps1 ssh
 #   powershell -File scripts/deploy-remote.ps1 exec -- "cd ~/wab-infos && git pull"
 param(
@@ -54,7 +54,7 @@ function Invoke-Remote {
   param([string]$SshHost, [string]$Command)
   ssh $SshHost $Command
   if ($LASTEXITCODE -ne 0) {
-    throw "Commande SSH échouée (code $LASTEXITCODE)"
+    throw "Commande SSH echouee (code $LASTEXITCODE)"
   }
 }
 
@@ -65,7 +65,7 @@ function Send-File {
   }
   scp $LocalPath "${SshHost}:${RemotePath}"
   if ($LASTEXITCODE -ne 0) {
-    throw "scp échoué pour $LocalPath"
+    throw "scp echoue pour $LocalPath"
   }
 }
 
@@ -100,17 +100,38 @@ try {
     }
     'web' {
       Write-Host 'Build web + pack + upload + extraction + restart...' -ForegroundColor Cyan
+      if (Test-Path (Join-Path $RepoRoot 'web-next-build.tar.gz')) {
+        Remove-Item -Force (Join-Path $RepoRoot 'web-next-build.tar.gz') -ErrorAction SilentlyContinue
+      }
       npm run build:web:pack
-      Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'web-next-build.tar.gz') -RemotePath "$remoteBase/web-next-build.tar.gz"
+      if ($LASTEXITCODE -ne 0) {
+        throw "Build/pack web echoue (code $LASTEXITCODE) - ancien tar NON envoye."
+      }
+      $tarPath = Join-Path $RepoRoot 'web-next-build.tar.gz'
+      if (-not (Test-Path $tarPath)) {
+        throw 'Archive web-next-build.tar.gz absente apres le pack.'
+      }
+      Send-File -SshHost $sshHost -LocalPath $tarPath -RemotePath "$remoteBase/web-next-build.tar.gz"
       Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && tar -xzf web-next-build.tar.gz -C apps/web && test -f apps/web/.next/BUILD_ID && echo web unpack OK"
       Restart-RemotePassenger -SshHost $sshHost -RemoteBase $remoteBase -AppRelativePath 'apps/web'
       Write-Host 'Deploiement web termine (Passenger redemarre via tmp/restart.txt).' -ForegroundColor Green
     }
     'redaction' {
       Write-Host 'Build redaction + pack + upload + extraction + restart...' -ForegroundColor Cyan
+      if (Test-Path (Join-Path $RepoRoot 'redaction-next-build.tar.gz')) {
+        Remove-Item -Force (Join-Path $RepoRoot 'redaction-next-build.tar.gz') -ErrorAction SilentlyContinue
+      }
       npm run build:redaction:pack
-      Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'redaction-next-build.tar.gz') -RemotePath "$remoteBase/redaction-next-build.tar.gz"
-      Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && tar -xzf redaction-next-build.tar.gz -C apps/redaction && bash scripts/noc-npm-install.sh redaction"
+      if ($LASTEXITCODE -ne 0) {
+        throw "Build/pack redaction echoue (code $LASTEXITCODE) - ancien tar NON envoye."
+      }
+      $tarPath = Join-Path $RepoRoot 'redaction-next-build.tar.gz'
+      if (-not (Test-Path $tarPath)) {
+        throw 'Archive redaction-next-build.tar.gz absente apres le pack.'
+      }
+      Send-File -SshHost $sshHost -LocalPath $tarPath -RemotePath "$remoteBase/redaction-next-build.tar.gz"
+      Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && rm -rf apps/redaction/.next && tar -xzf redaction-next-build.tar.gz -C apps/redaction && test -f apps/redaction/.next/BUILD_ID && echo redaction unpack OK"
+      Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && bash scripts/noc-npm-install.sh redaction"
       Restart-RemotePassenger -SshHost $sshHost -RemoteBase $remoteBase -AppRelativePath 'apps/redaction'
       Write-Host 'Deploiement redaction termine (Passenger redemarre via tmp/restart.txt).' -ForegroundColor Green
     }

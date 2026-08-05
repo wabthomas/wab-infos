@@ -15,7 +15,7 @@ import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
 import { getAdsenseConfig } from '@/lib/adsense-config.server';
 import { getSiteSettings } from '@/lib/site-settings.server';
 import { generateOrganizationJsonLd, generateWebsiteJsonLd } from '@/lib/seo';
-import { resolveRedactionUrl } from '@wab-infos/shared';
+import { resolveRedactionUrl, buildBunnyFontsStylesheetUrl, buildCustomFontsFaceCss, typographyCssVariablesStyle } from '@wab-infos/shared';
 import { SiteChromeProvider } from '@/components/providers/site-chrome-context';
 import { UserPreferencesProvider } from '@/components/providers/user-preferences-provider';
 import { ToastProvider } from '@/components/ui/toast';
@@ -106,6 +106,22 @@ export default async function RootLayout({
   const organizationJsonLd = generateOrganizationJsonLd();
   const adsenseConfig = getAdsenseConfig();
   const siteSettings = await getSiteSettings();
+  const typography = siteSettings.chrome.typography;
+  const bunnyFontsUrl = buildBunnyFontsStylesheetUrl(typography);
+  const typographyStyle = typographyCssVariablesStyle(typography);
+  const customFontsCss = buildCustomFontsFaceCss(typography.customFonts ?? [], (url) => {
+    if (!url) return url;
+    if (/^https?:\/\//i.test(url)) {
+      try {
+        const parsed = new URL(url);
+        if (parsed.pathname.startsWith('/uploads/')) return parsed.pathname;
+      } catch {
+        // keep absolute
+      }
+      return url;
+    }
+    return url.startsWith('/') ? url : `/${url}`;
+  });
 
   return (
     <html lang="fr" suppressHydrationWarning className="h-full">
@@ -117,9 +133,11 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
         <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.bunny.net" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.bunny.net/css?family=source-serif-4:400,400i,600,700"
+        {bunnyFontsUrl ? <link rel="stylesheet" href={bunnyFontsUrl} /> : null}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `${customFontsCss}:root{${typographyStyle}}`,
+          }}
         />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />

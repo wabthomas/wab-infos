@@ -1,6 +1,6 @@
 {
   "name": "reader-android",
-  "version": "1.2.5",
+  "version": "1.2.9",
   "private": true,
   "description": "App Android Wab-infos — WebView native + notifications FCM",
   "scripts": {

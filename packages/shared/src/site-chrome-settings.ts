@@ -1,8 +1,12 @@
+import { normalizeArticleUiSettings, type ArticleUiSettings } from './article-ui-settings';
 import {
-  DEFAULT_ARTICLE_UI,
-  normalizeArticleUiSettings,
-  type ArticleUiSettings,
-} from './article-ui-settings';
+  normalizeBrandingSettings,
+  type SiteBrandingSettings,
+} from './site-branding-settings';
+import {
+  normalizeTypographySettings,
+  type SiteTypographySettings,
+} from './site-typography-settings';
 
 export interface SiteNavLink {
   id: string;
@@ -47,6 +51,10 @@ export interface SiteChromeSettings {
   footerLegalLinks: SiteNavLink[];
   /** Affichage sidebar / commentaires article (desktop & mobile) */
   articleUi: ArticleUiSettings;
+  /** Polices du site public (UI, titres, article, citations) */
+  typography: SiteTypographySettings;
+  /** Logo + nom affiché dans l’en-tête / pied de page */
+  branding: SiteBrandingSettings;
 }
 
 export const DEFAULT_UTILITY_LINKS: SiteNavLink[] = [
@@ -133,6 +141,8 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
   infoLinks: DEFAULT_INFO_LINKS,
   footerLegalLinks: DEFAULT_FOOTER_LEGAL_LINKS,
   articleUi: normalizeArticleUiSettings(undefined),
+  typography: normalizeTypographySettings(undefined),
+  branding: normalizeBrandingSettings(undefined),
 };
 
 function normalizeNavLink(raw: unknown, fallbackId: string): SiteNavLink | null {
@@ -184,6 +194,8 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
       ...DEFAULT_SITE_CHROME,
       footerCta: { ...DEFAULT_FOOTER_CTA },
       articleUi: normalizeArticleUiSettings(undefined),
+      typography: normalizeTypographySettings(undefined),
+      branding: normalizeBrandingSettings(undefined),
     };
   }
   const row = raw as Record<string, unknown>;
@@ -214,6 +226,8 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
     infoLinks: normalizeNavLinks(row.infoLinks, DEFAULT_INFO_LINKS),
     footerLegalLinks: normalizeNavLinks(row.footerLegalLinks, DEFAULT_FOOTER_LEGAL_LINKS),
     articleUi: normalizeArticleUiSettings(row.articleUi),
+    typography: normalizeTypographySettings(row.typography),
+    branding: normalizeBrandingSettings(row.branding),
   };
 }
 

@@ -114,7 +114,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
-        // Android 15 (targetSdk 35) force le edge-to-edge : garder la barre de notification visible.
+        // Android 15+ (targetSdk 35/36) : edge-to-edge par défaut — garder les barres système visibles.
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         setContentView(R.layout.activity_main);
         ensureSystemBarsVisible();
@@ -185,13 +185,52 @@ public class MainActivity extends AppCompatActivity {
         if (intent == null) return SITE_URL;
         String extraUrl = intent.getStringExtra("open_url");
         if (extraUrl != null && !extraUrl.isEmpty()) {
-            return extraUrl;
+            return sanitizeDeepLinkUrl(extraUrl);
         }
         Uri data = intent.getData();
         if (data != null) {
-            return data.toString();
+            String scheme = data.getScheme();
+            if ("wabinfos".equalsIgnoreCase(scheme)) {
+                // wabinfos://article/<category>/<slug>  ou  wabinfos://article?url=https://...
+                String queryUrl = data.getQueryParameter("url");
+                if (queryUrl != null && !queryUrl.isEmpty()) {
+                    return sanitizeDeepLinkUrl(queryUrl);
+                }
+                String path = data.getPath();
+                if (path != null && path.length() > 1) {
+                    return sanitizeDeepLinkUrl(SITE_URL + (path.startsWith("/") ? path : "/" + path));
+                }
+                List<String> segments = data.getPathSegments();
+                if (segments != null && segments.size() >= 2) {
+                    return sanitizeDeepLinkUrl(SITE_URL + "/" + segments.get(0) + "/" + segments.get(1));
+                }
+                return SITE_URL;
+            }
+            return sanitizeDeepLinkUrl(data.toString());
         }
         return SITE_URL;
+    }
+
+    /** Normalise www → apex et refuse les hôtes hors domaine. */
+    private String sanitizeDeepLinkUrl(String raw) {
+        if (raw == null || raw.isEmpty()) return SITE_URL;
+        try {
+            Uri uri = Uri.parse(raw);
+            String host = uri.getHost();
+            if (host == null) return SITE_URL;
+            String lower = host.toLowerCase(Locale.ROOT);
+            if (!lower.equals("wab-infos.com")
+                    && !lower.equals("www.wab-infos.com")
+                    && !lower.endsWith(".wab-infos.com")) {
+                return SITE_URL;
+            }
+            if ("www.wab-infos.com".equals(lower)) {
+                return uri.buildUpon().authority("wab-infos.com").build().toString();
+            }
+            return uri.toString();
+        } catch (Exception ignored) {
+            return SITE_URL;
+        }
     }
 
     private void playLaunchOverlayEntrance() {

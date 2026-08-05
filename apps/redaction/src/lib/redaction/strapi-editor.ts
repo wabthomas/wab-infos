@@ -1618,6 +1618,61 @@ export async function uploadEditorImage(
   };
 }
 
+/** Upload générique (ex. polices TTF) — sans optimisation image. */
+export async function uploadEditorFile(
+  user: RedactionUser,
+  file: File
+): Promise<{ id: number; url: string; name?: string; mime?: string }> {
+  await resolveAuthorForUser(user);
+
+  if (!STRAPI_TOKEN) {
+    throw new Error('STRAPI_API_TOKEN manquant');
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const form = new FormData();
+  form.append(
+    'files',
+    new Blob([buffer], { type: file.type || 'application/octet-stream' }),
+    file.name
+  );
+
+  const res = await fetch(`${getStrapiUrl()}/api/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${STRAPI_TOKEN}` },
+    body: form,
+    cache: 'no-store',
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    let detail = text.replace(/\s+/g, ' ').trim().slice(0, 200);
+    try {
+      const json = JSON.parse(text) as { error?: { message?: string }; message?: string };
+      detail = json.error?.message ?? json.message ?? detail;
+    } catch {
+      // corps HTML ou texte brut
+    }
+    throw new Error(detail ? `Upload Strapi échoué : ${detail}` : `Upload échoué (${res.status})`);
+  }
+
+  let data: { id: number; url: string; mime?: string; name?: string }[];
+  try {
+    data = JSON.parse(text) as { id: number; url: string; mime?: string; name?: string }[];
+  } catch {
+    throw new Error('Réponse Strapi invalide après upload');
+  }
+  const media = data[0];
+  if (!media?.id) throw new Error('Upload sans identifiant');
+
+  return {
+    id: media.id,
+    url: media.url,
+    name: media.name,
+    mime: media.mime,
+  };
+}
+
 function mapUploadFile(raw: Record<string, unknown>): RedactionMediaItem {
   const formats = raw.formats as
     | {

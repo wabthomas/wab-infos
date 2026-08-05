@@ -13,11 +13,13 @@ import {
   Save,
   Smartphone,
   Trash2,
+  Type,
   Users,
   X,
 } from 'lucide-react';
 import {
   DEFAULT_SITE_SETTINGS,
+  brandingSummary,
   getVisibleNavLinks,
   type DeviceVisibility,
   type SiteSettings,
@@ -34,6 +36,10 @@ import {
   SiteChromeEditor,
   SiteChromeSettingCard,
 } from '@/components/redaction/site-chrome-editor';
+import {
+  TypographyEditor,
+  typographySummary,
+} from '@/components/redaction/typography-editor';
 import { cn } from '@/lib/utils';
 
 const PLATFORMS: { id: SocialFollowPlatform; label: string }[] = [
@@ -51,13 +57,14 @@ type SheetKey =
   | 'apk-visible'
   | 'views'
   | 'article-layout'
+  | 'typography'
   | 'site-chrome'
   | 'homepage-sections'
   | 'social-links'
   | 'social-edit'
   | null;
 
-type SettingsSectionId = 'pwa' | 'chrome' | 'homepage' | 'articles' | 'social';
+type SettingsSectionId = 'pwa' | 'chrome' | 'homepage' | 'articles' | 'typography' | 'social';
 
 const DESKTOP_SECTIONS: {
   id: SettingsSectionId;
@@ -88,6 +95,12 @@ const DESKTOP_SECTIONS: {
     label: 'Articles',
     description: 'Affichage public',
     icon: Eye,
+  },
+  {
+    id: 'typography',
+    label: 'Typographie',
+    description: 'Polices du site',
+    icon: Type,
   },
   {
     id: 'social',
@@ -583,7 +596,7 @@ function DesktopSectionNav({
 
   const summaries: Record<SettingsSectionId, string> = {
     pwa: `${boolSummary(settings.pwaBannerEnabled)} · APK ${boolSummary(settings.apkBannerEnabled).toLowerCase()}`,
-    chrome: `${getVisibleNavLinks(settings.chrome.utilityLinks).length} liens utilitaires`,
+    chrome: `${brandingSummary(settings.chrome.branding ?? DEFAULT_SITE_SETTINGS.chrome.branding)} · ${getVisibleNavLinks(settings.chrome.utilityLinks).length} liens utilitaires`,
     homepage: `${activeHomeSections} section${activeHomeSections > 1 ? 's' : ''} active${activeHomeSections > 1 ? 's' : ''}`,
     articles: [
       boolSummary(settings.showArticleViewCounts, 'Vues affichées', 'Vues masquées'),
@@ -591,6 +604,9 @@ function DesktopSectionNav({
         ? 'Commentaires OK'
         : 'Commentaires off',
     ].join(' · '),
+    typography: typographySummary(
+      settings.chrome.typography ?? DEFAULT_SITE_SETTINGS.chrome.typography
+    ),
     social: `${visibleSocial}/${settings.socialLinks.length} visible${visibleSocial > 1 ? 's' : ''}`,
   };
 
@@ -794,6 +810,18 @@ function DesktopSettingsPanel({
             ))}
           </div>
         </div>
+      ) : null}
+
+      {section === 'typography' ? (
+        <TypographyEditor
+          value={settings.chrome.typography ?? DEFAULT_SITE_SETTINGS.chrome.typography}
+          onChange={(typography) =>
+            setSettings((current) => ({
+              ...current,
+              chrome: { ...current.chrome, typography },
+            }))
+          }
+        />
       ) : null}
 
       {section === 'social' ? (
@@ -1101,6 +1129,22 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
 
         <section className="space-y-3">
           <div className="flex items-center gap-2">
+            <Type className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-bold">Typographie</h3>
+          </div>
+          <SettingCard
+            icon={Type}
+            label="Polices du site"
+            value={typographySummary(
+              settings.chrome.typography ?? DEFAULT_SITE_SETTINGS.chrome.typography
+            )}
+            description="Interface, titres, corps article, H1–H3, citations."
+            onClick={() => setSheet('typography')}
+          />
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
             <h3 className="text-base font-bold">Nous suivre</h3>
           </div>
@@ -1257,6 +1301,28 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
               }
             />
           ))}
+          <p className="pt-2 text-center text-[11px] text-muted-foreground">
+            Enregistrez via le bouton Enregistrer en haut de page.
+          </p>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'typography'}
+        onClose={() => setSheet(null)}
+        title="Typographie"
+        description="Polices de l’interface, des titres et de la lecture article."
+      >
+        <div className="pb-4">
+          <TypographyEditor
+            value={settings.chrome.typography ?? DEFAULT_SITE_SETTINGS.chrome.typography}
+            onChange={(typography) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: { ...current.chrome, typography },
+              }))
+            }
+          />
           <p className="pt-2 text-center text-[11px] text-muted-foreground">
             Enregistrez via le bouton Enregistrer en haut de page.
           </p>

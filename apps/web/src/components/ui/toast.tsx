@@ -44,6 +44,8 @@ const DEFAULT_DURATION: Record<ToastVariant, number> = {
 let toastItems: ToastItem[] = [];
 const toastListeners = new Set<() => void>();
 const toastTimers = new Map<string, number>();
+/** Stable empty snapshot — new [] each call triggers React infinite loop. */
+const EMPTY_TOASTS: ToastItem[] = [];
 
 function emitToasts() {
   for (const listener of toastListeners) listener();
@@ -59,7 +61,7 @@ function getToastSnapshot() {
 }
 
 function getToastServerSnapshot(): ToastItem[] {
-  return [];
+  return EMPTY_TOASTS;
 }
 
 function dismissToast(id: string) {

@@ -15,10 +15,12 @@ import {
   allNavCategoryOptions,
 } from '@/lib/redaction/nav-category-options';
 import {
+  brandingSummary,
   getVisibleNavLinks,
   type SiteChromeSettings,
   type SiteNavLink,
 } from '@wab-infos/shared';
+import { BrandingEditor } from '@/components/redaction/branding-editor';
 
 function boolSummary(value: boolean, onLabel = 'Activé', offLabel = 'Désactivé') {
   return value ? onLabel : offLabel;
@@ -258,6 +260,14 @@ export function SiteChromeEditor({
   return (
     <div className="space-y-6 pb-2">
       <section className="space-y-3">
+        <h4 className="text-sm font-bold">Logo &amp; nom</h4>
+        <BrandingEditor
+          value={chrome.branding}
+          onChange={(branding) => patch({ branding })}
+        />
+      </section>
+
+      <section className="space-y-3">
         <h4 className="text-sm font-bold">En-tête</h4>
         <ToggleRow
           label="Barre utilitaire (date + liens)"
@@ -422,8 +432,9 @@ export function SiteChromeSettingCard({
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-foreground">En-tête &amp; pied de page</span>
         <span className="mt-0.5 block text-xs text-muted-foreground">
-          {boolSummary(chrome.footerEnabled, 'Footer actif', 'Footer masqué')} · {visibleUtilityLinks} lien
-          {visibleUtilityLinks > 1 ? 's' : ''} utilitaire
+          {brandingSummary(chrome.branding)} ·{' '}
+          {boolSummary(chrome.footerEnabled, 'Footer actif', 'Footer masqué')} · {visibleUtilityLinks}{' '}
+          lien{visibleUtilityLinks > 1 ? 's' : ''} utilitaire
         </span>
       </span>
       <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />

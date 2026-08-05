@@ -63,9 +63,27 @@ npm run reader-android:icons
 
 Source : `apps/reader-android/assets/app-icon.png`
 
-## Version
+## Deep links (App Links)
 
-Modifier `versionCode` / `versionName` dans `android/app/build.gradle` (actuellement **1.2.5** / **28**).
+Les liens `https://wab-infos.com/...` (et `www`) s’ouvrent dans l’APK si :
+
+1. L’APK est installé (intent-filter `autoVerify` dans le manifest).
+2. Le fichier Digital Asset Links est servi :
+   `https://wab-infos.com/.well-known/assetlinks.json`
+3. Variable d’environnement web (prod) :
+   ```
+   ANDROID_APP_PACKAGE_NAME=com.wabinfos.app
+   ANDROID_APP_LINK_SHA256=AA:BB:CC:...
+   ```
+   Empreinte SHA-256 du keystore **release** (et éventuellement la clé Play App Signing) :
+
+   ```bash
+   keytool -list -v -keystore <votre.keystore> -alias <alias>
+   ```
+
+Vérification Android : Paramètres → Apps → Wab-infos → Ouvrir par défaut → liens vérifiés.
+
+Schéma de secours : `wabinfos://article/<category>/<slug>`
 
 ## Ouvrir dans Android Studio
 

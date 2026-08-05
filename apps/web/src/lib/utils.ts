@@ -198,11 +198,52 @@ export function formatArticleContent(content: string): string {
   return optimizeArticleHtmlImages(html);
 }
 
+const DEFAULT_PUBLIC_CMS = 'https://cms.app.wab-infos.com';
+
+function publicCmsOrigin(): string {
+  const raw = (
+    process.env.NEXT_PUBLIC_STRAPI_URL ||
+    process.env.STRAPI_URL ||
+    DEFAULT_PUBLIC_CMS
+  ).replace(/\/$/, '');
+  try {
+    const host = new URL(raw).hostname;
+    // Build/deploy depuis un .env.local « local » ne doit pas publier localhost en prod.
+    if (
+      process.env.NODE_ENV === 'production' &&
+      (host === 'localhost' || host === '127.0.0.1')
+    ) {
+      return DEFAULT_PUBLIC_CMS;
+    }
+  } catch {
+    return DEFAULT_PUBLIC_CMS;
+  }
+  return raw || DEFAULT_PUBLIC_CMS;
+}
+
 export function getStrapiMediaUrl(url?: string): string | null {
   if (!url) return null;
-  if (url.startsWith('http')) return url;
-  // Proxy Next.js : app.wab-infos.com/uploads → Strapi
-  return url.startsWith('/') ? url : `/${url}`;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const parsed = new URL(url);
+      if (
+        process.env.NODE_ENV === 'production' &&
+        (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') &&
+        parsed.pathname.startsWith('/uploads/')
+      ) {
+        return `${DEFAULT_PUBLIC_CMS}${parsed.pathname}${parsed.search}`;
+      }
+    } catch {
+      // keep as-is
+    }
+    return url;
+  }
+  const path = url.startsWith('/') ? url : `/${url}`;
+  // Absolute CMS URL : les <img> bruts ne dépendent plus du rewrite `/uploads` (souvent 500 en prod).
+  if (path.startsWith('/uploads/')) {
+    return `${publicCmsOrigin()}${path}`;
+  }
+  return path;
 }
 
 /** URL nette pour l’affichage (évite les miniatures Strapi ~150px). */

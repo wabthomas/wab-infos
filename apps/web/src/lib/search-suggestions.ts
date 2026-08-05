@@ -1,5 +1,7 @@
+import type { StrapiMedia } from '@wab-infos/shared';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { searchArticles } from '@/lib/strapi';
+import { resolveArticleImageUrl } from '@/lib/utils';
 
 export interface SearchSuggestion {
   id: number;
@@ -7,6 +9,7 @@ export interface SearchSuggestion {
   slug: string;
   categorySlug: string;
   excerpt: string;
+  imageUrl?: string | null;
 }
 
 function toSuggestion(article: {
@@ -15,6 +18,7 @@ function toSuggestion(article: {
   slug: string;
   excerpt: string;
   category?: { slug?: string };
+  featuredImage?: StrapiMedia | null;
 }): SearchSuggestion {
   return {
     id: article.id,
@@ -22,6 +26,7 @@ function toSuggestion(article: {
     slug: article.slug,
     categorySlug: article.category?.slug ?? 'actualite',
     excerpt: article.excerpt,
+    imageUrl: resolveArticleImageUrl(article.featuredImage, 'card'),
   };
 }
 

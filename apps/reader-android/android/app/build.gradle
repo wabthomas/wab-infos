@@ -16,11 +16,11 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace 'com.wabinfos.app'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         minSdk 22
-        targetSdk 35
+        targetSdk 36
 
         buildConfigField "boolean", "HAS_FIREBASE", hasFirebase.toString()
     }
@@ -61,13 +61,16 @@ android {
         reader {
             dimension "product"
             applicationId "com.wabinfos.app"
-            versionCode 28
-            versionName "1.2.5"
+            versionCode 32
+            versionName "1.2.9"
             buildConfigField "String", "SITE_URL", '"https://wab-infos.com"'
             buildConfigField "String", "VERSION_MANIFEST_URL", '"https://wab-infos.com/downloads/apk-version.json"'
             buildConfigField "String", "UA_MARKER", '"WabInfosNative"'
             buildConfigField "boolean", "USE_NATIVE_GOOGLE", "true"
-            manifestPlaceholders = [deepLinkHost: "wab-infos.com"]
+            manifestPlaceholders = [
+                deepLinkHost   : "wab-infos.com",
+                deepLinkHostAlt: "www.wab-infos.com",
+            ]
         }
         redaction {
             dimension "product"
@@ -79,7 +82,10 @@ android {
             buildConfigField "String", "UA_MARKER", '"WabRedactionNative"'
             // Pas de client OAuth Android pour ce package → OAuth web (form_post).
             buildConfigField "boolean", "USE_NATIVE_GOOGLE", "false"
-            manifestPlaceholders = [deepLinkHost: "redaction.app.wab-infos.com"]
+            manifestPlaceholders = [
+                deepLinkHost   : "redaction.app.wab-infos.com",
+                deepLinkHostAlt: "redaction.app.wab-infos.com",
+            ]
         }
         withFcm {
             dimension "push"

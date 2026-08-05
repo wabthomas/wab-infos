@@ -3,6 +3,8 @@ export * from './site-settings';
 export * from './homepage-sections';
 export * from './site-chrome-settings';
 export * from './article-ui-settings';
+export * from './site-typography-settings';
+export * from './site-branding-settings';
 export * from './capacitor-push';
 export * from './capacitor-nav';
 export * from './capacitor-detect';
