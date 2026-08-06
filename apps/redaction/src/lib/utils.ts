@@ -133,8 +133,27 @@ export function formatArticleContent(content: string): string {
 }
 
 export function getStrapiMediaUrl(url?: string): string | null {
-  if (!url) return null;
-  if (url.startsWith('http')) return url;
+  if (!url?.trim()) return null;
+
+  if (url.startsWith('/uploads/') || url.startsWith('/wp-content/')) {
+    return url;
+  }
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const parsed = new URL(url);
+      if (
+        parsed.pathname.startsWith('/uploads/') ||
+        parsed.pathname.startsWith('/wp-content/')
+      ) {
+        return `${parsed.pathname}${parsed.search}`;
+      }
+    } catch {
+      return url;
+    }
+    return url;
+  }
+
   return url.startsWith('/') ? url : `/${url}`;
 }
 

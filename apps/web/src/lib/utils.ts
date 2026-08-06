@@ -2,6 +2,7 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { StrapiMedia } from '@wab-infos/shared';
 import { optimizeArticleHtmlImages } from '@/lib/optimize-article-images';
+import { normalizeMediaPathForSite, toAbsolutePublicMediaUrl } from '@/lib/og-image-url';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -198,52 +199,25 @@ export function formatArticleContent(content: string): string {
   return optimizeArticleHtmlImages(html);
 }
 
-const DEFAULT_PUBLIC_CMS = 'https://cms.app.wab-infos.com';
-
-function publicCmsOrigin(): string {
-  const raw = (
-    process.env.NEXT_PUBLIC_STRAPI_URL ||
-    process.env.STRAPI_URL ||
-    DEFAULT_PUBLIC_CMS
-  ).replace(/\/$/, '');
-  try {
-    const host = new URL(raw).hostname;
-    // Build/deploy depuis un .env.local « local » ne doit pas publier localhost en prod.
-    if (
-      process.env.NODE_ENV === 'production' &&
-      (host === 'localhost' || host === '127.0.0.1')
-    ) {
-      return DEFAULT_PUBLIC_CMS;
-    }
-  } catch {
-    return DEFAULT_PUBLIC_CMS;
-  }
-  return raw || DEFAULT_PUBLIC_CMS;
+/**
+ * URL affichée dans le navigateur : chemin same-origin (`/uploads`, `/wp-content`).
+ * Évite de charger `cms.app.wab-infos.com` directement (souvent bloqué par filtrage DNS WiFi).
+ */
+export function getStrapiMediaUrl(url?: string): string | null {
+  if (!url?.trim()) return null;
+  const sitePath = normalizeMediaPathForSite(url);
+  if (sitePath) return sitePath;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return url.startsWith('/') ? url : `/${url}`;
 }
 
-export function getStrapiMediaUrl(url?: string): string | null {
-  if (!url) return null;
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    try {
-      const parsed = new URL(url);
-      if (
-        process.env.NODE_ENV === 'production' &&
-        (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') &&
-        parsed.pathname.startsWith('/uploads/')
-      ) {
-        return `${DEFAULT_PUBLIC_CMS}${parsed.pathname}${parsed.search}`;
-      }
-    } catch {
-      // keep as-is
-    }
-    return url;
-  }
-  const path = url.startsWith('/') ? url : `/${url}`;
-  // Absolute CMS URL : les <img> bruts ne dépendent plus du rewrite `/uploads` (souvent 500 en prod).
-  if (path.startsWith('/uploads/')) {
-    return `${publicCmsOrigin()}${path}`;
-  }
-  return path;
+/** URL absolue sur wab-infos.com (RSS, e-mail, JSON-LD). */
+export function getStrapiMediaAbsoluteUrl(url?: string): string | null {
+  if (!url?.trim()) return null;
+  const sitePath = normalizeMediaPathForSite(url);
+  if (sitePath) return toAbsolutePublicMediaUrl(sitePath);
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return toAbsolutePublicMediaUrl(url.startsWith('/') ? url : `/${url}`);
 }
 
 /**

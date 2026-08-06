@@ -10,9 +10,9 @@ export type NativePushResult =
 
 export type CapacitorPushPermission = 'granted' | 'denied' | 'prompt';
 
-const FCM_TOKEN_STORAGE_KEY = 'wab-fcm-token';
+export const FCM_TOKEN_STORAGE_KEY = 'wab-fcm-token';
 
-function getCachedFcmToken(): string | null {
+export function getCachedFcmToken(): string | null {
   try {
     const cached = localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
     if (!cached || cached.length < 20) return null;
@@ -20,6 +20,10 @@ function getCachedFcmToken(): string | null {
   } catch {
     return null;
   }
+}
+
+export function hasCachedFcmToken(): boolean {
+  return Boolean(getCachedFcmToken());
 }
 
 export interface CapacitorPushInitOptions {

@@ -76,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String SITE_URL = BuildConfig.SITE_URL;
     private static final int PERMISSION_REQUEST_CODE = 4321;
+    private static final int PUSH_PERMISSION_REQUEST_CODE = 4322;
 
     private View rootLayout;
     private WebView webView;
@@ -302,6 +303,87 @@ public class MainActivity extends AppCompatActivity {
         if (!missing.isEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toArray(new String[0]), PERMISSION_REQUEST_CODE);
         }
+    }
+
+    private boolean areSystemNotificationsEnabled() {
+        return androidx.core.app.NotificationManagerCompat.from(this).areNotificationsEnabled();
+    }
+
+    private boolean hasPostNotificationsPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return true;
+        }
+        return ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /** granted | denied | prompt — exposé au site via AndroidBridge. */
+    private String resolvePushPermissionStatus() {
+        if (!hasPostNotificationsPermission()) {
+            return "prompt";
+        }
+        if (!areSystemNotificationsEnabled()) {
+            return "denied";
+        }
+        return "granted";
+    }
+
+    private void notifyWebPushPermissionResult(boolean granted) {
+        if (webView == null) return;
+        String js =
+                "window.dispatchEvent(new CustomEvent('wab-android-push-permission',{detail:{granted:"
+                        + (granted ? "true" : "false")
+                        + "}}));";
+        webView.evaluateJavascript(js, null);
+    }
+
+    private void requestPushPermissionFromWeb() {
+        if (hasPostNotificationsPermission() && areSystemNotificationsEnabled()) {
+            WabInfosFcmInit.subscribeToDefaultTopics();
+            notifyWebPushPermissionResult(true);
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && !hasPostNotificationsPermission()) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                    PUSH_PERMISSION_REQUEST_CODE
+            );
+            return;
+        }
+
+        // Permission runtime OK mais notifications système coupées → ouvrir les réglages app.
+        try {
+            Intent intent = new Intent();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                intent.setAction(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+            } else {
+                intent.setAction(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+            }
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.w("WabInfos", "Impossible d'ouvrir les réglages notifications", e);
+        }
+        notifyWebPushPermissionResult(areSystemNotificationsEnabled());
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != PUSH_PERMISSION_REQUEST_CODE) {
+            return;
+        }
+        boolean granted = grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                && areSystemNotificationsEnabled();
+        if (granted) {
+            WabInfosFcmInit.subscribeToDefaultTopics();
+        }
+        notifyWebPushPermissionResult(granted);
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -1131,6 +1213,35 @@ public class MainActivity extends AppCompatActivity {
         @android.webkit.JavascriptInterface
         public void showToast(String message) {
             UpdateManager.showNativeToast(MainActivity.this, message);
+        }
+
+        /** Statut push pour le site : granted | denied | prompt */
+        @android.webkit.JavascriptInterface
+        public String getPushPermissionStatus() {
+            return resolvePushPermissionStatus();
+        }
+
+        @android.webkit.JavascriptInterface
+        public boolean areNotificationsEnabled() {
+            return areSystemNotificationsEnabled() && hasPostNotificationsPermission();
+        }
+
+        /** Demande la permission + notifie le site via event wab-android-push-permission. */
+        @android.webkit.JavascriptInterface
+        public void requestPushPermission() {
+            runOnUiThread(MainActivity.this::requestPushPermissionFromWeb);
+        }
+
+        /** Active / désactive les topics FCM (all_users, news). */
+        @android.webkit.JavascriptInterface
+        public void setPushAlertsEnabled(boolean enabled) {
+            runOnUiThread(() -> {
+                if (enabled) {
+                    WabInfosFcmInit.subscribeToDefaultTopics();
+                } else {
+                    WabInfosFcmInit.unsubscribeFromDefaultTopics();
+                }
+            });
         }
     }
 

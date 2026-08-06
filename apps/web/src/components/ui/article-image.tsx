@@ -1,4 +1,7 @@
+'use client';
+
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import { imageQualityForPriority } from '@/lib/image-quality';
 import { cn, shouldBypassNextImageOptimization } from '@/lib/utils';
 
@@ -12,6 +15,12 @@ interface ArticleImageProps {
   quality?: number;
 }
 
+/** Si une variante Strapi (medium_/large_/…) 404, retombe sur le fichier original. */
+function fallbackOriginalMediaSrc(src: string): string | null {
+  const next = src.replace(/\/(thumbnail|small|medium|large)_/i, '/');
+  return next !== src ? next : null;
+}
+
 export function ArticleImage({
   src,
   alt,
@@ -21,7 +30,15 @@ export function ArticleImage({
   sizes,
   quality,
 }: ArticleImageProps) {
-  if (!src) {
+  const [currentSrc, setCurrentSrc] = useState(src);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(src);
+    setFailed(false);
+  }, [src]);
+
+  if (!currentSrc || failed) {
     return (
       <div
         className={cn(
@@ -36,11 +53,11 @@ export function ArticleImage({
     );
   }
 
-  const unoptimized = shouldBypassNextImageOptimization(src);
+  const unoptimized = shouldBypassNextImageOptimization(currentSrc);
 
   return (
     <Image
-      src={src}
+      src={currentSrc}
       alt={alt}
       fill={fill}
       className={className}
@@ -48,6 +65,14 @@ export function ArticleImage({
       sizes={sizes}
       quality={quality ?? imageQualityForPriority(priority)}
       unoptimized={unoptimized}
+      onError={() => {
+        const fallback = fallbackOriginalMediaSrc(currentSrc);
+        if (fallback) {
+          setCurrentSrc(fallback);
+          return;
+        }
+        setFailed(true);
+      }}
     />
   );
 }

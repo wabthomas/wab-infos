@@ -5,6 +5,7 @@ import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import {
   DEFAULT_SITE_BRANDING,
+  brandingTextWeightClass,
   resolveBrandingLogoSrc,
 } from '@wab-infos/shared';
 import { siteConfig } from '@/config/site';
@@ -49,14 +50,20 @@ export function SiteLogo({ className, variant = 'auto', priority }: SiteLogoProp
     className
   );
 
+  const textColor =
+    useMono
+      ? branding.textColorDark || undefined
+      : branding.textColorLight || undefined;
+
   const textClass = cn(
-    'font-brand shrink-0 text-base font-bold tracking-tight sm:text-lg md:text-xl',
-    useMono ? 'text-white' : 'text-foreground',
+    'font-brand shrink-0 leading-none tracking-tight',
+    brandingTextWeightClass(branding.textWeight),
+    !textColor && (useMono ? 'text-white' : 'text-foreground'),
     !showLogo && className
   );
 
   return (
-    <span className="inline-flex max-w-full items-center gap-2">
+    <span className="inline-flex max-w-full items-center gap-2 self-center">
       {showLogo ? (
         isCustom ? (
           // eslint-disable-next-line @next/next/no-img-element -- URLs CMS /uploads
@@ -77,7 +84,17 @@ export function SiteLogo({ className, variant = 'auto', priority }: SiteLogoProp
           />
         )
       ) : null}
-      {showText ? <span className={textClass}>{brandText}</span> : null}
+      {showText ? (
+        <span
+          className={textClass}
+          style={{
+            fontSize: `${branding.textSizePx || 18}px`,
+            ...(textColor ? { color: textColor } : null),
+          }}
+        >
+          {brandText}
+        </span>
+      ) : null}
     </span>
   );
 }

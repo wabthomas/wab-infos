@@ -2,9 +2,21 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Bell, BellOff, Loader2, Mail, Settings2 } from 'lucide-react';
+import {
+  hasCachedFcmToken,
+  isNativeCapacitorApp,
+  isNativeCapacitorFromUserAgent,
+} from '@wab-infos/shared';
 import { useUserPreferences } from '@/components/providers/user-preferences-provider';
 import { useToast } from '@/components/ui/toast';
-import { subscribeToPushNotifications, syncPushSubscriptionIfGranted } from '@/lib/push/client';
+import {
+  getAndroidReaderPushPermission,
+  getCapacitorPushPermission,
+  isAndroidWebViewReaderApp,
+  subscribeToPushNotifications,
+  syncPushSubscriptionIfGranted,
+} from '@/lib/push/client';
+import { disableAndroidWebViewPush } from '@/lib/push/android-webview';
 import type { SiteLanguage } from '@/lib/user-preferences';
 import { cn } from '@/lib/utils';
 
@@ -30,39 +42,87 @@ export function MobileSiteSettings({ open, onClose, className }: MobileSiteSetti
     'idle'
   );
   const [newsletterMessage, setNewsletterMessage] = useState('');
+  const isNativeUa = isNativeCapacitorFromUserAgent();
 
   useEffect(() => {
     setEmail(preferences.newsletterEmail);
   }, [preferences.newsletterEmail]);
 
-  // Sync UI with browser permission once when opening — never rewrite user preference.
+  // Sync UI with browser / Capacitor permission once when opening — never rewrite user preference.
   useEffect(() => {
     if (!open) return;
 
     let cancelled = false;
 
-    if (
-      typeof window === 'undefined' ||
-      !('serviceWorker' in navigator) ||
-      !('Notification' in window)
-    ) {
-      setPushState('unsupported');
-      return;
-    }
+    async function initPushState() {
+      if (typeof window === 'undefined') return;
 
-    if (Notification.permission === 'denied') {
-      setPushState('denied');
-      return;
-    }
-
-    if (Notification.permission === 'granted') {
-      syncPushSubscriptionIfGranted().then((ok) => {
+      // APK reader WebView (AndroidBridge) — pas d’API Notification web.
+      if (isAndroidWebViewReaderApp()) {
+        const permission = getAndroidReaderPushPermission();
         if (cancelled) return;
-        setPushState(ok ? 'subscribed' : 'idle');
-      });
-    } else {
-      setPushState('idle');
+        if (permission === 'denied') {
+          setPushState('denied');
+          return;
+        }
+        if (permission === 'granted') {
+          setPushState('subscribed');
+          void syncPushSubscriptionIfGranted();
+          return;
+        }
+        if (!cancelled) {
+          setPushState(preferences.pushAlertsDesired ? 'subscribed' : 'idle');
+        }
+        return;
+      }
+
+      const native = (await isNativeCapacitorApp()) || isNativeCapacitorFromUserAgent();
+
+      if (native) {
+        try {
+          const permission = await getCapacitorPushPermission();
+          if (cancelled) return;
+
+          if (permission === 'denied') {
+            setPushState('denied');
+            return;
+          }
+
+          if (permission === 'granted' || hasCachedFcmToken()) {
+            setPushState('subscribed');
+            void syncPushSubscriptionIfGranted();
+            return;
+          }
+
+          if (!cancelled) setPushState('idle');
+        } catch {
+          if (!cancelled) {
+            setPushState(hasCachedFcmToken() || preferences.pushAlertsDesired ? 'subscribed' : 'idle');
+          }
+        }
+        return;
+      }
+
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+        if (!cancelled) setPushState('unsupported');
+        return;
+      }
+
+      if (Notification.permission === 'denied') {
+        if (!cancelled) setPushState('denied');
+        return;
+      }
+
+      if (Notification.permission === 'granted') {
+        if (!cancelled) setPushState('subscribed');
+        void syncPushSubscriptionIfGranted();
+        return;
+      }
+
+      if (!cancelled) setPushState('idle');
     }
+
+    void initPushState();
 
     const onSubscribed = () => {
       if (cancelled) return;
@@ -73,10 +133,21 @@ export function MobileSiteSettings({ open, onClose, className }: MobileSiteSetti
       cancelled = true;
       window.removeEventListener('wab-push-subscribed', onSubscribed);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prefs snapshot at open
   }, [open]);
 
   const enablePush = useCallback(async () => {
-    if (pushState === 'unsupported' || pushState === 'denied' || pushState === 'loading') return;
+    if (pushState === 'denied' || pushState === 'loading') return;
+    const onAndroidReader = isAndroidWebViewReaderApp();
+    // Sur APK : ignorer l’état « unsupported » (WebView sans Notification API).
+    if (
+      pushState === 'unsupported' &&
+      !onAndroidReader &&
+      !isNativeUa &&
+      !(await isNativeCapacitorApp())
+    ) {
+      return;
+    }
 
     const isEn = preferences.language === 'en';
     setPushState('loading');
@@ -100,12 +171,22 @@ export function MobileSiteSettings({ open, onClose, className }: MobileSiteSetti
       toast.error(
         isEn ? 'Notifications blocked' : 'Notifications bloquées',
         isEn
-          ? 'Allow them in your browser site settings, then try again.'
-          : 'Autorisez-les dans les réglages du site, puis réessayez.'
+          ? 'Allow them in your phone settings for Wab-infos, then try again.'
+          : 'Autorisez-les dans les réglages du téléphone pour Wab-infos, puis réessayez.'
       );
       return;
     }
     if (result.reason === 'unsupported') {
+      if (onAndroidReader || isNativeUa || (await isNativeCapacitorApp())) {
+        setPushState('idle');
+        toast.error(
+          isEn ? 'Could not enable alerts' : 'Impossible d’activer les alertes',
+          isEn
+            ? 'Native push could not start. Update the app or try again.'
+            : 'Les alertes natives n’ont pas pu démarrer. Mettez à jour l’appli ou réessayez.'
+        );
+        return;
+      }
       setPushState('unsupported');
       return;
     }
@@ -122,10 +203,13 @@ export function MobileSiteSettings({ open, onClose, className }: MobileSiteSetti
           : result.message
       );
     }
-  }, [pushState, preferences.language, setPushAlertsDesired, toast]);
+  }, [pushState, preferences.language, setPushAlertsDesired, toast, isNativeUa]);
 
   const disablePushDesired = useCallback(() => {
     setPushAlertsDesired(false);
+    if (isAndroidWebViewReaderApp()) {
+      disableAndroidWebViewPush();
+    }
     const isEn = preferences.language === 'en';
     toast.info(
       isEn ? 'Alerts disabled' : 'Alertes désactivées',
@@ -183,6 +267,9 @@ export function MobileSiteSettings({ open, onClose, className }: MobileSiteSetti
   if (!open) return null;
 
   const isEn = preferences.language === 'en';
+  const onAndroidReader = isAndroidWebViewReaderApp();
+  const pushBlocked = pushState === 'denied' || (pushState === 'unsupported' && !isNativeUa && !onAndroidReader);
+  const pushActive = pushState === 'subscribed' && preferences.pushAlertsDesired;
 
   return (
     <div
@@ -254,25 +341,21 @@ export function MobileSiteSettings({ open, onClose, className }: MobileSiteSetti
           <div className="rounded-xl border border-border bg-background p-4">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                {pushState === 'subscribed' && preferences.pushAlertsDesired ? (
-                  <Bell className="h-5 w-5" />
-                ) : (
-                  <BellOff className="h-5 w-5" />
-                )}
+                {pushActive ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-foreground">
                   {isEn ? 'Breaking news alerts' : 'Alertes actualités'}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {pushState === 'unsupported'
+                  {pushBlocked && pushState === 'unsupported'
                     ? isEn
                       ? 'Push alerts are not supported in this browser. Try Chrome or Edge, or the Wab-infos app.'
                       : 'Les alertes push ne sont pas prises en charge sur ce navigateur. Essayez Chrome, Edge ou l’appli Wab-infos.'
                     : pushState === 'denied'
                       ? isEn
-                        ? 'Notifications are blocked. Allow them in your browser site settings, then try again.'
-                        : 'Notifications bloquées. Autorisez-les dans les réglages du site de votre navigateur, puis réessayez.'
+                        ? 'Notifications are blocked. Allow them in your phone or browser settings, then try again.'
+                        : 'Notifications bloquées. Autorisez-les dans les réglages du téléphone ou du navigateur, puis réessayez.'
                       : isEn
                         ? 'Get a push when major stories are published.'
                         : 'Recevez une alerte lors des infos majeures.'}
@@ -281,7 +364,7 @@ export function MobileSiteSettings({ open, onClose, className }: MobileSiteSetti
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              {pushState === 'subscribed' && preferences.pushAlertsDesired ? (
+              {pushActive ? (
                 <button
                   type="button"
                   onClick={disablePushDesired}
@@ -292,12 +375,8 @@ export function MobileSiteSettings({ open, onClose, className }: MobileSiteSetti
               ) : (
                 <button
                   type="button"
-                  onClick={enablePush}
-                  disabled={
-                    pushState === 'loading' ||
-                    pushState === 'unsupported' ||
-                    pushState === 'denied'
-                  }
+                  onClick={() => void enablePush()}
+                  disabled={pushState === 'loading' || pushBlocked}
                   className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-xs font-semibold uppercase tracking-wider text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 >
                   {pushState === 'loading' ? (

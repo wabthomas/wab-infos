@@ -125,6 +125,44 @@ export function PushOptInPrompt({ open, onResolved }: PushOptInPromptProps) {
 export async function shouldOfferPushPrompt(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
   if (localStorage.getItem(PUSH_PROMPT_DISMISS_KEY) === '1') return false;
+
+  const { hasCachedFcmToken, isNativeCapacitorApp, isNativeCapacitorFromUserAgent } =
+    await import('@wab-infos/shared');
+  const {
+    getAndroidReaderPushPermission,
+    getCapacitorPushPermission,
+    isAndroidWebViewReaderApp,
+  } = await import('@/lib/push/client');
+
+  if (isAndroidWebViewReaderApp()) {
+    const permission = getAndroidReaderPushPermission();
+    if (permission === 'denied') return false;
+    if (permission === 'granted') {
+      await syncPushSubscriptionIfGranted();
+      return false;
+    }
+    const prefs = readUserPreferences();
+    if (prefs.pushAlertsDesired) return false;
+    return true;
+  }
+
+  const native = (await isNativeCapacitorApp()) || isNativeCapacitorFromUserAgent();
+  if (native) {
+    try {
+      const permission = await getCapacitorPushPermission();
+      if (permission === 'denied') return false;
+      if (permission === 'granted' || hasCachedFcmToken()) {
+        await syncPushSubscriptionIfGranted();
+        return false;
+      }
+    } catch {
+      if (hasCachedFcmToken()) return false;
+    }
+    const prefs = readUserPreferences();
+    if (prefs.pushAlertsDesired) return false;
+    return true;
+  }
+
   if (!('serviceWorker' in navigator) || !('Notification' in window)) return false;
   if (Notification.permission === 'denied') return false;
 

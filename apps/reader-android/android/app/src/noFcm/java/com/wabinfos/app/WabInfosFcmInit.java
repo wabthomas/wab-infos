@@ -8,4 +8,8 @@ public class WabInfosFcmInit {
     public static void subscribeToDefaultTopics() {
         // Pas de Firebase dans ce build.
     }
+
+    public static void unsubscribeFromDefaultTopics() {
+        // Pas de Firebase dans ce build.
+    }
 }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getArticlePath, siteConfig } from '@/config/site';
 import { getArticles } from '@/lib/strapi';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
-import { getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
+import { getArticleDisplayDate, getStrapiMediaAbsoluteUrl } from '@/lib/utils';
 
 export async function GET() {
   let articles;
@@ -17,8 +17,8 @@ export async function GET() {
     .map((article) => {
       const url = `${siteConfig.url}${getArticlePath(article)}`;
       const imageUrl =
-        getStrapiMediaUrl(article.featuredImage?.url) ??
-        getStrapiMediaUrl(article.featuredImage?.formats?.medium?.url) ??
+        getStrapiMediaAbsoluteUrl(article.featuredImage?.url) ??
+        getStrapiMediaAbsoluteUrl(article.featuredImage?.formats?.medium?.url) ??
         siteConfig.ogImage;
       const imageAlt = article.featuredImage?.alternativeText || article.title;
       const category = article.category?.name;

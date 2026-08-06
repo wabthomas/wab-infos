@@ -557,6 +557,28 @@ async function buildListAuthorFilter(
   return { author: { documentId: { $eq: author.documentId } } };
 }
 
+function buildArticleSearchFilter(search?: string): Record<string, unknown> {
+  const q = search?.trim();
+  if (!q) return {};
+  return {
+    $or: [
+      { title: { $containsi: q } },
+      { excerpt: { $containsi: q } },
+      { slug: { $containsi: q } },
+    ],
+  };
+}
+
+function mergeArticleListFilters(
+  authorFilter: Record<string, unknown>,
+  search?: string
+): Record<string, unknown> {
+  const searchFilter = buildArticleSearchFilter(search);
+  if (Object.keys(searchFilter).length === 0) return authorFilter;
+  if (Object.keys(authorFilter).length === 0) return searchFilter;
+  return { $and: [authorFilter, searchFilter] };
+}
+
 async function fetchAllArticleEntities(
   listParams: Record<string, unknown>,
   authorFilter: Record<string, unknown>,
@@ -951,6 +973,7 @@ export async function listEditorArticles(
   const page = Math.max(1, options?.page ?? 1);
   const pageSize = Math.min(50, Math.max(6, options?.pageSize ?? 20));
   const authorFilter = await buildListAuthorFilter(user, options?.authorDocumentId);
+  const listFilter = mergeArticleListFilters(authorFilter, options?.search);
 
   const populate = options?.omitContent
     ? { category: true, featuredImage: true, author: true }
@@ -985,7 +1008,7 @@ export async function listEditorArticles(
   };
 
   if (options?.paginate === false) {
-    const merged = await mergeEditorArticles(authorFilter, listParams, status ?? 'all');
+    const merged = await mergeEditorArticles(listFilter, listParams, status ?? 'all');
     const filtered = filterArticlesByStatus(merged, status ?? 'all');
     const total = filtered.length;
     return {
@@ -995,7 +1018,7 @@ export async function listEditorArticles(
   }
 
   return listEditorArticlesPage(
-    authorFilter,
+    listFilter,
     listParams,
     status ?? 'all',
     page,

@@ -21,6 +21,7 @@ import {
   type SiteNavLink,
 } from '@wab-infos/shared';
 import { BrandingEditor } from '@/components/redaction/branding-editor';
+import { HexColorField } from '@/components/redaction/hex-color-field';
 
 function boolSummary(value: boolean, onLabel = 'Activé', offLabel = 'Désactivé') {
   return value ? onLabel : offLabel;
@@ -300,11 +301,51 @@ export function SiteChromeEditor({
           onChange={(headerTvButtonEnabled) => patch({ headerTvButtonEnabled })}
         />
         <ToggleRow
-          label="Alertes push (mobile)"
-          description="Icône notifications à droite du logo sur mobile (à la place de TV)."
+          label="Alertes push (mobile / APK)"
+          description="Icône notifications à droite du logo sur mobile et APK (masquée si désactivé)."
           checked={chrome.headerPushAlertsEnabled}
           onChange={(headerPushAlertsEnabled) => patch({ headerPushAlertsEnabled })}
         />
+        {chrome.headerPushAlertsEnabled ? (
+          <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-3">
+            <HexColorField
+              label="Couleur quand les alertes sont activées"
+              value={chrome.headerPushAlertsActiveColor || '#059669'}
+              fallback="#059669"
+              onChange={(hex) => patch({ headerPushAlertsActiveColor: hex })}
+              ariaLabel="Couleur icône notifications activées"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  ['#059669', 'Vert'],
+                  ['#dc2626', 'Rouge'],
+                  ['#2563eb', 'Bleu'],
+                  ['#ea580c', 'Orange'],
+                  ['#7c3aed', 'Violet'],
+                ] as const
+              ).map(([hex, label]) => (
+                <button
+                  key={hex}
+                  type="button"
+                  onClick={() => patch({ headerPushAlertsActiveColor: hex })}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold ${
+                    chrome.headerPushAlertsActiveColor === hex
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: hex }}
+                    aria-hidden
+                  />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
             Bas du menu mobile

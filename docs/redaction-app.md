@@ -4,11 +4,11 @@ Interface mobile-first pour les journalistes (~10 comptes) : rédaction, publica
 
 ## Accès
 
-- **URL** : `https://redaction.app.wab-infos.com`
-- **Connexion** : `https://redaction.app.wab-infos.com/login`
+- **URL recommandée** : `https://wab-infos.com/redaction/login` (même domaine que le site — fonctionne sur réseaux qui bloquent les sous-domaines `*.app`)
+- **Legacy** : `https://redaction.app.wab-infos.com` → redirige vers l’URL canonique si `NEXT_PUBLIC_REDACTION_URL` pointe sur `wab-infos.com/redaction`
 - **Admin Strapi complet** : `https://cms.app.wab-infos.com/admin` (ou `/connexion` sur le site public → redirect)
 
-L’ancienne URL `app.wab-infos.com/redaction` redirige automatiquement vers l’app dédiée.
+Hébergement : voir `deploy/public_html/passenger-web-with-redaction-path.htaccess.example` (Passenger `BaseURI /redaction` sur le domaine principal).
 
 ## Configuration
 

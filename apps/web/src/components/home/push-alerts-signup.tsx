@@ -2,7 +2,18 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, BellOff, Loader2 } from 'lucide-react';
-import { subscribeToPushNotifications, syncPushSubscriptionIfGranted } from '@/lib/push/client';
+import {
+  hasCachedFcmToken,
+  isNativeCapacitorApp,
+  isNativeCapacitorFromUserAgent,
+} from '@wab-infos/shared';
+import {
+  getAndroidReaderPushPermission,
+  getCapacitorPushPermission,
+  isAndroidWebViewReaderApp,
+  subscribeToPushNotifications,
+  syncPushSubscriptionIfGranted,
+} from '@/lib/push/client';
 import { cn } from '@/lib/utils';
 
 const DISMISS_KEY = 'wab-push-alerts-dismiss';
@@ -61,23 +72,71 @@ export function PushAlertsSignup({ className, variant = 'default' }: PushAlertsS
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    if (!('serviceWorker' in navigator) || !('Notification' in window)) {
-      setStatus('unsupported');
-      return;
+    let cancelled = false;
+
+    async function init() {
+      if (isAndroidWebViewReaderApp()) {
+        setDismissed(localStorage.getItem(DISMISS_KEY) === '1');
+        const permission = getAndroidReaderPushPermission();
+        if (cancelled) return;
+        if (permission === 'denied') {
+          setStatus('denied');
+          return;
+        }
+        if (permission === 'granted') {
+          setStatus('subscribed');
+          void syncPushSubscriptionIfGranted();
+          return;
+        }
+        if (!cancelled) setStatus('idle');
+        return;
+      }
+
+      const native = (await isNativeCapacitorApp()) || isNativeCapacitorFromUserAgent();
+
+      if (native) {
+        setDismissed(localStorage.getItem(DISMISS_KEY) === '1');
+        try {
+          const permission = await getCapacitorPushPermission();
+          if (cancelled) return;
+          if (permission === 'denied') {
+            setStatus('denied');
+            return;
+          }
+          if (permission === 'granted' || hasCachedFcmToken()) {
+            setStatus('subscribed');
+            void syncPushSubscriptionIfGranted();
+            return;
+          }
+          if (!cancelled) setStatus('idle');
+        } catch {
+          if (!cancelled) setStatus(hasCachedFcmToken() ? 'subscribed' : 'idle');
+        }
+        return;
+      }
+
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+        if (!cancelled) setStatus('unsupported');
+        return;
+      }
+
+      setDismissed(localStorage.getItem(DISMISS_KEY) === '1');
+
+      if (Notification.permission === 'denied') {
+        if (!cancelled) setStatus('denied');
+        return;
+      }
+
+      if (Notification.permission === 'granted') {
+        if (!cancelled) setStatus('subscribed');
+        void syncPushSubscriptionIfGranted();
+      }
     }
 
-    setDismissed(localStorage.getItem(DISMISS_KEY) === '1');
-
-    if (Notification.permission === 'denied') {
-      setStatus('denied');
-      return;
-    }
-
-    if (Notification.permission === 'granted') {
-      syncPushSubscriptionIfGranted().then((ok) => {
-        setStatus(ok ? 'subscribed' : 'idle');
-      });
-    }
+    void init();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const subscribe = useCallback(async () => {
@@ -89,10 +148,17 @@ export function PushAlertsSignup({ className, variant = 'default' }: PushAlertsS
     if (result.ok) {
       setStatus('subscribed');
       localStorage.removeItem(DISMISS_KEY);
+      window.dispatchEvent(new Event('wab-push-subscribed'));
       return;
     }
 
     if (result.reason === 'unsupported') {
+      const native = isNativeCapacitorFromUserAgent() || (await isNativeCapacitorApp());
+      if (native) {
+        setErrorDetail('Les alertes natives n’ont pas pu démarrer. Réessayez.');
+        setStatus('error');
+        return;
+      }
       setStatus('unsupported');
       return;
     }

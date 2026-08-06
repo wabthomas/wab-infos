@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { joinRedactionPublicPath } from '@wab-infos/shared';
 import { getRedactionPublicUrl } from '@/lib/redaction/config';
 
 /** Origin public rédaction (évite les redirects localhost en prod derrière proxy). */
@@ -24,7 +25,8 @@ export function resolveRedactionPublicOrigin(request: Request): string {
 }
 
 export function redactionPublicUrl(request: Request, pathname: string): URL {
-  return new URL(pathname, `${resolveRedactionPublicOrigin(request)}/`);
+  const origin = resolveRedactionPublicOrigin(request).replace(/\/$/, '');
+  return new URL(joinRedactionPublicPath(origin, pathname));
 }
 
 export const GOOGLE_OAUTH_STATE_COOKIE = 'redaction_google_oauth_state';

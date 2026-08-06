@@ -21,11 +21,13 @@ export async function GET(request: Request) {
     const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
     const pageSize = Math.min(50, Math.max(6, Number(searchParams.get('pageSize') ?? '6') || 6));
     const authorDocumentId = searchParams.get('author')?.trim() || undefined;
+    const search = searchParams.get('q')?.trim() || undefined;
 
     const result = await listEditorArticles(user, status ?? 'all', {
       page,
       pageSize,
       authorDocumentId,
+      search,
       omitContent: true,
     });
     return NextResponse.json(result);

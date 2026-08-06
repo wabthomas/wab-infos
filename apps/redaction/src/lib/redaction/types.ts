@@ -161,6 +161,8 @@ export interface ListEditorArticlesOptions {
   pageSize?: number;
   /** Filtre par rédacteur (super admin uniquement). */
   authorDocumentId?: string;
+  /** Recherche titre / chapô / slug. */
+  search?: string;
   /** Si false, retourne tous les articles (stats, export). */
   paginate?: boolean;
 }

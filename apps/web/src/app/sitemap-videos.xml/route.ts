@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getVideoPagePath, siteConfig } from '@/config/site';
 import { getAllVideosForSitemap } from '@/lib/strapi';
 import { getChannelRecentVideos } from '@/lib/youtube-channel';
-import { getStrapiMediaUrl } from '@/lib/utils';
+import { getStrapiMediaAbsoluteUrl } from '@/lib/utils';
 import { getYoutubeThumbnailUrl } from '@/lib/seo';
 
 export async function GET() {
@@ -31,7 +31,7 @@ export async function GET() {
         description: video.description || `${video.title} — Wab-infos TV`,
         publishedAt: video.publishedAt,
         thumbnail:
-          getStrapiMediaUrl(video.thumbnail?.url) ??
+          getStrapiMediaAbsoluteUrl(video.thumbnail?.url) ??
           getYoutubeThumbnailUrl(video.youtubeId),
       });
     }

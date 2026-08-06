@@ -18,7 +18,7 @@ import {
   siteSocialProfiles,
 } from '@/config/site';
 import { resolveArticleOgImage } from '@/lib/og-image-url';
-import { getArticleDisplayDate, getStrapiMediaUrl } from '@/lib/utils';
+import { getArticleDisplayDate, getStrapiMediaAbsoluteUrl } from '@/lib/utils';
 import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
 
 function stripHtml(html: string): string {
@@ -218,7 +218,7 @@ export function generateWebsiteJsonLd(): WithContext<WebSite> {
 export function generateVideoJsonLd(video: Video): WithContext<VideoObject> {
   const pageUrl = `${siteConfig.url}${getVideoPagePath(video.youtubeId)}`;
   const thumbnail =
-    getStrapiMediaUrl(video.thumbnail?.url) ?? getYoutubeThumbnailUrl(video.youtubeId);
+    getStrapiMediaAbsoluteUrl(video.thumbnail?.url) ?? getYoutubeThumbnailUrl(video.youtubeId);
 
   const jsonLd: WithContext<VideoObject> = {
     '@context': 'https://schema.org',
@@ -524,7 +524,7 @@ export function generateHomeMetadata() {
 export function generateVideoMetadata(video: Video) {
   const pageUrl = `${siteConfig.url}${getVideoPagePath(video.youtubeId)}`;
   const thumbnail =
-    getStrapiMediaUrl(video.thumbnail?.url) ?? getYoutubeThumbnailUrl(video.youtubeId);
+    getStrapiMediaAbsoluteUrl(video.thumbnail?.url) ?? getYoutubeThumbnailUrl(video.youtubeId);
   const description = video.description || `${video.title} — Wab-infos TV`;
 
   return {

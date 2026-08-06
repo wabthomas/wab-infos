@@ -1,0 +1,30 @@
+# wab-infos.com — site public + rédaction sous /redaction (même domaine, WiFi / DNS restrictifs)
+#
+# À fusionner dans ~/public_html/.htaccess (domaine principal).
+# Adapter /home/anvvbzrr/ à votre compte N0C.
+#
+# Prérequis build rédaction :
+#   NEXT_PUBLIC_REDACTION_URL=https://wab-infos.com/redaction
+#   → basePath /redaction dans Next.js
+#
+# Ordre : bloc /redaction AVANT le bloc / (site web).
+
+# --- Rédaction (/redaction) ---
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/anvvbzrr/wab-infos/apps/redaction"
+PassengerBaseURI "/redaction"
+PassengerNodejs "/home/anvvbzrr/nodevenv/wab-infos/apps/redaction/20/bin/node"
+PassengerAppType node
+PassengerStartupFile server.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+# --- Site public (/) ---
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/anvvbzrr/wab-infos/apps/web"
+PassengerBaseURI "/"
+PassengerNodejs "/home/anvvbzrr/nodevenv/wab-infos/apps/web/20/bin/node"
+PassengerAppType node
+PassengerStartupFile server.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+# Test : https://wab-infos.com/redaction/login

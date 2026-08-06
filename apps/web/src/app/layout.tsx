@@ -15,20 +15,12 @@ import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
 import { getAdsenseConfig } from '@/lib/adsense-config.server';
 import { getSiteSettings } from '@/lib/site-settings.server';
 import { generateOrganizationJsonLd, generateWebsiteJsonLd } from '@/lib/seo';
-import { resolveRedactionUrl, buildBunnyFontsStylesheetUrl, buildCustomFontsFaceCss, typographyCssVariablesStyle } from '@wab-infos/shared';
+import { buildBunnyFontsStylesheetUrl, buildCustomFontsFaceCss, typographyCssVariablesStyle } from '@wab-infos/shared';
 import { SiteChromeProvider } from '@/components/providers/site-chrome-context';
 import { UserPreferencesProvider } from '@/components/providers/user-preferences-provider';
 import { ToastProvider } from '@/components/ui/toast';
 import { SkipLink } from '@/components/accessibility/skip-link';
 import './globals.css';
-
-const strapiOrigin = (
-  process.env.NEXT_PUBLIC_STRAPI_URL ||
-  process.env.STRAPI_URL ||
-  'https://cms.app.wab-infos.com'
-).replace(/\/$/, '');
-
-const redactionOrigin = resolveRedactionUrl(process.env.NEXT_PUBLIC_REDACTION_URL).replace(/\/$/, '');
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -126,10 +118,7 @@ export default async function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning className="h-full">
       <head>
-        <link rel="preconnect" href={strapiOrigin} />
-        <link rel="dns-prefetch" href={strapiOrigin} />
-        <link rel="preconnect" href={redactionOrigin} />
-        <link rel="dns-prefetch" href={redactionOrigin} />
+        {/* Médias via /uploads same-origin — ne pas préconnecter cms.app (souvent filtré WiFi). */}
         <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
         <link rel="preconnect" href="https://googleads.g.doubleclick.net" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.bunny.net" crossOrigin="anonymous" />

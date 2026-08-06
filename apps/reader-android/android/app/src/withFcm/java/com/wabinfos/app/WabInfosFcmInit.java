@@ -30,4 +30,14 @@ public class WabInfosFcmInit {
             Log.w(TAG, "Firebase Messaging indisponible: " + e.getMessage());
         }
     }
+
+    public static void unsubscribeFromDefaultTopics() {
+        try {
+            FirebaseMessaging.getInstance().unsubscribeFromTopic(TOPIC_ALL_USERS);
+            FirebaseMessaging.getInstance().unsubscribeFromTopic(TOPIC_NEWS);
+            Log.d(TAG, "Désabonné des topics push");
+        } catch (Exception e) {
+            Log.w(TAG, "Désabonnement topics impossible: " + e.getMessage());
+        }
+    }
 }

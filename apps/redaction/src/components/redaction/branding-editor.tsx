@@ -8,6 +8,7 @@ import {
 } from '@wab-infos/shared';
 import { ImageIcon, Loader2, Trash2, Upload } from 'lucide-react';
 import { useId, useState } from 'react';
+import { HexColorField } from '@/components/redaction/hex-color-field';
 
 function defaultLogoUrl(kind: 'light' | 'dark'): string {
   const site = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -215,7 +216,7 @@ export function BrandingEditor({
       />
 
       {branding.showText ? (
-        <div className="rounded-2xl border border-border bg-card px-4 py-3">
+        <div className="space-y-3 rounded-2xl border border-border bg-card px-4 py-3">
           <label className="block text-sm font-semibold text-foreground" htmlFor="branding-text">
             Texte du site
           </label>
@@ -224,8 +225,71 @@ export function BrandingEditor({
             value={branding.text}
             onChange={(e) => patch({ text: e.target.value })}
             placeholder="Wab-infos"
-            className="mt-2 h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+            className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
           />
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-xs font-semibold text-foreground">
+              Taille (px)
+              <input
+                type="number"
+                min={12}
+                max={48}
+                value={branding.textSizePx}
+                onChange={(e) => patch({ textSizePx: Number(e.target.value) || 18 })}
+                className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+              />
+            </label>
+            <label className="block text-xs font-semibold text-foreground">
+              Graisse
+              <select
+                value={branding.textWeight}
+                onChange={(e) =>
+                  patch({
+                    textWeight: e.target.value as SiteBrandingSettings['textWeight'],
+                  })
+                }
+                className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+              >
+                <option value="normal">Normal</option>
+                <option value="medium">Medium</option>
+                <option value="semibold">Semi-gras</option>
+                <option value="bold">Gras</option>
+              </select>
+            </label>
+            <HexColorField
+              label="Couleur clair"
+              value={branding.textColorLight || '#111111'}
+              fallback="#111111"
+              onChange={(hex) => patch({ textColorLight: hex })}
+              ariaLabel="Couleur du texte (clair)"
+              trailing={
+                <button
+                  type="button"
+                  onClick={() => patch({ textColorLight: null })}
+                  className="h-10 rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Auto
+                </button>
+              }
+            />
+            <HexColorField
+              label="Couleur sombre"
+              value={branding.textColorDark || '#ffffff'}
+              fallback="#ffffff"
+              onChange={(hex) => patch({ textColorDark: hex })}
+              ariaLabel="Couleur du texte (sombre)"
+              trailing={
+                <button
+                  type="button"
+                  onClick={() => patch({ textColorDark: null })}
+                  className="h-10 rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Auto
+                </button>
+              }
+            />
+          </div>
         </div>
       ) : null}
 
@@ -261,24 +325,52 @@ export function BrandingEditor({
           Aperçu
         </p>
         <div className="flex flex-wrap items-center gap-6">
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-white px-3 py-2">
+          <div className="flex min-h-[3.25rem] items-center gap-2 rounded-xl border border-border bg-white px-3 py-2">
             {branding.showLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={lightPreview} alt="" className="h-8 w-auto object-contain" />
             ) : null}
             {branding.showText ? (
-              <span className="text-sm font-bold tracking-tight text-neutral-900">
+              <span
+                className="leading-none tracking-tight text-neutral-900"
+                style={{
+                  fontSize: `${branding.textSizePx || 18}px`,
+                  fontWeight:
+                    branding.textWeight === 'normal'
+                      ? 400
+                      : branding.textWeight === 'medium'
+                        ? 500
+                        : branding.textWeight === 'semibold'
+                          ? 600
+                          : 700,
+                  color: branding.textColorLight || undefined,
+                }}
+              >
                 {branding.text || 'Wab-infos'}
               </span>
             ) : null}
           </div>
-          <div className="flex items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2">
+          <div className="flex min-h-[3.25rem] items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2">
             {branding.showLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={darkPreview} alt="" className="h-8 w-auto object-contain" />
             ) : null}
             {branding.showText ? (
-              <span className="text-sm font-bold tracking-tight text-white">
+              <span
+                className="leading-none tracking-tight text-white"
+                style={{
+                  fontSize: `${branding.textSizePx || 18}px`,
+                  fontWeight:
+                    branding.textWeight === 'normal'
+                      ? 400
+                      : branding.textWeight === 'medium'
+                        ? 500
+                        : branding.textWeight === 'semibold'
+                          ? 600
+                          : 700,
+                  color: branding.textColorDark || undefined,
+                }}
+              >
                 {branding.text || 'Wab-infos'}
               </span>
             ) : null}

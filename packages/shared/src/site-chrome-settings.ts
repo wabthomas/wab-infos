@@ -1,6 +1,7 @@
 import { normalizeArticleUiSettings, type ArticleUiSettings } from './article-ui-settings';
 import {
   normalizeBrandingSettings,
+  parseCssHexColor,
   type SiteBrandingSettings,
 } from './site-branding-settings';
 import {
@@ -35,6 +36,8 @@ export interface SiteChromeSettings {
   headerUtilityBarEnabled: boolean;
   headerTvButtonEnabled: boolean;
   headerPushAlertsEnabled: boolean;
+  /** Couleur de l’icône notifications quand les alertes sont activées (hex). */
+  headerPushAlertsActiveColor: string;
   headerSearchEnabled: boolean;
   /** Loupe dans la barre du haut (mobile). */
   mobileHeaderSearchEnabled: boolean;
@@ -137,6 +140,7 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
   headerUtilityBarEnabled: true,
   headerTvButtonEnabled: true,
   headerPushAlertsEnabled: true,
+  headerPushAlertsActiveColor: '#059669',
   headerSearchEnabled: true,
   mobileHeaderSearchEnabled: true,
   mobileMenuSearchEnabled: false,
@@ -195,6 +199,10 @@ function normalizeMobileMenuFooterAction(raw: unknown): MobileMenuFooterAction {
   return DEFAULT_SITE_CHROME.mobileMenuFooterAction;
 }
 
+function normalizePushActiveColor(raw: unknown): string {
+  return parseCssHexColor(raw) ?? DEFAULT_SITE_CHROME.headerPushAlertsActiveColor;
+}
+
 function normalizeFooterCta(raw: unknown): SiteFooterCta {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_FOOTER_CTA };
   const row = raw as Record<string, unknown>;
@@ -233,6 +241,7 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
     headerUtilityBarEnabled: row.headerUtilityBarEnabled !== false,
     headerTvButtonEnabled: row.headerTvButtonEnabled !== false,
     headerPushAlertsEnabled: row.headerPushAlertsEnabled !== false,
+    headerPushAlertsActiveColor: normalizePushActiveColor(row.headerPushAlertsActiveColor),
     headerSearchEnabled: row.headerSearchEnabled !== false,
     mobileHeaderSearchEnabled:
       row.mobileHeaderSearchEnabled !== undefined

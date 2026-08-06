@@ -173,7 +173,7 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
 
             <Link
               href="/"
-              className="group absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2"
+              className="group absolute left-1/2 top-1/2 z-0 flex -translate-x-1/2 -translate-y-1/2 items-center"
               aria-label={`${siteConfig.name} — Accueil`}
             >
               <SiteLogo className="h-10 w-auto transition-opacity group-hover:opacity-90 md:h-16" />

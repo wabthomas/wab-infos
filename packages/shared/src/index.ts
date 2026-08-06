@@ -9,3 +9,4 @@ export * from './capacitor-push';
 export * from './capacitor-nav';
 export * from './capacitor-detect';
 export * from './capacitor-share';
+export * from './android-webview-bridge';

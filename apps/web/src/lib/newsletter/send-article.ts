@@ -1,6 +1,6 @@
 import type { Article } from '@wab-infos/shared';
 import { getArticlePath, resolveArticleCategorySlug } from '@/config/site';
-import { getStrapiMediaUrl } from '@/lib/utils';
+import { getStrapiMediaAbsoluteUrl } from '@/lib/utils';
 import { isArticlePublished } from '@/lib/article-publish';
 import {
   buildArticleNewsletterSubject,
@@ -37,7 +37,7 @@ function mapStrapiArticleToPayload(
   )}`;
 
   const imageUrl =
-    getStrapiMediaUrl(article.featuredImage?.url) ??
+    getStrapiMediaAbsoluteUrl(article.featuredImage?.url) ??
     `${newsletterConfig.siteUrl}/og-default.jpg`;
 
   return {
@@ -58,7 +58,7 @@ export function mapArticleToNewsletterPreview(article: Article, unsubscribeUrl: 
   const categorySlug = resolveArticleCategorySlug(article);
   const articleUrl = `${newsletterConfig.siteUrl}${getArticlePath(article, categorySlug)}`;
   const imageUrl =
-    getStrapiMediaUrl(article.featuredImage?.url) ??
+    getStrapiMediaAbsoluteUrl(article.featuredImage?.url) ??
     `${newsletterConfig.siteUrl}/og-default.jpg`;
 
   return {

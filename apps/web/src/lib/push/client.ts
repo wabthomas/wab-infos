@@ -3,9 +3,18 @@ import {
   isNativeCapacitorApp,
   subscribeViaCapacitorPush,
   syncCapacitorPushIfGranted,
+  getCapacitorPushPermission,
 } from '@/lib/push/capacitor-native';
+import {
+  getAndroidReaderPushPermission,
+  isAndroidWebViewReaderApp,
+  subscribeViaAndroidWebView,
+  syncAndroidWebViewPushIfGranted,
+} from '@/lib/push/android-webview';
 import { isFirebaseClientConfigured, requestFcmToken } from '@/lib/firebase/client';
 import { showWelcomePushNotification } from '@/lib/push/welcome-notification';
+
+export { getCapacitorPushPermission, getAndroidReaderPushPermission, isAndroidWebViewReaderApp };
 
 export async function waitForServiceWorker(timeoutMs = 8000): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return null;
@@ -37,6 +46,25 @@ export async function subscribeToPushNotifications(): Promise<{
 }> {
   if (typeof window === 'undefined') {
     return { ok: false, reason: 'unsupported' };
+  }
+
+  // APK reader (WebView + AndroidBridge) — avant Capacitor / Notification web.
+  if (isAndroidWebViewReaderApp()) {
+    const native = await subscribeViaAndroidWebView();
+    if (!native.ok) {
+      return {
+        ok: false,
+        reason:
+          native.reason === 'denied'
+            ? 'denied'
+            : native.reason === 'unsupported'
+              ? 'unsupported'
+              : 'server_error',
+        message: native.message,
+      };
+    }
+    void showWelcomePushNotification();
+    return { ok: true };
   }
 
   if (await isNativeCapacitorApp()) {
@@ -115,6 +143,10 @@ export async function subscribeToPushNotifications(): Promise<{
 
 export async function syncPushSubscriptionIfGranted(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
+
+  if (isAndroidWebViewReaderApp()) {
+    return syncAndroidWebViewPushIfGranted();
+  }
 
   if (await isNativeCapacitorApp()) {
     return syncCapacitorPushIfGranted();

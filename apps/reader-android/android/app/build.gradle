@@ -61,8 +61,8 @@ android {
         reader {
             dimension "product"
             applicationId "com.wabinfos.app"
-            versionCode 34
-            versionName "1.3.1"
+            versionCode 35
+            versionName "1.3.2"
             buildConfigField "String", "SITE_URL", '"https://wab-infos.com"'
             buildConfigField "String", "VERSION_MANIFEST_URL", '"https://wab-infos.com/downloads/apk-version.json"'
             buildConfigField "String", "UA_MARKER", '"WabInfosNative"'

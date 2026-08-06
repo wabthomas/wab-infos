@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Search, X } from 'lucide-react';
 import type { RedactionArticle, RedactionAuthor } from '@/lib/redaction/types';
 import { ArticleListItem } from '@/components/redaction/article-list-item';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,8 @@ export function RedactionArticlesList({
   const searchParams = useSearchParams();
   const [filter, setFilter] = useState<Filter>(() => parseFilter(searchParams.get('filter')));
   const [authorFilter, setAuthorFilter] = useState('');
+  const [searchInput, setSearchInput] = useState(() => searchParams.get('q')?.trim() ?? '');
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q')?.trim() ?? '');
   const [articles, setArticles] = useState<RedactionArticle[]>([]);
   const [page, setPage] = useState(1);
   const [pageCount, setPageCount] = useState(1);
@@ -41,10 +44,21 @@ export function RedactionArticlesList({
     initialIsSuperAdmin !== undefined && initialCanDeleteAny !== undefined
   );
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setFilter(parseFilter(searchParams.get('filter')));
   }, [searchParams]);
+
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 350);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchInput]);
 
   useEffect(() => {
     if (profileReady) return;
@@ -100,6 +114,9 @@ export function RedactionArticlesList({
         if (isSuperAdmin && authorFilter) {
           params.set('author', authorFilter);
         }
+        if (searchQuery) {
+          params.set('q', searchQuery);
+        }
 
         const res = await fetch(`/api/redaction/articles?${params}`);
         const data = (await res.json()) as {
@@ -124,14 +141,14 @@ export function RedactionArticlesList({
         setLoadingMore(false);
       }
     },
-    [authorFilter, filter, isSuperAdmin]
+    [authorFilter, filter, isSuperAdmin, searchQuery]
   );
 
   useEffect(() => {
     if (!profileReady) return;
     setPage(1);
     void loadPage(1, false);
-  }, [filter, authorFilter, loadPage, profileReady]);
+  }, [filter, authorFilter, searchQuery, loadPage, profileReady]);
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -166,30 +183,58 @@ export function RedactionArticlesList({
           {total > 0 ? (
             <p className="mt-1 text-sm text-muted-foreground">
               {total} article{total > 1 ? 's' : ''}
+              {searchQuery ? ` pour « ${searchQuery} »` : ''}
             </p>
           ) : null}
         </div>
 
-        {isSuperAdmin && authors.length > 0 ? (
-          <div className="lg:w-64">
-            <label htmlFor="author-filter" className="sr-only">
-              Filtrer par rédacteur
-            </label>
-            <select
-              id="author-filter"
-              value={authorFilter}
-              onChange={(event) => setAuthorFilter(event.target.value)}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm lg:h-11"
-            >
-              <option value="">Tous les rédacteurs</option>
-              {authors.map((author) => (
-                <option key={author.documentId} value={author.documentId}>
-                  {author.name}
-                </option>
-              ))}
-            </select>
+        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto lg:max-w-xl lg:flex-1 lg:justify-end">
+          <div className="relative min-w-0 flex-1 lg:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Rechercher un article…"
+              className="h-10 w-full rounded-lg border border-border bg-background py-2 pl-9 pr-9 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 lg:h-11"
+              aria-label="Rechercher un article"
+            />
+            {searchInput ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchInput('');
+                  setSearchQuery('');
+                }}
+                className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Effacer la recherche"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
-        ) : null}
+
+          {isSuperAdmin && authors.length > 0 ? (
+            <div className="sm:w-56 lg:w-64">
+              <label htmlFor="author-filter" className="sr-only">
+                Filtrer par rédacteur
+              </label>
+              <select
+                id="author-filter"
+                value={authorFilter}
+                onChange={(event) => setAuthorFilter(event.target.value)}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm lg:h-11"
+              >
+                <option value="">Tous les rédacteurs</option>
+                {authors.map((author) => (
+                  <option key={author.documentId} value={author.documentId}>
+                    {author.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -220,7 +265,7 @@ export function RedactionArticlesList({
         <p className="py-8 text-center text-sm text-muted-foreground">Chargement…</p>
       ) : articles.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-          Aucun article
+          {searchQuery ? `Aucun article pour « ${searchQuery} »` : 'Aucun article'}
         </p>
       ) : (
         <ul className="space-y-2">

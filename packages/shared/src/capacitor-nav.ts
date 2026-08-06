@@ -19,9 +19,12 @@ export function resolvePublicHttpsUrl(raw: string | undefined, fallback: string)
   return normalized;
 }
 
-export function resolveRedactionUrl(raw?: string): string {
-  return resolvePublicHttpsUrl(raw, 'http://localhost:3001');
-}
+export {
+  joinRedactionPublicPath,
+  redactionBasePathFromPublicUrl,
+  resolveRedactionLoginUrl,
+  resolveRedactionUrl,
+} from './redaction-public-url';
 
 /** Navigation dans la même WebView (ne pas ouvrir Chrome). */
 export async function navigateInApp(url: string): Promise<void> {

@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { LayoutDashboard, Loader2, LogIn } from 'lucide-react';
-import { isNativeCapacitorApp, navigateInApp, resolveRedactionUrl } from '@wab-infos/shared';
+import { isNativeCapacitorApp, navigateInApp, resolveRedactionLoginUrl } from '@wab-infos/shared';
 import { cn } from '@/lib/utils';
 
-const redactionBase = resolveRedactionUrl(process.env.NEXT_PUBLIC_REDACTION_URL).replace(/\/$/, '');
-const redactionLoginUrl = `${redactionBase}/login`;
+const redactionLoginUrl = resolveRedactionLoginUrl(process.env.NEXT_PUBLIC_REDACTION_URL);
 
 interface HeaderAuthLinkProps {
   className?: string;
