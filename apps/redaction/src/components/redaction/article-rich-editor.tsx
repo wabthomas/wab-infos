@@ -612,14 +612,16 @@ export function ArticleRichEditor({
                     editor
                       .chain()
                       .focus(undefined, { scrollIntoView: false })
-                      .insertContent('<p>[shortcode]</p>')
+                      .insertContent(
+                        '<p>[dl url="" desc="" title="Télécharger MP3" type="audio"]</p>'
+                      )
                       .run()
                   )
                 }
                 className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
               >
                 <Braces className="mx-auto mb-1 h-5 w-5" />
-                Code court
+                MP3 / DL
               </button>
             </div>
           </div>

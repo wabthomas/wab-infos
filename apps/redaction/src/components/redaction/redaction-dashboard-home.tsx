@@ -5,6 +5,7 @@ import { fr } from 'date-fns/locale';
 import {
   ArrowRight,
   BarChart3,
+  Bell,
   CalendarClock,
   Eye,
   FileText,
@@ -43,6 +44,7 @@ const STAT_ACCENTS = {
   scheduled: 'bg-sky-500/10 text-sky-700',
   views: 'bg-primary/10 text-primary',
   breaking: 'bg-red-500/10 text-red-600',
+  push: 'bg-violet-500/10 text-violet-700',
 } as const;
 
 export function RedactionDashboardHome({
@@ -134,7 +136,7 @@ export function RedactionDashboardHome({
         >
           Indicateurs
         </h2>
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 xl:grid-cols-5 xl:gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 xl:grid-cols-3 xl:gap-4 2xl:grid-cols-6">
           <StatCard
             icon={FileText}
             label="Publiés"
@@ -170,6 +172,14 @@ export function RedactionDashboardHome({
             value={stats.breakingCount}
             href="/articles?filter=published"
             accent={STAT_ACCENTS.breaking}
+          />
+          <StatCard
+            icon={Bell}
+            label="Push"
+            mobileLabel="Push"
+            value={stats.pushSubscriberCount.toLocaleString('fr-FR')}
+            href="/stats"
+            accent={STAT_ACCENTS.push}
           />
         </div>
       </section>
@@ -243,6 +253,10 @@ export function RedactionDashboardHome({
             <dl className="mt-4 space-y-3">
               <SummaryRow label="Articles au total" value={String(stats.totalArticles)} />
               <SummaryRow label="Taux publiés" value={`${publishRate} %`} />
+              <SummaryRow
+                label="Abonnés push"
+                value={stats.pushSubscriberCount.toLocaleString('fr-FR')}
+              />
               <Suspense fallback={<DashboardAnalyticsSkeleton variant="summary" />}>
                 <DashboardAnalyticsSummary
                   authorDocumentId={authorDocumentId}

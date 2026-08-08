@@ -15,9 +15,9 @@ interface ArticleImageProps {
   quality?: number;
 }
 
-/** Si une variante Strapi (medium_/large_/…) 404, retombe sur le fichier original. */
+/** Si une variante Strapi (medium_/large_/xlarge_/…) 404, retombe sur le fichier original. */
 function fallbackOriginalMediaSrc(src: string): string | null {
-  const next = src.replace(/\/(thumbnail|small|medium|large)_/i, '/');
+  const next = src.replace(/\/(thumbnail|x?small|medium|x?large)_/i, '/');
   return next !== src ? next : null;
 }
 

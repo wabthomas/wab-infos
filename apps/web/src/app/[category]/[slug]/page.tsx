@@ -127,6 +127,9 @@ export default async function ArticlePage({ params }: PageProps) {
               categorySlug={categorySlug}
               articleUrl={articleUrl}
               showViewCounts={siteSettings.showArticleViewCounts}
+              showLikeButton={siteSettings.chrome.articleUi.likeButton}
+              showLikeCount={siteSettings.chrome.articleUi.likeCount}
+              showReadingTime={siteSettings.chrome.articleUi.readingTime}
             />
 
             <ArticleTopAd />
@@ -191,6 +194,9 @@ export default async function ArticlePage({ params }: PageProps) {
         title={article.title}
         url={articleUrl}
         categorySlug={categorySlug}
+        initialLikeCount={article.likeCount}
+        showLikeButton={siteSettings.chrome.articleUi.likeButton}
+        showLikeCount={siteSettings.chrome.articleUi.likeCount}
       />
     </>
   );

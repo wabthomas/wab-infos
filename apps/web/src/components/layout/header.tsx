@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight, Menu, Tv, X } from 'lucide-react';
+import { ChevronRight, HeartHandshake, Menu, Tv, UserRound, X } from 'lucide-react';
 import { siteConfig } from '@/config/site';
-import { getVisibleNavLinks, isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
+import { getVisibleNavLinks, isNativeCapacitorFromUserAgent, normalizeSiteSupportSettings } from '@wab-infos/shared';
 import { SiteLogo } from '@/components/brand/site-logo';
 import { HeaderAuthLink } from '@/components/layout/header-auth-link';
 import { HeaderSearch } from '@/components/layout/header-search';
@@ -46,6 +46,13 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
   const utilityLinks = useMemo(() => getVisibleNavLinks(chrome.utilityLinks), [chrome.utilityLinks]);
   const serviceLinks = useMemo(() => getVisibleNavLinks(chrome.serviceLinks), [chrome.serviceLinks]);
   const infoLinks = useMemo(() => getVisibleNavLinks(chrome.infoLinks), [chrome.infoLinks]);
+  const support = useMemo(
+    () => normalizeSiteSupportSettings(chrome.support),
+    [chrome.support]
+  );
+  const subscribeLabel = support.headerButtonLabel.trim() || "S'abonner";
+  const showSubscribeDesktop = support.headerButtonDesktopEnabled;
+  const showSubscribeMobile = support.headerButtonMobileEnabled;
 
   const isActive = (slug: string) =>
     pathname === `/${slug}` || pathname.startsWith(`/${slug}/`);
@@ -180,6 +187,22 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
             </Link>
 
             <div className="z-10 flex flex-1 items-center justify-end gap-0.5 md:gap-2">
+              {showSubscribeDesktop ? (
+                <Link
+                  href="/soutenir"
+                  className="hidden items-center justify-center rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/15 md:inline-flex"
+                >
+                  {subscribeLabel}
+                </Link>
+              ) : null}
+              {showSubscribeMobile ? (
+                <Link
+                  href="/soutenir"
+                  className="inline-flex items-center justify-center rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary/15 md:hidden"
+                >
+                  {subscribeLabel}
+                </Link>
+              ) : null}
               {chrome.headerPushAlertsEnabled ? (
                 <div className="flex items-center md:hidden">
                   <PushAlertsIconButton />
@@ -188,6 +211,14 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
               {chrome.headerThemeToggleEnabled ? (
                 <ThemeToggle className="hidden md:inline-flex" />
               ) : null}
+              <Link
+                href="/compte"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted"
+                aria-label="Compte lecteur"
+                title="Compte lecteur"
+              >
+                <UserRound className="h-5 w-5" />
+              </Link>
               {chrome.headerAuthLinkEnabled ? (
                 <HeaderAuthLink className="hidden md:inline-flex" />
               ) : null}
@@ -387,31 +418,76 @@ export function Header({ menuOpen: menuOpenProp, onMenuOpenChange }: HeaderProps
                     </ul>
                   </section>
 
-                  {serviceLinks.length > 0 ? (
+                  {showSubscribeMobile || serviceLinks.length > 0 ? (
                     <section className="border-b border-border px-5 py-5">
                       <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
                         Services
                       </h2>
-                      <ul className="space-y-1">
-                        {serviceLinks.map((link) => (
-                          <li key={link.id}>
-                            <Link
-                              href={link.href}
-                              className="block rounded-lg px-2 py-2.5 transition-colors hover:bg-muted"
-                              onClick={() => setMenuOpen(false)}
-                            >
-                              <span className="text-sm font-semibold">{link.label}</span>
-                              {link.description ? (
-                                <span className="mt-0.5 block text-xs text-muted-foreground">
-                                  {link.description}
-                                </span>
-                              ) : null}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="mb-3 grid grid-cols-2 gap-2">
+                        {showSubscribeMobile ? (
+                          <Link
+                            href="/soutenir"
+                            onClick={() => setMenuOpen(false)}
+                            className="flex flex-col items-start gap-2 rounded-2xl border border-primary/25 bg-primary/10 px-3.5 py-3.5 transition-colors hover:bg-primary/15"
+                          >
+                            <HeartHandshake className="h-5 w-5 text-primary" aria-hidden />
+                            <span className="text-sm font-bold text-primary">{subscribeLabel}</span>
+                            <span className="text-[11px] leading-snug text-primary/80">
+                              Soutenir dès 1 $
+                            </span>
+                          </Link>
+                        ) : null}
+                        <Link
+                          href="/compte"
+                          onClick={() => setMenuOpen(false)}
+                          className={cn(
+                            'flex flex-col items-start gap-2 rounded-2xl border border-border bg-muted/40 px-3.5 py-3.5 transition-colors hover:bg-muted',
+                            !showSubscribeMobile && 'col-span-2'
+                          )}
+                        >
+                          <UserRound className="h-5 w-5 text-foreground" aria-hidden />
+                          <span className="text-sm font-bold text-foreground">Compte lecteur</span>
+                          <span className="text-[11px] leading-snug text-muted-foreground">
+                            Connexion & préférences
+                          </span>
+                        </Link>
+                      </div>
+                      {serviceLinks.length > 0 ? (
+                        <ul className="space-y-1">
+                          {serviceLinks.map((link) => (
+                            <li key={link.id}>
+                              <Link
+                                href={link.href}
+                                className="block rounded-lg px-2 py-2.5 transition-colors hover:bg-muted"
+                                onClick={() => setMenuOpen(false)}
+                              >
+                                <span className="text-sm font-semibold">{link.label}</span>
+                                {link.description ? (
+                                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                                    {link.description}
+                                  </span>
+                                ) : null}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </section>
-                  ) : null}
+                  ) : (
+                    <section className="border-b border-border px-5 py-5">
+                      <Link
+                        href="/compte"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex flex-col items-start gap-2 rounded-2xl border border-border bg-muted/40 px-3.5 py-3.5 transition-colors hover:bg-muted"
+                      >
+                        <UserRound className="h-5 w-5 text-foreground" aria-hidden />
+                        <span className="text-sm font-bold text-foreground">Compte lecteur</span>
+                        <span className="text-[11px] leading-snug text-muted-foreground">
+                          Connexion & préférences
+                        </span>
+                      </Link>
+                    </section>
+                  )}
 
                   {infoLinks.length > 0 ? (
                     <section className="px-5 py-5">

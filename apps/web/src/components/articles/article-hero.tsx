@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Article } from '@wab-infos/shared';
 import { ArticleAuthorMeta } from '@/components/articles/article-author-meta';
+import { ArticleLikeButton } from '@/components/articles/article-like-button';
 import { ArticleShareButtons } from '@/components/articles/article-share-buttons';
 import { ArticleViewCounter } from '@/components/articles/article-view-counter';
 import { getFeaturedImageCaption } from '@/components/articles/article-featured-image';
@@ -14,6 +15,9 @@ interface ArticleHeroProps {
   categorySlug: string;
   articleUrl: string;
   showViewCounts?: boolean;
+  showLikeButton?: boolean;
+  showLikeCount?: boolean;
+  showReadingTime?: boolean;
   className?: string;
 }
 
@@ -24,6 +28,9 @@ export function ArticleHero({
   categorySlug,
   articleUrl,
   showViewCounts = true,
+  showLikeButton = true,
+  showLikeCount = true,
+  showReadingTime = true,
   className,
 }: ArticleHeroProps) {
   const imageUrl = resolveArticleImageUrl(article.featuredImage, 'hero');
@@ -59,24 +66,50 @@ export function ArticleHero({
         <time dateTime={displayDate} title={formatDate(displayDate)}>
           {formatArticleDate(displayDate)}
         </time>
-        <span aria-hidden className={onDark ? 'text-white/40' : 'text-muted-foreground/40'}>
-          |
-        </span>
-        <span>{article.readingTime} min de lecture</span>
-        {showViewCounts ? (
+        {showReadingTime && article.readingTime > 0 ? (
           <>
             <span aria-hidden className={onDark ? 'text-white/40' : 'text-muted-foreground/40'}>
               |
             </span>
-            <ArticleViewCounter
-              documentId={article.documentId}
-              slug={article.slug}
-              categorySlug={categorySlug}
-              initialCount={article.viewCount}
-            />
+            <span>{article.readingTime} min de lecture</span>
           </>
         ) : null}
+        {showViewCounts ? (
+          <ArticleViewCounter
+            documentId={article.documentId}
+            slug={article.slug}
+            categorySlug={categorySlug}
+            initialCount={article.viewCount}
+            onDark={onDark}
+          />
+        ) : null}
+        {showLikeButton ? (
+          <ArticleLikeButton
+            documentId={article.documentId}
+            initialCount={article.likeCount}
+            showCount={showLikeCount}
+            meta
+            onDark={onDark}
+          />
+        ) : null}
       </div>
+    </div>
+  );
+
+  const engagement = (
+    <div className="mt-4">
+      <ArticleShareButtons url={articleUrl} title={article.title} className="min-w-0" />
+    </div>
+  );
+
+  const engagementOverlay = (
+    <div className="mt-4">
+      <ArticleShareButtons
+        url={articleUrl}
+        title={article.title}
+        variant="overlay"
+        className="min-w-0"
+      />
     </div>
   );
 
@@ -128,7 +161,7 @@ export function ArticleHero({
             </div>
             <h1 className="font-article text-xl font-bold leading-snug md:text-2xl">{article.title}</h1>
             <div className="mt-3">{metaRow()}</div>
-            <ArticleShareButtons url={articleUrl} title={article.title} className="mt-4" />
+            {engagement}
           </div>
         </div>
 
@@ -147,12 +180,7 @@ export function ArticleHero({
               {article.title}
             </h1>
             <div className="mt-3">{metaRow(true)}</div>
-            <ArticleShareButtons
-              url={articleUrl}
-              title={article.title}
-              variant="overlay"
-              className="mt-4"
-            />
+            {engagementOverlay}
           </div>
         </div>
       </div>

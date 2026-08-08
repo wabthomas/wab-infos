@@ -14,7 +14,7 @@ import { SiteOptInPrompts } from '@/components/opt-in/site-opt-in-prompts';
 import { PwaInstallBanner } from '@/components/pwa/pwa-install-banner';
 import { useSiteChrome } from '@/components/providers/site-chrome-context';
 
-const AUTH_ONLY_PREFIXES = ['/connexion'];
+const AUTH_ONLY_PREFIXES: string[] = [];
 
 export function SiteLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);

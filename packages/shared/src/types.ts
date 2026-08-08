@@ -62,6 +62,7 @@ export interface Article {
   isBreaking: boolean;
   isRecommended: boolean;
   viewCount: number;
+  likeCount: number;
   readingTime: number;
   seoTitle?: string;
   seoDescription?: string;

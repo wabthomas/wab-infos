@@ -31,6 +31,7 @@ export const mockArticles: Article[] = [
     isBreaking: true,
     isRecommended: true,
     viewCount: 15420,
+    likeCount: 128,
     readingTime: 4,
     tags: [{ id: 1, documentId: 'tag-1', name: 'RDC', slug: 'rdc' }],
     featuredImage: mockFeaturedImage(
@@ -55,6 +56,7 @@ export const mockArticles: Article[] = [
     isBreaking: false,
     isRecommended: true,
     viewCount: 8930,
+    likeCount: 42,
     readingTime: 5,
     tags: [{ id: 2, documentId: 'tag-2', name: 'Kinshasa', slug: 'kinshasa' }],
     featuredImage: mockFeaturedImage(
@@ -79,6 +81,7 @@ export const mockArticles: Article[] = [
     isBreaking: false,
     isRecommended: false,
     viewCount: 22100,
+    likeCount: 42,
     readingTime: 3,
     tags: [{ id: 3, documentId: 'tag-3', name: 'Football', slug: 'football' }],
     featuredImage: mockFeaturedImage(
@@ -103,6 +106,7 @@ export const mockArticles: Article[] = [
     isBreaking: false,
     isRecommended: true,
     viewCount: 5670,
+    likeCount: 42,
     readingTime: 6,
     tags: [],
     featuredImage: mockFeaturedImage(
@@ -127,6 +131,7 @@ export const mockArticles: Article[] = [
     isBreaking: false,
     isRecommended: false,
     viewCount: 3420,
+    likeCount: 42,
     readingTime: 4,
     tags: [],
     featuredImage: mockFeaturedImage(
@@ -151,6 +156,7 @@ export const mockArticles: Article[] = [
     isBreaking: false,
     isRecommended: true,
     viewCount: 2890,
+    likeCount: 42,
     readingTime: 5,
     tags: [],
     featuredImage: mockFeaturedImage(

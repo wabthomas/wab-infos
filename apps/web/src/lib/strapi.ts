@@ -118,9 +118,56 @@ function mapMedia(media: StrapiEntity | null | undefined): StrapiMedia | undefin
   };
 }
 
+function normalizeCoverCandidateUrl(raw: string): string | null {
+  let url = raw.trim();
+  if (!url || url.startsWith('data:')) return null;
+
+  url = url
+    .replace(/^https?:\/\/(?:www\.)?wab-infos\.com\/wp-content\/uploads\//i, '/wp-content/uploads/')
+    .replace(/^https?:\/\/(?:www\.)?wabsoft\.com\/wp-content\/uploads\//i, '/wp-content/uploads/')
+    .replace(/^https?:\/\/(?:www\.)?wab-infos\.com\/uploads\//i, '/uploads/')
+    .replace(/^https?:\/\/cms\.app\.wab-infos\.com\/uploads\//i, '/uploads/');
+
+  if (url.startsWith('uploads/') || url.startsWith('wp-content/')) {
+    url = `/${url}`;
+  }
+
+  // Miniatures listes : uniquement médias same-origin (évite next/image + hotlinks cassés).
+  if (url.startsWith('/uploads/') || url.startsWith('/wp-content/')) {
+    return url;
+  }
+
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+    if (host === 'wab-infos.com' || host.endsWith('.wab-infos.com')) {
+      if (parsed.pathname.startsWith('/uploads/') || parsed.pathname.startsWith('/wp-content/')) {
+        return `${parsed.pathname}${parsed.search}`;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 function firstImageFromHtml(html: string): string | undefined {
-  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-  return match?.[1];
+  if (!html) return undefined;
+
+  const patterns = [
+    /<img[^>]+src=["']([^"']+)["']/i,
+    /<img[^>]+data-src=["']([^"']+)["']/i,
+    /<img[^>]+data-lazy-src=["']([^"']+)["']/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    const normalized = match?.[1] ? normalizeCoverCandidateUrl(match[1]) : null;
+    if (normalized) return normalized;
+  }
+
+  return undefined;
 }
 
 function mapAuthor(entity: StrapiEntity): Author {
@@ -157,7 +204,7 @@ function mapTag(entity: StrapiEntity): Tag {
   };
 }
 
-function mapArticle(entity: StrapiEntity): Article {
+function mapArticle(entity: StrapiEntity, options?: { keepContent?: boolean }): Article {
   let featuredImage = mapMedia(entity.featuredImage as StrapiEntity);
   const content = typeof entity.content === 'string' ? entity.content : '';
 
@@ -170,6 +217,8 @@ function mapArticle(entity: StrapiEntity): Article {
 
   const rawViews = entity.viewCount ?? entity.view_count;
   const viewCount = typeof rawViews === 'number' && Number.isFinite(rawViews) ? rawViews : 0;
+  const rawLikes = entity.likeCount ?? entity.like_count;
+  const likeCount = typeof rawLikes === 'number' && Number.isFinite(rawLikes) ? rawLikes : 0;
 
   return {
     id: entity.id,
@@ -177,7 +226,7 @@ function mapArticle(entity: StrapiEntity): Article {
     title: entity.title as string,
     slug: entity.slug as string,
     excerpt: entity.excerpt as string,
-    content,
+    content: options?.keepContent === false ? '' : content,
     status: entity.status as Article['status'],
     publishedAt: entity.publishedAt as string,
     updatedAt: entity.updatedAt as string,
@@ -193,12 +242,48 @@ function mapArticle(entity: StrapiEntity): Article {
     isBreaking: (entity.isBreaking as boolean) ?? false,
     isRecommended: (entity.isRecommended as boolean) ?? false,
     viewCount,
+    likeCount,
     readingTime: (entity.readingTime as number) ?? 3,
     seoTitle: entity.seoTitle as string | undefined,
     seoDescription: entity.seoDescription as string | undefined,
     canonicalUrl: entity.canonicalUrl as string | undefined,
     wpId: entity.wpId as number | undefined,
   };
+}
+
+/** Pour les listes légères : récupère le HTML seulement pour les articles sans cover. */
+async function enrichMissingFeaturedImages(articles: Article[]): Promise<Article[]> {
+  const missing = articles.filter((article) => !article.featuredImage?.url && article.documentId);
+  if (!missing.length) return articles;
+
+  const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
+    filters: {
+      documentId: { $in: missing.map((article) => article.documentId) },
+    },
+    fields: ['documentId', 'content'],
+    pagination: { page: 1, pageSize: Math.min(100, missing.length) },
+    status: 'published',
+  });
+
+  const coverByDocumentId = new Map<string, string>();
+  for (const entity of response.data) {
+    const documentId = entity.documentId as string | undefined;
+    const content = typeof entity.content === 'string' ? entity.content : '';
+    const cover = firstImageFromHtml(content);
+    if (documentId && cover) coverByDocumentId.set(documentId, cover);
+  }
+
+  if (!coverByDocumentId.size) return articles;
+
+  return articles.map((article) => {
+    if (article.featuredImage?.url) return article;
+    const cover = coverByDocumentId.get(article.documentId);
+    if (!cover) return article;
+    return {
+      ...article,
+      featuredImage: { id: 0, url: cover },
+    };
+  });
 }
 
 function mapVideo(entity: StrapiEntity): Video {
@@ -224,7 +309,10 @@ function mapVideo(entity: StrapiEntity): Video {
   };
 }
 
-const ARTICLE_SORT = ['wpPublishedAt:desc', 'publishedAt:desc'] as const;
+/** Tri public : publishedAt d’abord (toujours renseigné si live).
+ * wpPublishedAt en second — les NULL wpPublishedAt passent après en DESC MySQL
+ * et enterraient les nouveaux articles hors de la 1ʳᵉ page. */
+const ARTICLE_SORT = ['publishedAt:desc', 'wpPublishedAt:desc'] as const;
 const TOP_READ_SORT = ['viewCount:desc', ...ARTICLE_SORT] as const;
 const VIDEO_SORT = ['publishedAt:desc'] as const;
 
@@ -252,6 +340,7 @@ const listArticleQuery = {
     'isBreaking',
     'isRecommended',
     'viewCount',
+    'likeCount',
     'readingTime',
   ],
   populate: {
@@ -282,16 +371,25 @@ export async function getArticles(options?: {
   if (options?.breaking) filters.isBreaking = { $eq: true };
   if (options?.recommended) filters.isRecommended = { $eq: true };
 
+  const keepContent = Boolean(options?.full || options?.tag);
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
     filters,
-    ...(options?.full || options?.tag ? articlePopulate : listArticleQuery),
+    ...(keepContent ? articlePopulate : listArticleQuery),
     sort: [...ARTICLE_SORT],
     pagination: { page: options?.page ?? 1, pageSize: options?.pageSize ?? 12 },
     status: 'published',
   });
 
+  let articles = response.data.map((entity) =>
+    mapArticle(entity, { keepContent })
+  );
+
+  if (!keepContent) {
+    articles = await enrichMissingFeaturedImages(articles);
+  }
+
   return {
-    articles: response.data.map(mapArticle),
+    articles,
     pagination: {
       total: response.meta?.pagination?.total ?? 0,
       pageCount: response.meta?.pagination?.pageCount ?? 0,
@@ -324,11 +422,21 @@ export async function getArticlesByCategories(
   });
 
   for (const entity of response.data) {
-    const article = mapArticle(entity);
+    const article = mapArticle(entity, { keepContent: false });
     const slug = article.category?.slug;
     if (!slug || !(slug in byCategory)) continue;
     if (byCategory[slug].length < limitPerCategory) {
       byCategory[slug].push(article);
+    }
+  }
+
+  // Fallback covers pour les listes home (sans content dans la requête principale).
+  const flat = Object.values(byCategory).flat();
+  const enriched = await enrichMissingFeaturedImages(flat);
+  if (enriched !== flat) {
+    const byId = new Map(enriched.map((article) => [article.documentId, article]));
+    for (const slug of uniqueSlugs) {
+      byCategory[slug] = byCategory[slug].map((article) => byId.get(article.documentId) ?? article);
     }
   }
 
@@ -387,7 +495,9 @@ export async function getTopReadArticles(
     status: 'published',
   });
 
-  return response.data.map(mapArticle);
+  return enrichMissingFeaturedImages(
+    response.data.map((entity) => mapArticle(entity, { keepContent: false }))
+  );
 }
 
 export async function getFeaturedArticles(): Promise<Article[]> {
@@ -468,7 +578,7 @@ export const getRelatedArticles = cache(async (
     });
 
     const ranked = taggedResponse.data
-      .map(mapArticle)
+      .map((entity) => mapArticle(entity))
       .map((article) => ({ article, score: scoreSharedTags(article, tagSet) }))
       .filter((row) => row.score > 0)
       .sort((a, b) => b.score - a.score);
@@ -489,7 +599,7 @@ export const getRelatedArticles = cache(async (
         pagination: { page: 1, pageSize: Math.max(pageSize * 3, 12) },
         status: 'published',
       });
-      pushUnique(titleResponse.data.map(mapArticle));
+      pushUnique(titleResponse.data.map((entity) => mapArticle(entity)));
     }
   }
 
@@ -533,7 +643,9 @@ export async function searchArticles(
   });
 
   return {
-    articles: response.data.map(mapArticle),
+    articles: await enrichMissingFeaturedImages(
+      response.data.map((entity) => mapArticle(entity, { keepContent: false }))
+    ),
     pagination: {
       total: response.meta?.pagination?.total ?? 0,
       pageCount: response.meta?.pagination?.pageCount ?? 0,
@@ -683,6 +795,22 @@ export async function incrementArticleViews(
     `/articles/${documentId}/views`,
     undefined,
     { method: 'POST', cache: 'no-store' }
+  );
+  return response.data;
+}
+
+export async function toggleArticleLike(
+  documentId: string,
+  liked: boolean
+): Promise<{ likeCount: number; liked: boolean }> {
+  const response = await fetchAPI<{ data: { likeCount: number; liked: boolean } }>(
+    `/articles/${documentId}/likes`,
+    undefined,
+    {
+      method: 'POST',
+      cache: 'no-store',
+      body: JSON.stringify({ liked }),
+    }
   );
   return response.data;
 }
@@ -860,5 +988,5 @@ export async function getRecentArticlesForNewsSitemap(hours = 48): Promise<Artic
     status: 'published',
   });
 
-  return response.data.map(mapArticle);
+  return response.data.map((entity) => mapArticle(entity, { keepContent: false }));
 }

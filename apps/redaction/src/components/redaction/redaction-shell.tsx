@@ -39,7 +39,8 @@ function getDesktopPageTitle(pathname: string): string {
   if (pathname === '/articles' || pathname.startsWith('/articles/')) return 'Articles';
   if (pathname === '/comments') return 'Commentaires';
   if (pathname === '/stats') return 'Statistiques';
-  if (pathname === '/profil') return 'Profil';
+  if (pathname === '/profil/modifier') return 'Modifier le profil';
+  if (pathname === '/profil' || pathname.startsWith('/profil/')) return 'Profil';
   if (pathname === '/parametres') return 'Paramètres du site';
   if (pathname === '/nouveau') return 'Nouvel article';
   return 'Rédaction';

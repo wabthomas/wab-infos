@@ -1,10 +1,13 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import { ArticleCard } from '@/components/articles/article-card';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { SidebarAd } from '@/components/ads/adsense';
+import { IMAGE_QUALITY_LCP } from '@/lib/image-quality';
 import { getAuthorBySlug, getArticles } from '@/lib/strapi';
 import { generateAuthorMetadata, generatePersonJsonLd } from '@/lib/seo';
+import { getStrapiMediaUrl, shouldBypassNextImageOptimization } from '@/lib/utils';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -47,6 +50,7 @@ export default async function AuthorPage({ params }: PageProps) {
   if (!author) notFound();
 
   const personJsonLd = generatePersonJsonLd(author);
+  const avatarUrl = getStrapiMediaUrl(author.avatar?.url);
 
   let articles: Awaited<ReturnType<typeof getArticles>>['articles'] = [];
   try {
@@ -65,8 +69,23 @@ export default async function AuthorPage({ params }: PageProps) {
       <Breadcrumbs items={[{ name: author.name }]} />
 
       <header className="mb-8 flex flex-col gap-4 border-b border-border pb-8 md:flex-row md:items-center">
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary text-3xl font-black text-primary-foreground">
-          {author.name.charAt(0)}
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-primary">
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={author.name}
+              width={160}
+              height={160}
+              className="h-full w-full object-cover"
+              sizes="80px"
+              quality={IMAGE_QUALITY_LCP}
+              unoptimized={shouldBypassNextImageOptimization(avatarUrl)}
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-3xl font-black text-primary-foreground">
+              {author.name.charAt(0)}
+            </span>
+          )}
         </div>
         <div>
           <h1 className="text-3xl font-bold">{author.name}</h1>

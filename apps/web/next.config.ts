@@ -7,8 +7,6 @@ const monorepoRoot = path.join(appDir, '../..');
 loadEnvConfig(monorepoRoot);
 loadEnvConfig(appDir);
 
-const strapiUrl = process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
-const wpUploadsOrigin = process.env.WP_UPLOADS_ORIGIN || process.env.WP_BASE_URL || 'https://wp.wab-infos.com';
 const isLowMemBuild = process.env.LOW_MEM_BUILD === '1';
 
 const nextConfig: NextConfig = {
@@ -37,10 +35,10 @@ const nextConfig: NextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
   },
   async rewrites() {
-    return [
-      { source: '/uploads/:path*', destination: `${strapiUrl}/uploads/:path*` },
-      { source: '/wp-content/uploads/:path*', destination: `${wpUploadsOrigin.replace(/\/$/, '')}/wp-content/uploads/:path*` },
-    ];
+    // /uploads et /wp-content/uploads : gérés par les route handlers
+    // (apps/web/src/app/uploads|wp-content/...) pour refuser les corps vides
+    // et éviter que Cloudflare fige des 200 vides via un rewrite direct CMS.
+    return [];
   },
   async redirects() {
     return [
@@ -65,8 +63,8 @@ const nextConfig: NextConfig = {
           { key: 'Service-Worker-Allowed', value: '/' },
         ],
       },
-      { source: '/uploads/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }] },
-      { source: '/wp-content/uploads/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }] },
+      { source: '/uploads/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=3600, stale-while-revalidate=86400' }] },
+      { source: '/wp-content/uploads/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=3600, stale-while-revalidate=86400' }] },
       { source: '/og-image', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       {
         source: '/downloads/apk-version.json',

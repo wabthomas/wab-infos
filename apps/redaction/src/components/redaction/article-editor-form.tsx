@@ -152,6 +152,10 @@ function buildSavePayload(
     payload.draftOnly = true;
     payload.publish = false;
     payload.scheduledAt = null;
+    // partialDraft = autosave : ne pas dépublier. Brouillon manuel = retirer du site.
+    if (!options?.partialDraft) {
+      payload.unpublishIfLive = true;
+    }
   }
 
   if (values.tagNames.length) payload.tagNames = values.tagNames;
@@ -196,6 +200,13 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const [editor, setEditor] = useState<Editor | null>(null);
   const [activeDocumentId, setActiveDocumentId] = useState(documentId);
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  /** Article encore servi sur le site public (version published Strapi). */
+  const [articleIsLive, setArticleIsLive] = useState(
+    Boolean(initial?.publishedAt) &&
+      (initial?.articleStatus === 'published' || initial?.articleStatus === undefined)
+  );
+  const articleIsLiveRef = useRef(articleIsLive);
+  articleIsLiveRef.current = articleIsLive;
   const [values, setValues] = useState<ArticleEditorValues>({
     title: initial?.title ?? '',
     excerpt: initial?.excerpt ?? '',
@@ -289,7 +300,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [error]);
+  }, [error, articleIsLive]);
 
   useEffect(() => {
     setActiveDocumentId(documentId);
@@ -373,7 +384,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       keepalive?: boolean;
       silent?: boolean;
       manual?: boolean;
-    }): Promise<string | null> => {
+    }): Promise<{ documentId: string; unpublished: boolean } | null> => {
       if (saving && !options?.manual) {
         return null;
       }
@@ -384,36 +395,98 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         return null;
       }
 
+      const forceUnpublish = Boolean(options?.manual && articleIsLiveRef.current);
       const snapshot = createSnapshot(values, scheduledAt);
-      if (snapshot === lastSavedSnapshot.current) return activeDocumentId ?? null;
+      const snapshotUnchanged = snapshot === lastSavedSnapshot.current;
+
+      // Autosave : rien à faire si contenu identique.
+      // Brouillon manuel sur article live : toujours appeler l’API pour dépublier.
+      if (snapshotUnchanged && !forceUnpublish) {
+        return activeDocumentId ? { documentId: activeDocumentId, unpublished: false } : null;
+      }
 
       const payload = buildSavePayload(values, scheduledAt, 'draft', {
-        partialDraft: true,
+        partialDraft: !options?.manual,
         defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
       });
-      if (!payload) return null;
+
+      // Contenu insuffisant mais article live + abandon/brouillon manuel → dépublier quand même.
+      if (!payload) {
+        if (forceUnpublish && activeDocumentId) {
+          return enqueueSave(async () => {
+            const res = await fetch(`/api/redaction/articles/${activeDocumentId}/publication`, {
+              method: 'POST',
+              headers: JSON_HEADERS,
+              body: JSON.stringify({ publish: false }),
+            });
+            const data = (await res.json()) as { error?: string };
+            if (!res.ok) throw new Error(data.error ?? 'Dépublication impossible');
+            setArticleIsLive(false);
+            articleIsLiveRef.current = false;
+            return { documentId: activeDocumentId, unpublished: true };
+          });
+        }
+        return null;
+      }
+
+      if (forceUnpublish) {
+        payload.unpublishIfLive = true;
+        payload.draftOnly = true;
+        payload.publish = false;
+      }
 
       if (options?.keepalive) {
+        // Keepalive = autosave d’urgence : ne jamais dépublier.
+        const keepalivePayload = buildSavePayload(values, scheduledAt, 'draft', {
+          partialDraft: true,
+          defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
+        });
+        if (!keepalivePayload) return null;
         const id = activeDocumentId;
         const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
         void fetch(url, {
           method: id ? 'PUT' : 'POST',
           headers: DRAFT_SAVE_HEADERS,
-          body: JSON.stringify(payload),
+          body: JSON.stringify(keepalivePayload),
           keepalive: true,
         });
-        return id ?? null;
+        return id ? { documentId: id, unpublished: false } : null;
       }
 
       return enqueueSave(async () => {
-        const snapshot = createSnapshot(values, scheduledAt);
-        if (snapshot === lastSavedSnapshot.current) return activeDocumentId ?? null;
+        const currentSnapshot = createSnapshot(values, scheduledAt);
+        const stillForceUnpublish = Boolean(options?.manual && articleIsLiveRef.current);
+        if (currentSnapshot === lastSavedSnapshot.current && !stillForceUnpublish) {
+          return activeDocumentId
+            ? { documentId: activeDocumentId, unpublished: false }
+            : null;
+        }
 
         const currentPayload = buildSavePayload(values, scheduledAt, 'draft', {
-          partialDraft: true,
+          partialDraft: !options?.manual,
           defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
         });
-        if (!currentPayload) return null;
+        if (!currentPayload) {
+          if (stillForceUnpublish && activeDocumentId) {
+            const res = await fetch(`/api/redaction/articles/${activeDocumentId}/publication`, {
+              method: 'POST',
+              headers: JSON_HEADERS,
+              body: JSON.stringify({ publish: false }),
+            });
+            const data = (await res.json()) as { error?: string };
+            if (!res.ok) throw new Error(data.error ?? 'Dépublication impossible');
+            setArticleIsLive(false);
+            articleIsLiveRef.current = false;
+            return { documentId: activeDocumentId, unpublished: true };
+          }
+          return null;
+        }
+
+        if (stillForceUnpublish) {
+          currentPayload.unpublishIfLive = true;
+          currentPayload.draftOnly = true;
+          currentPayload.publish = false;
+        }
 
         autosaveInFlight.current = true;
         if (!options?.silent) setAutosaveStatus('saving');
@@ -423,16 +496,36 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           const url = id ? `/api/redaction/articles/${id}` : '/api/redaction/articles';
           const res = await fetch(url, {
             method: id ? 'PUT' : 'POST',
-            headers: DRAFT_SAVE_HEADERS,
+            headers: options?.manual ? JSON_HEADERS : DRAFT_SAVE_HEADERS,
             body: JSON.stringify(currentPayload),
           });
-          const data = (await res.json()) as { article?: { documentId: string }; error?: string };
+          const data = (await res.json()) as {
+            article?: {
+              documentId: string;
+              publishedAt?: string;
+              status?: string;
+            };
+            error?: string;
+          };
           if (!res.ok || !data.article?.documentId) {
             throw new Error(data.error ?? 'Sauvegarde impossible');
           }
 
           const savedId = data.article.documentId;
-          lastSavedSnapshot.current = snapshot;
+          const unpublished =
+            stillForceUnpublish ||
+            (articleIsLiveRef.current &&
+              !data.article.publishedAt &&
+              data.article.status !== 'published');
+
+          if (unpublished || !data.article.publishedAt) {
+            if (stillForceUnpublish || options?.manual) {
+              setArticleIsLive(false);
+              articleIsLiveRef.current = false;
+            }
+          }
+
+          lastSavedSnapshot.current = currentSnapshot;
           clearArticleDraft(id);
           clearArticleDraft(savedId);
 
@@ -447,10 +540,11 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             window.setTimeout(() => setAutosaveStatus('idle'), 3000);
           }
 
-          return savedId;
+          return { documentId: savedId, unpublished: Boolean(unpublished && stillForceUnpublish) };
         } catch (err) {
           if (!options?.silent) setAutosaveStatus('error');
-          if (!options?.silent && options?.manual) {
+          // Les actions manuelles (brouillon / abandon) doivent remonter l’erreur.
+          if (options?.manual) {
             throw err;
           }
           return null;
@@ -459,7 +553,16 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         }
       });
     },
-    [activeDocumentId, categories, enqueueSave, primaryCategoryId, saving, scheduledAt, values, waitForPendingSaves]
+    [
+      activeDocumentId,
+      categories,
+      enqueueSave,
+      primaryCategoryId,
+      saving,
+      scheduledAt,
+      values,
+      waitForPendingSaves,
+    ]
   );
 
   const performAutosave = useCallback(async () => {
@@ -505,13 +608,21 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   }, [activeDocumentId, persistDraft, scheduledAt, values]);
 
   async function handleBack() {
-    await persistDraft({ silent: true });
+    await waitForPendingSaves();
+    try {
+      await persistDraft({ silent: true, manual: true });
+    } catch (err) {
+      const message = formatSaveError(err);
+      toast.error('Impossible de quitter', message);
+      return;
+    }
     router.push('/articles');
   }
 
-  const isDraftArticle =
-    !initial?.publishedAt &&
-    (initial?.articleStatus === 'draft' || initial?.articleStatus === undefined);
+  const isDraftArticle = !articleIsLive &&
+    (initial?.articleStatus === 'draft' ||
+      initial?.articleStatus === undefined ||
+      !initial?.publishedAt);
   const canDeleteArticle =
     Boolean(activeDocumentId) && (canDeleteAny || isDraftArticle);
 
@@ -625,14 +736,23 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
 
     if (mode === 'draft') {
       try {
-        const savedId = await persistDraft({ manual: true });
-        if (!savedId) {
-          const message = 'Ajoutez un titre ou du contenu pour enregistrer le brouillon';
+        const wasLive = articleIsLiveRef.current;
+        const result = await persistDraft({ manual: true });
+        if (!result?.documentId) {
+          const message = !values.categoryDocumentIds.length
+            ? 'Choisissez au moins une rubrique pour enregistrer le brouillon'
+            : !values.title.trim() && !stripHtml(values.content)
+              ? 'Ajoutez un titre ou du contenu pour enregistrer le brouillon'
+              : 'Impossible d’enregistrer le brouillon';
           setError(message);
           toast.error('Brouillon incomplet', message);
         } else {
-          toast.success('Brouillon enregistré');
-          onSuccess?.(savedId, mode);
+          toast.success(
+            wasLive || result.unpublished
+              ? 'Brouillon enregistré — article retiré du site'
+              : 'Brouillon enregistré'
+          );
+          onSuccess?.(result.documentId, mode);
         }
       } catch (err) {
         const message = formatSaveError(err);
@@ -689,6 +809,13 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
           ? 'La publication aura lieu à la date choisie.'
           : 'L’article est visible sur le site.'
       );
+      if (mode === 'publish') {
+        setArticleIsLive(true);
+        articleIsLiveRef.current = true;
+      } else if (mode === 'schedule') {
+        setArticleIsLive(false);
+        articleIsLiveRef.current = false;
+      }
       onSuccess?.(savedId, mode);
     } catch (err) {
       const documentId = activeDocumentId;
@@ -807,6 +934,12 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             )}
           </button>
         </div>
+        {articleIsLive ? (
+          <p className="border-t border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-center text-[11px] leading-snug text-amber-900 dark:text-amber-100">
+            En ligne sur le site — tapez <strong>Brouillon</strong> pour le retirer. L’auto-save ne
+            dépublie pas.
+          </p>
+        ) : null}
       </header>
 
       <div

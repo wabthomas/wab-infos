@@ -504,6 +504,7 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     isBreaking: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isRecommended: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    likeCount: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

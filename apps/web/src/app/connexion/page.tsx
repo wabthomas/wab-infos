@@ -1,7 +1,23 @@
-import { redirect } from 'next/navigation';
+import type { Metadata } from 'next';
+import { ReaderLoginForm } from '@/components/account/reader-login-form';
+import { ReaderSurfacePage } from '@/components/account/reader-surface-page';
+import { siteConfig } from '@/config/site';
+import { generateStaticPageMetadata } from '@/lib/seo';
 
-const cmsUrl = process.env.NEXT_PUBLIC_CMS_URL || 'https://cms.app.wab-infos.com';
+export const metadata: Metadata = generateStaticPageMetadata({
+  title: 'Connexion lecteur',
+  description: `Connectez-vous à votre compte lecteur ${siteConfig.name} pour soutenir le média et gérer vos préférences.`,
+  path: '/connexion',
+});
 
 export default function ConnexionPage() {
-  redirect(`${cmsUrl}/admin`);
+  return (
+    <ReaderSurfacePage
+      title="Connexion lecteur"
+      description="Accédez à votre compte lecteur pour soutenir Wab-infos et retrouver vos préférences."
+      breadcrumbs={[{ name: 'Connexion' }]}
+    >
+      <ReaderLoginForm />
+    </ReaderSurfacePage>
+  );
 }

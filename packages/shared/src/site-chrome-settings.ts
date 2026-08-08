@@ -5,6 +5,10 @@ import {
   type SiteBrandingSettings,
 } from './site-branding-settings';
 import {
+  normalizeSiteSupportSettings,
+  type SiteSupportSettings,
+} from './site-support-settings';
+import {
   normalizeTypographySettings,
   type SiteTypographySettings,
 } from './site-typography-settings';
@@ -71,6 +75,8 @@ export interface SiteChromeSettings {
   typography: SiteTypographySettings;
   /** Logo + nom affiché dans l’en-tête / pied de page */
   branding: SiteBrandingSettings;
+  /** Bouton S’abonner + moyens de paiement (soutien lecteur) */
+  support: SiteSupportSettings;
 }
 
 export const DEFAULT_UTILITY_LINKS: SiteNavLink[] = [
@@ -166,6 +172,7 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
   articleUi: normalizeArticleUiSettings(undefined),
   typography: normalizeTypographySettings(undefined),
   branding: normalizeBrandingSettings(undefined),
+  support: normalizeSiteSupportSettings(undefined),
 };
 
 function normalizeNavLink(raw: unknown, fallbackId: string): SiteNavLink | null {
@@ -228,6 +235,7 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
       articleUi: normalizeArticleUiSettings(undefined),
       typography: normalizeTypographySettings(undefined),
       branding: normalizeBrandingSettings(undefined),
+      support: normalizeSiteSupportSettings(undefined),
     };
   }
   const row = raw as Record<string, unknown>;
@@ -278,6 +286,7 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
     articleUi: normalizeArticleUiSettings(row.articleUi),
     typography: normalizeTypographySettings(row.typography),
     branding: normalizeBrandingSettings(row.branding),
+    support: normalizeSiteSupportSettings(row.support),
   };
 }
 

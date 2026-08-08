@@ -506,6 +506,62 @@ body {
   min-height: 420px;
 }
 
+/* Shortcode [dl] — téléchargement / lecture MP3 */
+.prose-article .article-dl {
+  margin: 1.75rem 0;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--primary) 20%);
+  border-radius: 0.85rem;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 7%, transparent), transparent 60%),
+    var(--muted);
+}
+
+.prose-article .article-dl__desc {
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--foreground);
+}
+
+.prose-article .article-dl__player {
+  display: block;
+  width: 100%;
+  margin: 0 0 0.9rem;
+  height: 2.5rem;
+}
+
+.prose-article .article-dl__actions {
+  margin: 0;
+}
+
+.prose-article .article-dl__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.6rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground) !important;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none !important;
+  transition: opacity 0.15s ease;
+}
+
+.prose-article .article-dl__btn:hover {
+  opacity: 0.9;
+}
+
+.prose-article .article-dl__btn::before {
+  content: '↓';
+  font-weight: 700;
+  line-height: 1;
+}
+
 /* Éditeur rédaction (TipTap) */
 .redaction-editor-prose {
   font-size: 1rem;

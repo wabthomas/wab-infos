@@ -20,6 +20,12 @@ export interface ArticleUiSettings {
   sidebarNewsletter: DeviceVisibility;
   /** Widget alertes push */
   sidebarPushAlerts: DeviceVisibility;
+  /** Bouton « J’aime » sur la page article */
+  likeButton: boolean;
+  /** Afficher le nombre de j’aime à côté du bouton */
+  likeCount: boolean;
+  /** Afficher « X min de lecture » dans la méta article */
+  readingTime: boolean;
 }
 
 export const DEFAULT_DEVICE_VISIBLE: DeviceVisibility = {
@@ -35,6 +41,9 @@ export const DEFAULT_ARTICLE_UI: ArticleUiSettings = {
   sidebarTvPromo: { ...DEFAULT_DEVICE_VISIBLE },
   sidebarNewsletter: { ...DEFAULT_DEVICE_VISIBLE },
   sidebarPushAlerts: { ...DEFAULT_DEVICE_VISIBLE },
+  likeButton: true,
+  likeCount: true,
+  readingTime: true,
 };
 
 function normalizeDeviceVisibility(raw: unknown, fallback: DeviceVisibility): DeviceVisibility {
@@ -49,6 +58,7 @@ function normalizeDeviceVisibility(raw: unknown, fallback: DeviceVisibility): De
 export function normalizeArticleUiSettings(raw: unknown): ArticleUiSettings {
   if (!raw || typeof raw !== 'object') {
     return {
+      ...DEFAULT_ARTICLE_UI,
       comments: { ...DEFAULT_DEVICE_VISIBLE },
       sidebarAd: { ...DEFAULT_DEVICE_VISIBLE },
       sidebarLiveFeed: { ...DEFAULT_DEVICE_VISIBLE },
@@ -67,6 +77,9 @@ export function normalizeArticleUiSettings(raw: unknown): ArticleUiSettings {
     sidebarTvPromo: normalizeDeviceVisibility(row.sidebarTvPromo, DEFAULT_DEVICE_VISIBLE),
     sidebarNewsletter: normalizeDeviceVisibility(row.sidebarNewsletter, DEFAULT_DEVICE_VISIBLE),
     sidebarPushAlerts: normalizeDeviceVisibility(row.sidebarPushAlerts, DEFAULT_DEVICE_VISIBLE),
+    likeButton: row.likeButton !== false,
+    likeCount: row.likeCount !== false,
+    readingTime: row.readingTime !== false,
   };
 }
 

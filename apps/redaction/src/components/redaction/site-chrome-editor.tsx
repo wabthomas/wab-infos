@@ -250,9 +250,13 @@ export function SiteChromeEditor({
   const patch = (partial: Partial<SiteChromeSettings>) => onChange({ ...chrome, ...partial });
 
   const headerSummary = useMemo(() => {
+    const supportOn =
+      chrome.support?.headerButtonDesktopEnabled !== false ||
+      chrome.support?.headerButtonMobileEnabled !== false;
     const parts = [
       chrome.headerUtilityBarEnabled ? 'barre utilitaire' : null,
       chrome.headerSearchEnabled ? 'recherche' : null,
+      supportOn ? chrome.support?.headerButtonLabel?.trim() || "S'abonner" : null,
       chrome.headerTvButtonEnabled ? 'TV' : null,
     ].filter(Boolean);
     return parts.length ? parts.join(', ') : 'Minimal';
@@ -394,6 +398,12 @@ export function SiteChromeEditor({
           onChange={(headerAuthLinkEnabled) => patch({ headerAuthLinkEnabled })}
         />
         <p className="text-xs text-muted-foreground">Résumé : {headerSummary}</p>
+
+        <p className="rounded-xl border border-dashed border-border bg-muted/30 px-3 py-3 text-xs leading-relaxed text-muted-foreground">
+          Les moyens de paiement (Mobile Money, carte, crypto) se configurent dans la section{' '}
+          <strong className="text-foreground">Soutenir</strong> des paramètres du site.
+        </p>
+
         <NavLinksEditor
           title="Liens barre utilitaire"
           links={chrome.utilityLinks}

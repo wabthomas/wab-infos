@@ -82,6 +82,10 @@
       "type": "integer",
       "default": 0
     },
+    "likeCount": {
+      "type": "integer",
+      "default": 0
+    },
     "readingTime": {
       "type": "integer",
       "default": 3

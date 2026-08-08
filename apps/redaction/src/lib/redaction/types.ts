@@ -78,6 +78,22 @@ export interface RedactionAuthor {
   documentId: string;
   name: string;
   slug: string;
+  email?: string;
+  bio?: string;
+  role?: string;
+  twitter?: string;
+  avatar?: { id: number; url: string };
+}
+
+export interface EditorAuthorProfilePayload {
+  name?: string;
+  /** Nom d’utilisateur public (@handle) — stocké comme slug auteur */
+  username?: string;
+  bio?: string | null;
+  role?: string | null;
+  twitter?: string | null;
+  /** null = retirer la photo */
+  avatarId?: number | null;
 }
 
 export interface RedactionCategory {
@@ -119,6 +135,8 @@ export interface RedactionStats {
   scheduledCount: number;
   totalViews: number;
   breakingCount: number;
+  /** Abonnés notifications push (lecteurs, site public). */
+  pushSubscriberCount: number;
 }
 
 export interface RedactionComment {
@@ -151,6 +169,11 @@ export interface ArticleEditorPayload {
   scheduledAt?: string | null;
   /** Sauvegarde automatique — ne jamais publier ni planifier */
   draftOnly?: boolean;
+  /**
+   * Brouillon manuel : dépublie l’article s’il est en ligne.
+   * (L’autosave ne doit pas envoyer ce flag — la version publiée reste visible.)
+   */
+  unpublishIfLive?: boolean;
   /** Publication — attribuer à un autre rédacteur (admin uniquement) */
   authorDocumentId?: string | null;
 }

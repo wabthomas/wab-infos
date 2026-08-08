@@ -6,6 +6,7 @@ import {
   Eye,
   EyeOff,
   Globe2,
+  HeartHandshake,
   Home,
   LayoutTemplate,
   Loader2,
@@ -20,7 +21,9 @@ import {
 import {
   DEFAULT_SITE_SETTINGS,
   brandingSummary,
+  getEnabledSupportMethods,
   getVisibleNavLinks,
+  normalizeSiteSupportSettings,
   type DeviceVisibility,
   type SiteSettings,
   type SiteSocialLink,
@@ -36,6 +39,7 @@ import {
   SiteChromeEditor,
   SiteChromeSettingCard,
 } from '@/components/redaction/site-chrome-editor';
+import { SupportSettingsEditor } from '@/components/redaction/support-settings-editor';
 import {
   TypographyEditor,
   typographySummary,
@@ -56,15 +60,25 @@ type SheetKey =
   | 'apk-enabled'
   | 'apk-visible'
   | 'views'
+  | 'likes'
+  | 'reading-time'
   | 'article-layout'
   | 'typography'
   | 'site-chrome'
+  | 'support'
   | 'homepage-sections'
   | 'social-links'
   | 'social-edit'
   | null;
 
-type SettingsSectionId = 'pwa' | 'chrome' | 'homepage' | 'articles' | 'typography' | 'social';
+type SettingsSectionId =
+  | 'pwa'
+  | 'chrome'
+  | 'homepage'
+  | 'articles'
+  | 'support'
+  | 'typography'
+  | 'social';
 
 const DESKTOP_SECTIONS: {
   id: SettingsSectionId;
@@ -95,6 +109,12 @@ const DESKTOP_SECTIONS: {
     label: 'Articles',
     description: 'Affichage public',
     icon: Eye,
+  },
+  {
+    id: 'support',
+    label: 'Soutenir',
+    description: 'S’abonner & paiements',
+    icon: HeartHandshake,
   },
   {
     id: 'typography',
@@ -600,10 +620,31 @@ function DesktopSectionNav({
     homepage: `${activeHomeSections} section${activeHomeSections > 1 ? 's' : ''} active${activeHomeSections > 1 ? 's' : ''}`,
     articles: [
       boolSummary(settings.showArticleViewCounts, 'Vues affichées', 'Vues masquées'),
+      boolSummary(settings.chrome.articleUi.likeButton, 'J’aime on', 'J’aime off'),
+      boolSummary(
+        settings.chrome.articleUi.readingTime !== false,
+        'Lecture on',
+        'Lecture off'
+      ),
       settings.chrome.articleUi.comments.desktop || settings.chrome.articleUi.comments.mobile
         ? 'Commentaires OK'
         : 'Commentaires off',
     ].join(' · '),
+    support: (() => {
+      const support = normalizeSiteSupportSettings(settings.chrome.support);
+      const enabled = getEnabledSupportMethods(support).length;
+      const devices = [
+        support.headerButtonDesktopEnabled ? 'desktop' : null,
+        support.headerButtonMobileEnabled ? 'mobile' : null,
+      ].filter(Boolean);
+      return [
+        devices.length
+          ? `${support.headerButtonLabel || "S'abonner"} (${devices.join('+')})`
+          : 'Bouton off',
+        `${enabled} moyen${enabled > 1 ? 's' : ''} actif${enabled > 1 ? 's' : ''}`,
+        `min. ${support.minAmountUsd}$`,
+      ].join(' · ');
+    })(),
     typography: typographySummary(
       settings.chrome.typography ?? DEFAULT_SITE_SETTINGS.chrome.typography
     ),
@@ -752,6 +793,51 @@ function DesktopSettingsPanel({
             }
           />
 
+          <CompactToggleRow
+            label="Bouton J’aime"
+            description="Permet aux lecteurs d’aimer un article sur le site public."
+            checked={settings.chrome.articleUi.likeButton}
+            onChange={(likeButton) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, likeButton },
+                },
+              }))
+            }
+          />
+
+          <CompactToggleRow
+            label="Nombre de J’aime"
+            description="Affiche le compteur à côté du bouton (désactivé si le bouton est masqué)."
+            checked={settings.chrome.articleUi.likeCount}
+            onChange={(likeCount) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, likeCount },
+                },
+              }))
+            }
+          />
+
+          <CompactToggleRow
+            label="Temps de lecture"
+            description="Affiche « X min de lecture » dans la méta de l’article."
+            checked={settings.chrome.articleUi.readingTime !== false}
+            onChange={(readingTime) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, readingTime },
+                },
+              }))
+            }
+          />
+
           <div className="space-y-3">
             <div>
               <h3 className="text-sm font-bold text-foreground">Commentaires</h3>
@@ -809,6 +895,27 @@ function DesktopSettingsPanel({
               />
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {section === 'support' ? (
+        <div className="mx-auto max-w-2xl space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-foreground">Soutenir / S’abonner</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Bouton header, page /soutenir, montant minimum et moyens de paiement (Mobile Money,
+              carte bancaire, crypto).
+            </p>
+          </div>
+          <SupportSettingsEditor
+            support={normalizeSiteSupportSettings(settings.chrome.support)}
+            onChange={(support) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: { ...current.chrome, support },
+              }))
+            }
+          />
         </div>
       ) : null}
 
@@ -1119,11 +1226,57 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             onClick={() => setSheet('views')}
           />
           <SettingCard
+            icon={Eye}
+            label="J’aime"
+            value={[
+              boolSummary(settings.chrome.articleUi.likeButton, 'Bouton on', 'Bouton off'),
+              boolSummary(settings.chrome.articleUi.likeCount, 'Compteur on', 'Compteur off'),
+            ].join(' · ')}
+            description="Bouton et nombre de j’aime sur les articles publics."
+            onClick={() => setSheet('likes')}
+          />
+          <SettingCard
+            icon={Eye}
+            label="Temps de lecture"
+            value={boolSummary(
+              settings.chrome.articleUi.readingTime !== false,
+              'Affiché',
+              'Masqué'
+            )}
+            description="« X min de lecture » dans la méta article."
+            onClick={() => setSheet('reading-time')}
+          />
+          <SettingCard
             icon={LayoutTemplate}
             label="Sidebar & commentaires"
             value="Desktop / Mobile"
             description="Afficher ou masquer les blocs de la page article."
             onClick={() => setSheet('article-layout')}
+          />
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <HeartHandshake className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-bold">Soutenir</h3>
+          </div>
+          <SettingCard
+            icon={HeartHandshake}
+            label="S’abonner & paiements"
+            value={(() => {
+              const support = normalizeSiteSupportSettings(settings.chrome.support);
+              const enabled = getEnabledSupportMethods(support).length;
+              const devices = [
+                support.headerButtonDesktopEnabled ? 'Desktop' : null,
+                support.headerButtonMobileEnabled ? 'Mobile' : null,
+              ].filter(Boolean);
+              return [
+                devices.length > 0 ? devices.join(' + ') : 'Masqué',
+                `${enabled} moyen${enabled > 1 ? 's' : ''}`,
+              ].join(' · ');
+            })()}
+            description="Mobile Money (opérateurs), carte, crypto QR Tether — desktop/mobile."
+            onClick={() => setSheet('support')}
           />
         </section>
 
@@ -1255,6 +1408,69 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
       </BottomSheet>
 
       <BottomSheet
+        open={sheet === 'likes'}
+        onClose={() => setSheet(null)}
+        title="J’aime"
+        description="Contrôle le bouton et le compteur de j’aime sur les articles publics."
+      >
+        <div className="space-y-3 pb-2">
+          <ToggleEditor
+            label="Afficher le bouton J’aime"
+            description="Les lecteurs peuvent aimer un article."
+            checked={settings.chrome.articleUi.likeButton}
+            onChange={(likeButton) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, likeButton },
+                },
+              }))
+            }
+          />
+          <ToggleEditor
+            label="Afficher le nombre de J’aime"
+            description="Montre le compteur à côté du bouton."
+            checked={settings.chrome.articleUi.likeCount}
+            onChange={(likeCount) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, likeCount },
+                },
+              }))
+            }
+          />
+          <p className="pt-1 text-center text-[11px] text-muted-foreground">
+            Enregistrez via le bouton Enregistrer en haut de page.
+          </p>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'reading-time'}
+        onClose={() => setSheet(null)}
+        title="Temps de lecture"
+        description="Affiche ou masque « X min de lecture » dans la méta article."
+      >
+        <ToggleEditor
+          label="Afficher le temps de lecture"
+          description="Visible à côté de la date et des vues sur le site public."
+          checked={settings.chrome.articleUi.readingTime !== false}
+          onChange={(readingTime) =>
+            setSettings((current) => ({
+              ...current,
+              chrome: {
+                ...current.chrome,
+                articleUi: { ...current.chrome.articleUi, readingTime },
+              },
+            }))
+          }
+        />
+      </BottomSheet>
+
+      <BottomSheet
         open={sheet === 'article-layout'}
         onClose={() => setSheet(null)}
         title="Sidebar & commentaires"
@@ -1324,6 +1540,28 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             }
           />
           <p className="pt-2 text-center text-[11px] text-muted-foreground">
+            Enregistrez via le bouton Enregistrer en haut de page.
+          </p>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'support'}
+        onClose={() => setSheet(null)}
+        title="Soutenir / S’abonner"
+        description="Bouton header, page publique et moyens de paiement (Mobile Money, carte, crypto)."
+      >
+        <div className="pb-4">
+          <SupportSettingsEditor
+            support={normalizeSiteSupportSettings(settings.chrome.support)}
+            onChange={(support) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: { ...current.chrome, support },
+              }))
+            }
+          />
+          <p className="pt-3 text-center text-[11px] text-muted-foreground">
             Enregistrez via le bouton Enregistrer en haut de page.
           </p>
         </div>

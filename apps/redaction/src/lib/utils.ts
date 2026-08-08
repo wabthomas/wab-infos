@@ -135,8 +135,21 @@ export function formatArticleContent(content: string): string {
 export function getStrapiMediaUrl(url?: string): string | null {
   if (!url?.trim()) return null;
 
+  const siteOrigin = (process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(
+    /\/$/,
+    ''
+  );
+
+  const toSiteMedia = (path: string) => {
+    // Médias via le site public (proxy /uploads) — plus fiable que redaction.app → cms.app.
+    if (path.startsWith('/uploads/') || path.startsWith('/wp-content/')) {
+      return `${siteOrigin}${path}`;
+    }
+    return path;
+  };
+
   if (url.startsWith('/uploads/') || url.startsWith('/wp-content/')) {
-    return url;
+    return toSiteMedia(url);
   }
 
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -146,7 +159,7 @@ export function getStrapiMediaUrl(url?: string): string | null {
         parsed.pathname.startsWith('/uploads/') ||
         parsed.pathname.startsWith('/wp-content/')
       ) {
-        return `${parsed.pathname}${parsed.search}`;
+        return toSiteMedia(`${parsed.pathname}${parsed.search}`);
       }
     } catch {
       return url;
@@ -154,7 +167,8 @@ export function getStrapiMediaUrl(url?: string): string | null {
     return url;
   }
 
-  return url.startsWith('/') ? url : `/${url}`;
+  const path = url.startsWith('/') ? url : `/${url}`;
+  return toSiteMedia(path);
 }
 
 export function stripHtml(html: string): string {

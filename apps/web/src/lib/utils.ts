@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { StrapiMedia } from '@wab-infos/shared';
+import { expandArticleShortcodes } from '@/lib/article-shortcodes';
 import { optimizeArticleHtmlImages } from '@/lib/optimize-article-images';
 import { normalizeMediaPathForSite, toAbsolutePublicMediaUrl } from '@/lib/og-image-url';
 
@@ -189,6 +190,10 @@ export function formatArticleContent(content: string): string {
       .map((p) => {
         const trimmed = p.trim();
         if (!trimmed) return '';
+        // Ne pas échapper les shortcodes [dl …] : ils sont expansés ensuite.
+        if (/\[dl\s/i.test(trimmed) && !/<[a-z]/i.test(trimmed)) {
+          return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+        }
         const body = escapeHtml(trimmed).replace(/\n/g, '<br>');
         return `<p>${body}</p>`;
       })
@@ -196,7 +201,7 @@ export function formatArticleContent(content: string): string {
       .join('');
   }
 
-  return optimizeArticleHtmlImages(html);
+  return optimizeArticleHtmlImages(expandArticleShortcodes(html));
 }
 
 /**
@@ -206,9 +211,20 @@ export function formatArticleContent(content: string): string {
 export function getStrapiMediaUrl(url?: string): string | null {
   if (!url?.trim()) return null;
   const sitePath = normalizeMediaPathForSite(url);
-  if (sitePath) return sitePath;
+  if (sitePath) return withMediaCacheBust(sitePath);
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return url.startsWith('/') ? url : `/${url}`;
+  return withMediaCacheBust(url.startsWith('/') ? url : `/${url}`);
+}
+
+/** Invalide les HITs CDN à corps vide (Cloudflare) sans purge manuelle. */
+const MEDIA_CACHE_BUST = 'm3';
+
+function withMediaCacheBust(path: string): string {
+  if (!path.startsWith('/uploads/') && !path.startsWith('/wp-content/')) {
+    return path;
+  }
+  if (/[?&]v=/.test(path)) return path;
+  return `${path}${path.includes('?') ? '&' : '?'}v=${MEDIA_CACHE_BUST}`;
 }
 
 /** URL absolue sur wab-infos.com (RSS, e-mail, JSON-LD). */
@@ -251,13 +267,12 @@ export function resolveArticleImageUrl(
   if (!image?.url) return null;
 
   const { formats, url } = image;
-  let src = url;
-
-  if (size === 'hero') {
-    src = formats?.large?.url || url;
-  } else {
-    src = formats?.medium?.url || formats?.large?.url || url;
-  }
+  // Original d’abord pour les cards : les variantes medium_/large_ manquent parfois sur le disque.
+  // Hero : large si dispo, sinon original (ArticleImage retombe sur l’original si 404).
+  const src =
+    size === 'hero'
+      ? formats?.large?.url || formats?.medium?.url || url
+      : url;
 
   return getStrapiMediaUrl(src);
 }

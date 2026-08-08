@@ -9,6 +9,7 @@ import {
   toggleArticleFavorite,
 } from '@/lib/article-favorites';
 import { sharePage } from '@/lib/share';
+import { ArticleLikeButton } from '@/components/articles/article-like-button';
 import { FollowUsSheet } from '@/components/social/follow-us-sheet';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,9 @@ interface MobileArticleBottomBarProps {
   title: string;
   url: string;
   categorySlug: string;
+  initialLikeCount?: number;
+  showLikeButton?: boolean;
+  showLikeCount?: boolean;
 }
 
 export function MobileArticleBottomBar({
@@ -26,6 +30,9 @@ export function MobileArticleBottomBar({
   title,
   url,
   categorySlug,
+  initialLikeCount = 0,
+  showLikeButton = true,
+  showLikeCount = true,
 }: MobileArticleBottomBarProps) {
   const router = useRouter();
   const [isFavorite, setIsFavorite] = useState(false);
@@ -66,6 +73,8 @@ export function MobileArticleBottomBar({
     setIsFavorite(saved);
   }, [documentId, slug, title, url, categorySlug]);
 
+  const columns = showLikeButton ? 5 : 4;
+
   return (
     <>
       <FollowUsSheet open={followOpen} onClose={() => setFollowOpen(false)} />
@@ -74,7 +83,12 @@ export function MobileArticleBottomBar({
         className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_24px_-4px_rgb(0_0_0/0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 md:hidden"
         aria-label="Actions article"
       >
-        <ul className="mx-auto grid h-[3.75rem] max-w-lg grid-cols-4">
+        <ul
+          className={cn(
+            'mx-auto grid h-[3.75rem] max-w-lg',
+            columns === 5 ? 'grid-cols-5' : 'grid-cols-4'
+          )}
+        >
           <li>
             <button
               type="button"
@@ -86,6 +100,17 @@ export function MobileArticleBottomBar({
               <span className="leading-none">Retour</span>
             </button>
           </li>
+
+          {showLikeButton ? (
+            <li>
+              <ArticleLikeButton
+                documentId={documentId}
+                initialCount={initialLikeCount}
+                showCount={showLikeCount}
+                compact
+              />
+            </li>
+          ) : null}
 
           <li>
             <button

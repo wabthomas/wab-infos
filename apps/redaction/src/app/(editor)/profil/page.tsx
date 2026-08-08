@@ -1,7 +1,8 @@
+import Image from 'next/image';
 import Link from 'next/link';
-import { BarChart3, FileText, MessageSquare, PenLine } from 'lucide-react';
+import { BarChart3, FileText, MessageSquare, PenLine, Pencil } from 'lucide-react';
 import { getEditorProfile, getEditorStats, requireRedactionUser } from '@/lib/redaction/strapi-editor';
-import { cn } from '@/lib/utils';
+import { cn, getStrapiMediaUrl } from '@/lib/utils';
 import { ProfileLogoutButton } from '@/components/redaction/profile-logout-button';
 import { ThemeSettings } from '@/components/redaction/theme-settings';
 
@@ -12,6 +13,11 @@ export default async function RedactionProfilePage() {
     getEditorStats(user),
   ]);
 
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '');
+  const avatarSrc = author.avatar?.url
+    ? getStrapiMediaUrl(author.avatar.url) ?? author.avatar.url
+    : null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -20,9 +26,52 @@ export default async function RedactionProfilePage() {
       </div>
 
       <section className="rounded-xl border border-border bg-card p-5">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Journaliste</p>
-        <p className="mt-1 font-display text-xl font-bold">{author.name}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
+        <div className="flex items-center gap-4">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-primary">
+            {avatarSrc ? (
+              <Image
+                src={avatarSrc}
+                alt={author.name}
+                width={128}
+                height={128}
+                className="h-full w-full object-cover"
+                unoptimized
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-2xl font-black text-primary-foreground">
+                {author.name.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-display text-xl font-bold">{author.name}</p>
+            <p className="truncate text-sm font-semibold text-primary">@{author.slug}</p>
+            {author.role ? (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{author.role}</p>
+            ) : null}
+            <p className="mt-1 truncate text-xs text-muted-foreground">{user.email}</p>
+          </div>
+        </div>
+
+        <Link
+          href="/profil/modifier"
+          className={cn(
+            'mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border',
+            'bg-background text-sm font-semibold transition-colors hover:border-primary/40 hover:bg-primary/5'
+          )}
+        >
+          <Pencil className="h-4 w-4 text-primary" />
+          Modifier le profil
+        </Link>
+
+        <a
+          href={`${siteUrl}/auteur/${author.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 block text-center text-xs font-semibold text-primary hover:underline"
+        >
+          Voir ma page publique
+        </a>
       </section>
 
       <section className="grid grid-cols-2 gap-3">

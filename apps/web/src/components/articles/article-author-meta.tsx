@@ -1,15 +1,23 @@
-import Link from 'next/link';
+'use client';
+
 import Image from 'next/image';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { IMAGE_QUALITY_LCP } from '@/lib/image-quality';
 import type { Author } from '@wab-infos/shared';
 import { cn, getStrapiMediaUrl, shouldBypassNextImageOptimization } from '@/lib/utils';
 
+/** Si une variante Strapi (medium_/large_/xlarge_/…) 404, retombe sur le fichier original. */
+function fallbackOriginalMediaSrc(src: string): string | null {
+  const next = src.replace(/\/(thumbnail|x?small|medium|x?large)_/i, '/');
+  return next !== src ? next : null;
+}
+
 function resolveAuthorAvatarUrl(author: Author): string | null {
   const avatar = author.avatar;
   if (!avatar?.url) return null;
-  // Éviter thumbnail/small (flou à l'affichage) — source nette redimensionnée par Next.js
-  const src = avatar.formats?.medium?.url || avatar.formats?.large?.url || avatar.url;
-  return getStrapiMediaUrl(src);
+  // Preférer l’original : les variantes medium_/small_ manquent parfois (404).
+  return getStrapiMediaUrl(avatar.url);
 }
 
 function normalizeXHandle(value: string): string {
@@ -66,6 +74,13 @@ function AuthorAvatar({
   size = 48,
 }: AuthorAvatarProps) {
   const pixelSize = size * 2;
+  const [currentSrc, setCurrentSrc] = useState(avatarUrl);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(avatarUrl);
+    setFailed(false);
+  }, [avatarUrl]);
 
   return (
     <span
@@ -79,16 +94,24 @@ function AuthorAvatar({
       )}
       style={{ width: size, height: size }}
     >
-      {avatarUrl ? (
+      {currentSrc && !failed ? (
         <Image
-          src={avatarUrl}
+          src={currentSrc}
           alt={author.name}
           width={pixelSize}
           height={pixelSize}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           sizes={`${size}px`}
           quality={IMAGE_QUALITY_LCP}
-          unoptimized={shouldBypassNextImageOptimization(avatarUrl)}
+          unoptimized={shouldBypassNextImageOptimization(currentSrc)}
+          onError={() => {
+            const fallback = currentSrc ? fallbackOriginalMediaSrc(currentSrc) : null;
+            if (fallback) {
+              setCurrentSrc(fallback);
+              return;
+            }
+            setFailed(true);
+          }}
         />
       ) : (
         <span className="flex h-full w-full items-center justify-center bg-primary text-sm font-bold text-primary-foreground">

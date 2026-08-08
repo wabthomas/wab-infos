@@ -5,6 +5,7 @@ import qs from 'qs';
 import { getStrapiUrl, REDACTION_COOKIE } from '@/lib/redaction/config';
 import type {
   ArticleEditorPayload,
+  EditorAuthorProfilePayload,
   FcmSubscriptionPayload,
   ListEditorArticlesOptions,
   ListEditorArticlesResult,
@@ -20,6 +21,7 @@ import { calculateReadingTime, generateSeoDescription, generateSeoTitle, slugify
 import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
 import { computeMediaContentHash } from '@/lib/redaction/media-fingerprint';
 import { DuplicateMediaError } from '@/lib/redaction/duplicate-media-error';
+import { triggerSiteArticleRevalidation } from '@/lib/redaction/trigger-site-revalidation';
 
 export { isLiveRedactionArticle };
 
@@ -448,19 +450,34 @@ function mapArticle(entity: StrapiEntity): RedactionArticle {
   };
 }
 
+function mapAuthorEntity(entity: StrapiEntity): RedactionAuthor {
+  const avatar = entity.avatar as StrapiEntity | null | undefined;
+  return {
+    documentId: entity.documentId,
+    name: entity.name as string,
+    slug: entity.slug as string,
+    email: (entity.email as string | undefined) || undefined,
+    bio: (entity.bio as string | undefined) || undefined,
+    role: (entity.role as string | undefined) || undefined,
+    twitter: (entity.twitter as string | undefined) || undefined,
+    avatar: avatar?.url
+      ? {
+          id: avatar.id,
+          url: avatar.url as string,
+        }
+      : undefined,
+  };
+}
+
 const resolveAuthorForUser = cache(async (user: RedactionUser): Promise<RedactionAuthor> => {
   const response = await strapiFetch<{ data: StrapiEntity[] }>('/authors', {
     filters: { email: { $eqi: user.email } },
+    populate: { avatar: true },
     pagination: { pageSize: 1 },
   });
 
   if (response.data[0]) {
-    const a = response.data[0];
-    return {
-      documentId: a.documentId,
-      name: a.name as string,
-      slug: a.slug as string,
-    };
+    return mapAuthorEntity(response.data[0]);
   }
 
   const slug = user.username
@@ -469,7 +486,9 @@ const resolveAuthorForUser = cache(async (user: RedactionUser): Promise<Redactio
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 
-  const created = await strapiFetch<{ data: StrapiEntity }>('/authors', undefined, {
+  const created = await strapiFetch<{ data: StrapiEntity }>('/authors', {
+    populate: { avatar: true },
+  }, {
     method: 'POST',
     body: JSON.stringify({
       data: {
@@ -481,12 +500,124 @@ const resolveAuthorForUser = cache(async (user: RedactionUser): Promise<Redactio
     }),
   });
 
-  return {
-    documentId: created.data.documentId,
-    name: created.data.name as string,
-    slug: created.data.slug as string,
-  };
+  return mapAuthorEntity(created.data);
 });
+
+function normalizeAuthorUsername(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^@+/, '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[-_]+|[-_]+$/g, '')
+    .slice(0, 60);
+}
+
+/** Met à jour le profil public du rédacteur (nom, @username, bio, photo, X…). */
+export async function updateEditorAuthorProfile(
+  user: RedactionUser,
+  payload: EditorAuthorProfilePayload
+): Promise<RedactionAuthor> {
+  const author = await resolveAuthorForUser(user);
+  const data: Record<string, unknown> = {};
+
+  if (payload.name !== undefined) {
+    const name = payload.name.trim();
+    if (!name) {
+      throw new RedactionAuthError('Le nom affiché est requis');
+    }
+    if (name.length > 120) {
+      throw new RedactionAuthError('Nom trop long (120 caractères max)');
+    }
+    data.name = name;
+  }
+
+  if (payload.username !== undefined) {
+    const username = normalizeAuthorUsername(payload.username);
+    if (!username || username.length < 2) {
+      throw new RedactionAuthError('Nom d’utilisateur invalide (2 caractères min.)');
+    }
+    if (!/^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$/.test(username)) {
+      throw new RedactionAuthError('Nom d’utilisateur : lettres, chiffres, _ ou -');
+    }
+    if (username !== author.slug) {
+      const existing = await strapiFetch<{ data: StrapiEntity[] }>('/authors', {
+        filters: {
+          slug: { $eqi: username },
+          documentId: { $ne: author.documentId },
+        },
+        pagination: { pageSize: 1 },
+      });
+      if (existing.data[0]) {
+        throw new RedactionAuthError('Ce nom d’utilisateur est déjà pris');
+      }
+      data.slug = username;
+    }
+  }
+
+  if (payload.bio !== undefined) {
+    const bio = payload.bio?.trim() || null;
+    if (bio && bio.length > 2000) {
+      throw new RedactionAuthError('Bio trop longue (2000 caractères max)');
+    }
+    data.bio = bio;
+  }
+
+  if (payload.role !== undefined) {
+    const role = payload.role?.trim() || null;
+    if (role && role.length > 80) {
+      throw new RedactionAuthError('Fonction trop longue (80 caractères max)');
+    }
+    data.role = role;
+  }
+
+  if (payload.twitter !== undefined) {
+    let twitter = payload.twitter?.trim() || null;
+    if (twitter) {
+      twitter = twitter.replace(/^@+/, '');
+      if (/^https?:\/\//i.test(twitter)) {
+        try {
+          const parsed = new URL(twitter);
+          const handle = parsed.pathname.split('/').filter(Boolean)[0] ?? '';
+          twitter = handle.replace(/^@+/, '') || twitter;
+        } catch {
+          // garder tel quel
+        }
+      }
+      if (twitter.length > 100) {
+        throw new RedactionAuthError('Identifiant X trop long');
+      }
+    }
+    data.twitter = twitter;
+  }
+
+  if (payload.avatarId !== undefined) {
+    data.avatar = payload.avatarId;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return author;
+  }
+
+  // Conserver l’e-mail de compte lié (ne pas le modifier depuis le formulaire).
+  if (!author.email && user.email) {
+    data.email = user.email;
+  }
+
+  const response = await strapiFetch<{ data: StrapiEntity }>(
+    `/authors/${author.documentId}`,
+    { populate: { avatar: true } },
+    {
+      method: 'PUT',
+      body: JSON.stringify({ data }),
+    }
+  );
+
+  return mapAuthorEntity(response.data);
+}
 
 export const getEditorProfile = cache(async function getEditorProfile(user: RedactionUser): Promise<{
   user: RedactionUser;
@@ -1026,35 +1157,119 @@ export async function listEditorArticles(
   );
 }
 
+async function fetchEditorArticleVersion(
+  documentId: string,
+  publicationStatus: 'draft' | 'published'
+): Promise<StrapiEntity | null> {
+  try {
+    const response = await strapiFetch<{ data: StrapiEntity }>(`/articles/${documentId}`, {
+      populate: {
+        category: true,
+        secondaryCategories: true,
+        tags: true,
+        featuredImage: true,
+        author: true,
+      },
+      status: publicationStatus,
+    });
+    return response.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Charge l’article pour l’éditeur : contenu draft en priorité (autosave / brouillon),
+ * tout en conservant publishedAt de la version live si elle existe encore.
+ */
 export async function getEditorArticle(
   user: RedactionUser,
   documentId: string
 ): Promise<RedactionArticle | null> {
   const author = await resolveAuthorForUser(user);
 
-  for (const publicationStatus of ['published', 'draft'] as const) {
+  const [draftEntity, publishedEntity] = await Promise.all([
+    fetchEditorArticleVersion(documentId, 'draft'),
+    fetchEditorArticleVersion(documentId, 'published'),
+  ]);
+
+  const entity = draftEntity ?? publishedEntity;
+  if (!entity) return null;
+
+  const articleAuthor = entity.author as StrapiEntity | undefined;
+  if (
+    !isRedactionSuperAdmin(user) &&
+    articleAuthor?.documentId !== author.documentId
+  ) {
+    throw new RedactionAuthError('Accès refusé à cet article');
+  }
+
+  const article = mapArticle(entity);
+
+  // Version draft sans publishedAt alors qu’une version live existe encore
+  if (!article.publishedAt && publishedEntity) {
+    const live = mapArticle(publishedEntity);
+    return {
+      ...article,
+      publishedAt: live.publishedAt,
+      wpPublishedAt: article.wpPublishedAt ?? live.wpPublishedAt,
+      // Conservé pour détecter « encore en ligne » ; le contenu affiché reste le draft.
+      status: article.status === 'scheduled' ? 'scheduled' : 'published',
+    };
+  }
+
+  return article;
+}
+
+async function unpublishArticleDocument(
+  documentId: string,
+  meta?: { slug?: string | null; categorySlug?: string | null }
+): Promise<boolean> {
+  let unpublished = false;
+
+  // 1) Endpoint CMS dédié (évite le WAF LiteSpeed sur « unpublish »).
+  try {
+    const force = await strapiFetch<{
+      data?: { stillLive?: boolean; deletedPublished?: number; documentUnpublished?: boolean };
+    }>(`/articles/${documentId}/retire-public`, undefined, { method: 'PUT' });
+    if (force?.data && force.data.stillLive !== true) {
+      unpublished = true;
+    }
+  } catch (err) {
+    console.error('[unpublish] retire-public indisponible', err);
+  }
+
+  if (!unpublished) {
     try {
-      const response = await strapiFetch<{ data: StrapiEntity }>(`/articles/${documentId}`, {
-        populate: { category: true, secondaryCategories: true, tags: true, featuredImage: true, author: true },
-        status: publicationStatus,
-      });
-
-      const articleAuthor = response.data.author as StrapiEntity | undefined;
-      if (
-        !isRedactionSuperAdmin(user) &&
-        articleAuthor?.documentId !== author.documentId
-      ) {
-        throw new RedactionAuthError('Accès refusé à cet article');
+      const force = await strapiFetch<{
+        data?: { stillLive?: boolean };
+      }>(`/articles/${documentId}/to-draft`, undefined, { method: 'POST' });
+      if (force?.data && force.data.stillLive !== true) {
+        unpublished = true;
       }
-
-      return mapArticle(response.data);
     } catch (err) {
-      if (err instanceof RedactionAuthError) throw err;
-      // essayer l'autre version (draft / published)
+      console.error('[unpublish] to-draft indisponible', err);
     }
   }
 
-  return null;
+  // Vérification finale : plus aucune version avec publishedAt.
+  const stillPublished = await fetchEditorArticleVersion(documentId, 'published');
+  const stillLive = Boolean(stillPublished?.publishedAt);
+  if (stillLive) {
+    console.error(
+      '[unpublish] version published encore présente après tentatives',
+      documentId
+    );
+  } else {
+    unpublished = true;
+  }
+
+  await triggerSiteArticleRevalidation({
+    slug: meta?.slug,
+    categorySlug: meta?.categorySlug,
+  });
+
+  return unpublished && !stillLive;
 }
 
 const TAG_STOP_WORDS = new Set([
@@ -1149,7 +1364,8 @@ export function applyDraftSaveHeader(
   request: Request
 ): Partial<ArticleEditorPayload> {
   if (request.headers.get('x-redaction-draft') !== '1') return payload;
-  return { ...payload, draftOnly: true, publish: false };
+  // Autosave : jamais de dépublication.
+  return { ...payload, draftOnly: true, publish: false, unpublishIfLive: false };
 }
 
 function isFutureSchedule(payload: Partial<ArticleEditorPayload>): boolean {
@@ -1298,26 +1514,21 @@ export async function listRedactionAuthors(user: RedactionUser): Promise<Redacti
 
   const response = await strapiFetch<{ data: StrapiEntity[] }>('/authors', {
     sort: ['name:asc'],
+    populate: { avatar: true },
     pagination: { pageSize: 100 },
   });
 
-  return response.data.map((item) => ({
-    documentId: item.documentId,
-    name: item.name as string,
-    slug: item.slug as string,
-  }));
+  return response.data.map(mapAuthorEntity);
 }
 
 async function resolveAuthorByDocumentId(documentId: string): Promise<RedactionAuthor | null> {
   try {
-    const response = await strapiFetch<{ data: StrapiEntity }>(`/authors/${documentId}`);
+    const response = await strapiFetch<{ data: StrapiEntity }>(`/authors/${documentId}`, {
+      populate: { avatar: true },
+    });
     const entity = response.data;
     if (!entity?.documentId) return null;
-    return {
-      documentId: entity.documentId,
-      name: entity.name as string,
-      slug: entity.slug as string,
-    };
+    return mapAuthorEntity(entity);
   } catch {
     return null;
   }
@@ -1387,14 +1598,35 @@ export async function createEditorArticle(
   const endpoint =
     saveMode.strapiStatus === 'published' ? '/articles?status=published' : '/articles';
 
+  const data = buildArticleData(normalized, author, slug, saveMode, tagIds);
+  // Première publication : figer la date de classement (évite qu’une re-édition remonte l’article).
+  if (saveMode.strapiStatus === 'published') {
+    const now = new Date().toISOString();
+    data.publishedAt = now;
+    data.wpPublishedAt = now;
+  }
+
   const response = await strapiFetch<{ data: StrapiEntity }>(endpoint, undefined, {
     method: 'POST',
-    body: JSON.stringify({
-      data: buildArticleData(normalized, author, slug, saveMode, tagIds),
-    }),
+    body: JSON.stringify({ data }),
   });
 
   return mapArticle(response.data);
+}
+
+function stablePublicationDates(existing: RedactionArticle): {
+  publishedAt?: string;
+  wpPublishedAt?: string;
+} {
+  const stable =
+    existing.wpPublishedAt?.trim() ||
+    existing.publishedAt?.trim() ||
+    undefined;
+  if (!stable) return {};
+  return {
+    publishedAt: stable,
+    wpPublishedAt: existing.wpPublishedAt?.trim() || stable,
+  };
 }
 
 export async function updateEditorArticle(
@@ -1407,13 +1639,48 @@ export async function updateEditorArticle(
   if (!existing) throw new RedactionAuthError('Article introuvable');
 
   const isDraftOnly = Boolean(normalized.draftOnly);
-  const saveMode = isDraftOnly ? null : resolveArticleSaveMode(normalized);
+  const wasLive = isLiveRedactionArticle(existing);
+
+  // « Enregistrer brouillon » sur un article en ligne → retirer du site public (best-effort).
+  let didUnpublish = false;
+  if (isDraftOnly && wasLive && normalized.unpublishIfLive === true) {
+    const dates = stablePublicationDates(existing);
+    if (dates.wpPublishedAt && !existing.wpPublishedAt) {
+      try {
+        await strapiFetch(`/articles/${documentId}?status=published`, undefined, {
+          method: 'PUT',
+          body: JSON.stringify({ data: { wpPublishedAt: dates.wpPublishedAt } }),
+        });
+      } catch {
+        // Best-effort : la date stable sera quand même renvoyée à la republication
+      }
+    }
+    try {
+      didUnpublish = await unpublishArticleDocument(documentId, {
+        slug: existing.slug,
+        categorySlug: existing.category?.slug,
+      });
+    } catch (err) {
+      // Ne jamais bloquer l’enregistrement du brouillon à cause de la dépublication.
+      console.error('[updateEditorArticle] unpublish non bloquant', err);
+      didUnpublish = false;
+    }
+  }
+
+  const saveMode = isDraftOnly
+    ? {
+        strapiStatus: 'draft' as const,
+        customStatus: 'draft' as const,
+        scheduledAt: null,
+      }
+    : resolveArticleSaveMode(normalized);
   const author = await resolveAuthorForArticleSave(user, normalized, saveMode);
-  // Autosave / brouillon : toujours la version draft (?status=published publierait l'article).
+  // Ne jamais écrire sur la version published sauf publication explicite.
   const statusParam: 'draft' | 'published' = isDraftOnly
     ? 'draft'
-    : (saveMode?.strapiStatus ??
-      (isLiveRedactionArticle(existing) ? 'published' : 'draft'));
+    : saveMode?.strapiStatus === 'published'
+      ? 'published'
+      : 'draft';
 
   const title = normalized.title?.trim() || existing.title;
   const excerpt = normalized.excerpt?.trim() || existing.excerpt;
@@ -1428,18 +1695,60 @@ export async function updateEditorArticle(
       })
     : undefined;
 
+  const data = buildArticleData(normalized, author, slug, saveMode, tagIds);
+
+  // Première publication : figer publishedAt + wpPublishedAt (tri public = dates).
+  // Republication / édition : conserver la date d’origine (ne pas remonter l’article).
+  if (publishing) {
+    const dates = stablePublicationDates(existing);
+    if (dates.publishedAt) {
+      data.publishedAt = dates.publishedAt;
+      data.wpPublishedAt = dates.wpPublishedAt;
+    } else {
+      const now = new Date().toISOString();
+      data.publishedAt = now;
+      data.wpPublishedAt = now;
+    }
+  }
+
   const response = await strapiFetch<{ data: StrapiEntity }>(
     `/articles/${documentId}?status=${statusParam}`,
     undefined,
     {
       method: 'PUT',
-      body: JSON.stringify({
-        data: buildArticleData(normalized, author, slug, saveMode, tagIds),
-      }),
+      body: JSON.stringify({ data }),
     }
   );
 
-  return mapArticle(response.data);
+  if (!response?.data) {
+    // Repli : relire le draft après écriture.
+    const fallback = await fetchEditorArticleVersion(documentId, 'draft');
+    if (!fallback) {
+      throw new Error('Sauvegarde brouillon : réponse Strapi vide');
+    }
+    const savedFallback = mapArticle(fallback);
+    if (isDraftOnly && wasLive && normalized.unpublishIfLive === true) {
+      return {
+        ...savedFallback,
+        publishedAt: didUnpublish ? undefined : savedFallback.publishedAt,
+        status: savedFallback.status === 'scheduled' ? 'scheduled' : 'draft',
+      };
+    }
+    return savedFallback;
+  }
+
+  const saved = mapArticle(response.data);
+
+  // Après unpublish + PUT draft, renvoyer un article clairement hors ligne.
+  if (isDraftOnly && wasLive && normalized.unpublishIfLive === true) {
+    return {
+      ...saved,
+      publishedAt: didUnpublish ? undefined : saved.publishedAt,
+      status: saved.status === 'scheduled' ? 'scheduled' : 'draft',
+    };
+  }
+
+  return saved;
 }
 
 export async function publishDueScheduledArticles(): Promise<{
@@ -1472,7 +1781,22 @@ export async function publishDueScheduledArticles(): Promise<{
 
     await strapiFetch(`/articles/${article.documentId}?status=published`, undefined, {
       method: 'PUT',
-      body: JSON.stringify({ data: publishData }),
+      body: JSON.stringify({
+        data: {
+          ...publishData,
+          // Première mise en ligne planifiée : dater maintenant. Sinon conserver l’existant.
+          ...(() => {
+            const wp = article.wpPublishedAt as string | undefined;
+            const pub = article.publishedAt as string | undefined;
+            const stable = (typeof wp === 'string' && wp) || (typeof pub === 'string' && pub) || null;
+            if (stable) {
+              return { publishedAt: stable, wpPublishedAt: wp || stable };
+            }
+            const nowIso = new Date().toISOString();
+            return { publishedAt: nowIso, wpPublishedAt: nowIso };
+          })(),
+        },
+      }),
     });
     documentIds.push(article.documentId);
   }
@@ -1481,13 +1805,19 @@ export async function publishDueScheduledArticles(): Promise<{
 }
 
 export function computeEditorStats(articles: RedactionArticle[]): RedactionStats {
+  const published = articles.filter((a) => isLiveRedactionArticle(a));
+  const drafts = articles.filter(
+    (a) => a.status === 'draft' && !isLiveRedactionArticle(a)
+  );
+  const scheduled = articles.filter((a) => a.status === 'scheduled');
   return {
-    totalArticles: articles.length,
-    publishedCount: articles.filter((a) => isLiveRedactionArticle(a)).length,
-    draftCount: articles.filter((a) => a.status === 'draft').length,
-    scheduledCount: articles.filter((a) => a.status === 'scheduled').length,
+    totalArticles: published.length + drafts.length + scheduled.length,
+    publishedCount: published.length,
+    draftCount: drafts.length,
+    scheduledCount: scheduled.length,
     totalViews: articles.reduce((sum, a) => sum + (a.viewCount ?? 0), 0),
     breakingCount: articles.filter((a) => a.isBreaking && isLiveRedactionArticle(a)).length,
+    pushSubscriberCount: 0,
   };
 }
 
@@ -1502,16 +1832,36 @@ export async function getEditorStats(user: RedactionUser): Promise<RedactionStat
   })();
 }
 
+async function countReaderPushSubscriptions(): Promise<number> {
+  try {
+    const response = await strapiFetch<{
+      meta?: { pagination?: { total?: number } };
+    }>('/reader-push-subscriptions', {
+      pagination: { page: 1, pageSize: 1 },
+    });
+    return response.meta?.pagination?.total ?? 0;
+  } catch (err) {
+    console.error('[stats] reader-push-subscriptions', err);
+    return 0;
+  }
+}
+
 async function computeEditorStatsFromStrapi(user: RedactionUser): Promise<RedactionStats> {
   const authorFilter = await buildListAuthorFilter(user);
+  const publishedIdsPromise = fetchPublishedDocumentIds(authorFilter);
   const publishedCountPromise = getStrapiArticleTotal(authorFilter, 'published');
 
-  const [publishedCount, scheduledCount, draftCount, engagement] = await Promise.all([
-    publishedCountPromise,
-    getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'scheduled' } }),
-    getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'draft' } }),
-    publishedCountPromise.then((count) => fetchPublishedEngagementTotals(authorFilter, count)),
-  ]);
+  const [publishedCount, scheduledCount, publishedIds, engagement, pushSubscriberCount] =
+    await Promise.all([
+      publishedCountPromise,
+      getStrapiArticleTotal(authorFilter, 'draft', { status: { $eq: 'scheduled' } }),
+      publishedIdsPromise,
+      publishedCountPromise.then((count) => fetchPublishedEngagementTotals(authorFilter, count)),
+      countReaderPushSubscriptions(),
+    ]);
+
+  // Aligné sur la liste « Brouillons » : exclure les drafts qui ont encore une version live.
+  const draftCount = await countDraftOnlyArticles(authorFilter, publishedIds);
 
   return {
     totalArticles: publishedCount + draftCount + scheduledCount,
@@ -1520,6 +1870,7 @@ async function computeEditorStatsFromStrapi(user: RedactionUser): Promise<Redact
     scheduledCount,
     totalViews: engagement.totalViews,
     breakingCount: engagement.breakingCount,
+    pushSubscriberCount,
   };
 }
 
@@ -1564,11 +1915,25 @@ export async function setEditorArticlePublication(
 
   if (!isLiveRedactionArticle(existing)) return existing;
 
-  await strapiFetch(`/articles/${documentId}/actions/unpublish`, undefined, { method: 'POST' });
+  try {
+    await unpublishArticleDocument(documentId, {
+      slug: existing.slug,
+      categorySlug: existing.category?.slug,
+    });
+  } catch (err) {
+    console.error('[setEditorArticlePublication] unpublish', err);
+    throw new RedactionAuthError(
+      err instanceof Error ? err.message : 'Dépublication impossible'
+    );
+  }
 
   const refreshed = await getEditorArticle(user, documentId);
   if (!refreshed) throw new RedactionAuthError('Article introuvable après dépublication');
-  return refreshed;
+  return {
+    ...refreshed,
+    publishedAt: undefined,
+    status: refreshed.status === 'scheduled' ? 'scheduled' : 'draft',
+  };
 }
 
 export async function listEditorCategories(): Promise<RedactionCategory[]> {

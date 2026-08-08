@@ -20,6 +20,8 @@ interface ArticleViewCounterProps {
   categorySlug: string;
   initialCount: number;
   className?: string;
+  /** Séparateur clair (hero desktop overlay) */
+  onDark?: boolean;
 }
 
 const STORAGE_PREFIX = 'wab-view:';
@@ -30,6 +32,7 @@ export function ArticleViewCounter({
   categorySlug,
   initialCount,
   className,
+  onDark = false,
 }: ArticleViewCounterProps) {
   const [count, setCount] = useState(initialCount);
 
@@ -76,7 +79,7 @@ export function ArticleViewCounter({
 
   return (
     <>
-      <span aria-hidden className="text-muted-foreground/40 md:text-white/40">
+      <span aria-hidden className={onDark ? 'text-white/40' : 'text-muted-foreground/40'}>
         |
       </span>
       <span className={cn('inline-flex items-center gap-1.5', className)}>

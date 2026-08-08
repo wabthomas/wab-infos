@@ -20,16 +20,45 @@ export default {
     }
 
     try {
-      const existing = (await strapi.db.query('api::article.article').findOne({
+      const entries = (await strapi.db.query('api::article.article').findMany({
         where: { documentId },
-        select: ['status', 'publishedAt'],
-      })) as { status?: string; publishedAt?: string | null } | null;
+        select: ['status', 'publishedAt', 'wpPublishedAt'],
+      })) as {
+        status?: string;
+        publishedAt?: string | null;
+        wpPublishedAt?: string | null;
+      }[];
+
+      const publishedRow = entries.find((row) => Boolean(row.publishedAt));
+      const wpRow = entries.find((row) => Boolean(row.wpPublishedAt));
+      const stableDate =
+        wpRow?.wpPublishedAt || publishedRow?.publishedAt || null;
 
       event.state = {
         ...event.state,
-        wasPublished:
-          existing?.status === 'published' && Boolean(existing?.publishedAt),
+        wasPublished: Boolean(publishedRow?.publishedAt),
+        previousPublishedAt: publishedRow?.publishedAt ?? null,
+        previousWpPublishedAt: wpRow?.wpPublishedAt ?? null,
       };
+
+      const data = event.params.data;
+      if (!stableDate) return;
+
+      // Conserver la date d’origine : une re-édition ne doit pas remonter l’article.
+      const incomingRaw = data.publishedAt;
+      if (typeof incomingRaw === 'string' && incomingRaw) {
+        const incomingMs = new Date(incomingRaw).getTime();
+        const stableMs = new Date(stableDate).getTime();
+        if (!Number.isNaN(incomingMs) && !Number.isNaN(stableMs) && incomingMs > stableMs) {
+          data.publishedAt = stableDate;
+        }
+      } else if (data.status === 'published') {
+        data.publishedAt = stableDate;
+      }
+
+      if (!data.wpPublishedAt) {
+        data.wpPublishedAt = wpRow?.wpPublishedAt || stableDate;
+      }
     } catch {
       event.state = { ...event.state, wasPublished: false };
     }
@@ -55,6 +84,11 @@ export default {
     if (isPublishedArticle(event.result)) {
       void triggerRevalidation('article', event.result).catch((err) => {
         console.error('[article] revalidation failed:', err);
+      });
+    } else if (event.state?.wasPublished) {
+      // Dépublication / passage hors ligne : purger le cache ISR du site public.
+      void triggerRevalidation('article', event.result).catch((err) => {
+        console.error('[article] unpublish revalidation failed:', err);
       });
     }
 

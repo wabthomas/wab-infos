@@ -6,6 +6,7 @@ export const allNavCategoryOptions = [
   { slug: 'economie', name: 'Économie' },
   { slug: 'securite', name: 'Sécurité' },
   { slug: 'societe', name: 'Société' },
+  { slug: 'faits-divers', name: 'Faits divers' },
   { slug: 'sports', name: 'Sports' },
   { slug: 'international', name: 'International' },
   { slug: 'technologies', name: 'Technologies' },
