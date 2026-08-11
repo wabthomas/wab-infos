@@ -118,6 +118,12 @@ try {
     }
     'redaction' {
       Write-Host 'Build redaction + pack + upload + extraction + restart...' -ForegroundColor Cyan
+      $prodRedactionUrl = $envVars['REDACTION_PUBLIC_URL']
+      if (-not $prodRedactionUrl) {
+        $prodRedactionUrl = 'https://redaction.app.wab-infos.com'
+      }
+      $env:NEXT_PUBLIC_REDACTION_URL = $prodRedactionUrl
+      Write-Host "Build avec NEXT_PUBLIC_REDACTION_URL=$prodRedactionUrl" -ForegroundColor DarkGray
       if (Test-Path (Join-Path $RepoRoot 'redaction-next-build.tar.gz')) {
         Remove-Item -Force (Join-Path $RepoRoot 'redaction-next-build.tar.gz') -ErrorAction SilentlyContinue
       }
@@ -130,6 +136,8 @@ try {
         throw 'Archive redaction-next-build.tar.gz absente apres le pack.'
       }
       Send-File -SshHost $sshHost -LocalPath $tarPath -RemotePath "$remoteBase/redaction-next-build.tar.gz"
+      Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'apps/redaction/public/sw-redaction.js') -RemotePath "$remoteBase/apps/redaction/public/sw-redaction.js"
+      Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'apps/redaction/public/fcm-background.js') -RemotePath "$remoteBase/apps/redaction/public/fcm-background.js"
       Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && rm -rf apps/redaction/.next && tar -xzf redaction-next-build.tar.gz -C apps/redaction && test -f apps/redaction/.next/BUILD_ID && echo redaction unpack OK"
       Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && bash scripts/noc-npm-install.sh redaction"
       Restart-RemotePassenger -SshHost $sshHost -RemoteBase $remoteBase -AppRelativePath 'apps/redaction'

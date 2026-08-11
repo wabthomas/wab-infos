@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
@@ -156,7 +157,7 @@ function NavCategoriesEditor({
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch('/api/redaction/categories', { cache: 'no-store' });
+        const res = await fetchRedaction('/api/redaction/categories', { cache: 'no-store' });
         const data = (await res.json()) as { categories?: Array<{ slug: string; name: string }> };
         if (res.ok && data.categories?.length) {
           setOptions(

@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 
@@ -7,7 +8,7 @@ export function ProfileLogoutButton() {
   const router = useRouter();
 
   async function logout() {
-    await fetch('/api/redaction/auth/logout', { method: 'POST' });
+    await fetchRedaction('/api/redaction/auth/logout', { method: 'POST' });
     router.replace('/login');
     router.refresh();
   }

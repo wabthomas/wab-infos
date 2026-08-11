@@ -99,7 +99,7 @@ self.addEventListener('notificationclick', (event) => {
 self.FCM_NOTIFICATION_TAG = 'wab-redaction-notification';
 self.FCM_DEFAULT_URL = '/comments';
 try {
-  importScripts('/fcm-background.js');
+  importScripts('fcm-background.js');
 } catch (error) {
   console.error('[sw-redaction] FCM indisponible', error);
 }

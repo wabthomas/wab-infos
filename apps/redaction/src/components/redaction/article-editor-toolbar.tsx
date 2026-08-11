@@ -95,7 +95,9 @@ export interface ArticleEditorToolbarProps {
   onBlocksClick: () => void;
   onHeadingClick: () => void;
   onImageClick: () => void;
+  onImagePointerDown?: () => void;
   onLinkClick: () => void;
+  onLinkPointerDown?: () => void;
   onEmbedClick: () => void;
   className?: string;
 }
@@ -108,7 +110,9 @@ export function ArticleEditorToolbar({
   onBlocksClick,
   onHeadingClick,
   onImageClick,
+  onImagePointerDown,
   onLinkClick,
+  onLinkPointerDown,
   onEmbedClick,
   className,
 }: ArticleEditorToolbarProps) {
@@ -214,16 +218,49 @@ export function ArticleEditorToolbar({
         </Group>
 
         <Group>
-          <Btn label="Lien" active={editor.isActive('link')} onClick={onLinkClick}>
+          <button
+            type="button"
+            aria-label="Lien"
+            aria-pressed={editor.isActive('link')}
+            onPointerDown={(e) => {
+              if (e.button === 0) {
+                e.preventDefault();
+                onLinkPointerDown?.();
+              }
+            }}
+            onClick={onLinkClick}
+            className={cn(
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors',
+              editor.isActive('link')
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-foreground/85 active:bg-muted lg:hover:bg-muted lg:hover:text-foreground'
+            )}
+          >
             <Link2 className="h-[17px] w-[17px]" strokeWidth={2.5} />
-          </Btn>
-          <Btn label="Image" disabled={uploading} onClick={onImageClick}>
+          </button>
+          <button
+            type="button"
+            aria-label="Image"
+            disabled={uploading}
+            onPointerDown={(e) => {
+              if (e.button === 0) {
+                e.preventDefault();
+                onImagePointerDown?.();
+              }
+            }}
+            onClick={onImageClick}
+            className={cn(
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors',
+              'disabled:pointer-events-none disabled:opacity-40',
+              'text-foreground/85 active:bg-muted lg:hover:bg-muted lg:hover:text-foreground'
+            )}
+          >
             {uploading ? (
               <Loader2 className="h-[17px] w-[17px] animate-spin" />
             ) : (
               <ImageIcon className="h-[17px] w-[17px]" strokeWidth={2.5} />
             )}
-          </Btn>
+          </button>
           <Btn label="Vidéo ou réseau social" onClick={onEmbedClick}>
             <Video className="h-[17px] w-[17px]" strokeWidth={2.5} />
           </Btn>

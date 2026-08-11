@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {
   ExternalLink,
   EyeOff,
+  Globe,
   Loader2,
   MoreVertical,
   Pencil,
@@ -21,10 +22,13 @@ interface ArticleListOptionsMenuProps {
   canManagePublication?: boolean;
   showPublish?: boolean;
   showUnpublish?: boolean;
+  showIndex?: boolean;
   deleting?: boolean;
   togglingPublication?: boolean;
+  indexing?: boolean;
   onPublish?: () => void;
   onUnpublish?: () => void;
+  onIndex?: () => void;
   onShare?: () => void;
   onDelete?: () => void;
 }
@@ -38,10 +42,13 @@ export function ArticleListOptionsMenu({
   canManagePublication = false,
   showPublish = false,
   showUnpublish = false,
+  showIndex = false,
   deleting = false,
   togglingPublication = false,
+  indexing = false,
   onPublish,
   onUnpublish,
+  onIndex,
   onShare,
   onDelete,
 }: ArticleListOptionsMenuProps) {
@@ -111,6 +118,21 @@ export function ArticleListOptionsMenu({
                   <EyeOff className="h-4 w-4 shrink-0" />
                 )}
                 Dépublier
+              </button>
+            ) : null}
+            {showIndex && onIndex ? (
+              <button
+                type="button"
+                disabled={indexing}
+                onClick={() => run(onIndex)}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium active:bg-muted disabled:opacity-50"
+              >
+                {indexing ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                ) : (
+                  <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                {indexing ? 'Indexation…' : 'Indexer'}
               </button>
             ) : null}
             {publicUrl ? (

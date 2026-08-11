@@ -70,7 +70,7 @@ export async function sendFcmToToken(
       priority: 'high',
       ttl: 86400,
       notification: {
-        channelId: 'wab_infos_news',
+        channelId: 'wabinfos_notifications',
         sound: 'default',
         defaultSound: true,
         defaultVibrateTimings: true,

@@ -5,6 +5,7 @@ import qs from 'qs';
 import { getStrapiUrl, REDACTION_COOKIE } from '@/lib/redaction/config';
 import type {
   ArticleEditorPayload,
+  ArticleListSort,
   EditorAuthorProfilePayload,
   FcmSubscriptionPayload,
   ListEditorArticlesOptions,
@@ -22,6 +23,7 @@ import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
 import { computeMediaContentHash } from '@/lib/redaction/media-fingerprint';
 import { DuplicateMediaError } from '@/lib/redaction/duplicate-media-error';
 import { triggerSiteArticleRevalidation } from '@/lib/redaction/trigger-site-revalidation';
+import { analyzeArticleSeo, normalizeArticleSeoMeta } from '@wab-infos/shared';
 
 export { isLiveRedactionArticle };
 
@@ -407,11 +409,15 @@ function mapArticle(entity: StrapiEntity): RedactionArticle {
     seoTitle: entity.seoTitle as string | undefined,
     seoDescription: entity.seoDescription as string | undefined,
     canonicalUrl: entity.canonicalUrl as string | undefined,
+    seoMeta: normalizeArticleSeoMeta(entity.seoMeta),
     status: resolveArticleStatus(entity),
     isBreaking: (entity.isBreaking as boolean) ?? false,
     isFeatured: (entity.isFeatured as boolean) ?? false,
     viewCount: (entity.viewCount as number) ?? 0,
     readingTime: (entity.readingTime as number) ?? 3,
+    isImported: Boolean(entity.isImported),
+    sourceName: (entity.sourceName as string | undefined) || undefined,
+    sourceUrl: (entity.sourceUrl as string | undefined) || undefined,
     publishedAt: entity.publishedAt as string | undefined,
     wpPublishedAt: entity.wpPublishedAt as string | undefined,
     scheduledAt: entity.scheduledAt as string | undefined,
@@ -436,6 +442,7 @@ function mapArticle(entity: StrapiEntity): RedactionArticle {
           id: featuredImage.id,
           url: featuredImage.url as string,
           alternativeText: featuredImage.alternativeText as string | undefined,
+          caption: featuredImage.caption as string | undefined,
         }
       : undefined,
     author: (() => {
@@ -702,12 +709,118 @@ function buildArticleSearchFilter(search?: string): Record<string, unknown> {
 
 function mergeArticleListFilters(
   authorFilter: Record<string, unknown>,
-  search?: string
+  search?: string,
+  categoryDocumentId?: string,
+  importedOnly?: boolean
 ): Record<string, unknown> {
+  const parts: Record<string, unknown>[] = [];
+  if (Object.keys(authorFilter).length > 0) parts.push(authorFilter);
   const searchFilter = buildArticleSearchFilter(search);
-  if (Object.keys(searchFilter).length === 0) return authorFilter;
-  if (Object.keys(authorFilter).length === 0) return searchFilter;
-  return { $and: [authorFilter, searchFilter] };
+  if (Object.keys(searchFilter).length > 0) parts.push(searchFilter);
+  if (categoryDocumentId?.trim()) {
+    parts.push({ category: { documentId: { $eq: categoryDocumentId.trim() } } });
+  }
+  if (importedOnly) {
+    parts.push({ isImported: { $eq: true } });
+  }
+  if (parts.length === 0) return {};
+  if (parts.length === 1) return parts[0]!;
+  return { $and: parts };
+}
+
+function computeArticleSeoScore(article: RedactionArticle): number {
+  return analyzeArticleSeo({
+    title: article.title ?? '',
+    excerpt: article.excerpt ?? '',
+    contentHtml: article.content ?? '',
+    slug: article.slug,
+    seoTitle: article.seoTitle ?? '',
+    seoDescription: article.seoDescription ?? '',
+    canonicalUrl: article.canonicalUrl,
+    hasFeaturedImage: Boolean(article.featuredImage?.url),
+    featuredImageAlt: article.featuredImage?.alternativeText,
+    categoryName: article.category?.name,
+    categorySlug: article.category?.slug,
+    tagNames: article.tagNames,
+    seoMeta: normalizeArticleSeoMeta(article.seoMeta),
+  }).score;
+}
+
+function withSeoScores(
+  articles: RedactionArticle[],
+  omitContent: boolean
+): RedactionArticle[] {
+  return articles.map((article) => {
+    const seoScore = computeArticleSeoScore(article);
+    return {
+      ...article,
+      seoScore,
+      content: omitContent ? '' : article.content,
+    };
+  });
+}
+
+function sortEditorArticles(
+  articles: RedactionArticle[],
+  sort: ArticleListSort = 'updatedAt:desc'
+): RedactionArticle[] {
+  const [field, direction] = sort.split(':') as [string, 'asc' | 'desc'];
+  const mul = direction === 'asc' ? 1 : -1;
+
+  return [...articles].sort((a, b) => {
+    let cmp = 0;
+    switch (field) {
+      case 'views':
+        cmp = (a.viewCount ?? 0) - (b.viewCount ?? 0);
+        break;
+      case 'seo':
+        cmp = (a.seoScore ?? 0) - (b.seoScore ?? 0);
+        break;
+      case 'title':
+        cmp = (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' });
+        break;
+      case 'category':
+        cmp = (a.category?.name || 'zzz').localeCompare(b.category?.name || 'zzz', 'fr', {
+          sensitivity: 'base',
+        });
+        break;
+      case 'author':
+        cmp = (a.author?.name || 'zzz').localeCompare(b.author?.name || 'zzz', 'fr', {
+          sensitivity: 'base',
+        });
+        break;
+      case 'publishedAt': {
+        const at = a.publishedAt || a.wpPublishedAt || '';
+        const bt = b.publishedAt || b.wpPublishedAt || '';
+        cmp = new Date(at || 0).getTime() - new Date(bt || 0).getTime();
+        break;
+      }
+      case 'updatedAt':
+      default:
+        cmp = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+        break;
+    }
+    if (cmp !== 0) return cmp * mul;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+}
+
+function strapiSortForList(sort: ArticleListSort | undefined): string[] {
+  switch (sort) {
+    case 'updatedAt:asc':
+      return ['updatedAt:asc'];
+    case 'publishedAt:desc':
+      return ['publishedAt:desc'];
+    case 'views:desc':
+      return ['viewCount:desc'];
+    case 'views:asc':
+      return ['viewCount:asc'];
+    case 'title:asc':
+      return ['title:asc'];
+    case 'updatedAt:desc':
+    default:
+      return ['updatedAt:desc'];
+  }
 }
 
 async function fetchAllArticleEntities(
@@ -1103,58 +1216,102 @@ export async function listEditorArticles(
 ): Promise<ListEditorArticlesResult> {
   const page = Math.max(1, options?.page ?? 1);
   const pageSize = Math.min(50, Math.max(6, options?.pageSize ?? 20));
+  const sort: ArticleListSort = options?.sort ?? 'updatedAt:desc';
+  const omitContent = Boolean(options?.omitContent);
   const authorFilter = await buildListAuthorFilter(user, options?.authorDocumentId);
-  const listFilter = mergeArticleListFilters(authorFilter, options?.search);
+  const listFilter = mergeArticleListFilters(
+    authorFilter,
+    options?.search,
+    options?.categoryDocumentId,
+    options?.importedOnly
+  );
 
-  const populate = options?.omitContent
-    ? { category: true, featuredImage: true, author: true }
-    : {
-        category: true,
-        secondaryCategories: true,
-        tags: true,
-        featuredImage: true,
-        author: true,
-      };
-  const listParams = {
-    populate,
-    sort: ['updatedAt:desc'] as string[],
-    ...(options?.omitContent
-      ? {
-          fields: [
-            'title',
-            'slug',
-            'excerpt',
-            'status',
-            'isBreaking',
-            'isFeatured',
-            'viewCount',
-            'readingTime',
-            'publishedAt',
-            'wpPublishedAt',
-            'scheduledAt',
-            'updatedAt',
-          ],
-        }
-      : {}),
+  const populate = {
+    category: true,
+    featuredImage: true,
+    author: true,
+    tags: true,
+    ...(omitContent
+      ? {}
+      : {
+          secondaryCategories: true,
+        }),
   };
 
-  if (options?.paginate === false) {
+  const listFields = [
+    'title',
+    'slug',
+    'excerpt',
+    'content',
+    'status',
+    'isBreaking',
+    'isFeatured',
+    'isImported',
+    'sourceName',
+    'sourceUrl',
+    'viewCount',
+    'readingTime',
+    'seoTitle',
+    'seoDescription',
+    'canonicalUrl',
+    'seoMeta',
+    'publishedAt',
+    'wpPublishedAt',
+    'scheduledAt',
+    'updatedAt',
+  ];
+
+  const listParams = {
+    populate,
+    sort: strapiSortForList(sort),
+    ...(omitContent ? { fields: listFields } : {}),
+  };
+
+  const useFullMerge =
+    Boolean(options?.categoryDocumentId) ||
+    Boolean(options?.importedOnly) ||
+    sort.startsWith('seo:') ||
+    sort.startsWith('category:') ||
+    sort.startsWith('author:') ||
+    (status === 'all' && sort !== 'updatedAt:desc') ||
+    options?.paginate === false;
+
+  if (options?.paginate === false || useFullMerge) {
     const merged = await mergeEditorArticles(listFilter, listParams, status ?? 'all');
     const filtered = filterArticlesByStatus(merged, status ?? 'all');
-    const total = filtered.length;
+    const scored = withSeoScores(filtered, omitContent);
+    const sorted = sortEditorArticles(scored, sort);
+    const total = sorted.length;
+    if (options?.paginate === false) {
+      return {
+        articles: sorted,
+        pagination: { page: 1, pageSize: total, total, pageCount: 1 },
+      };
+    }
+    const start = (page - 1) * pageSize;
     return {
-      articles: filtered,
-      pagination: { page: 1, pageSize: total, total, pageCount: 1 },
+      articles: sorted.slice(start, start + pageSize),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        pageCount: Math.max(1, Math.ceil(total / pageSize)),
+      },
     };
   }
 
-  return listEditorArticlesPage(
+  const pageResult = await listEditorArticlesPage(
     listFilter,
     listParams,
     status ?? 'all',
     page,
     pageSize
   );
+
+  return {
+    ...pageResult,
+    articles: withSeoScores(pageResult.articles, omitContent),
+  };
 }
 
 async function fetchEditorArticleVersion(
@@ -1487,6 +1644,9 @@ function buildArticleData(
   }
   if (payload.canonicalUrl !== undefined) {
     data.canonicalUrl = payload.canonicalUrl.trim() || null;
+  }
+  if (payload.seoMeta !== undefined) {
+    data.seoMeta = normalizeArticleSeoMeta(payload.seoMeta);
   }
   if (payload.featuredImageId !== undefined) data.featuredImage = payload.featuredImageId;
   if (payload.isBreaking !== undefined) data.isBreaking = payload.isBreaking;
@@ -2079,6 +2239,7 @@ function mapUploadFile(raw: Record<string, unknown>): RedactionMediaItem {
     previewUrl,
     name: (raw.name as string) ?? '',
     alternativeText: raw.alternativeText as string | null | undefined,
+    caption: raw.caption as string | null | undefined,
     mime: (raw.mime as string) ?? '',
     hash: raw.hash as string | undefined,
     createdAt: raw.createdAt as string | undefined,
@@ -2225,7 +2386,7 @@ export async function listEditorMedia(options?: {
       filters,
       sort: ['createdAt:desc'],
       pagination: { page, pageSize, withCount },
-      fields: ['name', 'url', 'formats', 'hash', 'mime', 'alternativeText', 'createdAt'],
+      fields: ['name', 'url', 'formats', 'hash', 'mime', 'alternativeText', 'caption', 'createdAt'],
     },
     { encodeValuesOnly: true }
   );
@@ -2474,6 +2635,26 @@ export async function countPendingComments(): Promise<number> {
     ['redaction-pending-comments'],
     { revalidate: 30, tags: ['redaction-comments'] }
   )();
+}
+
+/** Brouillons importés (agrégation) en attente de validation. */
+export async function countImportedDrafts(user: RedactionUser): Promise<number> {
+  const authorFilter = await buildListAuthorFilter(user);
+  try {
+    const response = await strapiFetch<StrapiListResponse>('/articles', {
+      filters: {
+        ...authorFilter,
+        isImported: { $eq: true },
+        status: { $eq: 'draft' },
+      },
+      pagination: { page: 1, pageSize: 1 },
+      status: 'draft',
+      fields: ['documentId'],
+    });
+    return response.meta?.pagination?.total ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
 export async function moderateEditorComment(

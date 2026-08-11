@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
@@ -42,7 +43,7 @@ export function ProfileEditForm({ initialAuthor, accountEmail }: ProfileEditForm
     twitter: string;
     avatarId: number | null;
   }) {
-    const res = await fetch('/api/redaction/profile', {
+    const res = await fetchRedaction('/api/redaction/profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -75,7 +76,7 @@ export function ProfileEditForm({ initialAuthor, accountEmail }: ProfileEditForm
     try {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch('/api/redaction/upload', { method: 'POST', body: form });
+      const res = await fetchRedaction('/api/redaction/upload', { method: 'POST', body: form });
       const data = await readApiJsonResponse<{
         media?: { id: number; url: string };
         error?: string;

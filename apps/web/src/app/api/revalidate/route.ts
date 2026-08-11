@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
+import { normalizeSiteSeoSettings } from '@wab-infos/shared';
 import { articleIndexNowUrls, notifyIndexNow } from '@/lib/indexnow';
+import {
+  articleGoogleIndexingUrl,
+  notifyGoogleIndexing,
+} from '@/lib/google-indexing';
+import { getSiteSettings } from '@/lib/site-settings.server';
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-revalidation-secret');
@@ -25,7 +31,13 @@ export async function POST(request: NextRequest) {
       revalidatePath(`/${category}/${slug}`);
       revalidatePath(`/${category}`);
       revalidatePath('/');
-      void notifyIndexNow(articleIndexNowUrls(category, slug));
+      const seo = normalizeSiteSeoSettings((await getSiteSettings()).chrome.seo);
+      if (seo.indexNowEnabled !== false) {
+        void notifyIndexNow(articleIndexNowUrls(category, slug));
+      }
+      if (seo.googleIndexingEnabled !== false) {
+        void notifyGoogleIndexing([articleGoogleIndexingUrl(category, slug)]);
+      }
     }
 
     if (type === 'article') {

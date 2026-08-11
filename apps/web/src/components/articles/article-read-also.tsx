@@ -12,12 +12,20 @@ interface ArticleReadAlsoProps {
   article: Article;
   /** Index 0-based pour décaler légèrement l’animation d’entrée. */
   index?: number;
+  /** Afficher la miniature (réglage site). */
+  showThumbnail?: boolean;
 }
 
 /** Encart mid-article — suggestion d’un article similaire. */
-export function ArticleReadAlso({ article, index = 0 }: ArticleReadAlsoProps) {
+export function ArticleReadAlso({
+  article,
+  index = 0,
+  showThumbnail = true,
+}: ArticleReadAlsoProps) {
   const href = getArticlePath(article);
-  const imageUrl = resolveArticleImageUrl(article.featuredImage, 'card');
+  const imageUrl = showThumbnail
+    ? resolveArticleImageUrl(article.featuredImage, 'card')
+    : null;
   const categoryName = article.category?.name;
   const ref = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
@@ -61,7 +69,7 @@ export function ArticleReadAlso({ article, index = 0 }: ArticleReadAlsoProps) {
         className="group relative flex items-stretch gap-0 overflow-hidden rounded-2xl bg-muted/40 ring-1 ring-border/70 transition-[box-shadow,background-color,ring-color] duration-300 hover:bg-muted/70 hover:shadow-md hover:ring-primary/25 dark:bg-muted/25 dark:hover:bg-muted/40"
       >
         {imageUrl ? (
-          <div className="relative w-[5.5rem] shrink-0 self-stretch overflow-hidden sm:w-28">
+          <div className="article-read-also__thumb relative w-[5.5rem] shrink-0 self-stretch overflow-hidden sm:w-28">
             <Image
               src={imageUrl}
               alt=""

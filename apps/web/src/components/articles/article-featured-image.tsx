@@ -13,7 +13,11 @@ interface ArticleFeaturedImageProps {
 export function getFeaturedImageCaption(image?: StrapiMedia): string | null {
   if (!image) return null;
 
-  const caption = image.caption?.trim() || image.alternativeText?.trim();
+  // Image à la une : afficher le texte alternatif (Jetpack), sinon caption média
+  const alt = image.alternativeText?.trim();
+  if (alt) return alt;
+
+  const caption = image.caption?.trim();
   if (!caption) return null;
 
   // Éviter d'afficher un slug technique comme légende (données mock)
@@ -48,9 +52,9 @@ export function ArticleFeaturedImage({
       </div>
 
       {hasCaption && (
-        <figcaption className="mx-auto mt-2.5 max-w-xl border-l-2 border-primary/50 pl-3">
+        <figcaption className="mx-auto mt-3 max-w-xl rounded-xl border border-border/70 bg-muted/35 px-3.5 py-2.5">
           {caption && (
-            <p className="text-sm leading-relaxed text-muted-foreground">{caption}</p>
+            <p className="text-sm leading-relaxed text-foreground/85">{caption}</p>
           )}
           {credit && (
             <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">

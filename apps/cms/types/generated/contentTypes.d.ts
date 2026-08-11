@@ -503,6 +503,7 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     featuredImage: Schema.Attribute.Media<'images'>;
     isBreaking: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isImported: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isRecommended: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     likeCount: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -524,11 +525,17 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 160;
       }>;
+    seoMeta: Schema.Attribute.JSON;
     seoTitle: Schema.Attribute.String &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 70;
       }>;
     slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
+    sourceName: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+      }>;
+    sourceUrl: Schema.Attribute.String & Schema.Attribute.Unique;
     status: Schema.Attribute.Enumeration<
       ['draft', 'published', 'scheduled', 'archived']
     > &

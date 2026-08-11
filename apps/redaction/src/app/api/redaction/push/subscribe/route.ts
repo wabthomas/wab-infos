@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { RedactionAuthError, requireRedactionUser } from '@/lib/redaction/strapi-editor';
-import { savePushSubscription } from '@/lib/redaction/web-push';
+import {
+  listPushSubscriptionsForUser,
+  notifyEditorsByEmail,
+  savePushSubscription,
+} from '@/lib/redaction/web-push';
 
 export async function POST(request: Request) {
   try {
@@ -12,8 +16,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Token FCM invalide' }, { status: 400 });
     }
 
+    const existing = await listPushSubscriptionsForUser(user.email).catch(() => []);
+    const firstDevice = existing.length === 0;
+
     await savePushSubscription(user.email, fcmToken);
-    return NextResponse.json({ ok: true });
+
+    if (firstDevice) {
+      void notifyEditorsByEmail([user.email], {
+        title: 'Félicitations !',
+        body: 'Les notifications sont activées. Vous serez alerté des commentaires, rappels d’écriture et succès de vos articles.',
+        url: '/',
+      }).catch((err) => console.warn('[push/subscribe] welcome failed', err));
+    }
+
+    return NextResponse.json({ ok: true, welcome: firstDevice });
   } catch (err) {
     if (err instanceof RedactionAuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });

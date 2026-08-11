@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Clock } from 'lucide-react';
 import type { Article } from '@wab-infos/shared';
+import { formatReadingTimeLabel } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleCard } from '@/components/articles/article-card';
 import { ArticleImage } from '@/components/ui/article-image';
@@ -65,7 +66,7 @@ function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
           <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
           <span aria-hidden>·</span>
-          <span>{article.readingTime} min</span>
+          <span>{formatReadingTimeLabel(article.readingTime)}</span>
         </div>
       </div>
     </article>

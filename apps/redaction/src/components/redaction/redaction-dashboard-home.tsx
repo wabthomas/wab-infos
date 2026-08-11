@@ -11,6 +11,7 @@ import {
   FileText,
   MessageSquare,
   PenLine,
+  Search,
   Settings,
   Zap,
 } from 'lucide-react';
@@ -284,7 +285,10 @@ export function RedactionDashboardHome({
               )}
               <QuickAction href="/stats" icon={BarChart3} label="Statistiques détaillées" />
               {isSuperAdmin ? (
-                <QuickAction href="/parametres" icon={Settings} label="Paramètres du site" />
+                <>
+                  <QuickAction href="/parametres" icon={Settings} label="Paramètres du site" />
+                  <QuickAction href="/parametres" icon={Search} label="SEO & indexation" />
+                </>
               ) : null}
             </nav>
           </section>

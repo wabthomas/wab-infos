@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { Camera, Copy, FolderOpen, ImagePlus, Loader2, Search, Trash2, Upload, X } from 'lucide-react';
 import type { RedactionMediaItem } from '@/lib/redaction/types';
@@ -148,7 +149,7 @@ export function MediaLibrarySheet({
       if (query) params.set('q', query);
       if (targetPage > 1) params.set('withCount', '0');
 
-      const res = await fetch(`/api/redaction/media?${params}`);
+      const res = await fetchRedaction(`/api/redaction/media?${params}`);
       const data = await readApiJsonResponse<{
         items?: RedactionMediaItem[];
         pageCount?: number;
@@ -228,7 +229,7 @@ export function MediaLibrarySheet({
       const prepared = await compressClientImage(file);
       const form = new FormData();
       form.append('file', prepared);
-      const res = await fetch('/api/redaction/upload', { method: 'POST', body: form });
+      const res = await fetchRedaction('/api/redaction/upload', { method: 'POST', body: form });
       const data = await readApiJsonResponse<{
         media?: { id: number; url: string; name?: string; mime?: string };
         duplicate?: boolean;
@@ -281,7 +282,7 @@ export function MediaLibrarySheet({
     setDeletingId(item.id);
     setError('');
     try {
-      const res = await fetch(`/api/redaction/media/${item.id}`, { method: 'DELETE' });
+      const res = await fetchRedaction(`/api/redaction/media/${item.id}`, { method: 'DELETE' });
       const data = await readApiJsonResponse<{ error?: string }>(res);
       if (!res.ok) throw new Error(data.error ?? 'Suppression impossible');
       cacheRef.current.clear();

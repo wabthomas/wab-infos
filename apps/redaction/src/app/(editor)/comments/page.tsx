@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, Loader2, X } from 'lucide-react';
@@ -19,7 +20,7 @@ export default function RedactionCommentsPage() {
 
   function load() {
     setLoading(true);
-    fetch(`/api/redaction/comments?status=${filter}`)
+    fetchRedaction(`/api/redaction/comments?status=${filter}`)
       .then((r) => r.json())
       .then((d: { comments?: RedactionComment[] }) => setComments(d.comments ?? []))
       .finally(() => setLoading(false));
@@ -32,7 +33,7 @@ export default function RedactionCommentsPage() {
   async function moderate(documentId: string, status: 'approved' | 'rejected') {
     setActing(documentId);
     try {
-      const res = await fetch('/api/redaction/comments', {
+      const res = await fetchRedaction('/api/redaction/comments', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ documentId, status }),

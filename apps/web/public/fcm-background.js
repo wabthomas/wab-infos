@@ -10,13 +10,19 @@ try {
     firebase.messaging().onBackgroundMessage((payload) => {
       const title = payload.data?.title || payload.notification?.title || 'Wab-infos';
       const body = payload.data?.body || payload.notification?.body || '';
-      const url = payload.data?.url || self.FCM_DEFAULT_URL || '/';
+      const url =
+        payload.data?.url ||
+        payload.data?.open_url ||
+        payload.data?.link ||
+        payload.fcmOptions?.link ||
+        self.FCM_DEFAULT_URL ||
+        '/';
 
       return self.registration.showNotification(title, {
         body,
         icon: '/icons/icon-192.png',
         badge: '/icons/icon-192.png',
-        data: { url },
+        data: { url, open_url: url, link: url },
         tag: self.FCM_NOTIFICATION_TAG || 'wab-fcm-notification',
       });
     });

@@ -48,8 +48,9 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get('host')?.split(':')[0]?.toLowerCase() ?? '';
 
-  // Canonique HTTPS apex (complément Cloudflare Always HTTPS / www → apex)
-  if (host === 'www.wab-infos.com') {
+  // Canonique HTTPS apex (complément Cloudflare Always HTTPS / www → apex).
+  // Exception : assetlinks.json — Play et Android refusent toute redirection HTTPS.
+  if (host === 'www.wab-infos.com' && !pathname.startsWith('/.well-known/')) {
     const url = request.nextUrl.clone();
     url.protocol = 'https:';
     url.host = 'wab-infos.com';
@@ -88,5 +89,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icons|uploads|wp-content|api|hard-404).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|icons|uploads|wp-content|api|hard-404|\\.well-known).*)',
+  ],
 };

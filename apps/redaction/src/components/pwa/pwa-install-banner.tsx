@@ -36,7 +36,7 @@ const APK_URL_BY_VARIANT: Record<PwaVariant, string> = {
     `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '')}/downloads/wab-infos.apk`,
   redaction:
     process.env.NEXT_PUBLIC_REDACTION_ANDROID_APK_URL ||
-    `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '')}/downloads/wab-redaction.apk`,
+    `${(process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '')}/downloads/wab-redaction.apk?latest=1`,
 };
 
 function DismissButton({ onClick }: { onClick: () => void }) {

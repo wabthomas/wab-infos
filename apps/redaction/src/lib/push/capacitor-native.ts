@@ -13,25 +13,29 @@ import {
 export type { NativePushResult };
 export { getCapacitorPushPermission, isNativeCapacitorApp, isNativeCapacitorFromUserAgent };
 
-const EDITOR_SUBSCRIBE_PATH = '/api/redaction/push/subscribe';
+import { redactionPublicPath } from '@/lib/redaction/public-path';
+
+function editorSubscribePath(): string {
+  return redactionPublicPath('/api/redaction/push/subscribe');
+}
 
 export async function setupCapacitorPushListeners(): Promise<void> {
   await initCapacitorPush({
-    subscribePath: EDITOR_SUBSCRIBE_PATH,
+    subscribePath: editorSubscribePath(),
     platform: 'android',
   });
 }
 
 export async function subscribeEditorViaCapacitorPush(): Promise<NativePushResult> {
   return subscribeCapacitorPush({
-    subscribePath: EDITOR_SUBSCRIBE_PATH,
+    subscribePath: editorSubscribePath(),
     platform: 'android',
   });
 }
 
 export async function syncEditorCapacitorPushIfGranted(): Promise<boolean> {
   return syncCapacitorPush({
-    subscribePath: EDITOR_SUBSCRIBE_PATH,
+    subscribePath: editorSubscribePath(),
     platform: 'android',
   });
 }

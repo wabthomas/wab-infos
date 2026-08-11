@@ -1,19 +1,49 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Search, X } from 'lucide-react';
-import type { RedactionArticle, RedactionAuthor } from '@/lib/redaction/types';
+import { ArrowUpDown, Search, X } from 'lucide-react';
+import type {
+  ArticleListSort,
+  RedactionArticle,
+  RedactionAuthor,
+  RedactionCategory,
+} from '@/lib/redaction/types';
 import { ArticleListItem } from '@/components/redaction/article-list-item';
 import { cn } from '@/lib/utils';
 
-type Filter = 'all' | 'published' | 'draft' | 'scheduled';
+type Filter = 'all' | 'published' | 'draft' | 'scheduled' | 'imported';
+
+const SORT_OPTIONS: { value: ArticleListSort; label: string }[] = [
+  { value: 'updatedAt:desc', label: 'Plus récents' },
+  { value: 'updatedAt:asc', label: 'Plus anciens' },
+  { value: 'publishedAt:desc', label: 'Date de publication' },
+  { value: 'views:desc', label: 'Vues (haut → bas)' },
+  { value: 'views:asc', label: 'Vues (bas → haut)' },
+  { value: 'seo:desc', label: 'Score SEO (haut → bas)' },
+  { value: 'seo:asc', label: 'Score SEO (bas → haut)' },
+  { value: 'category:asc', label: 'Catégorie (A → Z)' },
+  { value: 'author:asc', label: 'Rédacteur (A → Z)' },
+  { value: 'title:asc', label: 'Titre (A → Z)' },
+];
 
 function parseFilter(value: string | null): Filter {
-  if (value === 'published' || value === 'draft' || value === 'scheduled' || value === 'all') {
+  if (
+    value === 'published' ||
+    value === 'draft' ||
+    value === 'scheduled' ||
+    value === 'all' ||
+    value === 'imported'
+  ) {
     return value;
   }
   return 'published';
+}
+
+function parseSort(value: string | null): ArticleListSort {
+  const match = SORT_OPTIONS.find((option) => option.value === value);
+  return match?.value ?? 'updatedAt:desc';
 }
 
 export function RedactionArticlesList({
@@ -28,6 +58,8 @@ export function RedactionArticlesList({
   const searchParams = useSearchParams();
   const [filter, setFilter] = useState<Filter>(() => parseFilter(searchParams.get('filter')));
   const [authorFilter, setAuthorFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [sort, setSort] = useState<ArticleListSort>(() => parseSort(searchParams.get('sort')));
   const [searchInput, setSearchInput] = useState(() => searchParams.get('q')?.trim() ?? '');
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q')?.trim() ?? '');
   const [articles, setArticles] = useState<RedactionArticle[]>([]);
@@ -39,7 +71,10 @@ export function RedactionArticlesList({
   const [isSuperAdmin, setIsSuperAdmin] = useState(initialIsSuperAdmin ?? false);
   const [canDeleteAny, setCanDeleteAny] = useState(initialCanDeleteAny ?? false);
   const [authors, setAuthors] = useState<RedactionAuthor[]>([]);
+  const [categories, setCategories] = useState<RedactionCategory[]>([]);
   const [showViews, setShowViews] = useState(initialShowViews ?? true);
+  const [draftCount, setDraftCount] = useState(0);
+  const [importedDraftCount, setImportedDraftCount] = useState(0);
   const [profileReady, setProfileReady] = useState(
     initialIsSuperAdmin !== undefined && initialCanDeleteAny !== undefined
   );
@@ -48,6 +83,7 @@ export function RedactionArticlesList({
 
   useEffect(() => {
     setFilter(parseFilter(searchParams.get('filter')));
+    setSort(parseSort(searchParams.get('sort')));
   }, [searchParams]);
 
   useEffect(() => {
@@ -61,9 +97,19 @@ export function RedactionArticlesList({
   }, [searchInput]);
 
   useEffect(() => {
+    void fetchRedaction('/api/redaction/notifications/summary')
+      .then((r) => r.json())
+      .then((data: { draftCount?: number; importedDraftCount?: number }) => {
+        setDraftCount(data.draftCount ?? 0);
+        setImportedDraftCount(data.importedDraftCount ?? 0);
+      })
+      .catch(() => undefined);
+  }, [articles, filter]);
+
+  useEffect(() => {
     if (profileReady) return;
 
-    void fetch('/api/redaction/auth/me')
+    void fetchRedaction('/api/redaction/auth/me')
       .then((r) => r.json())
       .then(
         (data: {
@@ -78,7 +124,7 @@ export function RedactionArticlesList({
       .finally(() => setProfileReady(true));
 
     if (initialShowViews === undefined) {
-      void fetch('/api/redaction/site-settings')
+      void fetchRedaction('/api/redaction/site-settings')
         .then((r) => r.json())
         .then((data: { settings?: { showArticleViewCounts?: boolean } }) => {
           if (data.settings) {
@@ -90,8 +136,15 @@ export function RedactionArticlesList({
   }, [initialShowViews, profileReady]);
 
   useEffect(() => {
+    void fetchRedaction('/api/redaction/categories')
+      .then((r) => r.json())
+      .then((data: { categories?: RedactionCategory[] }) => setCategories(data.categories ?? []))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     if (!isSuperAdmin) return;
-    void fetch('/api/redaction/authors')
+    void fetchRedaction('/api/redaction/authors')
       .then((r) => r.json())
       .then((data: { authors?: RedactionAuthor[] }) => setAuthors(data.authors ?? []))
       .catch(() => undefined);
@@ -106,19 +159,27 @@ export function RedactionArticlesList({
       }
 
       try {
+        const statusParam = filter === 'imported' ? 'all' : filter;
         const params = new URLSearchParams({
-          status: filter,
+          status: statusParam,
           page: String(targetPage),
           pageSize: '6',
+          sort,
         });
+        if (filter === 'imported') {
+          params.set('imported', '1');
+        }
         if (isSuperAdmin && authorFilter) {
           params.set('author', authorFilter);
+        }
+        if (categoryFilter) {
+          params.set('category', categoryFilter);
         }
         if (searchQuery) {
           params.set('q', searchQuery);
         }
 
-        const res = await fetch(`/api/redaction/articles?${params}`);
+        const res = await fetchRedaction(`/api/redaction/articles?${params}`);
         const data = (await res.json()) as {
           articles?: RedactionArticle[];
           pagination?: { page: number; pageCount: number; total: number };
@@ -141,14 +202,14 @@ export function RedactionArticlesList({
         setLoadingMore(false);
       }
     },
-    [authorFilter, filter, isSuperAdmin, searchQuery]
+    [authorFilter, categoryFilter, filter, isSuperAdmin, searchQuery, sort]
   );
 
   useEffect(() => {
     if (!profileReady) return;
     setPage(1);
     void loadPage(1, false);
-  }, [filter, authorFilter, searchQuery, loadPage, profileReady]);
+  }, [filter, authorFilter, categoryFilter, searchQuery, sort, loadPage, profileReady]);
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -188,8 +249,8 @@ export function RedactionArticlesList({
           ) : null}
         </div>
 
-        <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto lg:max-w-xl lg:flex-1 lg:justify-end">
-          <div className="relative min-w-0 flex-1 lg:max-w-sm">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap lg:w-auto lg:max-w-3xl lg:flex-1 lg:justify-end">
+          <div className="relative min-w-0 flex-1 sm:min-w-[12rem] lg:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
@@ -214,8 +275,50 @@ export function RedactionArticlesList({
             ) : null}
           </div>
 
+          <div className="sm:w-44 lg:w-48">
+            <label htmlFor="article-sort" className="sr-only">
+              Trier les articles
+            </label>
+            <div className="relative">
+              <ArrowUpDown className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <select
+                id="article-sort"
+                value={sort}
+                onChange={(event) => setSort(parseSort(event.target.value))}
+                className="h-10 w-full appearance-none rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm lg:h-11"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {categories.length > 0 ? (
+            <div className="sm:w-44 lg:w-48">
+              <label htmlFor="category-filter" className="sr-only">
+                Filtrer par catégorie
+              </label>
+              <select
+                id="category-filter"
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm lg:h-11"
+              >
+                <option value="">Toutes les catégories</option>
+                {categories.map((category) => (
+                  <option key={category.documentId} value={category.documentId}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
           {isSuperAdmin && authors.length > 0 ? (
-            <div className="sm:w-56 lg:w-64">
+            <div className="sm:w-44 lg:w-52">
               <label htmlFor="author-filter" className="sr-only">
                 Filtrer par rédacteur
               </label>
@@ -238,27 +341,45 @@ export function RedactionArticlesList({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(['all', 'published', 'scheduled', 'draft'] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            className={cn(
-              'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors lg:px-4 lg:py-2 lg:text-sm',
-              filter === f
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground'
-            )}
-          >
-            {f === 'all'
-              ? 'Tous'
-              : f === 'published'
-                ? 'Publiés'
-                : f === 'scheduled'
-                  ? 'Planifiés'
-                  : 'Brouillons'}
-          </button>
-        ))}
+        {(['all', 'published', 'scheduled', 'draft', 'imported'] as const).map((f) => {
+          const count =
+            f === 'draft' ? draftCount : f === 'imported' ? importedDraftCount : 0;
+          return (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              className={cn(
+                'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors lg:px-4 lg:py-2 lg:text-sm',
+                filter === f
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              )}
+            >
+              {f === 'all'
+                ? 'Tous'
+                : f === 'published'
+                  ? 'Publiés'
+                  : f === 'scheduled'
+                    ? 'Planifiés'
+                    : f === 'imported'
+                      ? 'Importés'
+                      : 'Brouillons'}
+              {count > 0 ? (
+                <span
+                  className={cn(
+                    'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums',
+                    filter === f
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-red-600 text-white'
+                  )}
+                >
+                  {count > 99 ? '99+' : count}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (

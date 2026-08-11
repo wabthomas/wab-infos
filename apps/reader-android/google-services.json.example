@@ -1,5 +1,6 @@
 {
-  "_comment": "Télécharger depuis Firebase Console → Paramètres du projet → Vos applications Android (com.wabinfos.app et com.wabinfos.redaction)",
+  "_comment": "Télécharger DEPUIS Firebase Console → Paramètres du projet → Vos applications. Ne jamais inventer mobilesdk_app_id.",
+  "_redaction": "Créer une app Android package com.wabinfos.redaction, ajouter les empreintes SHA du keystore release, puis remplacer ce fichier.",
   "project_info": {
     "project_number": "VOTRE_SENDER_ID",
     "project_id": "votre-projet-firebase"

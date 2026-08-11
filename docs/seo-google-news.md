@@ -78,6 +78,27 @@ Si Strapi est down → **503** (pas de sitemap vide).
 - Notification à la publication via `/api/revalidate`
 - Générer une clé : `npm run setup:indexnow`
 
+### 6b. Google Indexing API
+
+Demande d’indexation Google (équivalent « Request indexing ») :
+
+1. Dans [Google Cloud](https://console.cloud.google.com/) : activer **Web Search Indexing API**
+2. Créer un **compte de service** + télécharger la clé JSON
+3. Dans [Search Console](https://search.google.com/search-console) → Paramètres → Utilisateurs : ajouter `client_email` du compte de service en **propriétaire**
+4. Sur le serveur web (`apps/web` env) :
+
+```bash
+GOOGLE_INDEXING_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+# ou
+GOOGLE_INDEXING_CLIENT_EMAIL=...@....iam.gserviceaccount.com
+GOOGLE_INDEXING_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+5. À la publication / via l’assistant SEO rédaction : `URL_UPDATED` sur l’URL article
+6. Quota typique : **~200 URL / jour** — l’indexation groupée est plafonnée à 40
+
+Sans credentials, IndexNow continue de fonctionner seul ; le wizard affiche « Google non configuré ».
+
 ### 7. AdSense
 
 - CSP doit autoriser les iframes AdSense (`frame-src` googlesyndication / doubleclick / google)

@@ -29,9 +29,9 @@ public class FcmService extends FirebaseMessagingService {
     public void onMessageReceived(RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
 
-        String title = "Wab-infos";
+        String title = isRedactionApp() ? "Wab Rédaction" : "Wab-infos";
         String body = "";
-        String clickUrl = "https://wab-infos.com";
+        String clickUrl = BuildConfig.SITE_URL;
         String imageUrl = null;
 
         if (remoteMessage.getNotification() != null) {
@@ -48,6 +48,13 @@ public class FcmService extends FirebaseMessagingService {
         if (remoteMessage.getData().containsKey("url")) {
             clickUrl = remoteMessage.getData().get("url");
         }
+        if (clickUrl != null && clickUrl.startsWith("/")) {
+            String base = BuildConfig.SITE_URL;
+            if (base.endsWith("/")) {
+                base = base.substring(0, base.length() - 1);
+            }
+            clickUrl = base + clickUrl;
+        }
         if (imageUrl == null && remoteMessage.getData().containsKey("image")) {
             imageUrl = remoteMessage.getData().get("image");
         }
@@ -55,16 +62,26 @@ public class FcmService extends FirebaseMessagingService {
         showNotification(title, body, clickUrl, imageUrl);
     }
 
+    private boolean isRedactionApp() {
+        return "com.wabinfos.redaction".equals(getPackageName());
+    }
+
     private void showNotification(String title, String body, String url, String imageUrl) {
         Intent intent = new Intent(this, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         intent.putExtra("open_url", url);
+        intent.putExtra("url", url);
+        if (url != null && (url.startsWith("http://") || url.startsWith("https://"))) {
+            intent.setData(android.net.Uri.parse(url));
+        }
+        intent.setAction("wab.open:" + (url != null ? url : ""));
 
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, flags);
+        int requestCode = url != null ? url.hashCode() : (int) System.currentTimeMillis();
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, requestCode, intent, flags);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, WabInfosApp.CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)

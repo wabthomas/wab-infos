@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import {
   SITE_FONT_CATALOG,
   TYPOGRAPHY_ROLE_KEYS,
@@ -75,6 +76,9 @@ function FontRoleSelect({
   const meta = TYPOGRAPHY_ROLE_LABELS[role];
   const stack = resolveTypographyFontStack(value, customFonts);
   const label = resolveTypographyFontLabel(value, customFonts);
+  const customRoleIds = new Set(customFonts.map((font) => customFontRoleId(font.id)));
+  const catalogIds = new Set(SITE_FONT_CATALOG.map((font) => font.id));
+  const valueInOptions = catalogIds.has(value) || customRoleIds.has(value);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -84,7 +88,7 @@ function FontRoleSelect({
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{meta.description}</p>
         </div>
         <span
-          className="max-w-[11rem] truncate rounded-lg bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+          className="max-w-[11rem] truncate rounded-lg bg-muted px-2.5 py-1 text-[11px] font-medium text-foreground"
           style={{ fontFamily: stack }}
           title={label}
         >
@@ -92,14 +96,33 @@ function FontRoleSelect({
         </span>
       </div>
 
+      <label className="mt-3 block space-y-1.5">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          Police sélectionnée
+        </span>
+        <input
+          readOnly
+          value={label}
+          className="h-10 w-full rounded-xl border border-border bg-muted/40 px-3 text-sm text-foreground outline-none"
+          style={{ fontFamily: stack }}
+          aria-label={`${meta.label} — police actuelle`}
+        />
+      </label>
+
       <label className="mt-3 block">
-        <span className="sr-only">{meta.label}</span>
+        <span className="sr-only">Changer {meta.label}</span>
         <select
+          key={`${role}:${value}`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary"
           style={{ fontFamily: stack }}
         >
+          {!valueInOptions && value ? (
+            <option value={value} style={{ fontFamily: stack }}>
+              {label} (actuelle)
+            </option>
+          ) : null}
           {customFonts.length > 0 ? (
             <optgroup label="Polices uploadées">
               {customFonts.map((font) => (
@@ -169,7 +192,7 @@ function CustomFontsPanel({
     try {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch('/api/redaction/upload-font', { method: 'POST', body: form });
+      const res = await fetchRedaction('/api/redaction/upload-font', { method: 'POST', body: form });
       const data = (await res.json()) as {
         error?: string;
         media?: {

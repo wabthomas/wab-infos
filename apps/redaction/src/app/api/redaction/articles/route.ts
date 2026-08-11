@@ -21,13 +21,42 @@ export async function GET(request: Request) {
     const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
     const pageSize = Math.min(50, Math.max(6, Number(searchParams.get('pageSize') ?? '6') || 6));
     const authorDocumentId = searchParams.get('author')?.trim() || undefined;
+    const categoryDocumentId = searchParams.get('category')?.trim() || undefined;
+    const importedOnly = searchParams.get('imported') === '1';
     const search = searchParams.get('q')?.trim() || undefined;
+    const sortRaw = searchParams.get('sort')?.trim() || 'updatedAt:desc';
+    const allowedSorts = new Set([
+      'updatedAt:desc',
+      'updatedAt:asc',
+      'publishedAt:desc',
+      'views:desc',
+      'views:asc',
+      'seo:desc',
+      'seo:asc',
+      'title:asc',
+      'category:asc',
+      'author:asc',
+    ]);
+    const sort = (allowedSorts.has(sortRaw) ? sortRaw : 'updatedAt:desc') as
+      | 'updatedAt:desc'
+      | 'updatedAt:asc'
+      | 'publishedAt:desc'
+      | 'views:desc'
+      | 'views:asc'
+      | 'seo:desc'
+      | 'seo:asc'
+      | 'title:asc'
+      | 'category:asc'
+      | 'author:asc';
 
     const result = await listEditorArticles(user, status ?? 'all', {
       page,
       pageSize,
       authorDocumentId,
+      categoryDocumentId,
+      importedOnly,
       search,
+      sort,
       omitContent: true,
     });
     return NextResponse.json(result);

@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { BarChart3, FileText, MessageSquare, PenLine, Pencil } from 'lucide-react';
 import { getEditorProfile, getEditorStats, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
+import { ProfileAppVersion } from '@/components/redaction/profile-app-version';
 import { ProfileLogoutButton } from '@/components/redaction/profile-logout-button';
+import { ProfilePushSettings } from '@/components/redaction/profile-push-settings';
 import { ThemeSettings } from '@/components/redaction/theme-settings';
 
 export default async function RedactionProfilePage() {
@@ -94,7 +96,11 @@ export default async function RedactionProfilePage() {
 
       <ThemeSettings />
 
+      <ProfilePushSettings />
+
       <ProfileLogoutButton />
+
+      <ProfileAppVersion />
     </div>
   );
 }

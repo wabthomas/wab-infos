@@ -1,4 +1,5 @@
 import type { Article, Category, Video } from '@wab-infos/shared';
+import { normalizeArticleSeoMeta } from '@wab-infos/shared';
 import type {
   NewsArticle,
   WithContext,
@@ -128,6 +129,8 @@ export function generateArticleJsonLd(
   const articleUrl = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
   const plainBody = stripHtml(article.content);
   const ogImage = resolveArticleOgImage(article);
+  const seoMeta = normalizeArticleSeoMeta(article.seoMeta);
+  const schemaType = seoMeta.schemaType || 'NewsArticle';
 
   const displayDate = getArticleDisplayDate(article);
   const imageObjects = images.map((url) => ({
@@ -140,8 +143,8 @@ export function generateArticleJsonLd(
 
   return {
     '@context': 'https://schema.org',
-    '@type': 'NewsArticle',
-    headline: article.title,
+    '@type': schemaType,
+    headline: seoMeta.breadcrumbTitle || article.title,
     description: article.seoDescription || article.excerpt,
     image: imageObjects,
     url: articleUrl,
@@ -173,7 +176,7 @@ export function generateArticleJsonLd(
     articleBody: plainBody.slice(0, 5000),
     isAccessibleForFree: true,
     inLanguage: 'fr',
-  };
+  } as WithContext<NewsArticle>;
 }
 
 export function generateBreadcrumbJsonLd(
@@ -287,9 +290,26 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
   const url = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
   const canonical = resolveCanonicalUrl(article, url);
   const displayDate = getArticleDisplayDate(article);
+  const seoMeta = normalizeArticleSeoMeta(article.seoMeta);
+
+  const title = article.seoTitle || article.title;
+  const description = article.seoDescription || article.excerpt;
+  const ogTitle = seoMeta.ogTitle || title;
+  const ogDescription = seoMeta.ogDescription || description;
+  const twitterTitle = seoMeta.twitterTitle || ogTitle;
+  const twitterDescription = seoMeta.twitterDescription || ogDescription;
+
+  let socialImageUrl = ogImage.url;
+  if (seoMeta.ogImageUrl.trim()) {
+    const custom = seoMeta.ogImageUrl.trim();
+    socialImageUrl =
+      custom.startsWith('http://') || custom.startsWith('https://')
+        ? custom
+        : `${siteConfig.url}${custom.startsWith('/') ? custom : `/${custom}`}`;
+  }
 
   const imageMeta = {
-    url: ogImage.url,
+    url: socialImageUrl,
     alt: ogImage.alt,
     ...(ogImage.type ? { type: ogImage.type } : {}),
     ...(ogImage.width && ogImage.height
@@ -299,16 +319,16 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
 
   return {
     title: {
-      absolute: article.seoTitle || article.title,
+      absolute: title,
     },
-    description: article.seoDescription || article.excerpt,
+    description,
     alternates: {
       canonical,
     },
     openGraph: {
       type: 'article' as const,
-      title: article.seoTitle || article.title,
-      description: article.seoDescription || article.excerpt,
+      title: ogTitle,
+      description: ogDescription,
       url: canonical,
       siteName: siteConfig.name,
       locale: siteConfig.locale,
@@ -322,13 +342,15 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
     twitter: {
       card: 'summary_large_image' as const,
       site: siteConfig.twitter,
-      title: article.seoTitle || article.title,
-      description: article.seoDescription || article.excerpt,
-      images: [ogImage.url],
+      title: twitterTitle,
+      description: twitterDescription,
+      images: [socialImageUrl],
     },
     robots: {
-      index: true,
-      follow: true,
+      index: seoMeta.robotsIndex,
+      follow: seoMeta.robotsFollow,
+      noarchive: seoMeta.robotsNoArchive || undefined,
+      noimageindex: seoMeta.robotsNoImageIndex || undefined,
       'max-image-preview': 'large' as const,
       'max-snippet': -1,
       'max-video-preview': -1,

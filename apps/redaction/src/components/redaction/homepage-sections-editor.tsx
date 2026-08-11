@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown,
@@ -316,7 +317,7 @@ export function HomepageSectionsEditor({
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch('/api/redaction/categories', { cache: 'no-store' });
+        const res = await fetchRedaction('/api/redaction/categories', { cache: 'no-store' });
         const data = await readApiJsonResponse<{
           categories?: Array<{ slug: string; name: string; color?: string }>;
         }>(res);

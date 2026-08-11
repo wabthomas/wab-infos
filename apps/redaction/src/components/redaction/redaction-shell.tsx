@@ -14,13 +14,17 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RedactionPushBanner } from '@/components/redaction/redaction-push-setup';
+import {
+  RedactionNotificationsBell,
+  useRedactionNotifications,
+} from '@/components/redaction/redaction-notifications';
 import { touchRedactionSession } from '@/lib/redaction/touch-session';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Accueil', icon: Home, exact: true },
-  { href: '/articles', label: 'Articles', icon: FileText },
-  { href: '/comments', label: 'Commentaires', icon: MessageSquare, badge: true },
+  { href: '/articles', label: 'Articles', icon: FileText, draftsBadge: true },
+  { href: '/comments', label: 'Commentaires', icon: MessageSquare, commentsBadge: true },
   { href: '/stats', label: 'Stats', icon: BarChart3 },
   { href: '/profil', label: 'Profil', icon: User },
 ] as const;
@@ -46,6 +50,11 @@ function getDesktopPageTitle(pathname: string): string {
   return 'Rédaction';
 }
 
+function formatBadge(count: number, max = 99): string {
+  if (count <= 0) return '';
+  return count > max ? `${max}+` : String(count);
+}
+
 interface RedactionShellProps {
   children: React.ReactNode;
   authorName?: string;
@@ -58,16 +67,15 @@ function MobileNavItem({
   label,
   icon: Icon,
   active,
-  badge,
-  pendingComments,
+  badgeCount,
 }: {
   href: string;
   label: string;
   icon: typeof Home;
   active: boolean;
-  badge?: boolean;
-  pendingComments?: number;
+  badgeCount?: number;
 }) {
+  const badge = formatBadge(badgeCount ?? 0, 9);
   return (
     <Link
       href={href}
@@ -83,11 +91,11 @@ function MobileNavItem({
       <span className="max-w-full truncate text-center text-[10px] font-semibold leading-none">
         {label}
       </span>
-      {badge && (pendingComments ?? 0) > 0 && (
+      {badge ? (
         <span className="absolute right-0 top-0 flex h-4 min-w-4 -translate-y-0.5 translate-x-0.5 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
-          {(pendingComments ?? 0) > 9 ? '9+' : pendingComments}
+          {badge}
         </span>
-      )}
+      ) : null}
     </Link>
   );
 }
@@ -97,16 +105,15 @@ function SidebarNavItem({
   label,
   icon: Icon,
   active,
-  badge,
-  pendingComments,
+  badgeCount,
 }: {
   href: string;
   label: string;
   icon: typeof Home;
   active: boolean;
-  badge?: boolean;
-  pendingComments?: number;
+  badgeCount?: number;
 }) {
+  const badge = formatBadge(badgeCount ?? 0);
   return (
     <Link
       href={href}
@@ -120,9 +127,9 @@ function SidebarNavItem({
     >
       <Icon className={cn('h-5 w-5 shrink-0', active && 'text-primary')} />
       <span className="flex-1 truncate">{label}</span>
-      {badge && (pendingComments ?? 0) > 0 ? (
+      {badge ? (
         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
-          {(pendingComments ?? 0) > 99 ? '99+' : pendingComments}
+          {badge}
         </span>
       ) : null}
       {active ? (
@@ -136,11 +143,13 @@ function RedactionSidebar({
   pathname,
   authorName,
   isSuperAdmin,
+  draftCount,
   pendingComments,
 }: {
   pathname: string;
   authorName?: string;
   isSuperAdmin: boolean;
+  draftCount: number;
   pendingComments: number;
 }) {
   return (
@@ -152,15 +161,20 @@ function RedactionSidebar({
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
-        {NAV_ITEMS.map(({ href, label, icon, ...rest }) => (
+        {NAV_ITEMS.map((item) => (
           <SidebarNavItem
-            key={href}
-            href={href}
-            label={label}
-            icon={icon}
-            active={isNavActive(pathname, href, 'exact' in rest && rest.exact)}
-            badge={'badge' in rest && rest.badge}
-            pendingComments={pendingComments}
+            key={item.href}
+            href={item.href}
+            label={item.label}
+            icon={item.icon}
+            active={isNavActive(pathname, item.href, 'exact' in item && item.exact)}
+            badgeCount={
+              'draftsBadge' in item && item.draftsBadge
+                ? draftCount
+                : 'commentsBadge' in item && item.commentsBadge
+                  ? pendingComments
+                  : 0
+            }
           />
         ))}
         {isSuperAdmin ? (
@@ -198,28 +212,16 @@ export function RedactionShell({
 }: RedactionShellProps) {
   const pathname = usePathname();
   const writing = isWritingPage(pathname);
+  const summary = useRedactionNotifications();
   const [pendingComments, setPendingComments] = useState(initialPendingComments);
+  const draftCount = summary.draftCount;
+  const effectivePending = summary.pendingComments || pendingComments;
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadCount = () => {
-      fetch('/api/redaction/comments/count')
-        .then((r) => r.json())
-        .then((d: { count?: number }) => {
-          if (cancelled) return;
-          const next = d.count ?? 0;
-          setPendingComments((prev) => (prev === next ? prev : next));
-        })
-        .catch(() => undefined);
-    };
-
-    const interval = window.setInterval(loadCount, 60_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, []);
+    if (summary.pendingComments > 0 || summary.draftCount >= 0) {
+      setPendingComments(summary.pendingComments);
+    }
+  }, [summary.pendingComments, summary.draftCount]);
 
   useEffect(() => {
     void touchRedactionSession();
@@ -241,9 +243,9 @@ export function RedactionShell({
           pathname={pathname}
           authorName={authorName}
           isSuperAdmin={isSuperAdmin}
-          pendingComments={pendingComments}
+          draftCount={draftCount}
+          pendingComments={effectivePending}
         />
-        {/* Un seul mount de {children} — mobile plein écran, desktop à côté de la sidebar */}
         <div className="fixed inset-0 z-50 flex min-w-0 flex-col overflow-hidden bg-background lg:static lg:z-auto lg:flex-1">
           {children}
         </div>
@@ -257,20 +259,28 @@ export function RedactionShell({
         pathname={pathname}
         authorName={authorName}
         isSuperAdmin={isSuperAdmin}
-        pendingComments={pendingComments}
+        draftCount={draftCount}
+        pendingComments={effectivePending}
       />
 
-      {/* Zone principale */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
-          <div className="mx-auto max-w-lg">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Rédaction</p>
-            <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
+          <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+                Rédaction
+              </p>
+              <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
+            </div>
+            <RedactionNotificationsBell summary={summary} />
           </div>
         </header>
 
         <header className="hidden shrink-0 border-b border-border bg-card/80 px-8 py-4 backdrop-blur lg:block">
-          <p className="font-display text-xl font-bold">{getDesktopPageTitle(pathname)}</p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="font-display text-xl font-bold">{getDesktopPageTitle(pathname)}</p>
+            <RedactionNotificationsBell summary={summary} />
+          </div>
         </header>
 
         <main
@@ -304,15 +314,20 @@ export function RedactionShell({
 
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:hidden">
           <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
-            {NAV_ITEMS.map(({ href, label, icon, ...rest }) => (
+            {NAV_ITEMS.map((item) => (
               <MobileNavItem
-                key={href}
-                href={href}
-                label={label}
-                icon={icon}
-                active={isNavActive(pathname, href, 'exact' in rest && rest.exact)}
-                badge={'badge' in rest && rest.badge}
-                pendingComments={pendingComments}
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                active={isNavActive(pathname, item.href, 'exact' in item && item.exact)}
+                badgeCount={
+                  'draftsBadge' in item && item.draftsBadge
+                    ? draftCount
+                    : 'commentsBadge' in item && item.commentsBadge
+                      ? effectivePending
+                      : 0
+                }
               />
             ))}
           </div>

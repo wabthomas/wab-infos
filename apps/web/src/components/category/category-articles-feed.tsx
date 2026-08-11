@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { Article } from '@wab-infos/shared';
+import { formatReadingTimeLabel } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleCard } from '@/components/articles/article-card';
 import { ArticleImage } from '@/components/ui/article-image';
@@ -74,7 +75,7 @@ function RankedCard({
           {article.readingTime > 0 ? (
             <>
               <span aria-hidden>·</span>
-              <span>{article.readingTime} min</span>
+              <span>{formatReadingTimeLabel(article.readingTime)}</span>
             </>
           ) : null}
         </div>
@@ -164,7 +165,7 @@ function ListRow({
           {article.readingTime > 0 ? (
             <>
               <span aria-hidden>·</span>
-              <span>{article.readingTime} min</span>
+              <span>{formatReadingTimeLabel(article.readingTime)}</span>
             </>
           ) : null}
         </div>

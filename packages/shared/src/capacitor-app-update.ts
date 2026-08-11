@@ -130,7 +130,10 @@ export async function checkForApkUpdate(options: {
     };
   }
 
-  const apkDownloadUrl = resolveApkAssetUrl(options.siteUrl, remote.apkUrl);
+  const apkDownloadUrl = resolveApkAssetUrl(
+    remote.apkUrl.startsWith('/downloads/') ? 'https://wab-infos.com' : options.siteUrl,
+    remote.apkUrl
+  );
   const cacheBustedUrl = apkDownloadUrl.includes('v=')
     ? apkDownloadUrl
     : `${apkDownloadUrl}${apkDownloadUrl.includes('?') ? '&' : '?'}v=${remote.versionCode}`;

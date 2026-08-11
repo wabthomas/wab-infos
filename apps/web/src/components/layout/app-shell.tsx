@@ -13,6 +13,8 @@ import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { SiteOptInPrompts } from '@/components/opt-in/site-opt-in-prompts';
 import { PwaInstallBanner } from '@/components/pwa/pwa-install-banner';
 import { useSiteChrome } from '@/components/providers/site-chrome-context';
+import { WhatsAppChannelPopup } from '@/components/social/whatsapp-channel-popup';
+import { getWhatsAppChannelHref } from '@wab-infos/shared';
 
 const AUTH_ONLY_PREFIXES: string[] = [];
 
@@ -57,10 +59,12 @@ export function SiteLayout({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { chrome, socialLinks } = useSiteChrome();
   const isAuthPage = AUTH_ONLY_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
   const isHomePage = pathname === '/';
+  const showWhatsAppPopup = chrome.articleUi.whatsappChannelPopupEnabled !== false;
 
   return (
     <>
@@ -72,6 +76,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ) : (
         <SiteLayout>{children}</SiteLayout>
       )}
+      {showWhatsAppPopup ? (
+        <WhatsAppChannelPopup
+          enabled
+          href={getWhatsAppChannelHref({ socialLinks })}
+          delayMs={(chrome.articleUi.whatsappChannelPopupDelaySec || 60) * 1000}
+        />
+      ) : null}
     </>
   );
 }

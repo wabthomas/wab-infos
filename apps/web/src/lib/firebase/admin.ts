@@ -57,6 +57,8 @@ export async function sendFcmToToken(
       title: payload.title,
       body: payload.body,
       url: absoluteUrl,
+      open_url: absoluteUrl,
+      link: absoluteUrl,
     },
     android: {
       priority: 'high',
@@ -101,6 +103,8 @@ export async function sendFcmToTopic(
       title: payload.title,
       body: payload.body,
       url: absoluteUrl,
+      open_url: absoluteUrl,
+      link: absoluteUrl,
     },
     android: {
       priority: 'high',

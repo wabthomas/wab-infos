@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { Clock } from 'lucide-react';
 import type { Article } from '@wab-infos/shared';
+import { formatReadingTimeLabel } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleImage } from '@/components/ui/article-image';
 import { cn, formatArticleDate, getArticleDisplayDate, resolveArticleImageUrl } from '@/lib/utils';
@@ -65,7 +67,7 @@ export function ArticleCard({
                 {article.author && <span className="font-medium text-foreground/80">{article.author.name}</span>}
                 <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
                 <span aria-hidden>·</span>
-                <span>{article.readingTime} min</span>
+                <span>{formatReadingTimeLabel(article.readingTime)}</span>
               </div>
             </div>
           </div>
@@ -104,7 +106,16 @@ export function ArticleCard({
                 {article.author && <span className="font-medium text-white/90">{article.author.name}</span>}
                 <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
                 <span aria-hidden>·</span>
-                <span>{article.readingTime} min de lecture</span>
+                <span
+                  className="inline-flex items-center gap-1"
+                  title={`${formatReadingTimeLabel(article.readingTime)} de lecture`}
+                  aria-label={`${formatReadingTimeLabel(article.readingTime)} de lecture`}
+                >
+                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="tabular-nums">
+                    {formatReadingTimeLabel(article.readingTime)}
+                  </span>
+                </span>
               </div>
             </div>
           </div>
@@ -210,7 +221,7 @@ export function ArticleCard({
           >
             <time dateTime={displayDate}>{formatArticleDate(displayDate)}</time>
             <span aria-hidden>·</span>
-            <span>{article.readingTime} min</span>
+            <span>{formatReadingTimeLabel(article.readingTime)}</span>
           </div>
         </div>
       </Link>

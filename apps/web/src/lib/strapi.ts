@@ -11,6 +11,7 @@ import type {
   StrapiResponse,
   StrapiMedia,
 } from '@wab-infos/shared';
+import { normalizeArticleSeoMeta } from '@wab-infos/shared';
 import { canonicalizeCategorySlug } from '@/config/site';
 
 const STRAPI_URL = process.env.STRAPI_URL || process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
@@ -247,6 +248,7 @@ function mapArticle(entity: StrapiEntity, options?: { keepContent?: boolean }): 
     seoTitle: entity.seoTitle as string | undefined,
     seoDescription: entity.seoDescription as string | undefined,
     canonicalUrl: entity.canonicalUrl as string | undefined,
+    seoMeta: normalizeArticleSeoMeta(entity.seoMeta),
     wpId: entity.wpId as number | undefined,
   };
 }
@@ -257,9 +259,9 @@ async function enrichMissingFeaturedImages(articles: Article[]): Promise<Article
   if (!missing.length) return articles;
 
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-    filters: {
+    filters: withPublicArticleGuard({
       documentId: { $in: missing.map((article) => article.documentId) },
-    },
+    }),
     fields: ['documentId', 'content'],
     pagination: { page: 1, pageSize: Math.min(100, missing.length) },
     status: 'published',
@@ -315,6 +317,24 @@ function mapVideo(entity: StrapiEntity): Video {
 const ARTICLE_SORT = ['publishedAt:desc', 'wpPublishedAt:desc'] as const;
 const TOP_READ_SORT = ['viewCount:desc', ...ARTICLE_SORT] as const;
 const VIDEO_SORT = ['publishedAt:desc'] as const;
+
+/**
+ * Garde public : un import (isImported) n’apparaît que s’il est éditorialement
+ * « published ». Les articles maison ne sont pas affectés.
+ */
+function withPublicArticleGuard(
+  filters: Record<string, unknown> = {}
+): Record<string, unknown> {
+  const importGuard = {
+    $or: [
+      { isImported: { $ne: true } },
+      { isImported: { $null: true } },
+      { status: { $eq: 'published' } },
+    ],
+  };
+  if (!filters || Object.keys(filters).length === 0) return importGuard;
+  return { $and: [filters, importGuard] };
+}
 
 const articlePopulate = {
   populate: {
@@ -373,7 +393,7 @@ export async function getArticles(options?: {
 
   const keepContent = Boolean(options?.full || options?.tag);
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-    filters,
+    filters: withPublicArticleGuard(filters),
     ...(keepContent ? articlePopulate : listArticleQuery),
     sort: [...ARTICLE_SORT],
     pagination: { page: options?.page ?? 1, pageSize: options?.pageSize ?? 12 },
@@ -412,9 +432,9 @@ export async function getArticlesByCategories(
   const pageSize = Math.min(100, uniqueSlugs.length * limitPerCategory * 4);
 
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-    filters: {
+    filters: withPublicArticleGuard({
       category: { slug: { $in: uniqueSlugs } },
-    },
+    }),
     ...listArticleQuery,
     sort: [...ARTICLE_SORT],
     pagination: { page: 1, pageSize },
@@ -465,7 +485,7 @@ export async function getArticlesByCategories(
 
 export const getArticleBySlug = cache(async (slug: string): Promise<Article | null> => {
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-    filters: { slug: { $eq: slug } },
+    filters: withPublicArticleGuard({ slug: { $eq: slug } }),
     ...articlePopulate,
     status: 'published',
   });
@@ -488,7 +508,7 @@ export async function getTopReadArticles(
   if (options?.category) filters.category = { slug: { $eq: options.category } };
 
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-    filters,
+    filters: withPublicArticleGuard(filters),
     ...listArticleQuery,
     sort: [...TOP_READ_SORT],
     pagination: { page: 1, pageSize: limit },
@@ -567,10 +587,10 @@ export const getRelatedArticles = cache(async (
 
   if (tagSet.size > 0) {
     const taggedResponse = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-      filters: {
+      filters: withPublicArticleGuard({
         tags: { slug: { $in: [...tagSet] } },
         slug: { $ne: slug },
-      },
+      }),
       ...articlePopulate,
       sort: [...ARTICLE_SORT],
       pagination: { page: 1, pageSize: Math.max(pageSize * 4, 16) },
@@ -590,10 +610,10 @@ export const getRelatedArticles = cache(async (
     const titleTerms = significantTitleTerms(title);
     if (titleTerms.length > 0) {
       const titleResponse = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-        filters: {
+        filters: withPublicArticleGuard({
           slug: { $ne: slug },
           $or: titleTerms.map((term) => ({ title: { $containsi: term } })),
-        },
+        }),
         ...listArticleQuery,
         sort: [...ARTICLE_SORT],
         pagination: { page: 1, pageSize: Math.max(pageSize * 3, 12) },
@@ -629,13 +649,13 @@ export async function searchArticles(
   pagination: { total: number; pageCount: number };
 }> {
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-    filters: {
+    filters: withPublicArticleGuard({
       $or: [
         { title: { $containsi: query } },
         { excerpt: { $containsi: query } },
         { content: { $containsi: query } },
       ],
-    },
+    }),
     ...listArticleQuery,
     sort: [...ARTICLE_SORT],
     pagination: { page, pageSize },
@@ -978,9 +998,9 @@ export async function getAllArticleSlugs(): Promise<string[]> {
 export async function getRecentArticlesForNewsSitemap(hours = 48): Promise<Article[]> {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
   const response = await fetchAPI<StrapiListResponse<StrapiEntity>>('/articles', {
-    filters: {
+    filters: withPublicArticleGuard({
       $or: [{ wpPublishedAt: { $gte: since } }, { publishedAt: { $gte: since } }],
-    },
+    }),
     fields: ['title', 'slug', 'publishedAt', 'wpPublishedAt', 'updatedAt', 'seoTitle'],
     populate: { category: true, tags: true },
     sort: [...ARTICLE_SORT],

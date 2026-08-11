@@ -12,6 +12,8 @@ build/
 .env.*.local
 deploy/.env.deploy
 *-firebase-adminsdk-*.json
+apps/web/.google-indexing-sa.json
+*-indexing-sa*.json
 apps/cms/.env
 apps/web/.env.local
 apps/web/public/firebase-messaging-config.js
@@ -47,6 +49,7 @@ npm-debug.log*
 
 # PM2
 .pm2/
+apps/web/tmp/
 
 # Build artefacts (upload manuel serveur)
 web-next-build.tar.gz

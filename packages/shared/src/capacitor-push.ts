@@ -233,7 +233,11 @@ export async function subscribeViaCapacitorPush(
   options: SubscribeCapacitorPushOptions
 ): Promise<NativePushResult> {
   if (!(await isNativeCapacitorApp())) {
-    return { ok: false, reason: 'unsupported' };
+    return {
+      ok: false,
+      reason: 'unsupported',
+      message: 'Environnement non natif — ouvrez l’APK Wab Rédaction.',
+    };
   }
 
   await initCapacitorPush({
@@ -247,13 +251,23 @@ export async function subscribeViaCapacitorPush(
   if (options.requestPermission !== false) {
     const permission = await PushNotifications.requestPermissions();
     if (permission.receive !== 'granted') {
-      return { ok: false, reason: 'denied' };
+      return {
+        ok: false,
+        reason: 'denied',
+        message:
+          'Notifications refusées. Autorisez-les dans Paramètres → Applications → Wab Rédaction → Notifications.',
+      };
     }
     await ensureLocalNotificationPermissions();
   } else {
     const permission = await PushNotifications.checkPermissions();
     if (permission.receive !== 'granted') {
-      return { ok: false, reason: 'denied' };
+      return {
+        ok: false,
+        reason: 'denied',
+        message:
+          'Notifications refusées. Autorisez-les dans Paramètres → Applications → Wab Rédaction → Notifications.',
+      };
     }
   }
 

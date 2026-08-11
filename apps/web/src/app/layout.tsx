@@ -15,7 +15,12 @@ import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
 import { getAdsenseConfig } from '@/lib/adsense-config.server';
 import { getSiteSettings } from '@/lib/site-settings.server';
 import { generateOrganizationJsonLd, generateWebsiteJsonLd } from '@/lib/seo';
-import { buildBunnyFontsStylesheetUrl, buildCustomFontsFaceCss, typographyCssVariablesStyle } from '@wab-infos/shared';
+import {
+  buildBunnyFontsStylesheetUrl,
+  buildCustomFontsFaceCss,
+  normalizeSiteSeoSettings,
+  typographyCssVariablesStyle,
+} from '@wab-infos/shared';
 import { SiteChromeProvider } from '@/components/providers/site-chrome-context';
 import { UserPreferencesProvider } from '@/components/providers/user-preferences-provider';
 import { ToastProvider } from '@/components/ui/toast';
@@ -98,6 +103,7 @@ export default async function RootLayout({
   const organizationJsonLd = generateOrganizationJsonLd();
   const adsenseConfig = getAdsenseConfig();
   const siteSettings = await getSiteSettings();
+  const siteSeo = normalizeSiteSeoSettings(siteSettings.chrome.seo);
   const typography = siteSettings.chrome.typography;
   const bunnyFontsUrl = buildBunnyFontsStylesheetUrl(typography);
   const typographyStyle = typographyCssVariablesStyle(typography);
@@ -137,6 +143,7 @@ export default async function RootLayout({
             content={siteConfig.googleSiteVerification}
           />
         )}
+        {siteSeo.noindexSite ? <meta name="robots" content="noindex, nofollow" /> : null}
         {adsenseConfig.client && (
           <meta name="google-adsense-account" content={adsenseConfig.client} />
         )}

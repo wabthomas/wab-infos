@@ -13,7 +13,9 @@ public class WabInfosApp extends Application {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
-        WabInfosFcmInit.subscribeToDefaultTopics();
+        if (!"com.wabinfos.redaction".equals(getPackageName())) {
+            WabInfosFcmInit.subscribeToDefaultTopics();
+        }
     }
 
     private void createNotificationChannel() {

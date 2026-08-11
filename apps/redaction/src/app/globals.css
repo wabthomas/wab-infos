@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Classes dynamiques (ex. seoScoreToneClass) définies dans le package shared */
+@source "../../packages/shared/src";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
@@ -197,6 +200,25 @@ html.dark body {
   margin: 1rem 0;
 }
 
+.redaction-editor-prose figure.article-image-figure {
+  margin: 1rem 0;
+}
+
+.redaction-editor-prose figure.article-image-figure img {
+  margin: 0;
+}
+
+.redaction-editor-prose figcaption.article-image-caption {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 50%, transparent);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
 .redaction-editor-prose hr {
   margin: 1.25rem 0;
   border: 0;
@@ -241,6 +263,11 @@ html.dark body {
   left: 0;
   right: 0;
   z-index: 50;
+  /* safe-area géré en inline (0 quand le clavier est ouvert → pas de trou) */
+  padding-bottom: 0;
+  /* Évite le “saut” sous le clavier pendant les animations de viewport */
+  will-change: bottom;
+  backface-visibility: hidden;
 }
 
 @media (min-width: 1024px) {

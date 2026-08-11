@@ -1,8 +1,12 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Bell,
+  BookOpen,
   ChevronRight,
+  Clock,
   Eye,
   EyeOff,
   Globe2,
@@ -10,8 +14,10 @@ import {
   Home,
   LayoutTemplate,
   Loader2,
+  MessageCircle,
   Plus,
   Save,
+  Search,
   Smartphone,
   Trash2,
   Type,
@@ -20,10 +26,13 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_SITE_SETTINGS,
+  DEFAULT_READER_DAILY_PUSH,
   brandingSummary,
   getEnabledSupportMethods,
   getVisibleNavLinks,
+  normalizeSiteSeoSettings,
   normalizeSiteSupportSettings,
+  WHATSAPP_POPUP_DELAY_PRESETS,
   type DeviceVisibility,
   type SiteSettings,
   type SiteSocialLink,
@@ -40,6 +49,9 @@ import {
   SiteChromeSettingCard,
 } from '@/components/redaction/site-chrome-editor';
 import { SupportSettingsEditor } from '@/components/redaction/support-settings-editor';
+import { SiteSeoSettingsEditor } from '@/components/redaction/site-seo-settings-editor';
+import { EditorPushComposer } from '@/components/redaction/editor-push-composer';
+import { ReaderPushComposer } from '@/components/redaction/reader-push-composer';
 import {
   TypographyEditor,
   typographySummary,
@@ -62,10 +74,13 @@ type SheetKey =
   | 'views'
   | 'likes'
   | 'reading-time'
+  | 'read-also'
+  | 'whatsapp-popup'
   | 'article-layout'
   | 'typography'
   | 'site-chrome'
   | 'support'
+  | 'seo'
   | 'homepage-sections'
   | 'social-links'
   | 'social-edit'
@@ -77,8 +92,10 @@ type SettingsSectionId =
   | 'homepage'
   | 'articles'
   | 'support'
+  | 'seo'
   | 'typography'
-  | 'social';
+  | 'social'
+  | 'notify';
 
 const DESKTOP_SECTIONS: {
   id: SettingsSectionId;
@@ -117,6 +134,12 @@ const DESKTOP_SECTIONS: {
     icon: HeartHandshake,
   },
   {
+    id: 'seo',
+    label: 'SEO',
+    description: 'Templates & indexation',
+    icon: Search,
+  },
+  {
     id: 'typography',
     label: 'Typographie',
     description: 'Polices du site',
@@ -127,6 +150,12 @@ const DESKTOP_SECTIONS: {
     label: 'Réseaux sociaux',
     description: 'Liens « Nous suivre »',
     icon: Users,
+  },
+  {
+    id: 'notify',
+    label: 'Notifications',
+    description: 'Push lecteurs & rédacteurs',
+    icon: Bell,
   },
 ];
 
@@ -148,6 +177,14 @@ function emptySocialLink(platform: SocialFollowPlatform): SiteSocialLink {
 
 function boolSummary(value: boolean, onLabel = 'Activé', offLabel = 'Désactivé') {
   return value ? onLabel : offLabel;
+}
+
+function whatsappDelayLabel(sec: number): string {
+  const preset = WHATSAPP_POPUP_DELAY_PRESETS.find((item) => item.value === sec);
+  if (preset) return preset.label;
+  if (sec < 60) return `${sec} secondes`;
+  const minutes = Math.round(sec / 60);
+  return minutes > 1 ? `${minutes} minutes` : '1 minute';
 }
 
 function SettingCard({
@@ -629,6 +666,9 @@ function DesktopSectionNav({
       settings.chrome.articleUi.comments.desktop || settings.chrome.articleUi.comments.mobile
         ? 'Commentaires OK'
         : 'Commentaires off',
+      settings.chrome.articleUi.whatsappChannelPopupEnabled !== false
+        ? `WhatsApp ${whatsappDelayLabel(settings.chrome.articleUi.whatsappChannelPopupDelaySec || 60)}`
+        : 'WhatsApp off',
     ].join(' · '),
     support: (() => {
       const support = normalizeSiteSupportSettings(settings.chrome.support);
@@ -645,10 +685,22 @@ function DesktopSectionNav({
         `min. ${support.minAmountUsd}$`,
       ].join(' · ');
     })(),
+    seo: (() => {
+      const seo = normalizeSiteSeoSettings(settings.chrome.seo);
+      return [
+        seo.indexNowEnabled ? 'IndexNow on' : 'IndexNow off',
+        seo.googleIndexingEnabled ? 'Google on' : 'Google off',
+        seo.noindexSite ? 'noindex site' : 'indexable',
+        seo.organizationName || 'Org',
+      ].join(' · ');
+    })(),
     typography: typographySummary(
       settings.chrome.typography ?? DEFAULT_SITE_SETTINGS.chrome.typography
     ),
     social: `${visibleSocial}/${settings.socialLinks.length} visible${visibleSocial > 1 ? 's' : ''}`,
+    notify: settings.chrome.readerDailyPush?.enabled
+      ? `Lecteurs auto ${String(settings.chrome.readerDailyPush.hour).padStart(2, '0')}h · rédacteurs`
+      : 'Push lecteurs manuel · rédacteurs',
   };
 
   return (
@@ -700,6 +752,9 @@ function DesktopSettingsPanel({
   updateSocialLink,
   removeSocialLink,
   addSocialLink,
+  onBulkIndex,
+  bulkIndexing,
+  bulkMessage,
 }: {
   section: SettingsSectionId;
   settings: SiteSettings;
@@ -710,6 +765,9 @@ function DesktopSettingsPanel({
   updateSocialLink: (index: number, patch: Partial<SiteSocialLink>) => void;
   removeSocialLink: (index: number) => void;
   addSocialLink: (platform: SocialFollowPlatform) => void;
+  onBulkIndex?: () => void;
+  bulkIndexing?: boolean;
+  bulkMessage?: string;
 }) {
   const sectionMeta = DESKTOP_SECTIONS.find((item) => item.id === section)!;
   const editingSocialLink =
@@ -825,7 +883,7 @@ function DesktopSettingsPanel({
 
           <CompactToggleRow
             label="Temps de lecture"
-            description="Affiche « X min de lecture » dans la méta de l’article."
+            description="Affiche l’icône montre ⌚ et la durée dans la méta de l’article."
             checked={settings.chrome.articleUi.readingTime !== false}
             onChange={(readingTime) =>
               setSettings((current) => ({
@@ -837,6 +895,79 @@ function DesktopSettingsPanel({
               }))
             }
           />
+
+          <CompactToggleRow
+            label="À lire aussi (dans l’article)"
+            description="Encarts automatiques « Lire aussi » au milieu du corps d’article."
+            checked={settings.chrome.articleUi.inArticleReadAlso !== false}
+            onChange={(inArticleReadAlso) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, inArticleReadAlso },
+                },
+              }))
+            }
+          />
+
+          <CompactToggleRow
+            label="Miniature « À lire aussi »"
+            description="Affiche ou masque la vignette sur les encarts auto et manuels."
+            checked={settings.chrome.articleUi.readAlsoThumbnail !== false}
+            onChange={(readAlsoThumbnail) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, readAlsoThumbnail },
+                },
+              }))
+            }
+          />
+
+          <CompactToggleRow
+            label="Popup chaîne WhatsApp"
+            description="Propose au lecteur de rejoindre la chaîne WhatsApp après un délai de lecture."
+            checked={settings.chrome.articleUi.whatsappChannelPopupEnabled !== false}
+            onChange={(whatsappChannelPopupEnabled) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, whatsappChannelPopupEnabled },
+                },
+              }))
+            }
+          />
+          {settings.chrome.articleUi.whatsappChannelPopupEnabled !== false ? (
+            <label className="block space-y-1.5 rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <span className="text-sm font-semibold text-foreground">Délai d’affichage</span>
+              <p className="text-xs text-muted-foreground">
+                Temps de lecture réelle (onglet visible) avant d’afficher le popup.
+              </p>
+              <select
+                value={settings.chrome.articleUi.whatsappChannelPopupDelaySec || 60}
+                onChange={(e) => {
+                  const whatsappChannelPopupDelaySec = Number(e.target.value);
+                  setSettings((current) => ({
+                    ...current,
+                    chrome: {
+                      ...current.chrome,
+                      articleUi: { ...current.chrome.articleUi, whatsappChannelPopupDelaySec },
+                    },
+                  }));
+                }}
+                className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              >
+                {WHATSAPP_POPUP_DELAY_PRESETS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           <div className="space-y-3">
             <div>
@@ -919,6 +1050,30 @@ function DesktopSettingsPanel({
         </div>
       ) : null}
 
+      {section === 'seo' ? (
+        <div className="mx-auto max-w-2xl space-y-4">
+          <div>
+            <h3 className="text-base font-bold text-foreground">SEO du site</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Templates de titres, réseaux sociaux, IndexNow et outils d’indexation (style Rank Math /
+              Yoast).
+            </p>
+          </div>
+          <SiteSeoSettingsEditor
+            seo={normalizeSiteSeoSettings(settings.chrome.seo)}
+            onChange={(seo) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: { ...current.chrome, seo },
+              }))
+            }
+            onBulkIndex={onBulkIndex}
+            bulkIndexing={bulkIndexing}
+            bulkMessage={bulkMessage}
+          />
+        </div>
+      ) : null}
+
       {section === 'typography' ? (
         <TypographyEditor
           value={settings.chrome.typography ?? DEFAULT_SITE_SETTINGS.chrome.typography}
@@ -977,6 +1132,21 @@ function DesktopSettingsPanel({
           )}
         </div>
       ) : null}
+
+      {section === 'notify' ? (
+        <div className="mx-auto max-w-2xl space-y-6">
+          <ReaderPushComposer
+            value={settings.chrome.readerDailyPush ?? DEFAULT_READER_DAILY_PUSH}
+            onChange={(readerDailyPush) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: { ...current.chrome, readerDailyPush },
+              }))
+            }
+          />
+          <EditorPushComposer />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -991,11 +1161,13 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
   const [sheet, setSheet] = useState<SheetKey>(null);
   const [desktopSection, setDesktopSection] = useState<SettingsSectionId>('pwa');
   const [editingSocialIndex, setEditingSocialIndex] = useState<number | null>(null);
+  const [bulkIndexing, setBulkIndexing] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState('');
 
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch('/api/redaction/site-settings', { cache: 'no-store' });
+        const res = await fetchRedaction('/api/redaction/site-settings', { cache: 'no-store' });
         const data = await readApiJsonResponse<{ settings?: SiteSettings; error?: string }>(res);
         if (!res.ok) throw new Error(data.error ?? 'Chargement impossible');
         if (data.settings) setSettings(data.settings);
@@ -1007,12 +1179,41 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
     })();
   }, []);
 
+  async function runBulkIndex() {
+    setBulkIndexing(true);
+    setBulkMessage('');
+    try {
+      const res = await fetchRedaction('/api/redaction/seo/index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'recent', limit: 40 }),
+      });
+      const data = await readApiJsonResponse<{
+        ok?: boolean;
+        message?: string;
+        error?: string;
+      }>(res);
+      setBulkMessage(data.message || data.error || (data.ok ? 'Indexation envoyée.' : 'Échec'));
+      if (data.ok) {
+        toast.success('Indexation', data.message || 'Articles signalés à IndexNow.');
+      } else {
+        toast.error('Indexation', data.message || data.error || 'Échec');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Indexation impossible';
+      setBulkMessage(message);
+      toast.error('Indexation', message);
+    } finally {
+      setBulkIndexing(false);
+    }
+  }
+
   async function save() {
     setSaving(true);
     setError('');
     setSaved(false);
     try {
-      const res = await fetch('/api/redaction/site-settings', {
+      const res = await fetchRedaction('/api/redaction/site-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ settings }),
@@ -1136,6 +1337,9 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             updateSocialLink={updateSocialLink}
             removeSocialLink={removeSocialLink}
             addSocialLink={addSocialLink}
+            onBulkIndex={() => void runBulkIndex()}
+            bulkIndexing={bulkIndexing}
+            bulkMessage={bulkMessage}
           />
         </div>
       </div>
@@ -1236,15 +1440,44 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             onClick={() => setSheet('likes')}
           />
           <SettingCard
-            icon={Eye}
-            label="Temps de lecture"
+            icon={Clock}
+            label="⌚"
             value={boolSummary(
               settings.chrome.articleUi.readingTime !== false,
               'Affiché',
               'Masqué'
             )}
-            description="« X min de lecture » dans la méta article."
+            description="Icône montre dans la méta article (durée de lecture)."
             onClick={() => setSheet('reading-time')}
+          />
+          <SettingCard
+            icon={BookOpen}
+            label="À lire aussi"
+            value={[
+              boolSummary(
+                settings.chrome.articleUi.inArticleReadAlso !== false,
+                'Auto on',
+                'Auto off'
+              ),
+              boolSummary(
+                settings.chrome.articleUi.readAlsoThumbnail !== false,
+                'Miniature on',
+                'Miniature off'
+              ),
+            ].join(' · ')}
+            description="Encarts dans le corps d’article et vignettes."
+            onClick={() => setSheet('read-also')}
+          />
+          <SettingCard
+            icon={MessageCircle}
+            label="Popup WhatsApp"
+            value={
+              settings.chrome.articleUi.whatsappChannelPopupEnabled !== false
+                ? `Affiché · ${whatsappDelayLabel(settings.chrome.articleUi.whatsappChannelPopupDelaySec || 60)}`
+                : 'Masqué'
+            }
+            description="Invitation à rejoindre la chaîne après un délai de lecture."
+            onClick={() => setSheet('whatsapp-popup')}
           />
           <SettingCard
             icon={LayoutTemplate}
@@ -1277,6 +1510,27 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             })()}
             description="Mobile Money (opérateurs), carte, crypto QR Tether — desktop/mobile."
             onClick={() => setSheet('support')}
+          />
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Search className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-bold">SEO</h3>
+          </div>
+          <SettingCard
+            icon={Search}
+            label="SEO & indexation"
+            value={(() => {
+              const seo = normalizeSiteSeoSettings(settings.chrome.seo);
+              return [
+                seo.indexNowEnabled ? 'IndexNow' : 'IndexNow off',
+                seo.googleIndexingEnabled ? 'Google' : 'Google off',
+                seo.noindexSite ? 'noindex' : 'indexable',
+              ].join(' · ');
+            })()}
+            description="Templates, social, IndexNow + Google Indexing en un clic."
+            onClick={() => setSheet('seo')}
           />
         </section>
 
@@ -1318,6 +1572,23 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             </span>
             <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
           </button>
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-bold">Notifications</h3>
+          </div>
+          <ReaderPushComposer
+            value={settings.chrome.readerDailyPush ?? DEFAULT_READER_DAILY_PUSH}
+            onChange={(readerDailyPush) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: { ...current.chrome, readerDailyPush },
+              }))
+            }
+          />
+          <EditorPushComposer />
         </section>
       </div>
 
@@ -1451,12 +1722,12 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
       <BottomSheet
         open={sheet === 'reading-time'}
         onClose={() => setSheet(null)}
-        title="Temps de lecture"
-        description="Affiche ou masque « X min de lecture » dans la méta article."
+        title="⌚ Temps de lecture"
+        description="Affiche ou masque l’icône montre et la durée dans la méta article."
       >
         <ToggleEditor
           label="Afficher le temps de lecture"
-          description="Visible à côté de la date et des vues sur le site public."
+          description="Visible à côté de la date et des vues sur le site public (icône montre)."
           checked={settings.chrome.articleUi.readingTime !== false}
           onChange={(readingTime) =>
             setSettings((current) => ({
@@ -1468,6 +1739,96 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             }))
           }
         />
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'read-also'}
+        onClose={() => setSheet(null)}
+        title="À lire aussi"
+        description="Encarts au milieu de l’article (automatiques et manuels)."
+      >
+        <div className="space-y-3 pb-4">
+          <ToggleEditor
+            label="Encarts automatiques"
+            description="Insère des suggestions « Lire aussi » dans le corps de l’article."
+            checked={settings.chrome.articleUi.inArticleReadAlso !== false}
+            onChange={(inArticleReadAlso) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, inArticleReadAlso },
+                },
+              }))
+            }
+          />
+          <ToggleEditor
+            label="Afficher la miniature"
+            description="Vignette sur les encarts auto et ceux insérés manuellement en rédaction."
+            checked={settings.chrome.articleUi.readAlsoThumbnail !== false}
+            onChange={(readAlsoThumbnail) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, readAlsoThumbnail },
+                },
+              }))
+            }
+          />
+          <p className="pt-1 text-center text-[11px] text-muted-foreground">
+            En rédaction : Blocs → « À lire aussi » pour insérer un article choisi.
+          </p>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'whatsapp-popup'}
+        onClose={() => setSheet(null)}
+        title="Popup chaîne WhatsApp"
+        description="Après un délai de lecture, un popup propose de rejoindre la chaîne (logo officiel + bouton)."
+      >
+        <div className="space-y-3 pb-2">
+          <ToggleEditor
+            label="Afficher le popup WhatsApp"
+            description="Le lien utilisé est celui du réseau WhatsApp dans « Nous suivre »."
+            checked={settings.chrome.articleUi.whatsappChannelPopupEnabled !== false}
+            onChange={(whatsappChannelPopupEnabled) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, whatsappChannelPopupEnabled },
+                },
+              }))
+            }
+          />
+          {settings.chrome.articleUi.whatsappChannelPopupEnabled !== false ? (
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Délai d’affichage</span>
+              <select
+                value={settings.chrome.articleUi.whatsappChannelPopupDelaySec || 60}
+                onChange={(e) => {
+                  const whatsappChannelPopupDelaySec = Number(e.target.value);
+                  setSettings((current) => ({
+                    ...current,
+                    chrome: {
+                      ...current.chrome,
+                      articleUi: { ...current.chrome.articleUi, whatsappChannelPopupDelaySec },
+                    },
+                  }));
+                }}
+                className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              >
+                {WHATSAPP_POPUP_DELAY_PRESETS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
       </BottomSheet>
 
       <BottomSheet
@@ -1560,6 +1921,31 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
                 chrome: { ...current.chrome, support },
               }))
             }
+          />
+          <p className="pt-3 text-center text-[11px] text-muted-foreground">
+            Enregistrez via le bouton Enregistrer en haut de page.
+          </p>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'seo'}
+        onClose={() => setSheet(null)}
+        title="SEO & indexation"
+        description="Templates, réseaux sociaux, IndexNow et sitemaps."
+      >
+        <div className="pb-4">
+          <SiteSeoSettingsEditor
+            seo={normalizeSiteSeoSettings(settings.chrome.seo)}
+            onChange={(seo) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: { ...current.chrome, seo },
+              }))
+            }
+            onBulkIndex={() => void runBulkIndex()}
+            bulkIndexing={bulkIndexing}
+            bulkMessage={bulkMessage}
           />
           <p className="pt-3 text-center text-[11px] text-muted-foreground">
             Enregistrez via le bouton Enregistrer en haut de page.

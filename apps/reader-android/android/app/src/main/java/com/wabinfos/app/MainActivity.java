@@ -161,7 +161,13 @@ public class MainActivity extends AppCompatActivity {
         UpdateManager.registerPlayInAppUpdates(this);
         // Toast « à jour » uniquement au froid (évite doublon onResume).
         UpdateManager.showUpdatedToastIfNeeded(this);
-        mainHandler.postDelayed(() -> UpdateManager.checkForUpdate(MainActivity.this), 2800);
+        // Sideload : le bandeau web (NativeAppUpdate) gère la MAJ — évite 2 dialogues.
+        // Play Store : on garde la vérif native in-app.
+        mainHandler.postDelayed(() -> {
+            if (UpdateManager.shouldUsePlayStoreUpdate(MainActivity.this)) {
+                UpdateManager.checkForUpdate(MainActivity.this);
+            }
+        }, 2800);
 
         String targetUrl = resolveTargetUrl(getIntent());
         if (isOnline()) {
@@ -188,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String resolveTargetUrl(Intent intent) {
         if (intent == null) return SITE_URL;
-        String extraUrl = intent.getStringExtra("open_url");
+        String extraUrl = firstNotificationUrl(intent);
         if (extraUrl != null && !extraUrl.isEmpty()) {
             return sanitizeDeepLinkUrl(extraUrl);
         }
@@ -214,6 +220,35 @@ public class MainActivity extends AppCompatActivity {
             return sanitizeDeepLinkUrl(data.toString());
         }
         return SITE_URL;
+    }
+
+    /**
+     * FCM (barre système, app en fond) passe le data payload en extras
+     * ({@code url}), pas {@code open_url} (utilisé par notre FcmService).
+     */
+    private String firstNotificationUrl(Intent intent) {
+        String[] keys = new String[] { "open_url", "url", "link" };
+        for (String key : keys) {
+            String value = intent.getStringExtra(key);
+            if (value != null && !value.trim().isEmpty()) {
+                return value.trim();
+            }
+        }
+        Bundle extras = intent.getExtras();
+        if (extras == null) return null;
+        for (String key : extras.keySet()) {
+            Object value = extras.get(key);
+            if (!(value instanceof String)) continue;
+            String text = ((String) value).trim();
+            if ((text.startsWith("https://") || text.startsWith("http://"))
+                    && text.toLowerCase(Locale.ROOT).contains("wab-infos.com")) {
+                return text;
+            }
+            if (text.startsWith("/") && text.length() > 2 && text.indexOf('/', 1) > 0) {
+                return text;
+            }
+        }
+        return null;
     }
 
     /** Normalise www → apex et refuse les hôtes hors domaine. */
@@ -337,9 +372,40 @@ public class MainActivity extends AppCompatActivity {
         webView.evaluateJavascript(js, null);
     }
 
+    private void notifyWebFcmToken(String token, String error) {
+        if (webView == null) return;
+        org.json.JSONObject detail = new org.json.JSONObject();
+        try {
+            if (token != null && !token.isEmpty()) {
+                detail.put("token", token);
+            }
+            if (error != null && !error.isEmpty()) {
+                detail.put("error", error);
+            }
+        } catch (Exception e) {
+            Log.w("WabInfos", "notifyWebFcmToken JSON", e);
+        }
+        String js =
+                "window.dispatchEvent(new CustomEvent('wab-android-fcm-token',{detail:"
+                        + detail
+                        + "}));";
+        webView.evaluateJavascript(js, null);
+    }
+
+    private void fetchFcmTokenForWeb() {
+        WabInfosFcmInit.fetchDeviceToken(this, (token, error) ->
+                runOnUiThread(() -> notifyWebFcmToken(token, error)));
+    }
+
+    private boolean isRedactionProduct() {
+        return "com.wabinfos.redaction".equals(getPackageName());
+    }
+
     private void requestPushPermissionFromWeb() {
         if (hasPostNotificationsPermission() && areSystemNotificationsEnabled()) {
-            WabInfosFcmInit.subscribeToDefaultTopics();
+            if (!isRedactionProduct()) {
+                WabInfosFcmInit.subscribeToDefaultTopics();
+            }
             notifyWebPushPermissionResult(true);
             return;
         }
@@ -753,6 +819,8 @@ public class MainActivity extends AppCompatActivity {
                 "  window.__wabInfosPullRefreshSync = true;" +
                 "  var roots = ['#redaction-main-scroll', '.jetpack-editor-scroll'];" +
                 "  function computeCanScrollUp() {" +
+                "    if (document.documentElement && document.documentElement.classList.contains('redaction-writing')) return true;" +
+                "    if (document.querySelector('.jetpack-editor-screen')) return true;" +
                 "    if (window.scrollY > 2) return true;" +
                 "  if (document.documentElement && document.documentElement.scrollTop > 2) return true;" +
                 "    for (var i = 0; i < roots.length; i++) {" +
@@ -820,6 +888,8 @@ public class MainActivity extends AppCompatActivity {
      * SDK 36 impose le edge-to-edge (plus d’opt-out). On pad le layout racine avec
      * les insets statut / navigation / cutout pour que la WebView ne passe pas
      * sous la barre de notification.
+     * L’IME n’est PAS paddé ici : adjustResize + visualViewport JS gèrent le clavier
+     * (sinon double offset et barre d’outils instable dans la rédaction).
      */
     private void applySystemBarInsets() {
         if (rootLayout == null) return;
@@ -827,12 +897,39 @@ public class MainActivity extends AppCompatActivity {
             Insets bars = windowInsets.getInsets(
                     WindowInsetsCompat.Type.systemBars()
                             | WindowInsetsCompat.Type.displayCutout()
-                            | WindowInsetsCompat.Type.ime()
             );
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+
+            Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            // La WebView est déjà paddée des system bars : ne pas recompter la nav
+            // (sinon un trou entre barre d’outils et clavier).
+            final int imeForWeb = Math.max(0, ime.bottom - bars.bottom);
+            notifyWebImeBottom(imeForWeb);
+
             return WindowInsetsCompat.CONSUMED;
         });
         ViewCompat.requestApplyInsets(rootLayout);
+    }
+
+    /** Pousse la hauteur clavier vers le JS en CSS px (WebView). */
+    private void notifyWebImeBottom(int imeBottomPx) {
+        if (webView == null) return;
+        final float density = Math.max(0.5f, getResources().getDisplayMetrics().density);
+        // WindowInsets = px écran ; TipTap / CSS utilisent des CSS px (= px / density).
+        final int cssBottom = Math.max(0, Math.round(imeBottomPx / density));
+        webView.post(() -> {
+            if (webView == null) return;
+            String script =
+                    "(function(){" +
+                    "  window.__wabImeBottom=" + cssBottom + ";" +
+                    "  try {" +
+                    "    document.documentElement.style.setProperty('--wab-ime-bottom','" + cssBottom + "px');" +
+                    "    document.documentElement.setAttribute('data-wab-ime', String(" + cssBottom + "));" +
+                    "  } catch (e) {}" +
+                    "  try { window.dispatchEvent(new CustomEvent('wab-ime',{detail:{bottom:" + cssBottom + "}})); } catch (e) {}" +
+                    "})();";
+            webView.evaluateJavascript(script, null);
+        });
     }
 
     /** Garde la barre de statut / navigation visibles (pas de mode immersif). */
@@ -1232,10 +1329,26 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(MainActivity.this::requestPushPermissionFromWeb);
         }
 
-        /** Active / désactive les topics FCM (all_users, news). */
+        /**
+         * Demande le token FCM natif et le renvoie via event wab-android-fcm-token
+         * ({ detail: { token } } ou { detail: { error } }).
+         */
+        @android.webkit.JavascriptInterface
+        public void requestFcmToken() {
+            runOnUiThread(MainActivity.this::fetchFcmTokenForWeb);
+        }
+
+        /** Active / désactive les topics FCM (all_users, news) — lecteur uniquement. */
         @android.webkit.JavascriptInterface
         public void setPushAlertsEnabled(boolean enabled) {
             runOnUiThread(() -> {
+                if (isRedactionProduct()) {
+                    // Rédaction : abonnements individuels via token, pas les topics lecteurs.
+                    if (enabled) {
+                        fetchFcmTokenForWeb();
+                    }
+                    return;
+                }
                 if (enabled) {
                     WabInfosFcmInit.subscribeToDefaultTopics();
                 } else {

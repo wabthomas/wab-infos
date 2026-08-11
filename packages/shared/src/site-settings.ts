@@ -261,6 +261,15 @@ export function normalizeSiteSocialLink(raw: unknown): SiteSocialLink | null {
   };
 }
 
+export function getWhatsAppChannelHref(settings: Pick<SiteSettings, 'socialLinks'>): string {
+  const configured = settings.socialLinks.find((link) => link.id === 'whatsapp' && link.href.trim());
+  if (configured?.href) return configured.href.trim();
+  return (
+    DEFAULT_SITE_SOCIAL_LINKS.find((link) => link.id === 'whatsapp')?.href ||
+    'https://whatsapp.com/channel/0029VaD4Z9a1CYobJ2TWBD07'
+  );
+}
+
 export function normalizeSiteSettings(raw: unknown): SiteSettings {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_SITE_SETTINGS };
   const row = raw as Record<string, unknown>;

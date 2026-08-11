@@ -26,7 +26,7 @@ import {
 } from '@/lib/seo';
 import { getArticleBySlug, getRelatedArticles } from '@/lib/strapi';
 import { getSiteSettings } from '@/lib/site-settings.server';
-import { formatArticleContent } from '@/lib/utils';
+import { formatArticleContent, cn } from '@/lib/utils';
 import { GoogleSwgBasicScripts } from '@/components/google/swg-basic-scripts';
 import { MobileArticleBottomBar } from '@/components/layout/mobile-article-bottom-bar';
 import { pickRelatedArticles } from '@/lib/pick-related-articles';
@@ -95,7 +95,10 @@ export default async function ArticlePage({ params }: PageProps) {
   } catch {
     relatedPool = [];
   }
-  const readAlsoArticles = pickRelatedArticles(relatedPool, slug, 3);
+  const readAlsoArticles = siteSettings.chrome.articleUi.inArticleReadAlso
+    ? pickRelatedArticles(relatedPool, slug, 3)
+    : [];
+  const showReadAlsoThumbnail = siteSettings.chrome.articleUi.readAlsoThumbnail;
 
   const articleUrl = `${siteConfig.url}/${categorySlug}/${slug}`;
   const articleJsonLd = generateArticleJsonLd(article, category);
@@ -117,7 +120,12 @@ export default async function ArticlePage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <article className="container mx-auto px-4 py-6">
+      <article
+        className={cn(
+          'container mx-auto px-4 py-6',
+          !showReadAlsoThumbnail && 'read-also-hide-thumbs'
+        )}
+      >
         <div className="grid items-start gap-8 lg:grid-cols-3">
           <div className="min-w-0 lg:col-span-2">
             <ArticleHero
@@ -137,6 +145,7 @@ export default async function ArticlePage({ params }: PageProps) {
             <ArticleBodyWithAds
               html={formatArticleContent(article.content)}
               readAlsoArticles={readAlsoArticles}
+              showReadAlsoThumbnail={showReadAlsoThumbnail}
             />
 
             <ArticleBottomAd />
@@ -198,6 +207,7 @@ export default async function ArticlePage({ params }: PageProps) {
         showLikeButton={siteSettings.chrome.articleUi.likeButton}
         showLikeCount={siteSettings.chrome.articleUi.likeCount}
       />
+
     </>
   );
 }

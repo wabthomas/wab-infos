@@ -19,9 +19,13 @@ export async function sendPushToReaders(
   }
 
   // L'APK Android native s'abonne automatiquement au topic FCM global.
-  await sendFcmToTopic(NATIVE_ANDROID_NEWS_TOPIC, payload).catch((err) => {
+  let topicSent = 0;
+  try {
+    await sendFcmToTopic(NATIVE_ANDROID_NEWS_TOPIC, payload);
+    topicSent = 1;
+  } catch (err) {
     console.error('[push/native-topic]', err);
-  });
+  }
 
   const subscriptions = await listReaderPushSubscriptions();
   const uniqueSubscriptions = Array.from(
@@ -33,7 +37,7 @@ export async function sendPushToReaders(
   );
 
   if (!uniqueSubscriptions.length) {
-    return { sent: 0, failed: 0 };
+    return { sent: topicSent, failed: 0 };
   }
 
   let sent = 0;
@@ -58,5 +62,5 @@ export async function sendPushToReaders(
     })
   );
 
-  return { sent, failed };
+  return { sent: sent + topicSent, failed };
 }

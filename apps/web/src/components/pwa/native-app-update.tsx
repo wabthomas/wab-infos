@@ -90,6 +90,9 @@ export function NativeAppUpdate({ siteUrl, versionManifestUrl }: NativeAppUpdate
   const handleDismiss = () => {
     if (check?.remote) {
       dismissApkUpdate(check.remote.versionCode);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(APK_INSTALL_STARTED_KEY, String(check.remote.versionCode));
+      }
     }
     setState('idle');
     setError(null);

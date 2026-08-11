@@ -51,27 +51,44 @@ function readGradleVersionsForProduct(productName) {
 }
 
 mkdirSync(destDir, { recursive: true });
-copyFileSync(apkSrc, apkDest);
 
 const { versionCode, versionName } = readGradleVersionsForProduct(product);
-const apkPublicUrl =
+
+// Fichier versionné : contourne le cache CDN (sinon MAJ annoncée mais ancienne APK téléchargée).
+const versionedFileName =
   product === 'redaction'
-    ? process.env.NEXT_PUBLIC_REDACTION_ANDROID_APK_URL || '/downloads/wab-redaction.apk'
-    : process.env.NEXT_PUBLIC_ANDROID_APK_URL || '/downloads/wab-infos.apk';
+    ? `wab-redaction-v${versionCode}.apk`
+    : `wab-infos-v${versionCode}.apk`;
+const versionedDest = join(destDir, versionedFileName);
+copyFileSync(apkSrc, versionedDest);
+copyFileSync(apkSrc, apkDest);
+
+const downloadsOrigin = (
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com'
+).replace(/\/$/, '');
+const aliasPublicUrl = `${downloadsOrigin}/downloads/${apkFileName}?v=${versionCode}`;
+const versionedPublicUrl = `${downloadsOrigin}/downloads/${versionedFileName}`;
+const apkPublicUrl =
+  process.env[
+    product === 'redaction' ? 'NEXT_PUBLIC_REDACTION_ANDROID_APK_URL' : 'NEXT_PUBLIC_ANDROID_APK_URL'
+  ]?.trim() || aliasPublicUrl;
 
 const manifest = {
   versionCode,
   versionName,
   apkUrl: apkPublicUrl,
+  /** Alias stable (peut être mis en cache) — préférer apkUrl versionné pour les MAJ. */
+  apkUrlLatest: `${downloadsOrigin}/downloads/${apkFileName}`,
   releaseNotes:
     product === 'redaction'
-      ? 'Application native Wab-Redaction.'
+      ? 'Application native Wab-Redaction — correctifs clavier, images et mises à jour.'
       : undefined,
   releasedAt: new Date().toISOString(),
 };
 writeFileSync(versionDest, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
-const sizeMb = (statSync(apkDest).size / (1024 * 1024)).toFixed(1);
-console.log(`[copy-apk] ✅ ${apkDest} (${sizeMb} Mo)`);
+const sizeMb = (statSync(versionedDest).size / (1024 * 1024)).toFixed(1);
+console.log(`[copy-apk] ✅ ${versionedDest} (${sizeMb} Mo)`);
+console.log(`[copy-apk] ✅ ${apkDest} (copie latest)`);
 console.log(`[copy-apk] ✅ ${versionDest} (v${versionName} / ${versionCode})`);
 console.log(`[copy-apk] URL publique : ${apkPublicUrl}`);

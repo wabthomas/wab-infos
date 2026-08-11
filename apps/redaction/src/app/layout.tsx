@@ -32,6 +32,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
+  /** Le layout se redimensionne avec le clavier → barre d’outils reste visible (Chrome / WebView). */
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

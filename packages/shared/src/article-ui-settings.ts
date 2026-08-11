@@ -12,7 +12,7 @@ export interface ArticleUiSettings {
   sidebarAd: DeviceVisibility;
   /** Fil « En direct » / live */
   sidebarLiveFeed: DeviceVisibility;
-  /** Bloc « À lire aussi » */
+  /** Bloc « À lire aussi » (sidebar) */
   sidebarRelated: DeviceVisibility;
   /** Promo Wab-infos TV */
   sidebarTvPromo: DeviceVisibility;
@@ -26,6 +26,30 @@ export interface ArticleUiSettings {
   likeCount: boolean;
   /** Afficher « X min de lecture » dans la méta article */
   readingTime: boolean;
+  /** Encarts auto « Lire aussi » au milieu du corps d’article */
+  inArticleReadAlso: boolean;
+  /** Miniature sur les encarts « Lire aussi » (auto + manuels) */
+  readAlsoThumbnail: boolean;
+  /** Popup « Rejoindre la chaîne WhatsApp » après N secondes de lecture */
+  whatsappChannelPopupEnabled: boolean;
+  /** Délai avant affichage du popup WhatsApp (secondes de lecture réelle) */
+  whatsappChannelPopupDelaySec: number;
+}
+
+export const WHATSAPP_POPUP_DELAY_PRESETS = [
+  { value: 10, label: '10 secondes' },
+  { value: 15, label: '15 secondes' },
+  { value: 30, label: '30 secondes' },
+  { value: 60, label: '1 minute' },
+  { value: 120, label: '2 minutes' },
+  { value: 180, label: '3 minutes' },
+  { value: 300, label: '5 minutes' },
+] as const;
+
+export function normalizeWhatsAppPopupDelaySec(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n)) return 60;
+  return Math.min(600, Math.max(5, Math.round(n)));
 }
 
 export const DEFAULT_DEVICE_VISIBLE: DeviceVisibility = {
@@ -44,6 +68,10 @@ export const DEFAULT_ARTICLE_UI: ArticleUiSettings = {
   likeButton: true,
   likeCount: true,
   readingTime: true,
+  inArticleReadAlso: true,
+  readAlsoThumbnail: true,
+  whatsappChannelPopupEnabled: true,
+  whatsappChannelPopupDelaySec: 60,
 };
 
 function normalizeDeviceVisibility(raw: unknown, fallback: DeviceVisibility): DeviceVisibility {
@@ -80,6 +108,10 @@ export function normalizeArticleUiSettings(raw: unknown): ArticleUiSettings {
     likeButton: row.likeButton !== false,
     likeCount: row.likeCount !== false,
     readingTime: row.readingTime !== false,
+    inArticleReadAlso: row.inArticleReadAlso !== false,
+    readAlsoThumbnail: row.readAlsoThumbnail !== false,
+    whatsappChannelPopupEnabled: row.whatsappChannelPopupEnabled !== false,
+    whatsappChannelPopupDelaySec: normalizeWhatsAppPopupDelaySec(row.whatsappChannelPopupDelaySec),
   };
 }
 
@@ -95,4 +127,10 @@ export function deviceVisibilityClass(visibility: DeviceVisibility, base = ''): 
     parts.push('hidden lg:block');
   }
   return parts.filter(Boolean).join(' ');
+}
+
+/** Affichage public du temps de lecture : « 03 min ». */
+export function formatReadingTimeLabel(minutes: number): string {
+  const n = Math.max(0, Math.round(Number(minutes) || 0));
+  return `${String(n).padStart(2, '0')} min`;
 }

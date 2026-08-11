@@ -68,14 +68,16 @@ Source : `apps/reader-android/assets/app-icon.png`
 Les liens `https://wab-infos.com/...` (et `www`) s’ouvrent dans l’APK si :
 
 1. L’APK est installé (intent-filter `autoVerify` dans le manifest).
-2. Le fichier Digital Asset Links est servi :
+2. Le fichier Digital Asset Links est servi **sans redirection** sur les deux hôtes :
    `https://wab-infos.com/.well-known/assetlinks.json`
-3. Variable d’environnement web (prod) :
+   `https://www.wab-infos.com/.well-known/assetlinks.json`
+3. Les empreintes SHA-256 du JSON incluent :
+   - la clé **upload / keystore release** (déjà dans le code)
+   - la clé **Play App Signing** (Play Console → Intégrité de l’app → SHA-256), via :
    ```
    ANDROID_APP_PACKAGE_NAME=com.wabinfos.app
    ANDROID_APP_LINK_SHA256=AA:BB:CC:...
    ```
-   Empreinte SHA-256 du keystore **release** (et éventuellement la clé Play App Signing) :
 
    ```bash
    keytool -list -v -keystore <votre.keystore> -alias <alias>

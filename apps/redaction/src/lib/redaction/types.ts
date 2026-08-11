@@ -1,3 +1,7 @@
+import type { ArticleSeoMeta } from '@wab-infos/shared';
+
+export type { ArticleSeoMeta };
+
 export type RedactionUserRole = 'author' | 'editor' | 'admin';
 
 export interface RedactionUser {
@@ -112,11 +116,18 @@ export interface RedactionArticle {
   seoTitle?: string;
   seoDescription?: string;
   canonicalUrl?: string;
+  seoMeta?: ArticleSeoMeta;
   status: 'draft' | 'published' | 'scheduled' | 'archived';
   isBreaking: boolean;
   isFeatured: boolean;
   viewCount: number;
   readingTime: number;
+  /** Score SEO 0–100 (calculé à la volée pour les listes). */
+  seoScore?: number;
+  /** Article issu de l’agrégation (revue de presse), pas de rédaction maison. */
+  isImported?: boolean;
+  sourceName?: string;
+  sourceUrl?: string;
   publishedAt?: string;
   wpPublishedAt?: string;
   scheduledAt?: string;
@@ -124,7 +135,12 @@ export interface RedactionArticle {
   category?: RedactionCategory;
   secondaryCategories?: RedactionCategory[];
   tagNames?: string[];
-  featuredImage?: { id: number; url: string; alternativeText?: string };
+  featuredImage?: {
+    id: number;
+    url: string;
+    alternativeText?: string;
+    caption?: string;
+  };
   author?: RedactionAuthor;
 }
 
@@ -163,6 +179,7 @@ export interface ArticleEditorPayload {
   seoTitle?: string;
   seoDescription?: string;
   canonicalUrl?: string;
+  seoMeta?: ArticleSeoMeta;
   featuredImageId?: number | null;
   isBreaking?: boolean;
   publish?: boolean;
@@ -178,14 +195,32 @@ export interface ArticleEditorPayload {
   authorDocumentId?: string | null;
 }
 
+export type ArticleListSort =
+  | 'updatedAt:desc'
+  | 'updatedAt:asc'
+  | 'publishedAt:desc'
+  | 'views:desc'
+  | 'views:asc'
+  | 'seo:desc'
+  | 'seo:asc'
+  | 'title:asc'
+  | 'category:asc'
+  | 'author:asc';
+
 export interface ListEditorArticlesOptions {
   omitContent?: boolean;
   page?: number;
   pageSize?: number;
   /** Filtre par rédacteur (super admin uniquement). */
   authorDocumentId?: string;
+  /** Filtre par rubrique (documentId Strapi). */
+  categoryDocumentId?: string;
+  /** Uniquement les articles importés (agrégation). */
+  importedOnly?: boolean;
   /** Recherche titre / chapô / slug. */
   search?: string;
+  /** Tri liste rédaction. */
+  sort?: ArticleListSort;
   /** Si false, retourne tous les articles (stats, export). */
   paginate?: boolean;
 }

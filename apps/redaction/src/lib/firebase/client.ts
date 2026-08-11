@@ -1,6 +1,5 @@
-'use client';
-
 import { deleteApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging';
 import {
   getFirebaseClientConfig,
@@ -18,7 +17,7 @@ export type FcmTokenResult =
 
 async function fetchFirebaseConfigFromServer(): Promise<boolean> {
   try {
-    const res = await fetch('/api/redaction/push/vapid-key', { cache: 'no-store' });
+    const res = await fetchRedaction('/api/redaction/push/vapid-key', { cache: 'no-store' });
     if (!res.ok) return false;
 
     const data = (await res.json()) as FirebaseClientConfig & {

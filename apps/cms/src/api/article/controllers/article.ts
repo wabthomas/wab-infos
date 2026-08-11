@@ -120,6 +120,27 @@ export default factories.createCoreController(UID, ({ strapi }) => ({
     // Ne pas appeler documents().update() : cela modifie updatedAt, déclenche les lifecycles
     // et peut fausser les dates affichées (« À l'instant » après chaque vue).
 
+    if ([100, 500, 1000, 10000].includes(viewCount)) {
+      const redactionUrl = (
+        process.env.REDACTION_APP_URL ||
+        process.env.NEXT_PUBLIC_REDACTION_URL ||
+        ''
+      ).replace(/\/$/, '');
+      const secret = process.env.REVALIDATION_SECRET;
+      if (redactionUrl && secret) {
+        void fetch(`${redactionUrl}/api/redaction/push/view-milestone`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-revalidation-secret': secret,
+          },
+          body: JSON.stringify({ documentId, viewCount }),
+        }).catch((err) => {
+          strapi.log.warn(`[views] milestone push ${viewCount} : ${err}`);
+        });
+      }
+    }
+
     return { data: { viewCount } };
   },
 

@@ -4,70 +4,41 @@ import { useCallback, useEffect, useState } from 'react';
 import { Bell, Loader2, X } from 'lucide-react';
 import {
   registerRedactionServiceWorker,
-  REDACTION_SW_SCOPE,
 } from '@/lib/redaction/register-service-worker';
-import { isFirebaseClientConfigured, requestFcmToken, setupForegroundFcmListener } from '@/lib/firebase/client';
+import {
+  isEditorPushOptedOut,
+  registerEditorPushSubscription,
+} from '@/lib/redaction/register-editor-push';
+import { isFirebaseClientConfigured, setupForegroundFcmListener } from '@/lib/firebase/client';
+import {
+  getAndroidWebViewBridge,
+  getAndroidWebViewPushPermission,
+  isNativeCapacitorFromUserAgent,
+} from '@wab-infos/shared';
 import {
   getCapacitorPushPermission,
   isNativeCapacitorApp,
-  isNativeCapacitorFromUserAgent,
-  setupCapacitorPushListeners,
-  subscribeEditorViaCapacitorPush,
-  syncEditorCapacitorPushIfGranted,
 } from '@/lib/push/capacitor-native';
 
 const DISMISS_KEY = 'redaction-push-banner-dismiss';
 
-async function registerWebPushSubscription(): Promise<boolean> {
-  if (!('serviceWorker' in navigator) || !(await isFirebaseClientConfigured())) {
-    return false;
-  }
-
-  const registration =
-    (await navigator.serviceWorker.getRegistration(REDACTION_SW_SCOPE)) ||
-    (await registerRedactionServiceWorker());
-  if (!registration) return false;
-
-  await navigator.serviceWorker.ready;
-
-  const tokenResult = await requestFcmToken(registration);
-  if (!tokenResult.ok) {
-    console.warn('[push]', tokenResult.code, tokenResult.message);
-    return false;
-  }
-
-  const res = await fetch('/api/redaction/push/subscribe', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fcmToken: tokenResult.token }),
-  });
-
-  return res.ok;
-}
-
-async function registerPushSubscription(): Promise<boolean> {
-  if (isNativeCapacitorFromUserAgent() || (await isNativeCapacitorApp())) {
-    const result = await subscribeEditorViaCapacitorPush();
-    if (!result.ok) {
-      console.warn('[push/native]', result.reason, result.message);
-    }
-    return result.ok;
-  }
-
-  return registerWebPushSubscription();
+function isNativeEditorApp(): boolean {
+  return isNativeCapacitorFromUserAgent() || Boolean(getAndroidWebViewBridge());
 }
 
 export function RedactionPushSetup() {
   useEffect(() => {
     void (async () => {
-      if (isNativeCapacitorFromUserAgent() || (await isNativeCapacitorApp())) {
-        await setupCapacitorPushListeners();
-        const permission = await getCapacitorPushPermission();
-        if (permission === 'granted') {
-          await syncEditorCapacitorPushIfGranted();
+      if (isNativeEditorApp()) {
+        // Auto-sync token si permission déjà accordée (APK WebView).
+        const status = getAndroidWebViewPushPermission();
+        if (status === 'granted' && !isEditorPushOptedOut()) {
+          void registerEditorPushSubscription();
         }
         return;
       }
+
+      if (await isNativeCapacitorApp()) return;
 
       void registerRedactionServiceWorker();
     })();
@@ -75,10 +46,12 @@ export function RedactionPushSetup() {
 
   useEffect(() => {
     void (async () => {
-      if (isNativeCapacitorFromUserAgent() || (await isNativeCapacitorApp())) return;
+      if (isNativeEditorApp() || (await isNativeCapacitorApp())) return;
       if (!('Notification' in window) || Notification.permission !== 'granted') return;
       void setupForegroundFcmListener();
-      void registerWebPushSubscription();
+      if (!isEditorPushOptedOut()) {
+        void registerEditorPushSubscription();
+      }
     })();
   }, []);
 
@@ -94,7 +67,14 @@ export function RedactionPushBanner() {
     void (async () => {
       if (localStorage.getItem(DISMISS_KEY) === '1') return;
 
-      if (isNativeCapacitorFromUserAgent() || (await isNativeCapacitorApp())) {
+      if (isNativeEditorApp()) {
+        const permission = getAndroidWebViewPushPermission();
+        if (permission === 'granted' || permission === 'denied') return;
+        setVisible(true);
+        return;
+      }
+
+      if (await isNativeCapacitorApp()) {
         const permission = await getCapacitorPushPermission();
         if (permission === 'granted' || permission === 'denied') return;
         setVisible(true);
@@ -114,9 +94,9 @@ export function RedactionPushBanner() {
     setError('');
 
     try {
-      const ok = await registerPushSubscription();
-      if (!ok) {
-        setError('Enregistrement impossible. Réessayez après avoir vidé le cache.');
+      const result = await registerEditorPushSubscription();
+      if (!result.ok) {
+        setError(result.message);
         return;
       }
 
@@ -136,9 +116,10 @@ export function RedactionPushBanner() {
       <div className="flex items-start gap-3">
         <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Notifications commentaires</p>
+          <p className="text-sm font-semibold">Notifications rédaction</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Soyez alerté quand un lecteur laisse un commentaire en attente.
+            Commentaires en attente et rappels matin, midi et soir si vous n’avez pas encore écrit
+            aujourd’hui.
           </p>
           {error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
           <button

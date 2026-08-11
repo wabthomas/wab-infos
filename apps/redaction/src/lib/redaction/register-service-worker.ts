@@ -3,20 +3,35 @@ export {
   isStandalonePwa,
 } from '@/lib/pwa/detect';
 
-export const REDACTION_SW_URL = '/sw-redaction.js';
-export const REDACTION_SW_SCOPE = '/';
+import {
+  getRedactionServiceWorkerScope,
+  getRedactionServiceWorkerUrl,
+} from '@/lib/redaction/public-path';
+
+/** @deprecated Préférer getRedactionServiceWorkerUrl() (basePath runtime). */
+export function getRedactionSwUrl(): string {
+  return getRedactionServiceWorkerUrl();
+}
+
+/** @deprecated Préférer getRedactionServiceWorkerScope(). */
+export function getRedactionSwScope(): string {
+  return getRedactionServiceWorkerScope();
+}
 
 export async function registerRedactionServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
   }
 
+  const swUrl = getRedactionServiceWorkerUrl();
+  const scope = getRedactionServiceWorkerScope();
+
   try {
-    const existing = await navigator.serviceWorker.getRegistration(REDACTION_SW_SCOPE);
+    const existing = await navigator.serviceWorker.getRegistration(scope);
     if (existing) return existing;
 
-    return await navigator.serviceWorker.register(REDACTION_SW_URL, {
-      scope: REDACTION_SW_SCOPE,
+    return await navigator.serviceWorker.register(swUrl, {
+      scope,
     });
   } catch {
     return null;

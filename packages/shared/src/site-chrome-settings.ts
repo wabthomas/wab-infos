@@ -9,6 +9,10 @@ import {
   type SiteSupportSettings,
 } from './site-support-settings';
 import {
+  normalizeSiteSeoSettings,
+  type SiteSeoSettings,
+} from './site-seo-settings';
+import {
   normalizeTypographySettings,
   type SiteTypographySettings,
 } from './site-typography-settings';
@@ -77,6 +81,40 @@ export interface SiteChromeSettings {
   branding: SiteBrandingSettings;
   /** Bouton S’abonner + moyens de paiement (soutien lecteur) */
   support: SiteSupportSettings;
+  /** SEO global (templates, IndexNow, noindex site) */
+  seo: SiteSeoSettings;
+  /** Push quotidien lecteurs (site / YouTube) */
+  readerDailyPush: ReaderDailyPushSettings;
+}
+
+export type ReaderDailyPushTarget = 'site' | 'youtube' | 'alternate';
+
+export interface ReaderDailyPushSettings {
+  enabled: boolean;
+  /** Heure Kinshasa (0–23) */
+  hour: number;
+  target: ReaderDailyPushTarget;
+}
+
+export const DEFAULT_READER_DAILY_PUSH: ReaderDailyPushSettings = {
+  enabled: false,
+  hour: 8,
+  target: 'alternate',
+};
+
+export function normalizeReaderDailyPushSettings(raw: unknown): ReaderDailyPushSettings {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_READER_DAILY_PUSH };
+  const row = raw as Record<string, unknown>;
+  const hour = typeof row.hour === 'number' ? row.hour : Number(row.hour);
+  const target =
+    row.target === 'site' || row.target === 'youtube' || row.target === 'alternate'
+      ? row.target
+      : DEFAULT_READER_DAILY_PUSH.target;
+  return {
+    enabled: row.enabled === true,
+    hour: Number.isFinite(hour) ? Math.min(23, Math.max(0, Math.round(hour))) : 8,
+    target,
+  };
 }
 
 export const DEFAULT_UTILITY_LINKS: SiteNavLink[] = [
@@ -173,6 +211,8 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
   typography: normalizeTypographySettings(undefined),
   branding: normalizeBrandingSettings(undefined),
   support: normalizeSiteSupportSettings(undefined),
+  seo: normalizeSiteSeoSettings(undefined),
+  readerDailyPush: { ...DEFAULT_READER_DAILY_PUSH },
 };
 
 function normalizeNavLink(raw: unknown, fallbackId: string): SiteNavLink | null {
@@ -236,6 +276,8 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
       typography: normalizeTypographySettings(undefined),
       branding: normalizeBrandingSettings(undefined),
       support: normalizeSiteSupportSettings(undefined),
+      seo: normalizeSiteSeoSettings(undefined),
+      readerDailyPush: { ...DEFAULT_READER_DAILY_PUSH },
     };
   }
   const row = raw as Record<string, unknown>;
@@ -287,6 +329,8 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
     typography: normalizeTypographySettings(row.typography),
     branding: normalizeBrandingSettings(row.branding),
     support: normalizeSiteSupportSettings(row.support),
+    seo: normalizeSiteSeoSettings(row.seo),
+    readerDailyPush: normalizeReaderDailyPushSettings(row.readerDailyPush),
   };
 }
 

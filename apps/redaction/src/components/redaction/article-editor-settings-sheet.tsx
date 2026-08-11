@@ -23,18 +23,17 @@ interface ArticleEditorSettingsSheetProps {
   onSeoDescriptionChange: (v: string) => void;
   canonicalUrl: string;
   onCanonicalUrlChange: (v: string) => void;
+  onOpenSeoWizard?: () => void;
+  seoScore?: number | null;
   featuredImageId?: number | null;
   featuredImageUrl?: string;
   featuredImageAlt?: string;
   onOpenMediaLibrary: () => void;
   onRemoveFeaturedImage: () => void;
-  onEditFeaturedAlt?: () => void;
   savingFeaturedAlt?: boolean;
-  editingFeaturedAlt?: boolean;
   featuredAltDraft?: string;
   onFeaturedAltDraftChange?: (v: string) => void;
   onSaveFeaturedAlt?: () => void;
-  onCancelFeaturedAlt?: () => void;
   isBreaking: boolean;
   onBreakingChange: (v: boolean) => void;
   scheduledAt: string;
@@ -206,18 +205,17 @@ export function ArticleEditorSettingsSheet({
   onSeoDescriptionChange,
   canonicalUrl,
   onCanonicalUrlChange,
+  onOpenSeoWizard,
+  seoScore,
   featuredImageId,
   featuredImageUrl,
   featuredImageAlt,
   onOpenMediaLibrary,
   onRemoveFeaturedImage,
-  onEditFeaturedAlt,
   savingFeaturedAlt,
-  editingFeaturedAlt,
   featuredAltDraft,
   onFeaturedAltDraftChange,
   onSaveFeaturedAlt,
-  onCancelFeaturedAlt,
   isBreaking,
   onBreakingChange,
   scheduledAt,
@@ -309,13 +307,10 @@ export function ArticleEditorSettingsSheet({
               alternativeText={featuredImageAlt}
               onOpenLibrary={onOpenMediaLibrary}
               onRemove={onRemoveFeaturedImage}
-              onEditAlt={onEditFeaturedAlt}
               savingAlt={savingFeaturedAlt}
-              editingAlt={editingFeaturedAlt}
-              altDraft={featuredAltDraft}
-              onAltDraftChange={onFeaturedAltDraftChange}
-              onSaveAlt={onSaveFeaturedAlt}
-              onCancelAlt={onCancelFeaturedAlt}
+              altDraft={featuredAltDraft ?? ''}
+              onAltDraftChange={onFeaturedAltDraftChange ?? (() => undefined)}
+              onSaveAlt={onSaveFeaturedAlt ?? (() => undefined)}
             />
           </section>
 
@@ -345,9 +340,43 @@ export function ArticleEditorSettingsSheet({
           </section>
 
           <section className="space-y-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
               SEO
             </p>
+            {onOpenSeoWizard ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenSeoWizard();
+                }}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-3 text-left transition-colors hover:border-primary/40"
+              >
+                <span>
+                  <span className="block text-sm font-semibold">Ouvrir l’assistant SEO</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Score, requête cible, social, robots, indexation
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    'rounded-full px-2.5 py-1 text-xs font-bold tabular-nums',
+                    typeof seoScore === 'number'
+                      ? // classes locales pour garantir le contraste même sans scan shared
+                        seoScore >= 80
+                        ? 'bg-emerald-700 text-white'
+                        : seoScore >= 60
+                          ? 'bg-lime-800 text-white'
+                          : seoScore >= 40
+                            ? 'bg-amber-700 text-white'
+                            : 'bg-red-700 text-white'
+                      : 'bg-primary/10 text-primary'
+                  )}
+                >
+                  {seoScore ?? '—'}
+                </span>
+              </button>
+            ) : null}
             <label className="block space-y-1.5">
               <span className="text-xs font-medium text-muted-foreground">Titre SEO</span>
               <input

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, startTransition } from 'react';
+import { fetchRedaction } from '@/lib/redaction/public-path';
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -10,6 +11,12 @@ import {
   Undo2,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
+import {
+  analyzeArticleSeo,
+  emptyArticleSeoMeta,
+  normalizeArticleSeoMeta,
+  type ArticleSeoMeta,
+} from '@wab-infos/shared';
 import type { RedactionCategory, RedactionMediaItem } from '@/lib/redaction/types';
 import type { ArticleEditorPayload } from '@/lib/redaction/types';
 import { excerptFromContent, formatArticleContent, generateSeoDescription, generateSeoTitle, stripHtml } from '@/lib/utils';
@@ -25,6 +32,10 @@ import { ArticleEditorSettingsSheet } from '@/components/redaction/article-edito
 import { ArticleEditorOptionsMenu } from '@/components/redaction/article-editor-options-menu';
 import { ArticlePublishSheet } from '@/components/redaction/article-publish-sheet';
 import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
+import {
+  ArticleSeoWizard,
+  SeoScoreBadge,
+} from '@/components/redaction/article-seo-wizard';
 import type { RedactionAuthor } from '@/lib/redaction/types';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
@@ -38,9 +49,11 @@ export interface ArticleEditorValues {
   content: string;
   categoryDocumentIds: string[];
   tagNames: string[];
+  slug?: string;
   seoTitle?: string;
   seoDescription?: string;
   canonicalUrl?: string;
+  seoMeta?: ArticleSeoMeta;
   featuredImageId?: number | null;
   featuredImageUrl?: string;
   featuredImageAlt?: string;
@@ -90,7 +103,7 @@ async function recoverPublishAfterNetworkError(
   mode: 'publish' | 'schedule'
 ): Promise<boolean> {
   try {
-    const res = await fetch(`/api/redaction/articles/${documentId}`);
+    const res = await fetchRedaction(`/api/redaction/articles/${documentId}`);
     if (!res.ok) return false;
     const data = (await res.json()) as {
       article?: { status?: string; publishedAt?: string; scheduledAt?: string };
@@ -169,6 +182,8 @@ function buildSavePayload(
   const canonicalUrl = values.canonicalUrl?.trim();
   if (canonicalUrl) payload.canonicalUrl = canonicalUrl;
 
+  payload.seoMeta = normalizeArticleSeoMeta(values.seoMeta ?? emptyArticleSeoMeta());
+
   if (mode !== 'draft' && values.authorDocumentId) {
     payload.authorDocumentId = values.authorDocumentId;
   }
@@ -213,9 +228,11 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     content: toEditorContent(initial?.content),
     categoryDocumentIds: initial?.categoryDocumentIds ?? [],
     tagNames: initial?.tagNames ?? [],
+    slug: initial?.slug,
     seoTitle: initial?.seoTitle ?? '',
     seoDescription: initial?.seoDescription ?? '',
     canonicalUrl: initial?.canonicalUrl ?? '',
+    seoMeta: normalizeArticleSeoMeta(initial?.seoMeta),
     featuredImageId: initial?.featuredImageId,
     featuredImageUrl: initial?.featuredImageUrl,
     featuredImageAlt: initial?.featuredImageAlt ?? '',
@@ -228,9 +245,9 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const [savingFeaturedAlt, setSavingFeaturedAlt] = useState(false);
   const [scheduledAt, setScheduledAt] = useState(toDatetimeLocal(initial?.scheduledAt));
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [seoWizardOpen, setSeoWizardOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
-  const [editingFeaturedAlt, setEditingFeaturedAlt] = useState(false);
   const [featuredAltDraft, setFeaturedAltDraft] = useState(initial?.featuredImageAlt ?? '');
   const headerRef = useRef<HTMLElement>(null);
   const [headerHeight, setHeaderHeight] = useState(56);
@@ -250,11 +267,11 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   }, []);
 
   useEffect(() => {
-    void fetch('/api/redaction/media?page=1&pageSize=36').catch(() => undefined);
+    void fetchRedaction('/api/redaction/media?page=1&pageSize=36').catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    void fetch('/api/redaction/auth/me')
+    void fetchRedaction('/api/redaction/auth/me')
       .then((r) => r.json())
       .then(
         (data: {
@@ -279,7 +296,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
 
   useEffect(() => {
     if (!canAssignAuthor) return;
-    void fetch('/api/redaction/authors')
+    void fetchRedaction('/api/redaction/authors')
       .then((r) => r.json())
       .then((data: { authors?: RedactionAuthor[] }) => {
         if (data.authors?.length) setAuthors(data.authors);
@@ -321,11 +338,17 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       seoTitle: stored.values.seoTitle ?? current.seoTitle,
       seoDescription: stored.values.seoDescription ?? current.seoDescription,
       canonicalUrl: stored.values.canonicalUrl ?? current.canonicalUrl,
+      seoMeta: stored.values.seoMeta
+        ? normalizeArticleSeoMeta(stored.values.seoMeta)
+        : current.seoMeta,
       featuredImageId: stored.values.featuredImageId ?? current.featuredImageId,
       featuredImageUrl: stored.values.featuredImageUrl ?? current.featuredImageUrl,
       featuredImageAlt: stored.values.featuredImageAlt ?? current.featuredImageAlt,
       isBreaking: stored.values.isBreaking ?? current.isBreaking,
     }));
+    if (stored.values.featuredImageAlt != null) {
+      setFeaturedAltDraft(stored.values.featuredImageAlt);
+    }
     if (stored.scheduledAt) setScheduledAt(stored.scheduledAt);
   }, [documentId, initial?.title, initial?.content]);
 
@@ -350,7 +373,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   }, []);
 
   useEffect(() => {
-    fetch('/api/redaction/categories')
+    fetchRedaction('/api/redaction/categories')
       .then((r) => r.json())
       .then((d: { categories?: RedactionCategory[] }) => {
         setCategories(d.categories ?? []);
@@ -364,6 +387,69 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const primaryCategoryId = values.categoryDocumentIds[0] ?? categories[0]?.documentId ?? '';
   const primaryCategoryName =
     categories.find((c) => c.documentId === primaryCategoryId)?.name ?? 'Rubrique';
+  const primaryCategorySlug =
+    categories.find((c) => c.documentId === primaryCategoryId)?.slug ?? '';
+
+  const seoAnalysis = useMemo(
+    () =>
+      analyzeArticleSeo({
+        title: values.title,
+        excerpt: values.excerpt,
+        contentHtml: values.content,
+        seoTitle: values.seoTitle ?? '',
+        seoDescription: values.seoDescription ?? '',
+        canonicalUrl: values.canonicalUrl,
+        hasFeaturedImage: Boolean(values.featuredImageUrl || values.featuredImageId),
+        featuredImageAlt: values.featuredImageAlt,
+        categoryName: primaryCategoryId ? primaryCategoryName : undefined,
+        categorySlug: primaryCategorySlug || undefined,
+        tagNames: values.tagNames,
+        seoMeta: normalizeArticleSeoMeta(values.seoMeta),
+      }),
+    [values, primaryCategoryId, primaryCategoryName, primaryCategorySlug]
+  );
+
+  const siteUrl =
+    typeof process !== 'undefined'
+      ? (process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '')
+      : 'https://wab-infos.com';
+
+  async function requestArticleIndex(): Promise<{ ok: boolean; message: string }> {
+    if (!primaryCategorySlug || !articleIsLive || !activeDocumentId) {
+      return { ok: false, message: 'Publiez l’article avant de demander l’indexation.' };
+    }
+
+    let slug = values.slug?.trim() || '';
+    if (!slug) {
+      try {
+        const res = await fetchRedaction(`/api/redaction/articles/${activeDocumentId}`);
+        const data = await readApiJsonResponse<{ article?: { slug?: string } }>(res);
+        slug = data.article?.slug?.trim() || '';
+      } catch {
+        slug = '';
+      }
+    }
+    if (!slug) {
+      return { ok: false, message: 'Impossible de résoudre le slug de l’article.' };
+    }
+
+    const res = await fetchRedaction('/api/redaction/seo/index', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        mode: 'article',
+        category: primaryCategorySlug,
+        slug,
+      }),
+    });
+    const data = await readApiJsonResponse<{ ok?: boolean; message?: string; error?: string }>(
+      res
+    );
+    return {
+      ok: Boolean(data.ok),
+      message: data.message || data.error || (data.ok ? 'Indexation envoyée.' : 'Échec'),
+    };
+  }
 
   function applyDerivedFields(next: ArticleEditorValues): ArticleEditorValues {
     const result = { ...next };
@@ -414,7 +500,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       if (!payload) {
         if (forceUnpublish && activeDocumentId) {
           return enqueueSave(async () => {
-            const res = await fetch(`/api/redaction/articles/${activeDocumentId}/publication`, {
+            const res = await fetchRedaction(`/api/redaction/articles/${activeDocumentId}/publication`, {
               method: 'POST',
               headers: JSON_HEADERS,
               body: JSON.stringify({ publish: false }),
@@ -468,7 +554,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         });
         if (!currentPayload) {
           if (stillForceUnpublish && activeDocumentId) {
-            const res = await fetch(`/api/redaction/articles/${activeDocumentId}/publication`, {
+            const res = await fetchRedaction(`/api/redaction/articles/${activeDocumentId}/publication`, {
               method: 'POST',
               headers: JSON_HEADERS,
               body: JSON.stringify({ publish: false }),
@@ -640,7 +726,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     setDeleting(true);
     setError('');
     try {
-      const res = await fetch(`/api/redaction/articles/${activeDocumentId}`, {
+      const res = await fetchRedaction(`/api/redaction/articles/${activeDocumentId}`, {
         method: 'DELETE',
       });
       const data = await readApiJsonResponse<{ error?: string }>(res);
@@ -691,7 +777,6 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       featuredImageAlt: media.alternativeText ?? '',
     }));
     setFeaturedAltDraft(media.alternativeText ?? '');
-    setEditingFeaturedAlt(false);
   }
 
   function removeFeaturedImage() {
@@ -702,7 +787,6 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       featuredImageAlt: '',
     }));
     setFeaturedAltDraft('');
-    setEditingFeaturedAlt(false);
   }
 
   async function saveFeaturedAlt() {
@@ -710,15 +794,19 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     setSavingFeaturedAlt(true);
     setError('');
     try {
-      const res = await fetch(`/api/redaction/media/${values.featuredImageId}`, {
+      const res = await fetchRedaction(`/api/redaction/media/${values.featuredImageId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alternativeText: featuredAltDraft.trim() }),
+        body: JSON.stringify({
+          alternativeText: featuredAltDraft.trim(),
+        }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? 'Mise à jour impossible');
-      setValues((v) => ({ ...v, featuredImageAlt: featuredAltDraft.trim() }));
-      setEditingFeaturedAlt(false);
+      setValues((v) => ({
+        ...v,
+        featuredImageAlt: featuredAltDraft.trim(),
+      }));
       toast.success('Texte alternatif enregistré');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur';
@@ -889,6 +977,8 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             </p>
           </div>
 
+          <SeoScoreBadge score={seoAnalysis.score} onClick={() => setSeoWizardOpen(true)} />
+
           <button
             type="button"
             disabled={!!saving}
@@ -902,6 +992,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             open={menuOpen}
             onOpenChange={setMenuOpen}
             onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSeo={() => setSeoWizardOpen(true)}
             onOpenFeaturedImage={() => setMediaLibraryOpen(true)}
             onSaveDraft={() => void save('draft')}
             onDelete={() => void deleteArticle()}
@@ -909,6 +1000,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             deleting={deleting}
             canDelete={canDeleteArticle}
             hasFeaturedImage={Boolean(values.featuredImageUrl)}
+            seoScore={seoAnalysis.score}
           />
 
           <button
@@ -1062,24 +1154,17 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         }}
         canonicalUrl={values.canonicalUrl ?? ''}
         onCanonicalUrlChange={(canonicalUrl) => setValues((v) => ({ ...v, canonicalUrl }))}
+        onOpenSeoWizard={() => setSeoWizardOpen(true)}
+        seoScore={seoAnalysis.score}
         featuredImageId={values.featuredImageId}
         featuredImageUrl={values.featuredImageUrl}
         featuredImageAlt={values.featuredImageAlt}
         onOpenMediaLibrary={() => setMediaLibraryOpen(true)}
         onRemoveFeaturedImage={removeFeaturedImage}
-        onEditFeaturedAlt={() => {
-          setFeaturedAltDraft(values.featuredImageAlt ?? '');
-          setEditingFeaturedAlt(true);
-        }}
         savingFeaturedAlt={savingFeaturedAlt}
-        editingFeaturedAlt={editingFeaturedAlt}
         featuredAltDraft={featuredAltDraft}
         onFeaturedAltDraftChange={setFeaturedAltDraft}
         onSaveFeaturedAlt={() => void saveFeaturedAlt()}
-        onCancelFeaturedAlt={() => {
-          setFeaturedAltDraft(values.featuredImageAlt ?? '');
-          setEditingFeaturedAlt(false);
-        }}
         isBreaking={values.isBreaking}
         onBreakingChange={(isBreaking) => setValues((v) => ({ ...v, isBreaking }))}
         scheduledAt={scheduledAt}
@@ -1112,6 +1197,38 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         onClose={() => setMediaLibraryOpen(false)}
         onSelect={selectFeaturedImage}
         title="Photo à la une"
+      />
+
+      <ArticleSeoWizard
+        open={seoWizardOpen}
+        onClose={() => setSeoWizardOpen(false)}
+        title={values.title}
+        excerpt={values.excerpt}
+        contentHtml={values.content}
+        slug={values.slug}
+        categoryName={primaryCategoryId ? primaryCategoryName : undefined}
+        categorySlug={primaryCategorySlug || undefined}
+        tagNames={values.tagNames}
+        hasFeaturedImage={Boolean(values.featuredImageUrl || values.featuredImageId)}
+        featuredImageAlt={values.featuredImageAlt}
+        featuredImageUrl={values.featuredImageUrl}
+        seoTitle={values.seoTitle ?? ''}
+        onSeoTitleChange={(seoTitle) => {
+          seoTitleTouchedRef.current = true;
+          setValues((v) => ({ ...v, seoTitle }));
+        }}
+        seoDescription={values.seoDescription ?? ''}
+        onSeoDescriptionChange={(seoDescription) => {
+          seoDescriptionTouchedRef.current = true;
+          setValues((v) => ({ ...v, seoDescription }));
+        }}
+        canonicalUrl={values.canonicalUrl ?? ''}
+        onCanonicalUrlChange={(canonicalUrl) => setValues((v) => ({ ...v, canonicalUrl }))}
+        seoMeta={normalizeArticleSeoMeta(values.seoMeta)}
+        onSeoMetaChange={(seoMeta) => setValues((v) => ({ ...v, seoMeta }))}
+        siteUrl={siteUrl}
+        canIndex={articleIsLive && Boolean(activeDocumentId && primaryCategorySlug)}
+        onRequestIndex={requestArticleIndex}
       />
     </div>
   );

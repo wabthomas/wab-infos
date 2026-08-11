@@ -1,8 +1,10 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ImageIcon } from 'lucide-react';
+import { seoScoreToneClass } from '@wab-infos/shared';
 import type { RedactionArticle } from '@/lib/redaction/types';
 import { getPublicArticleUrl } from '@/lib/redaction/article-public-url';
 import { readApiJsonResponse } from '@/lib/redaction/api-response';
@@ -42,10 +44,50 @@ export function ArticleListItem({
   const thumbnailUrl = getStrapiMediaUrl(article.featuredImage?.url);
   const [deleting, setDeleting] = useState(false);
   const [togglingPublication, setTogglingPublication] = useState(false);
+  const [indexing, setIndexing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const isDraft = article.status === 'draft' && !article.publishedAt;
   const isLive = isLiveRedactionArticle(article);
   const canDelete = canDeleteAny || isDraft;
+
+  async function indexArticle() {
+    if (!isLive || indexing) return;
+    const category = article.category?.slug?.trim();
+    const slug = article.slug?.trim();
+    if (!category || !slug) {
+      toast.error('Indexation impossible', 'Rubrique ou slug manquant.');
+      return;
+    }
+
+    setIndexing(true);
+    try {
+      const res = await fetchRedaction('/api/redaction/seo/index', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'article', category, slug }),
+      });
+      const data = await readApiJsonResponse<{
+        ok?: boolean;
+        message?: string;
+        error?: string;
+      }>(res);
+      if (!res.ok) {
+        throw new Error(data.error ?? data.message ?? 'Indexation impossible');
+      }
+      if (data.ok) {
+        toast.success('Indexation envoyée', data.message);
+      } else {
+        toast.error('Indexation incomplète', data.message || data.error || 'Échec');
+      }
+    } catch (err) {
+      toast.error(
+        'Indexation impossible',
+        err instanceof Error ? err.message : 'Une erreur est survenue.'
+      );
+    } finally {
+      setIndexing(false);
+    }
+  }
 
   async function shareArticle() {
     if (!publicUrl) return;
@@ -73,7 +115,7 @@ export function ArticleListItem({
 
     setDeleting(true);
     try {
-      const res = await fetch(`/api/redaction/articles/${article.documentId}`, {
+      const res = await fetchRedaction(`/api/redaction/articles/${article.documentId}`, {
         method: 'DELETE',
       });
       const data = await readApiJsonResponse<{ error?: string }>(res);
@@ -103,7 +145,7 @@ export function ArticleListItem({
 
     setTogglingPublication(true);
     try {
-      const res = await fetch(`/api/redaction/articles/${article.documentId}/publication`, {
+      const res = await fetchRedaction(`/api/redaction/articles/${article.documentId}/publication`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publish }),
@@ -139,6 +181,24 @@ export function ArticleListItem({
     showViews && article.viewCount > 0
       ? `${article.viewCount.toLocaleString('fr-FR')} vues`
       : null;
+  const seoScore =
+    typeof article.seoScore === 'number' && Number.isFinite(article.seoScore)
+      ? Math.round(article.seoScore)
+      : null;
+
+  const seoBadge =
+    seoScore != null ? (
+      <span
+        className={cn(
+          'inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-[10px] font-bold tabular-nums',
+          seoScoreToneClass(seoScore)
+        )}
+        title={`Score SEO ${seoScore}/100`}
+        aria-label={`Score SEO ${seoScore} sur 100`}
+      >
+        SEO {seoScore}
+      </span>
+    ) : null;
 
   return (
     <div
@@ -188,6 +248,15 @@ export function ArticleListItem({
               {article.title}
             </p>
           </Link>
+          {seoBadge}
+          {article.isImported ? (
+            <span
+              className="shrink-0 rounded bg-sky-700 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white"
+              title={article.sourceName ? `Source : ${article.sourceName}` : 'Article importé'}
+            >
+              {article.sourceName ? `Import · ${article.sourceName}` : 'Importé'}
+            </span>
+          ) : null}
           {article.isBreaking ? (
             <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
               Flash
@@ -225,10 +294,13 @@ export function ArticleListItem({
                 canManagePublication={canManagePublication}
                 showPublish={!isLive && article.status !== 'scheduled'}
                 showUnpublish={isLive}
+                showIndex={isLive}
                 deleting={deleting}
                 togglingPublication={togglingPublication}
+                indexing={indexing}
                 onPublish={() => void togglePublication(true)}
                 onUnpublish={() => void togglePublication(false)}
+                onIndex={() => void indexArticle()}
                 onShare={publicUrl ? () => void shareArticle() : undefined}
                 onDelete={() => void deleteArticle()}
               />
@@ -265,10 +337,13 @@ export function ArticleListItem({
             canManagePublication={canManagePublication}
             showPublish={!isLive && article.status !== 'scheduled'}
             showUnpublish={isLive}
+            showIndex={isLive}
             deleting={deleting}
             togglingPublication={togglingPublication}
+            indexing={indexing}
             onPublish={() => void togglePublication(true)}
             onUnpublish={() => void togglePublication(false)}
+            onIndex={() => void indexArticle()}
             onShare={publicUrl ? () => void shareArticle() : undefined}
             onDelete={() => void deleteArticle()}
           />

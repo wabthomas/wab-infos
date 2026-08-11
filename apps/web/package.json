@@ -15,7 +15,8 @@
     "pwa:fcm": "node ../../scripts/generate-firebase-messaging-config.mjs apps/web",
     "og:image": "node scripts/generate-og-image.mjs",
     "redirects:wp": "node scripts/generate-wp-redirects.mjs",
-    "check:env": "node scripts/check-web-env.mjs"
+    "check:env": "node scripts/check-web-env.mjs",
+    "news:ingest:smoke": "npx tsx src/lib/news-ingest/smoke.ts"
   },
   "dependencies": {
     "@capacitor/core": "^6.0.5",

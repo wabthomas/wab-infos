@@ -1,10 +1,11 @@
 import Link from 'next/link';
+import { Clock } from 'lucide-react';
 import type { Article } from '@wab-infos/shared';
+import { formatReadingTimeLabel } from '@wab-infos/shared';
 import { ArticleAuthorMeta } from '@/components/articles/article-author-meta';
 import { ArticleLikeButton } from '@/components/articles/article-like-button';
 import { ArticleShareButtons } from '@/components/articles/article-share-buttons';
 import { ArticleViewCounter } from '@/components/articles/article-view-counter';
-import { getFeaturedImageCaption } from '@/components/articles/article-featured-image';
 import { ArticleImage } from '@/components/ui/article-image';
 import { formatArticleDate, formatDate, getArticleDisplayDate, resolveArticleImageUrl, cn } from '@/lib/utils';
 
@@ -34,7 +35,10 @@ export function ArticleHero({
   className,
 }: ArticleHeroProps) {
   const imageUrl = resolveArticleImageUrl(article.featuredImage, 'hero');
-  const caption = getFeaturedImageCaption(article.featuredImage);
+  const featuredAlt = article.featuredImage?.alternativeText?.trim() || '';
+  const imageAlt = featuredAlt || article.title;
+  /** Texte alternatif visible sous l’image à la une (comme Jetpack). */
+  const featuredAltCaption = featuredAlt || null;
 
   const displayDate = getArticleDisplayDate(article);
 
@@ -71,7 +75,14 @@ export function ArticleHero({
             <span aria-hidden className={onDark ? 'text-white/40' : 'text-muted-foreground/40'}>
               |
             </span>
-            <span>{article.readingTime} min de lecture</span>
+            <span
+              className="inline-flex items-center gap-1"
+              title={`${formatReadingTimeLabel(article.readingTime)} de lecture`}
+              aria-label={`${formatReadingTimeLabel(article.readingTime)} de lecture`}
+            >
+              <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="tabular-nums">{formatReadingTimeLabel(article.readingTime)}</span>
+            </span>
           </>
         ) : null}
         {showViewCounts ? (
@@ -138,12 +149,17 @@ export function ArticleHero({
           <div className="relative aspect-[16/10] w-full bg-muted">
             <ArticleImage
               src={imageUrl}
-              alt={article.featuredImage?.alternativeText || article.title}
+              alt={imageAlt}
               className="object-cover"
               priority
               sizes="100vw"
             />
           </div>
+          {featuredAltCaption ? (
+            <p className="border-t border-border/60 bg-muted/40 px-4 py-2.5 text-sm leading-relaxed text-foreground/85">
+              {featuredAltCaption}
+            </p>
+          ) : null}
           <div className="p-4">
             <div className="mb-2 flex flex-wrap items-center gap-2">
               {article.isBreaking && (
@@ -166,30 +182,31 @@ export function ArticleHero({
         </div>
 
         {/* Desktop : overlay (sans priority — une seule image LCP, côté mobile) */}
-        <div className="relative hidden aspect-[16/9] w-full bg-muted md:block">
-          <ArticleImage
-            src={imageUrl}
-            alt={article.featuredImage?.alternativeText || article.title}
-            className="object-cover"
-            sizes="66vw"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-8">
-            {badges}
-            <h1 className="font-article text-2xl font-bold leading-tight text-white drop-shadow-sm lg:text-3xl">
-              {article.title}
-            </h1>
-            <div className="mt-3">{metaRow(true)}</div>
-            {engagementOverlay}
+        <div className="hidden md:block">
+          <div className="relative aspect-[16/9] w-full bg-muted">
+            <ArticleImage
+              src={imageUrl}
+              alt={imageAlt}
+              className="object-cover"
+              sizes="66vw"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-8">
+              {badges}
+              <h1 className="font-article text-2xl font-bold leading-tight text-white drop-shadow-sm lg:text-3xl">
+                {article.title}
+              </h1>
+              <div className="mt-3">{metaRow(true)}</div>
+              {engagementOverlay}
+            </div>
           </div>
+          {featuredAltCaption ? (
+            <p className="border-t border-border/60 bg-muted/35 px-6 py-3 text-sm leading-relaxed text-foreground/85">
+              {featuredAltCaption}
+            </p>
+          ) : null}
         </div>
       </div>
-
-      {caption && (
-        <p className="mt-2.5 border-l-2 border-primary/50 pl-3 text-sm leading-relaxed text-muted-foreground">
-          {caption}
-        </p>
-      )}
     </header>
   );
 }

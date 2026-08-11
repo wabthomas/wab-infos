@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import {
   DEFAULT_SITE_BRANDING,
   brandingSummary,
@@ -163,7 +164,7 @@ export function BrandingEditor({
     try {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch('/api/redaction/upload', { method: 'POST', body: form });
+      const res = await fetchRedaction('/api/redaction/upload', { method: 'POST', body: form });
       const data = (await res.json()) as {
         error?: string;
         media?: { id: number; url: string };

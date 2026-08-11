@@ -79,9 +79,36 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+function resolveNotificationClickUrl(notification) {
+  const data = notification?.data;
+  const candidates = [];
+  const collect = (value) => {
+    if (!value) return;
+    if (typeof value === 'string') {
+      candidates.push(value);
+      return;
+    }
+    if (typeof value === 'object') {
+      collect(value.url);
+      collect(value.open_url);
+      collect(value.link);
+      collect(value.FCM_MSG);
+      if (value.data && value.data !== value) collect(value.data);
+    }
+  };
+  collect(data);
+  const found = candidates.find((value) => {
+    if (typeof value !== 'string') return false;
+    const text = value.trim();
+    if (text.startsWith('http://') || text.startsWith('https://')) return true;
+    return text.startsWith('/') && text.length > 1 && text !== '/';
+  });
+  return found || self.FCM_DEFAULT_URL || '/';
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const url = resolveNotificationClickUrl(event.notification);
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {

@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -66,7 +67,7 @@ export function RedactionLoginForm() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/redaction/auth/me', { credentials: 'same-origin' })
+    fetchRedaction('/api/redaction/auth/me', { credentials: 'same-origin' })
       .then((res) => {
         if (!cancelled && res.ok) router.replace('/');
       })
@@ -94,7 +95,7 @@ export function RedactionLoginForm() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/redaction/auth/login', {
+      const res = await fetchRedaction('/api/redaction/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, password, remember }),

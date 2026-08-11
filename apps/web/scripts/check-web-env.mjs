@@ -50,6 +50,13 @@ const checks = [
   { label: 'STRAPI_API_TOKEN', ok: isSet('STRAPI_API_TOKEN'), required: true },
   { label: 'REVALIDATION_SECRET', ok: isSet('REVALIDATION_SECRET'), required: true },
   { label: 'INDEXNOW_KEY (Bing à la publication)', ok: isSet('INDEXNOW_KEY'), required: false },
+  {
+    label: 'GOOGLE_INDEXING (Search Console)',
+    ok:
+      isSet('GOOGLE_INDEXING_SERVICE_ACCOUNT_JSON') ||
+      (isSet('GOOGLE_INDEXING_CLIENT_EMAIL') && isSet('GOOGLE_INDEXING_PRIVATE_KEY')),
+    required: false,
+  },
   { label: 'NEWSLETTER_ENABLED', ok: env.NEWSLETTER_ENABLED === 'true', required: true },
   { label: 'NEWSLETTER_SEND_ON_PUBLISH (web)', ok: env.NEWSLETTER_SEND_ON_PUBLISH === 'true', required: false },
   { label: 'SMTP (host, user, pass)', ok: isSmtpConfigured(), required: true },

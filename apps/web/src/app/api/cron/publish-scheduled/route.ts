@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { publishDueScheduledArticles } from '@/lib/strapi-server';
 import { publishNewYoutubeVideoPushes } from '@/lib/push/publish-youtube-videos';
+import { sendReaderDailyEngagementIfDue } from '@/lib/push/broadcast';
 
 export async function POST(request: Request) {
   const secret = request.headers.get('x-revalidation-secret');
@@ -9,11 +10,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const [articles, youtube] = await Promise.all([
+    const [articles, youtube, engagement] = await Promise.all([
       publishDueScheduledArticles(),
       publishNewYoutubeVideoPushes(),
+      sendReaderDailyEngagementIfDue(),
     ]);
-    return NextResponse.json({ ok: true, ...articles, youtube });
+    return NextResponse.json({ ok: true, ...articles, youtube, engagement });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Cron failed';
     return NextResponse.json({ error: message }, { status: 500 });

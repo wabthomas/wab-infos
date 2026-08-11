@@ -1,3 +1,5 @@
+import type { ArticleSeoMeta } from '@wab-infos/shared';
+
 interface ArticleDraftSnapshot {
   title: string;
   excerpt: string;
@@ -7,6 +9,7 @@ interface ArticleDraftSnapshot {
   seoTitle?: string;
   seoDescription?: string;
   canonicalUrl?: string;
+  seoMeta?: ArticleSeoMeta;
   featuredImageId?: number | null;
   featuredImageUrl?: string;
   featuredImageAlt?: string;

@@ -9,16 +9,12 @@ import { homedir } from 'os';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
+import { resolveAndroidPushFlavor } from './android-push-flavor.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const googleServices = join(root, 'apps/reader-android/android/app/google-services.json');
 const product = (process.env.READER_ANDROID_PRODUCT || 'reader').trim().toLowerCase();
-const pushFlavor =
-  product === 'redaction'
-    ? 'noFcm'
-    : existsSync(googleServices)
-      ? 'withFcm'
-      : 'noFcm';
+const pushFlavor = resolveAndroidPushFlavor(googleServices, product);
 const applicationId = product === 'redaction' ? 'com.wabinfos.redaction' : 'com.wabinfos.app';
 const siteUrl =
   product === 'redaction' ? 'https://redaction.app.wab-infos.com' : 'https://wab-infos.com';

@@ -489,12 +489,7 @@ public class UpdateManager {
                     return;
                 }
 
-                String apkUrl = apkPath.startsWith("http")
-                        ? apkPath
-                        : BuildConfig.SITE_URL + apkPath;
-                if (!apkUrl.contains("v=")) {
-                    apkUrl += (apkUrl.contains("?") ? "&" : "?") + "v=" + remoteVersionCode;
-                }
+                String apkUrl = resolveApkDownloadUrl(apkPath, remoteVersionCode);
 
                 final String finalApkUrl = apkUrl;
                 activity.runOnUiThread(() -> showUpdateDialog(activity, remoteVersionName, finalApkUrl));
@@ -502,5 +497,32 @@ public class UpdateManager {
                 Log.w(TAG, "Vérification de mise à jour impossible: " + e.getMessage());
             }
         });
+    }
+
+    /**
+     * Les APK sont hébergés sur wab-infos.com (même hôte que le manifeste),
+     * pas sur SITE_URL (ex. redaction.app) — sinon téléchargement 404 / mauvais fichier.
+     */
+    static String resolveApkDownloadUrl(String apkPath, int versionCode) {
+        if (apkPath == null || apkPath.trim().isEmpty()) return "";
+        String path = apkPath.trim();
+        String apkUrl;
+        if (path.startsWith("http://") || path.startsWith("https://")) {
+            apkUrl = path;
+        } else {
+            String base = "https://wab-infos.com";
+            try {
+                URL manifest = new URL(BuildConfig.VERSION_MANIFEST_URL);
+                base = manifest.getProtocol() + "://" + manifest.getHost()
+                        + (manifest.getPort() > 0 ? ":" + manifest.getPort() : "");
+            } catch (Exception ignored) {
+                // fallback wab-infos.com
+            }
+            apkUrl = base + (path.startsWith("/") ? path : "/" + path);
+        }
+        if (versionCode > 0 && !apkUrl.contains("v=")) {
+            apkUrl += (apkUrl.contains("?") ? "&" : "?") + "v=" + versionCode;
+        }
+        return apkUrl;
     }
 }

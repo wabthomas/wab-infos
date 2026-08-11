@@ -1,7 +1,8 @@
 {
-  "versionCode": 5,
-  "versionName": "1.0.4",
-  "apkUrl": "/downloads/wab-redaction.apk",
-  "releaseNotes": "Application native Wab-Redaction.",
-  "releasedAt": "2026-07-31T13:48:00.664Z"
+  "versionCode": 13,
+  "versionName": "1.0.12",
+  "apkUrl": "https://wab-infos.com/downloads/wab-redaction.apk?v=13",
+  "apkUrlLatest": "https://wab-infos.com/downloads/wab-redaction.apk",
+  "releaseNotes": "Application native Wab-Redaction — correctifs clavier, images et mises à jour.",
+  "releasedAt": "2026-08-11T08:04:13.509Z"
 }

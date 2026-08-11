@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Article } from '@wab-infos/shared';
+import { formatReadingTimeLabel } from '@wab-infos/shared';
 import { getArticlePath } from '@/config/site';
 import { ArticleImage } from '@/components/ui/article-image';
 import { cn, formatArticleDate, getArticleDisplayDate, resolveArticleImageUrl } from '@/lib/utils';
@@ -86,7 +87,7 @@ export function SidebarArticleItem({
         {showReadingTime && article.readingTime > 0 && (
           <>
             <span aria-hidden>·</span>
-            <span>{article.readingTime} min</span>
+            <span>{formatReadingTimeLabel(article.readingTime)}</span>
           </>
         )}
       </div>

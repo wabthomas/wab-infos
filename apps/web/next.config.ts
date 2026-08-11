@@ -43,9 +43,10 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: '/:path*',
+        // Digital Asset Links must be 200 on www without redirect (Play / Android).
+        source: '/((?!\\.well-known/).*)',
         has: [{ type: 'host', value: 'www.wab-infos.com' }],
-        destination: 'https://wab-infos.com/:path*',
+        destination: 'https://wab-infos.com/$1',
         permanent: true,
       },
       { source: '/television', destination: '/tv', permanent: true },
@@ -83,14 +84,28 @@ const nextConfig: NextConfig = {
       {
         source: '/downloads/wab-infos.apk',
         headers: [
-          { key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' },
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
           { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
         ],
       },
       {
         source: '/downloads/wab-redaction.apk',
         headers: [
-          { key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' },
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+          { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
+        ],
+      },
+      {
+        source: '/downloads/wab-infos-v:code(\\d+).apk',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
+        ],
+      },
+      {
+        source: '/downloads/wab-redaction-v:code(\\d+).apk',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
           { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
         ],
       },

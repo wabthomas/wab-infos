@@ -1,3 +1,7 @@
+import type { ArticleSeoMeta } from './article-seo-meta';
+
+export type { ArticleSeoMeta } from './article-seo-meta';
+
 export type ArticleStatus = 'draft' | 'published' | 'scheduled' | 'archived';
 
 export interface StrapiMedia {
@@ -67,6 +71,7 @@ export interface Article {
   seoTitle?: string;
   seoDescription?: string;
   canonicalUrl?: string;
+  seoMeta?: ArticleSeoMeta;
   wpId?: number;
   wpPublishedAt?: string;
 }

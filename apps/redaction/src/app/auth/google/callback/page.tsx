@@ -1,5 +1,6 @@
 'use client';
 
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -37,7 +38,7 @@ function GoogleAuthCallbackInner() {
           typeof window !== 'undefined' &&
           window.sessionStorage.getItem('redaction_google_remember') !== '0';
 
-        const res = await fetch('/api/redaction/auth/google', {
+        const res = await fetchRedaction('/api/redaction/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',

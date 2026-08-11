@@ -394,6 +394,98 @@ export const SITE_FONT_CATALOG: readonly SiteFontDefinition[] = [
     'zilla-slab',
     '400,400i,500,600,700'
   ),
+
+  // —— Lot additionnel ——
+  font('sora', 'Sora', 'sans', "'Sora', system-ui, sans-serif", 'sora', '400,500,600,700'),
+  font(
+    'instrument-sans',
+    'Instrument Sans',
+    'sans',
+    "'Instrument Sans', system-ui, sans-serif",
+    'instrument-sans',
+    '400,500,600,700'
+  ),
+  font(
+    'bricolage-grotesque',
+    'Bricolage Grotesque',
+    'sans',
+    "'Bricolage Grotesque', system-ui, sans-serif",
+    'bricolage-grotesque',
+    '400,500,600,700'
+  ),
+  font('syne', 'Syne', 'sans', "'Syne', system-ui, sans-serif", 'syne', '400,500,600,700'),
+  font(
+    'schibsted-grotesk',
+    'Schibsted Grotesk',
+    'sans',
+    "'Schibsted Grotesk', system-ui, sans-serif",
+    'schibsted-grotesk',
+    '400,500,600,700'
+  ),
+  font(
+    'public-sans',
+    'Public Sans',
+    'sans',
+    "'Public Sans', system-ui, sans-serif",
+    'public-sans',
+    '400,500,600,700'
+  ),
+  font(
+    'onest',
+    'Onest',
+    'sans',
+    "'Onest', system-ui, sans-serif",
+    'onest',
+    '400,500,600,700'
+  ),
+  font(
+    'red-hat-text',
+    'Red Hat Text',
+    'sans',
+    "'Red Hat Text', system-ui, sans-serif",
+    'red-hat-text',
+    '400,500,600,700'
+  ),
+  font(
+    'noto-serif-display',
+    'Noto Serif Display',
+    'serif',
+    "'Noto Serif Display', Georgia, serif",
+    'noto-serif-display',
+    '400,500,600,700'
+  ),
+  font(
+    'libre-caslon-display',
+    'Libre Caslon Display',
+    'display',
+    "'Libre Caslon Display', Georgia, serif",
+    'libre-caslon-display',
+    '400'
+  ),
+  font(
+    'young-serif',
+    'Young Serif',
+    'display',
+    "'Young Serif', Georgia, serif",
+    'young-serif',
+    '400'
+  ),
+  font(
+    'unbounded',
+    'Unbounded',
+    'display',
+    "'Unbounded', system-ui, sans-serif",
+    'unbounded',
+    '400,500,600,700'
+  ),
+  font(
+    'familjen-grotesk',
+    'Familjen Grotesk',
+    'display',
+    "'Familjen Grotesk', system-ui, sans-serif",
+    'familjen-grotesk',
+    '400,500,600,700'
+  ),
 ] as const;
 
 const FONT_BY_ID = new Map(SITE_FONT_CATALOG.map((f) => [f.id, f]));
@@ -532,8 +624,12 @@ function normalizeFontId(
   const id = raw.trim();
   if (FONT_BY_ID.has(id)) return id;
   const customId = parseCustomFontRoleId(id);
-  if (customId && customFonts.some((font) => font.id === customId)) return id;
-  return fallback;
+  if (customId) {
+    if (customFonts.some((font) => font.id === customId)) return id;
+    return fallback;
+  }
+  // Conserver un id catalogue inconnu (lot ajouté / sync) plutôt que de le réinitialiser
+  return id;
 }
 
 export function normalizeTypographySettings(raw: unknown): SiteTypographySettings {
@@ -651,6 +747,8 @@ export function resolveTypographyFontLabel(
   if (customId) {
     const custom = customFonts.find((font) => font.id === customId);
     if (custom) return custom.label;
+    return `Police uploadée`;
   }
-  return getSiteFont(roleId).label;
+  if (FONT_BY_ID.has(roleId)) return FONT_BY_ID.get(roleId)!.label;
+  return roleId;
 }

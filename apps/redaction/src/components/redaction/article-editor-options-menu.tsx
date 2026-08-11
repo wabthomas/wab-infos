@@ -1,11 +1,14 @@
 'use client';
 
-import { ImageIcon, MoreVertical, Settings2, Trash2 } from 'lucide-react';
+import { ImageIcon, MoreVertical, Search, Settings2, Trash2 } from 'lucide-react';
+import { seoScoreToneClass } from '@wab-infos/shared';
+import { cn } from '@/lib/utils';
 
 interface ArticleEditorOptionsMenuProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenSettings: () => void;
+  onOpenSeo?: () => void;
   onOpenFeaturedImage: () => void;
   onSaveDraft: () => void;
   onDelete?: () => void;
@@ -13,12 +16,14 @@ interface ArticleEditorOptionsMenuProps {
   deleting?: boolean;
   canDelete?: boolean;
   hasFeaturedImage?: boolean;
+  seoScore?: number | null;
 }
 
 export function ArticleEditorOptionsMenu({
   open,
   onOpenChange,
   onOpenSettings,
+  onOpenSeo,
   onOpenFeaturedImage,
   onSaveDraft,
   onDelete,
@@ -26,6 +31,7 @@ export function ArticleEditorOptionsMenu({
   deleting = false,
   canDelete = false,
   hasFeaturedImage = false,
+  seoScore = null,
 }: ArticleEditorOptionsMenuProps) {
   function close() {
     onOpenChange(false);
@@ -56,7 +62,27 @@ export function ArticleEditorOptionsMenu({
             aria-label="Fermer le menu"
             onClick={close}
           />
-          <div className="absolute right-0 top-full z-50 mt-1 w-52 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg">
+            {onOpenSeo ? (
+              <button
+                type="button"
+                onClick={() => run(onOpenSeo)}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium active:bg-muted"
+              >
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                Assistant SEO
+                {seoScore != null ? (
+                  <span
+                    className={cn(
+                      'ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
+                      seoScoreToneClass(seoScore)
+                    )}
+                  >
+                    {seoScore}
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => run(onOpenSettings)}

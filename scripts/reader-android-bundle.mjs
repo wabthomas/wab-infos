@@ -2,10 +2,11 @@
 /**
  * Build AAB release Android pour Google Play.
  */
-import { spawnSync } from 'child_process';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { spawnSync } from 'child_process';
+import { resolveAndroidPushFlavor } from './android-push-flavor.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const androidDir = join(root, 'apps/reader-android/android');
@@ -16,13 +17,7 @@ if (product !== 'reader' && product !== 'redaction') {
   console.error('[bundle] READER_ANDROID_PRODUCT invalide (reader|redaction)');
   process.exit(1);
 }
-// Wab-Redaction : noFcm tant que Firebase n’a pas d’app Android com.wabinfos.redaction.
-const pushFlavor =
-  product === 'redaction'
-    ? 'noFcm'
-    : existsSync(googleServices)
-      ? 'withFcm'
-      : 'noFcm';
+const pushFlavor = resolveAndroidPushFlavor(googleServices, product);
 const flavorCombo = `${product}${pushFlavor.charAt(0).toUpperCase()}${pushFlavor.slice(1)}`;
 const aabOut = join(
   androidDir,
@@ -34,8 +29,10 @@ if (!existsSync(keystoreProps)) {
   process.exit(1);
 }
 
-if (product !== 'redaction' && !existsSync(googleServices)) {
+if (!existsSync(googleServices)) {
   console.warn('[bundle] google-services.json absent → build noFcm (sans push FCM)');
+} else if (pushFlavor === 'noFcm') {
+  console.warn(`[bundle] Package Firebase manquant pour ${product} → build noFcm`);
 }
 
 const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';

@@ -73,12 +73,15 @@ interface ArticleBodyWithAdsProps {
   readAlsoArticles?: Article[];
   /** @deprecated Utiliser readAlsoArticles */
   readAlso?: Article | null;
+  /** Afficher les miniatures des encarts « Lire aussi ». */
+  showReadAlsoThumbnail?: boolean;
 }
 
 export function ArticleBodyWithAds({
   html,
   readAlsoArticles,
   readAlso = null,
+  showReadAlsoThumbnail = true,
 }: ArticleBodyWithAdsProps) {
   const { slots } = useAdsenseConfig();
   const { chrome } = useSiteChrome();
@@ -151,7 +154,13 @@ export function ArticleBodyWithAds({
         return (
           <Fragment key={index}>
             <div dangerouslySetInnerHTML={{ __html: segment }} />
-            {related ? <ArticleReadAlso article={related} index={insert?.readAlsoIndex} /> : null}
+            {related ? (
+              <ArticleReadAlso
+                article={related}
+                index={insert?.readAlsoIndex}
+                showThumbnail={showReadAlsoThumbnail}
+              />
+            ) : null}
             {insert?.ad === 'in-content' ? <ArticleInContentAd /> : null}
             {insert?.ad === 'mid' ? <ArticleMidAd /> : null}
           </Fragment>
