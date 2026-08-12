@@ -281,11 +281,11 @@ export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** Extrait le texte du premier paragraphe HTML (ou du contenu brut). */
+/** Extrait le texte du premier bloc (paragraphe ou chapeau H2). */
 export function firstParagraphFromHtml(html: string): string {
   if (!html?.trim()) return '';
-  const paragraphMatch = html.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
-  if (paragraphMatch) return stripHtml(paragraphMatch[1]);
+  const blockMatch = html.match(/<(?:p|h2)[^>]*>([\s\S]*?)<\/(?:p|h2)>/i);
+  if (blockMatch) return stripHtml(blockMatch[1]);
   return stripHtml(html);
 }
 
