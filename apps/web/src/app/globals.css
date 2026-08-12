@@ -436,6 +436,17 @@ body {
   line-height: 1.25;
 }
 
+/* Réglage admin : H2 du corps = typo paragraphe (chapeau en H2, intertitres discrets) */
+.prose-article.prose-article--h2-plain h2 {
+  font-family: var(--font-article);
+  font-size: inherit;
+  font-weight: inherit;
+  margin-top: 0;
+  margin-bottom: 1.35rem;
+  letter-spacing: normal;
+  line-height: inherit;
+}
+
 .prose-article h3 {
   font-family: var(--font-article-h3);
   font-size: 1.3rem;

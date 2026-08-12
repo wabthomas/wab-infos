@@ -6,14 +6,27 @@ import {
 import { NEWS_SOURCES, discoverSourceItems, parseSourceArticle } from './sources';
 import type { IngestRunResult, IngestSourceResult, NewsSourceConfig } from './types';
 
+let ingestInFlight = false;
+
+export function isNewsIngestEnabled(): boolean {
+  return process.env.NEWS_INGEST_ENABLED !== 'false';
+}
+
 function dailyQuota(): number {
-  const n = Number(process.env.NEWS_INGEST_DAILY_QUOTA || 2);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 2;
+  const n = Number(process.env.NEWS_INGEST_DAILY_QUOTA || 48);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 48;
+}
+
+/** Plafond par passage cron (évite timeout si le cron tourne chaque minute). */
+function maxPerRun(): number {
+  const n = Number(process.env.NEWS_INGEST_MAX_PER_RUN || 3);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 3;
 }
 
 async function ingestOneSource(
   source: NewsSourceConfig,
-  quota: number
+  dailyCap: number,
+  runCap: number
 ): Promise<IngestSourceResult> {
   const result: IngestSourceResult = {
     sourceId: source.id,
@@ -38,8 +51,9 @@ async function ingestOneSource(
     );
   }
 
-  const remaining = Math.max(0, quota - alreadyToday);
-  if (remaining === 0) {
+  const remainingToday = Math.max(0, dailyCap - alreadyToday);
+  const importBudget = Math.min(remainingToday, runCap);
+  if (importBudget === 0) {
     return result;
   }
 
@@ -56,7 +70,7 @@ async function ingestOneSource(
   }
 
   for (const item of items) {
-    if (result.created >= remaining) break;
+    if (result.created >= importBudget) break;
     try {
       const exists = await findArticleBySourceUrl(item.url);
       if (exists) {
@@ -75,7 +89,7 @@ async function ingestOneSource(
   }
 
   const totalToday = alreadyToday + result.created;
-  result.underQuota = totalToday < quota;
+  result.underQuota = totalToday < dailyCap;
   return result;
 }
 
@@ -83,7 +97,8 @@ export async function runNewsIngest(options?: {
   sourceIds?: string[];
   dryRun?: boolean;
 }): Promise<IngestRunResult> {
-  const quota = dailyQuota();
+  const dailyCap = dailyQuota();
+  const runCap = maxPerRun();
   const selected = NEWS_SOURCES.filter((source) => {
     if (!source.enabled) return false;
     if (!options?.sourceIds?.length) return true;
@@ -101,7 +116,7 @@ export async function runNewsIngest(options?: {
           created: 0,
           skipped: 0,
           errors: [],
-          underQuota: items.length < quota,
+          underQuota: items.length < dailyCap,
         });
       } catch (err) {
         sources.push({
@@ -115,13 +130,35 @@ export async function runNewsIngest(options?: {
       }
       continue;
     }
-    sources.push(await ingestOneSource(source, quota));
+    sources.push(await ingestOneSource(source, dailyCap, runCap));
   }
 
   return {
     ok: true,
-    quotaPerSource: quota,
+    quotaPerSource: dailyCap,
+    maxPerRun: runCap,
     sources,
     createdTotal: sources.reduce((sum, s) => sum + s.created, 0),
   };
+}
+
+/**
+ * Déclenché par le cron minute (publish-scheduled) — import dès parution RSS.
+ * Non bloquant : ignore si un passage est déjà en cours.
+ */
+export function triggerNewsIngestIfIdle(): void {
+  if (!isNewsIngestEnabled() || ingestInFlight) return;
+  ingestInFlight = true;
+  void runNewsIngest()
+    .then((result) => {
+      if (result.createdTotal > 0) {
+        console.info('[news-ingest] cron', result.createdTotal, 'brouillon(s)', result.sources);
+      }
+    })
+    .catch((err) => {
+      console.error('[news-ingest] cron failed', err);
+    })
+    .finally(() => {
+      ingestInFlight = false;
+    });
 }

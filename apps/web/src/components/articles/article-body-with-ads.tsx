@@ -8,6 +8,7 @@ import { useAdsenseConfig } from '@/components/ads/adsense-config-context';
 import { useSiteChrome } from '@/components/providers/site-chrome-context';
 import { ArticleReadAlso } from '@/components/articles/article-read-also';
 import { countArticleParagraphs, splitHtmlAtParagraphs } from '@/lib/article-content';
+import { cn } from '@/lib/utils';
 
 /** Longs articles : 3 pubs in-article. Courts (moins de 10 §) : 1 pub. La pub de fin reste hors corps. */
 const MIN_PARAGRAPHS_LONG_ARTICLE = 10;
@@ -145,8 +146,10 @@ export function ArticleBodyWithAds({
     return { segments: parts, inserts };
   }, [adsEnabled, articles.length, html, slots.articleInContent, slots.articleMid]);
 
+  const h2Plain = chrome.articleUi.bodyH2AsParagraph !== false;
+
   return (
-    <div className="prose-article">
+    <div className={cn('prose-article', h2Plain && 'prose-article--h2-plain')}>
       {segments.map((segment, index) => {
         const insert = inserts[index];
         const related =

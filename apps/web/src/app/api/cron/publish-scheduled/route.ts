@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { publishDueScheduledArticles } from '@/lib/strapi-server';
 import { publishNewYoutubeVideoPushes } from '@/lib/push/publish-youtube-videos';
 import { sendReaderDailyEngagementIfDue } from '@/lib/push/broadcast';
+import { triggerNewsIngestIfIdle } from '@/lib/news-ingest/run';
 
 export async function POST(request: Request) {
   const secret = request.headers.get('x-revalidation-secret');
@@ -10,6 +11,8 @@ export async function POST(request: Request) {
   }
 
   try {
+    triggerNewsIngestIfIdle();
+
     const [articles, youtube, engagement] = await Promise.all([
       publishDueScheduledArticles(),
       publishNewYoutubeVideoPushes(),

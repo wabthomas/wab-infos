@@ -139,11 +139,13 @@ export function ArticleRichEditor({
     ({ editor: ed }: { editor: Editor }) => {
       const { doc } = ed.state;
       const first = doc.firstChild;
-      const isOnlyEmptyParagraph =
+      const isOnlyEmptyBlock =
         doc.childCount === 1 &&
-        first?.type.name === 'paragraph' &&
-        first.content.size === 0;
-      return isOnlyEmptyParagraph ? placeholder : '';
+        first &&
+        first.content.size === 0 &&
+        (first.type.name === 'paragraph' ||
+          (first.type.name === 'heading' && first.attrs.level === 2));
+      return isOnlyEmptyBlock ? placeholder : '';
     },
     [placeholder]
   );

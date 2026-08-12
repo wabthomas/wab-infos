@@ -1,21 +1,10 @@
-'use client';
+import { getEditorSiteSettings } from '@/lib/redaction/site-settings';
+import { defaultArticleEmptyContent } from '@wab-infos/shared';
+import { NouveauArticleClient } from '@/components/redaction/nouveau-article-client';
 
-import { useRouter } from 'next/navigation';
-import { ArticleEditorForm } from '@/components/redaction/article-editor-form';
+export default async function RedactionNewArticlePage() {
+  const settings = await getEditorSiteSettings();
+  const defaultEmptyContent = defaultArticleEmptyContent(settings.chrome.articleUi);
 
-export default function RedactionNewArticlePage() {
-  const router = useRouter();
-
-  return (
-    <ArticleEditorForm
-      onSuccess={(id, mode) => {
-        if (mode === 'publish' || mode === 'schedule') {
-          router.push('/articles');
-        } else {
-          router.push(`/articles/${id}/edit`);
-        }
-        router.refresh();
-      }}
-    />
-  );
+  return <NouveauArticleClient defaultEmptyContent={defaultEmptyContent} />;
 }

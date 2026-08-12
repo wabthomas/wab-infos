@@ -17,6 +17,19 @@ function extractLink(block: string): string | undefined {
   return linkHref?.startsWith('http') ? linkHref : undefined;
 }
 
+function parsePubDate(raw?: string): number {
+  if (!raw?.trim()) return 0;
+  const t = Date.parse(raw.trim());
+  return Number.isFinite(t) ? t : 0;
+}
+
+/** Plus récent en premier (pubDate RSS). */
+export function sortDiscoveredByRecency<T extends { publishedAt?: string }>(items: T[]): T[] {
+  return [...items].sort(
+    (a, b) => parsePubDate(b.publishedAt) - parsePubDate(a.publishedAt)
+  );
+}
+
 export async function fetchText(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
@@ -44,7 +57,7 @@ export async function discoverFromRss(rssUrl: string, limit = 12): Promise<Disco
     const categoryHint = extractTag(block, 'category');
     items.push({ url, title, publishedAt, categoryHint });
   }
-  return items;
+  return sortDiscoveredByRecency(items);
 }
 
 export async function discoverFromRssList(
@@ -60,12 +73,12 @@ export async function discoverFromRssList(
         if (seen.has(item.url)) continue;
         seen.add(item.url);
         out.push(item);
-        if (out.length >= limit) return out;
+        if (out.length >= limit) return sortDiscoveredByRecency(out).slice(0, limit);
       }
-      if (out.length > 0) return out;
+      if (out.length > 0) return sortDiscoveredByRecency(out).slice(0, limit);
     } catch {
       // try next feed
     }
   }
-  return out;
+  return sortDiscoveredByRecency(out).slice(0, limit);
 }

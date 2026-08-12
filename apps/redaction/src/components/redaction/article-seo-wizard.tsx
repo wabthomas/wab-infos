@@ -10,6 +10,7 @@ import {
   type ArticleSeoMeta,
   type SeoCheck,
   type SeoCheckStatus,
+  type ArticleUiSettings,
 } from '@wab-infos/shared';
 import {
   CheckCircle2,
@@ -137,6 +138,7 @@ export interface ArticleSeoWizardProps {
   onCanonicalUrlChange: (v: string) => void;
   seoMeta: ArticleSeoMeta;
   onSeoMetaChange: (next: ArticleSeoMeta) => void;
+  articleUi?: Pick<ArticleUiSettings, 'bodyH2AsParagraph' | 'firstParagraphAsH2'>;
   siteUrl?: string;
   /** Article déjà publié — active le bouton IndexNow. */
   canIndex?: boolean;
@@ -164,6 +166,7 @@ export function ArticleSeoWizard({
   onCanonicalUrlChange,
   seoMeta,
   onSeoMetaChange,
+  articleUi,
   siteUrl = 'https://wab-infos.com',
   canIndex = false,
   onRequestIndex,
@@ -191,6 +194,7 @@ export function ArticleSeoWizard({
         seoMeta: meta,
         siteUrl,
         categorySlug,
+        articleUi,
       }),
     [
       title,
@@ -207,6 +211,7 @@ export function ArticleSeoWizard({
       meta,
       siteUrl,
       categorySlug,
+      articleUi,
     ]
   );
 

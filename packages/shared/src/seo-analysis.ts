@@ -1,6 +1,8 @@
 /** Analyse SEO type Rank Math / Yoast — score + checks actionnables. */
 
 import type { ArticleSeoMeta } from './article-seo-meta';
+import type { ArticleUiSettings } from './article-ui-settings';
+import { DEFAULT_ARTICLE_UI } from './article-ui-settings';
 
 export type SeoCheckStatus = 'ok' | 'warn' | 'fail' | 'info';
 
@@ -27,6 +29,8 @@ export interface SeoAnalysisInput {
   seoMeta: ArticleSeoMeta;
   siteUrl?: string;
   categorySlug?: string;
+  /** Réglages admin (H2 = texte, premier bloc en H2). */
+  articleUi?: Pick<ArticleUiSettings, 'bodyH2AsParagraph' | 'firstParagraphAsH2'>;
 }
 
 export interface SeoAnalysisResult {
@@ -85,9 +89,18 @@ function countKeyphraseOccurrences(text: string, keyphrase: string): number {
 }
 
 function firstParagraph(html: string): string {
-  const match = html.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+  const match = html.match(/<(?:p|h2)[^>]*>([\s\S]*?)<\/(?:p|h2)>/i);
   if (match) return stripHtml(match[1]);
   return stripHtml(html).slice(0, 280);
+}
+
+function countHeading(html: string, level: 2 | 3): number {
+  const re = level === 2 ? /<h2\b/gi : /<h3\b/gi;
+  return html.match(re)?.length ?? 0;
+}
+
+function contentStartsWithH2(html: string): boolean {
+  return /^\s*<h2\b/i.test(html.trim());
 }
 
 function scoreFromChecks(checks: SeoCheck[]): number {
@@ -228,16 +241,43 @@ export function analyzeArticleSeo(input: SeoAnalysisInput): SeoAnalysisResult {
     });
   }
 
-  const hasH2 = /<h2\b/i.test(input.contentHtml);
-  checks.push({
-    id: 'headings',
-    category: 'content',
-    label: 'Sous-titres (H2)',
-    status: hasH2 ? 'ok' : 'warn',
-    message: hasH2
-      ? 'Des sous-titres H2 structurent le texte.'
-      : 'Ajoutez des H2 pour aérer et clarifier le sujet.',
-  });
+  const articleUi = {
+    bodyH2AsParagraph: input.articleUi?.bodyH2AsParagraph ?? DEFAULT_ARTICLE_UI.bodyH2AsParagraph,
+    firstParagraphAsH2:
+      input.articleUi?.firstParagraphAsH2 ?? DEFAULT_ARTICLE_UI.firstParagraphAsH2,
+  };
+  const h2Count = countHeading(input.contentHtml, 2);
+  const h3Count = countHeading(input.contentHtml, 3);
+  const leadIsH2 = contentStartsWithH2(input.contentHtml);
+  const sectionH2Count = leadIsH2 ? Math.max(0, h2Count - 1) : h2Count;
+
+  if (articleUi.bodyH2AsParagraph) {
+    const hasVisibleHeadings = h3Count > 0;
+    checks.push({
+      id: 'headings',
+      category: 'content',
+      label: 'Sous-titres (H3)',
+      status: hasVisibleHeadings ? 'ok' : 'warn',
+      message: hasVisibleHeadings
+        ? `${h3Count} titre(s) 3 structurent l’article (les H2 s’affichent comme du texte).`
+        : leadIsH2 && h2Count > 0
+          ? 'Le premier H2 est le chapeau, pas un intertitre. Ajoutez des titres 3 (H3) pour aérer le texte.'
+          : 'Les H2 s’affichent comme des paragraphes. Utilisez des titres 3 (H3) pour les intertitres.',
+    });
+  } else {
+    const hasSectionHeadings = sectionH2Count > 0 || (!leadIsH2 && h2Count > 0);
+    checks.push({
+      id: 'headings',
+      category: 'content',
+      label: 'Sous-titres (H2)',
+      status: hasSectionHeadings ? 'ok' : 'warn',
+      message: hasSectionHeadings
+        ? 'Des sous-titres H2 structurent le texte.'
+        : leadIsH2 && h2Count > 0
+          ? 'Le premier H2 est le chapeau. Ajoutez d’autres H2 pour structurer l’article.'
+          : 'Ajoutez des H2 pour aérer et clarifier le sujet.',
+    });
+  }
 
   const internalLinks = (input.contentHtml.match(/href=["']\/[^"']+/gi) ?? []).length;
   const externalLinks = (input.contentHtml.match(/href=["']https?:\/\//gi) ?? []).filter(
@@ -299,8 +339,12 @@ export function analyzeArticleSeo(input: SeoAnalysisInput): SeoAnalysisResult {
       label: 'Requête en introduction',
       status: includesKeyphrase(intro, keyphrase) ? 'ok' : 'warn',
       message: includesKeyphrase(intro, keyphrase)
-        ? 'La requête apparaît dans le premier paragraphe.'
-        : 'Placez la requête dans le premier paragraphe.',
+        ? leadIsH2
+          ? 'La requête apparaît dans le chapeau (premier H2).'
+          : 'La requête apparaît dans le premier paragraphe.'
+        : leadIsH2 || articleUi.firstParagraphAsH2
+          ? 'Placez la requête dans le chapeau (premier titre 2).'
+          : 'Placez la requête dans le premier paragraphe.',
     });
     checks.push({
       id: 'kp-in-slug',

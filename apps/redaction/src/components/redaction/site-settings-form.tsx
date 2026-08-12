@@ -74,6 +74,7 @@ type SheetKey =
   | 'views'
   | 'likes'
   | 'reading-time'
+  | 'article-typography'
   | 'read-also'
   | 'whatsapp-popup'
   | 'article-layout'
@@ -669,6 +670,8 @@ function DesktopSectionNav({
       settings.chrome.articleUi.whatsappChannelPopupEnabled !== false
         ? `WhatsApp ${whatsappDelayLabel(settings.chrome.articleUi.whatsappChannelPopupDelaySec || 60)}`
         : 'WhatsApp off',
+      settings.chrome.articleUi.bodyH2AsParagraph !== false ? 'H2 = texte' : 'H2 titré',
+      settings.chrome.articleUi.firstParagraphAsH2 !== false ? 'Chapeau H2' : 'Chapeau §',
     ].join(' · '),
     support: (() => {
       const support = normalizeSiteSupportSettings(settings.chrome.support);
@@ -895,6 +898,43 @@ function DesktopSettingsPanel({
               }))
             }
           />
+
+          <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
+            <div>
+              <p className="text-sm font-semibold">Typo du corps d’article</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Style des titres 2 et premier bloc à la rédaction.
+              </p>
+            </div>
+            <CompactToggleRow
+              label="Titres 2 comme paragraphes"
+              description="Sur le site lecteur, les H2 du corps ont la même apparence que le texte courant."
+              checked={settings.chrome.articleUi.bodyH2AsParagraph !== false}
+              onChange={(bodyH2AsParagraph) =>
+                setSettings((current) => ({
+                  ...current,
+                  chrome: {
+                    ...current.chrome,
+                    articleUi: { ...current.chrome.articleUi, bodyH2AsParagraph },
+                  },
+                }))
+              }
+            />
+            <CompactToggleRow
+              label="Premier bloc en titre 2"
+              description="Nouvel article : le chapeau démarre en H2 dans l’éditeur (au lieu d’un paragraphe)."
+              checked={settings.chrome.articleUi.firstParagraphAsH2 !== false}
+              onChange={(firstParagraphAsH2) =>
+                setSettings((current) => ({
+                  ...current,
+                  chrome: {
+                    ...current.chrome,
+                    articleUi: { ...current.chrome.articleUi, firstParagraphAsH2 },
+                  },
+                }))
+              }
+            />
+          </div>
 
           <CompactToggleRow
             label="À lire aussi (dans l’article)"
@@ -1469,6 +1509,16 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
             onClick={() => setSheet('read-also')}
           />
           <SettingCard
+            icon={Type}
+            label="Typo corps d’article"
+            value={[
+              settings.chrome.articleUi.bodyH2AsParagraph !== false ? 'H2 = texte' : 'H2 titré',
+              settings.chrome.articleUi.firstParagraphAsH2 !== false ? 'Chapeau H2' : 'Chapeau §',
+            ].join(' · ')}
+            description="Style des titres 2 côté lecteur et premier bloc en rédaction."
+            onClick={() => setSheet('article-typography')}
+          />
+          <SettingCard
             icon={MessageCircle}
             label="Popup WhatsApp"
             value={
@@ -1779,6 +1829,44 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
           <p className="pt-1 text-center text-[11px] text-muted-foreground">
             En rédaction : Blocs → « À lire aussi » pour insérer un article choisi.
           </p>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={sheet === 'article-typography'}
+        onClose={() => setSheet(null)}
+        title="Typo corps d’article"
+        description="Style des titres 2 sur le site public et premier bloc des nouveaux articles."
+      >
+        <div className="space-y-3 pb-2">
+          <ToggleEditor
+            label="Titres 2 comme paragraphes"
+            description="Les H2 du corps d’article s’affichent comme le texte courant (sans gros intertitre)."
+            checked={settings.chrome.articleUi.bodyH2AsParagraph !== false}
+            onChange={(bodyH2AsParagraph) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, bodyH2AsParagraph },
+                },
+              }))
+            }
+          />
+          <ToggleEditor
+            label="Premier bloc en titre 2"
+            description="À la création d’un article, le chapeau démarre en H2 dans l’éditeur."
+            checked={settings.chrome.articleUi.firstParagraphAsH2 !== false}
+            onChange={(firstParagraphAsH2) =>
+              setSettings((current) => ({
+                ...current,
+                chrome: {
+                  ...current.chrome,
+                  articleUi: { ...current.chrome.articleUi, firstParagraphAsH2 },
+                },
+              }))
+            }
+          />
         </div>
       </BottomSheet>
 

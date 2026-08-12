@@ -11,6 +11,8 @@ import {
 } from '@/lib/redaction/strapi-editor';
 import { triggerReaderPushOnPublish } from '@/lib/redaction/trigger-reader-push';
 import type { ArticleEditorPayload } from '@/lib/redaction/types';
+import { getEditorSiteSettings } from '@/lib/redaction/site-settings';
+import { defaultArticleEmptyContent } from '@wab-infos/shared';
 import { excerptFromContent } from '@/lib/utils';
 
 export async function GET(request: Request) {
@@ -75,7 +77,9 @@ export async function POST(request: Request) {
       (await request.json()) as ArticleEditorPayload,
       request
     );
-    const content = raw.content?.trim() || '<p></p>';
+    const siteSettings = await getEditorSiteSettings();
+    const emptyContent = defaultArticleEmptyContent(siteSettings.chrome.articleUi);
+    const content = raw.content?.trim() || emptyContent;
     const excerpt =
       raw.excerpt?.trim() || excerptFromContent(content, 170) || raw.title?.trim().slice(0, 170);
 

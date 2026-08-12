@@ -23,7 +23,7 @@ import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
 import { computeMediaContentHash } from '@/lib/redaction/media-fingerprint';
 import { DuplicateMediaError } from '@/lib/redaction/duplicate-media-error';
 import { triggerSiteArticleRevalidation } from '@/lib/redaction/trigger-site-revalidation';
-import { analyzeArticleSeo, normalizeArticleSeoMeta } from '@wab-infos/shared';
+import { analyzeArticleSeo, DEFAULT_ARTICLE_UI, normalizeArticleSeoMeta } from '@wab-infos/shared';
 
 export { isLiveRedactionArticle };
 
@@ -743,6 +743,7 @@ function computeArticleSeoScore(article: RedactionArticle): number {
     categorySlug: article.category?.slug,
     tagNames: article.tagNames,
     seoMeta: normalizeArticleSeoMeta(article.seoMeta),
+    articleUi: DEFAULT_ARTICLE_UI,
   }).score;
 }
 
@@ -1502,7 +1503,15 @@ async function syncArticleTags(options: {
 
 function normalizeEditorContent(text: string): string {
   const trimmed = text.trim();
-  if (!trimmed || trimmed === '<p></p>') return '';
+  if (
+    !trimmed ||
+    trimmed === '<p></p>' ||
+    trimmed === '<h2></h2>' ||
+    trimmed === '<p><br></p>' ||
+    trimmed === '<h2><br></h2>'
+  ) {
+    return '';
+  }
 
   // HTML issu de l'éditeur riche — conserver tel quel
   if (/<[a-z][\s\S]*>/i.test(trimmed)) {

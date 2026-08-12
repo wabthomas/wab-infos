@@ -126,6 +126,8 @@ Exemple crontab PlanetHoster :
 
 Les articles avec `status=scheduled` et `scheduledAt <= now` passent en publié automatiquement.
 
+Le même cron déclenche l’**agrégation actus** (flux RSS → brouillons rédaction) : jusqu’à `NEWS_INGEST_MAX_PER_RUN` nouveaux articles par source à chaque minute, plafond journalier `NEWS_INGEST_DAILY_QUOTA`. Variables dans `apps/web/.env` — voir `.env.example`.
+
 ## Publication réseaux sociaux (Facebook & X)
 
 À chaque publication d’un article récent (≤ 48 h), Strapi appelle `POST /api/social/publish-article` sur le site Next.js.

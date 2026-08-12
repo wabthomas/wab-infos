@@ -108,7 +108,8 @@ async function parseGenericArticle(
 }
 
 export async function discoverSourceItems(source: NewsSourceConfig): Promise<DiscoveredItem[]> {
-  return discoverFromRssList(source.rssUrls, 15);
+  const limit = Number(process.env.NEWS_INGEST_RSS_LIMIT || 24);
+  return discoverFromRssList(source.rssUrls, Number.isFinite(limit) && limit > 0 ? limit : 24);
 }
 
 export async function parseSourceArticle(

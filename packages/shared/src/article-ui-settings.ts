@@ -34,6 +34,10 @@ export interface ArticleUiSettings {
   whatsappChannelPopupEnabled: boolean;
   /** Délai avant affichage du popup WhatsApp (secondes de lecture réelle) */
   whatsappChannelPopupDelaySec: number;
+  /** Sur le site public : les H2 du corps d’article ont la même typo que les paragraphes */
+  bodyH2AsParagraph: boolean;
+  /** Nouvel article : premier bloc de l’éditeur en titre 2 (H2) au lieu d’un paragraphe */
+  firstParagraphAsH2: boolean;
 }
 
 export const WHATSAPP_POPUP_DELAY_PRESETS = [
@@ -72,6 +76,8 @@ export const DEFAULT_ARTICLE_UI: ArticleUiSettings = {
   readAlsoThumbnail: true,
   whatsappChannelPopupEnabled: true,
   whatsappChannelPopupDelaySec: 60,
+  bodyH2AsParagraph: true,
+  firstParagraphAsH2: true,
 };
 
 function normalizeDeviceVisibility(raw: unknown, fallback: DeviceVisibility): DeviceVisibility {
@@ -112,7 +118,25 @@ export function normalizeArticleUiSettings(raw: unknown): ArticleUiSettings {
     readAlsoThumbnail: row.readAlsoThumbnail !== false,
     whatsappChannelPopupEnabled: row.whatsappChannelPopupEnabled !== false,
     whatsappChannelPopupDelaySec: normalizeWhatsAppPopupDelaySec(row.whatsappChannelPopupDelaySec),
+    bodyH2AsParagraph: row.bodyH2AsParagraph !== false,
+    firstParagraphAsH2: row.firstParagraphAsH2 !== false,
   };
+}
+
+/** HTML vide de l’éditeur riche (premier bloc selon réglage admin). */
+export function defaultArticleEmptyContent(
+  ui: Pick<ArticleUiSettings, 'firstParagraphAsH2'>
+): string {
+  return ui.firstParagraphAsH2 !== false ? '<h2></h2>' : '<p></p>';
+}
+
+/** Contenu éditeur considéré comme vide (placeholder non saisi). */
+export function isEmptyArticleEditorContent(html: string): boolean {
+  const trimmed = html.trim();
+  if (!trimmed) return true;
+  if (trimmed === '<p></p>' || trimmed === '<h2></h2>') return true;
+  if (trimmed === '<p><br></p>' || trimmed === '<h2><br></h2>') return true;
+  return !trimmed.replace(/<[^>]+>/g, '').trim();
 }
 
 /** Classes Tailwind pour afficher selon device (desktop = lg+, mobile = < lg). */

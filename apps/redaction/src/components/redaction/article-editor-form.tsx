@@ -13,9 +13,12 @@ import {
 import type { Editor } from '@tiptap/react';
 import {
   analyzeArticleSeo,
+  DEFAULT_ARTICLE_UI,
   emptyArticleSeoMeta,
   normalizeArticleSeoMeta,
+  normalizeArticleUiSettings,
   type ArticleSeoMeta,
+  type ArticleUiSettings,
 } from '@wab-infos/shared';
 import type { RedactionCategory, RedactionMediaItem } from '@/lib/redaction/types';
 import type { ArticleEditorPayload } from '@/lib/redaction/types';
@@ -123,7 +126,7 @@ function buildSavePayload(
   values: ArticleEditorValues,
   scheduledAt: string,
   mode: 'draft' | 'publish' | 'schedule',
-  options?: { partialDraft?: boolean; defaultCategoryId?: string }
+  options?: { partialDraft?: boolean; defaultCategoryId?: string; emptyContent?: string }
 ): ArticleEditorPayload | null {
   const hasContent = Boolean(stripHtml(values.content));
   const hasTitle = Boolean(values.title.trim());
@@ -141,7 +144,7 @@ function buildSavePayload(
     return null;
   }
 
-  const content = hasContent ? values.content : '<p></p>';
+  const content = hasContent ? values.content : options?.emptyContent || '<p></p>';
   const excerpt =
     values.excerpt.trim() ||
     excerptFromContent(content, 170) ||
@@ -194,10 +197,17 @@ function buildSavePayload(
 interface ArticleEditorFormProps {
   initial?: Partial<ArticleEditorValues>;
   documentId?: string;
+  /** Contenu HTML vide selon réglage admin (premier bloc H2 ou paragraphe). */
+  defaultEmptyContent?: string;
   onSuccess?: (documentId: string, mode: 'draft' | 'publish' | 'schedule') => void;
 }
 
-export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEditorFormProps) {
+export function ArticleEditorForm({
+  initial,
+  documentId,
+  defaultEmptyContent = '<p></p>',
+  onSuccess,
+}: ArticleEditorFormProps) {
   const router = useRouter();
   const toast = useToast();
   const [categories, setCategories] = useState<RedactionCategory[]>([]);
@@ -252,6 +262,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
   const headerRef = useRef<HTMLElement>(null);
   const [headerHeight, setHeaderHeight] = useState(56);
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const [articleUi, setArticleUi] = useState<ArticleUiSettings>(DEFAULT_ARTICLE_UI);
 
   const enqueueSave = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
     const run = saveChainRef.current.then(operation, operation);
@@ -268,6 +279,17 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
 
   useEffect(() => {
     void fetchRedaction('/api/redaction/media?page=1&pageSize=36').catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void fetchRedaction('/api/redaction/site-settings')
+      .then((r) => r.json())
+      .then((data: { settings?: { chrome?: { articleUi?: unknown } } }) => {
+        if (data.settings?.chrome?.articleUi) {
+          setArticleUi(normalizeArticleUiSettings(data.settings.chrome.articleUi));
+        }
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -405,8 +427,9 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         categorySlug: primaryCategorySlug || undefined,
         tagNames: values.tagNames,
         seoMeta: normalizeArticleSeoMeta(values.seoMeta),
+        articleUi,
       }),
-    [values, primaryCategoryId, primaryCategoryName, primaryCategorySlug]
+    [values, primaryCategoryId, primaryCategoryName, primaryCategorySlug, articleUi]
   );
 
   const siteUrl =
@@ -494,6 +517,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
       const payload = buildSavePayload(values, scheduledAt, 'draft', {
         partialDraft: !options?.manual,
         defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
+        emptyContent: defaultEmptyContent,
       });
 
       // Contenu insuffisant mais article live + abandon/brouillon manuel → dépublier quand même.
@@ -526,6 +550,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         const keepalivePayload = buildSavePayload(values, scheduledAt, 'draft', {
           partialDraft: true,
           defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
+          emptyContent: defaultEmptyContent,
         });
         if (!keepalivePayload) return null;
         const id = activeDocumentId;
@@ -551,6 +576,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         const currentPayload = buildSavePayload(values, scheduledAt, 'draft', {
           partialDraft: !options?.manual,
           defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
+          emptyContent: defaultEmptyContent,
         });
         if (!currentPayload) {
           if (stillForceUnpublish && activeDocumentId) {
@@ -642,6 +668,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
     [
       activeDocumentId,
       categories,
+      defaultEmptyContent,
       enqueueSave,
       primaryCategoryId,
       saving,
@@ -854,6 +881,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
 
     const payload = buildSavePayload(values, scheduledAt, mode, {
       defaultCategoryId: primaryCategoryId || categories[0]?.documentId,
+      emptyContent: defaultEmptyContent,
     });
     if (!payload) {
       const message = 'Titre, contenu et rubrique requis';
@@ -1007,7 +1035,9 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
             type="button"
             disabled={!!saving}
             onClick={() => {
-              const payload = buildSavePayload(values, scheduledAt, primaryMode);
+              const payload = buildSavePayload(values, scheduledAt, primaryMode, {
+                emptyContent: defaultEmptyContent,
+              });
               if (!payload) {
                 setError('Titre, contenu et rubrique requis');
                 return;
@@ -1226,6 +1256,7 @@ export function ArticleEditorForm({ initial, documentId, onSuccess }: ArticleEdi
         onCanonicalUrlChange={(canonicalUrl) => setValues((v) => ({ ...v, canonicalUrl }))}
         seoMeta={normalizeArticleSeoMeta(values.seoMeta)}
         onSeoMetaChange={(seoMeta) => setValues((v) => ({ ...v, seoMeta }))}
+        articleUi={articleUi}
         siteUrl={siteUrl}
         canIndex={articleIsLive && Boolean(activeDocumentId && primaryCategorySlug)}
         onRequestIndex={requestArticleIndex}

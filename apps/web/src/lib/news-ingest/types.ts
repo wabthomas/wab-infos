@@ -45,6 +45,7 @@ export interface IngestSourceResult {
 export interface IngestRunResult {
   ok: boolean;
   quotaPerSource: number;
+  maxPerRun: number;
   sources: IngestSourceResult[];
   createdTotal: number;
 }
