@@ -138,7 +138,7 @@ export interface ArticleSeoWizardProps {
   onCanonicalUrlChange: (v: string) => void;
   seoMeta: ArticleSeoMeta;
   onSeoMetaChange: (next: ArticleSeoMeta) => void;
-  articleUi?: Pick<ArticleUiSettings, 'bodyH2AsParagraph' | 'firstParagraphAsH2'>;
+  articleUi?: Pick<ArticleUiSettings, 'firstParagraphAsH2'>;
   siteUrl?: string;
   /** Article déjà publié — active le bouton IndexNow. */
   canIndex?: boolean;
