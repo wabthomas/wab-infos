@@ -2,6 +2,7 @@
 
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -41,6 +42,7 @@ import {
   type ReadAlsoInsertPayload,
 } from '@/components/redaction/article-editor-read-also-sheet';
 import { EditorBlockToolbar } from '@/components/redaction/editor-block-toolbar';
+import { KeepEditorFocusButton } from '@/lib/redaction/keep-editor-focus';
 
 interface ArticleRichEditorProps {
   value: string;
@@ -48,6 +50,8 @@ interface ArticleRichEditorProps {
   placeholder?: string;
   onEditorReady?: (editor: Editor) => void;
   onKeyboardInsetChange?: (inset: number) => void;
+  /** Masque la barre d’outils (portail body) derrière Réglages / médias / SEO. */
+  hideFixedChrome?: boolean;
 }
 
 type SheetMode = 'link' | 'embed' | 'image' | 'readalso' | null;
@@ -84,6 +88,26 @@ function isExternalHref(href: string): boolean {
   return /^https?:\/\//i.test(href);
 }
 
+function BlockChoiceButton({
+  onActivate,
+  disabled,
+  children,
+}: {
+  onActivate: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <KeepEditorFocusButton
+      disabled={disabled}
+      onActivate={onActivate}
+      className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted disabled:opacity-40"
+    >
+      {children}
+    </KeepEditorFocusButton>
+  );
+}
+
 
 export function ArticleRichEditor({
   value,
@@ -91,6 +115,7 @@ export function ArticleRichEditor({
   placeholder = 'Commencez à écrire…',
   onEditorReady,
   onKeyboardInsetChange,
+  hideFixedChrome = false,
 }: ArticleRichEditorProps) {
   const [sheet, setSheet] = useState<SheetMode>(null);
   const [blockSheet, setBlockSheet] = useState<BlockMode>('closed');
@@ -110,8 +135,13 @@ export function ArticleRichEditor({
   const lastEmitted = useRef(value);
   const onChangeRef = useRef(onChange);
   const syncTimerRef = useRef<number | null>(null);
+  const [portalReady, setPortalReady] = useState(false);
 
   onChangeRef.current = onChange;
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   const flushContentToParent = useCallback((html: string) => {
     if (syncTimerRef.current != null) {
@@ -632,7 +662,9 @@ export function ArticleRichEditor({
   return (
     <>
       <EditorContent editor={editor} />
-      <EditorBlockToolbar editor={editor} onHeadingClick={openHeadingSheet} />
+      {hideFixedChrome ? null : (
+        <EditorBlockToolbar editor={editor} onHeadingClick={openHeadingSheet} />
+      )}
 
       <input
         ref={fileRef}
@@ -784,255 +816,185 @@ export function ArticleRichEditor({
         </div>
       ) : null}
 
-      {blockSheet === 'blocks' && (
-        <div
-          className="redaction-editor-fixed-panel z-[65] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
-          style={{
-            bottom:
-              toolbarBottom > 0
-                ? toolbarBottom + 52
-                : 'calc(3.9rem + env(safe-area-inset-bottom))',
-          }}
-        >
-          <div className="redaction-editor-width">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold">Ajouter un bloc</p>
-              <button
-                type="button"
-                onClick={closeBlockSheet}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
-                aria-label="Fermer les blocs"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="grid max-h-[42dvh] grid-cols-3 gap-2 overflow-y-auto text-center text-xs font-medium">
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() =>
-                  insertBlock(() =>
-                    editor.chain().focus(undefined, { scrollIntoView: false }).setParagraph().run()
-                  )
-                }
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <Pilcrow className="mx-auto mb-1 h-5 w-5" />
-                Paragraphe
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() =>
-                  insertBlock(() =>
-                    editor
-                      .chain()
-                      .focus(undefined, { scrollIntoView: false })
-                      .setHeading({ level: 2 })
-                      .run()
-                  )
-                }
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <Heading2 className="mx-auto mb-1 h-5 w-5" />
-                Titre 2
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() =>
-                  insertBlock(() =>
-                    editor
-                      .chain()
-                      .focus(undefined, { scrollIntoView: false })
-                      .setHeading({ level: 3 })
-                      .run()
-                  )
-                }
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <Heading3 className="mx-auto mb-1 h-5 w-5" />
-                Titre 3
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() =>
-                  insertBlock(() =>
-                    editor
-                      .chain()
-                      .focus(undefined, { scrollIntoView: false })
-                      .toggleBulletList()
-                      .run()
-                  )
-                }
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <List className="mx-auto mb-1 h-5 w-5" />
-                Liste
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() =>
-                  insertBlock(() =>
-                    editor
-                      .chain()
-                      .focus(undefined, { scrollIntoView: false })
-                      .toggleOrderedList()
-                      .run()
-                  )
-                }
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <ListOrdered className="mx-auto mb-1 h-5 w-5" />
-                Liste num.
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() =>
-                  insertBlock(() =>
-                    editor
-                      .chain()
-                      .focus(undefined, { scrollIntoView: false })
-                      .toggleBlockquote()
-                      .run()
-                  )
-                }
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <Quote className="mx-auto mb-1 h-5 w-5" />
-                Citation
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() => {
-                  openImagePicker();
-                }}
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <ImageIcon className="mx-auto mb-1 h-5 w-5" />
-                Image
-              </button>
-              <button
-                type="button"
-                disabled={!editor.isActive('image')}
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() => {
-                  closeBlockSheet();
-                  openImageMetaSheet();
-                }}
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted disabled:opacity-40"
-              >
-                <ImageIcon className="mx-auto mb-1 h-5 w-5" />
-                Légende
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() =>
-                  insertBlock(() =>
-                    editor
-                      .chain()
-                      .focus(undefined, { scrollIntoView: false })
-                      .setHorizontalRule()
-                      .run()
-                  )
-                }
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <SeparatorHorizontal className="mx-auto mb-1 h-5 w-5" />
-                Séparateur
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() => {
-                  closeBlockSheet();
-                  setInputValue('');
-                  setSheet('embed');
-                }}
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <Video className="mx-auto mb-1 h-5 w-5" />
-                Vidéo
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() => {
-                  closeBlockSheet();
-                  openLinkSheet();
-                }}
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <Link2 className="mx-auto mb-1 h-5 w-5" />
-                Lien
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() => {
-                  openReadAlsoSheet();
-                }}
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <BookOpen className="mx-auto mb-1 h-5 w-5" />
-                À lire aussi
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() =>
-                  insertBlock(() =>
-                    editor
-                      .chain()
-                      .focus(undefined, { scrollIntoView: false })
-                      .insertContent(
-                        '<p>[dl url="" desc="" title="Télécharger MP3" type="audio"]</p>'
+      {blockSheet === 'blocks' && portalReady && !hideFixedChrome
+        ? createPortal(
+            <div
+              className="redaction-editor-fixed-panel z-[65] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+              style={{
+                bottom:
+                  toolbarBottom > 0
+                    ? toolbarBottom + 52
+                    : 'calc(3.9rem + env(safe-area-inset-bottom))',
+              }}
+            >
+              <div className="redaction-editor-width">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold">Ajouter un bloc</p>
+                  <button
+                    type="button"
+                    onClick={closeBlockSheet}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+                    aria-label="Fermer les blocs"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid max-h-[42dvh] grid-cols-3 gap-2 overflow-y-auto text-center text-xs font-medium">
+                  <BlockChoiceButton
+                    onActivate={() =>
+                      insertBlock(() =>
+                        editor.chain().focus(undefined, { scrollIntoView: false }).setParagraph().run()
                       )
-                      .run()
-                  )
-                }
-                className="rounded-xl border border-border bg-card px-2 py-3 active:bg-muted"
-              >
-                <Braces className="mx-auto mb-1 h-5 w-5" />
-                MP3 / DL
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                    }
+                  >
+                    <Pilcrow className="mx-auto mb-1 h-5 w-5" />
+                    Paragraphe
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    onActivate={() =>
+                      insertBlock(() =>
+                        editor
+                          .chain()
+                          .focus(undefined, { scrollIntoView: false })
+                          .setHeading({ level: 2 })
+                          .run()
+                      )
+                    }
+                  >
+                    <Heading2 className="mx-auto mb-1 h-5 w-5" />
+                    Titre 2
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    onActivate={() =>
+                      insertBlock(() =>
+                        editor
+                          .chain()
+                          .focus(undefined, { scrollIntoView: false })
+                          .setHeading({ level: 3 })
+                          .run()
+                      )
+                    }
+                  >
+                    <Heading3 className="mx-auto mb-1 h-5 w-5" />
+                    Titre 3
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    onActivate={() =>
+                      insertBlock(() =>
+                        editor
+                          .chain()
+                          .focus(undefined, { scrollIntoView: false })
+                          .toggleBulletList()
+                          .run()
+                      )
+                    }
+                  >
+                    <List className="mx-auto mb-1 h-5 w-5" />
+                    Liste
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    onActivate={() =>
+                      insertBlock(() =>
+                        editor
+                          .chain()
+                          .focus(undefined, { scrollIntoView: false })
+                          .toggleOrderedList()
+                          .run()
+                      )
+                    }
+                  >
+                    <ListOrdered className="mx-auto mb-1 h-5 w-5" />
+                    Liste num.
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    onActivate={() =>
+                      insertBlock(() =>
+                        editor
+                          .chain()
+                          .focus(undefined, { scrollIntoView: false })
+                          .toggleBlockquote()
+                          .run()
+                      )
+                    }
+                  >
+                    <Quote className="mx-auto mb-1 h-5 w-5" />
+                    Citation
+                  </BlockChoiceButton>
+                  <BlockChoiceButton onActivate={openImagePicker}>
+                    <ImageIcon className="mx-auto mb-1 h-5 w-5" />
+                    Image
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    disabled={!editor.isActive('image')}
+                    onActivate={() => {
+                      closeBlockSheet();
+                      openImageMetaSheet();
+                    }}
+                  >
+                    <ImageIcon className="mx-auto mb-1 h-5 w-5" />
+                    Légende
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    onActivate={() =>
+                      insertBlock(() =>
+                        editor
+                          .chain()
+                          .focus(undefined, { scrollIntoView: false })
+                          .setHorizontalRule()
+                          .run()
+                      )
+                    }
+                  >
+                    <SeparatorHorizontal className="mx-auto mb-1 h-5 w-5" />
+                    Séparateur
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    onActivate={() => {
+                      closeBlockSheet();
+                      setInputValue('');
+                      setSheet('embed');
+                    }}
+                  >
+                    <Video className="mx-auto mb-1 h-5 w-5" />
+                    Vidéo
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    onActivate={() => {
+                      closeBlockSheet();
+                      openLinkSheet();
+                    }}
+                  >
+                    <Link2 className="mx-auto mb-1 h-5 w-5" />
+                    Lien
+                  </BlockChoiceButton>
+                  <BlockChoiceButton onActivate={openReadAlsoSheet}>
+                    <BookOpen className="mx-auto mb-1 h-5 w-5" />
+                    À lire aussi
+                  </BlockChoiceButton>
+                  <BlockChoiceButton
+                    onActivate={() =>
+                      insertBlock(() =>
+                        editor
+                          .chain()
+                          .focus(undefined, { scrollIntoView: false })
+                          .insertContent(
+                            '<p>[dl url="" desc="" title="Télécharger MP3" type="audio"]</p>'
+                          )
+                          .run()
+                      )
+                    }
+                  >
+                    <Braces className="mx-auto mb-1 h-5 w-5" />
+                    MP3 / DL
+                  </BlockChoiceButton>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
 
-      {headingSheet === 'open' && (
+      {headingSheet === 'open' && !hideFixedChrome && (
         <ArticleHeadingPicker
           editor={editor}
           open
@@ -1041,44 +1003,49 @@ export function ArticleRichEditor({
         />
       )}
 
-      <div
-        className="redaction-editor-fixed-panel z-50"
-        style={{
-          // max() : filet CSS natif APK si le state React tarde d’un frame
-          bottom: `max(${Math.max(toolbarBottom, 0)}px, var(--wab-ime-bottom, 0px))`,
-          transform:
-            visualOffsetTop > 0 && toolbarBottom <= 0
-              ? `translate3d(0, ${visualOffsetTop}px, 0)`
-              : undefined,
-          paddingBottom:
-            toolbarBottom > 0 ? 0 : 'max(0px, env(safe-area-inset-bottom))',
-        }}
-      >
-        <div className="redaction-editor-width">
-          <ArticleEditorToolbar
-            editor={editor}
-            uploading={uploading}
-            showDismissKeyboard={showDismissKeyboard}
-            onDismissKeyboard={dismissKeyboard}
-            onBlocksClick={() => {
-              closeSheet();
-              closeHeadingSheet();
-              setBlockSheet((value) => (value === 'blocks' ? 'closed' : 'blocks'));
-            }}
-            onHeadingClick={openHeadingSheet}
-            onImageClick={openImagePicker}
-            onImagePointerDown={captureEditorSelection}
-            onLinkClick={openLinkSheet}
-            onLinkPointerDown={captureEditorSelection}
-            onEmbedClick={() => {
-              closeBlockSheet();
-              closeHeadingSheet();
-              setInputValue('');
-              setSheet('embed');
-            }}
-          />
-        </div>
-      </div>
+      {portalReady && !hideFixedChrome
+        ? createPortal(
+            <div
+              className="redaction-editor-fixed-panel z-50"
+              style={{
+                // max() : filet CSS natif APK si le state React tarde d’un frame
+                bottom: `max(${Math.max(toolbarBottom, 0)}px, var(--wab-ime-bottom, 0px))`,
+                transform:
+                  visualOffsetTop > 0 && toolbarBottom <= 0
+                    ? `translate3d(0, ${visualOffsetTop}px, 0)`
+                    : undefined,
+                paddingBottom:
+                  toolbarBottom > 0 ? 0 : 'max(0px, env(safe-area-inset-bottom))',
+              }}
+            >
+              <div className="redaction-editor-width">
+                <ArticleEditorToolbar
+                  editor={editor}
+                  uploading={uploading}
+                  showDismissKeyboard={showDismissKeyboard}
+                  onDismissKeyboard={dismissKeyboard}
+                  onBlocksClick={() => {
+                    closeSheet();
+                    closeHeadingSheet();
+                    setBlockSheet((value) => (value === 'blocks' ? 'closed' : 'blocks'));
+                  }}
+                  onHeadingClick={openHeadingSheet}
+                  onImageClick={openImagePicker}
+                  onImagePointerDown={captureEditorSelection}
+                  onLinkClick={openLinkSheet}
+                  onLinkPointerDown={captureEditorSelection}
+                  onEmbedClick={() => {
+                    closeBlockSheet();
+                    closeHeadingSheet();
+                    setInputValue('');
+                    setSheet('embed');
+                  }}
+                />
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }

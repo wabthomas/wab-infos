@@ -1153,6 +1153,12 @@ export function ArticleEditorForm({
               }}
               onEditorReady={setEditor}
               onKeyboardInsetChange={setKeyboardInset}
+              hideFixedChrome={
+                settingsOpen ||
+                mediaLibraryOpen ||
+                seoWizardOpen ||
+                publishSheetMode !== null
+              }
             />
           </div>
         </div>

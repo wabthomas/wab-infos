@@ -263,11 +263,14 @@ html.dark body {
   left: 0;
   right: 0;
   z-index: 50;
+  pointer-events: auto;
   /* safe-area géré en inline (0 quand le clavier est ouvert → pas de trou) */
   padding-bottom: 0;
-  /* Évite le “saut” sous le clavier pendant les animations de viewport */
-  will-change: bottom;
-  backface-visibility: hidden;
+}
+
+.redaction-editor-fixed-panel button,
+.editor-block-toolbar button {
+  touch-action: manipulation;
 }
 
 @media (min-width: 1024px) {

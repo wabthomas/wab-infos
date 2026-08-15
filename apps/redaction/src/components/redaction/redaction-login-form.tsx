@@ -19,6 +19,11 @@ type GoogleCodeClient = {
   requestCode: () => void;
 };
 
+type GoogleCodeClientError = {
+  type?: 'popup_failed_to_open' | 'popup_closed' | 'unknown';
+  message?: string;
+};
+
 type GoogleIdentityWindow = Window & {
   AndroidBridge?: AndroidGoogleBridge;
   google?: {
@@ -29,34 +34,87 @@ type GoogleIdentityWindow = Window & {
           scope: string;
           ux_mode: 'popup';
           callback: (res: { code?: string; error?: string; error_description?: string }) => void;
+          error_callback?: (err: GoogleCodeClientError) => void;
         }) => GoogleCodeClient;
       };
     };
   };
 };
 
+const GOOGLE_IDENTITY_SCRIPT = 'https://accounts.google.com/gsi/client';
+
 let googleScriptPromise: Promise<void> | null = null;
+let googleClientIdCache: string | null = null;
+let googlePrefetchPromise: Promise<string> | null = null;
+
+function googleOauth2() {
+  return (window as GoogleIdentityWindow).google?.accounts?.oauth2;
+}
 
 function loadGoogleIdentityScript(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve();
-  const w = window as GoogleIdentityWindow;
-  if (w.google?.accounts?.oauth2) return Promise.resolve();
+  if (googleOauth2()) return Promise.resolve();
   if (googleScriptPromise) return googleScriptPromise;
-  googleScriptPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+  googleScriptPromise = new Promise<void>((resolve, reject) => {
+    const fail = () => {
+      googleScriptPromise = null;
+      reject(new Error('Script Google indisponible'));
+    };
+    const finish = () => {
+      if (googleOauth2()) resolve();
+      else fail();
+    };
+    const existing = document.querySelector(`script[src="${GOOGLE_IDENTITY_SCRIPT}"]`);
     if (existing) {
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', () => reject(new Error('Script Google indisponible')));
+      if (googleOauth2()) {
+        resolve();
+        return;
+      }
+      existing.addEventListener('load', finish);
+      existing.addEventListener('error', fail);
       return;
     }
     const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
+    script.src = GOOGLE_IDENTITY_SCRIPT;
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Script Google indisponible'));
+    script.onload = finish;
+    script.onerror = fail;
     document.head.appendChild(script);
   });
   return googleScriptPromise;
+}
+
+/** Précharge script GIS + client_id pour que requestCode() reste dans le clic. */
+function prefetchGoogleLogin(): Promise<string> {
+  if (googleClientIdCache && googleOauth2()) return Promise.resolve(googleClientIdCache);
+  if (googlePrefetchPromise) return googlePrefetchPromise;
+  googlePrefetchPromise = (async () => {
+    await loadGoogleIdentityScript();
+    if (!googleClientIdCache) {
+      const configRes = await fetchRedaction('/api/redaction/auth/google/native-config', {
+        cache: 'no-store',
+      });
+      const config = (await configRes.json()) as { serverClientId?: string; error?: string };
+      if (!configRes.ok || !config.serverClientId) {
+        throw new Error(config.error || 'Google OAuth non configuré');
+      }
+      googleClientIdCache = config.serverClientId;
+    }
+    return googleClientIdCache;
+  })().finally(() => {
+    googlePrefetchPromise = null;
+  });
+  return googlePrefetchPromise;
+}
+
+function googlePopupErrorMessage(err: GoogleCodeClientError): string {
+  if (err.type === 'popup_failed_to_open') {
+    return 'Autorisez les fenêtres pop-up pour vous connecter avec Google.';
+  }
+  if (err.type === 'popup_closed') {
+    return 'Connexion Google annulée';
+  }
+  return err.message || 'Connexion Google impossible';
 }
 
 function GoogleGlyph({ className }: { className?: string }) {
@@ -123,6 +181,11 @@ export function RedactionLoginForm() {
     };
   }, [router]);
 
+  useEffect(() => {
+    if (!googleEnabled) return;
+    void prefetchGoogleLogin().catch(() => undefined);
+  }, [googleEnabled]);
+
   if (checkingSession) {
     return (
       <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-background">
@@ -167,7 +230,7 @@ export function RedactionLoginForm() {
     }
   }
 
-  async function handleGoogleLogin() {
+  function handleGoogleLogin() {
     setError('');
     setGoogleLoading(true);
     try {
@@ -182,60 +245,60 @@ export function RedactionLoginForm() {
       return;
     }
 
-    try {
-      const configRes = await fetchRedaction('/api/redaction/auth/google/native-config', {
-        cache: 'no-store',
-      });
-      const config = (await configRes.json()) as { serverClientId?: string; error?: string };
-      if (!configRes.ok || !config.serverClientId) {
-        throw new Error(config.error || 'Google OAuth non configuré');
-      }
+    const clientId = googleClientIdCache;
+    const oauth2 = googleOauth2();
+    if (!clientId || !oauth2) {
+      setGoogleLoading(false);
+      void prefetchGoogleLogin()
+        .then(() => {
+          setError('Google est prêt. Cliquez à nouveau sur Continuer avec Google.');
+        })
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Connexion Google impossible');
+        });
+      setError('Préparation de Google… réessayez dans un instant.');
+      return;
+    }
 
-      await loadGoogleIdentityScript();
-      const oauth2 = (window as GoogleIdentityWindow).google?.accounts?.oauth2;
-      if (!oauth2) {
-        throw new Error('Script Google indisponible');
-      }
-
-      const client = oauth2.initCodeClient({
-        client_id: config.serverClientId,
-        scope: 'openid email profile',
-        ux_mode: 'popup',
-        callback: (res) => {
-          void (async () => {
-            if (res.error || !res.code) {
+    const client = oauth2.initCodeClient({
+      client_id: clientId,
+      scope: 'openid email profile',
+      ux_mode: 'popup',
+      callback: (res) => {
+        void (async () => {
+          if (res.error || !res.code) {
+            setGoogleLoading(false);
+            setError(res.error_description || res.error || 'Connexion Google annulée');
+            return;
+          }
+          setGoogleLoading(true);
+          try {
+            const complete = await fetchRedaction('/api/redaction/auth/google/code', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ code: res.code, remember }),
+            });
+            const data = (await complete.json()) as { error?: string };
+            if (!complete.ok) {
               setGoogleLoading(false);
-              setError(res.error_description || res.error || 'Connexion Google annulée');
+              setError(data.error ?? 'Connexion Google impossible');
               return;
             }
-            try {
-              const complete = await fetchRedaction('/api/redaction/auth/google/code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({ code: res.code, remember }),
-              });
-              const data = (await complete.json()) as { error?: string };
-              if (!complete.ok) {
-                setGoogleLoading(false);
-                setError(data.error ?? 'Connexion Google impossible');
-                return;
-              }
-              router.replace('/');
-              router.refresh();
-            } catch {
-              setGoogleLoading(false);
-              setError('Erreur réseau pendant la connexion Google');
-            }
-          })();
-        },
-      });
-      client.requestCode();
-      setGoogleLoading(false);
-    } catch (err) {
-      setGoogleLoading(false);
-      setError(err instanceof Error ? err.message : 'Connexion Google impossible');
-    }
+            router.replace('/');
+            router.refresh();
+          } catch {
+            setGoogleLoading(false);
+            setError('Erreur réseau pendant la connexion Google');
+          }
+        })();
+      },
+      error_callback: (err) => {
+        setGoogleLoading(false);
+        setError(googlePopupErrorMessage(err));
+      },
+    });
+    client.requestCode();
   }
 
   return (

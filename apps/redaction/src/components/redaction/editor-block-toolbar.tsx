@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
@@ -10,6 +10,7 @@ import {
   moveBlock,
   type EditorBlockInfo,
 } from '@/lib/redaction/editor-block-utils';
+import { KeepEditorFocusButton } from '@/lib/redaction/keep-editor-focus';
 import { cn } from '@/lib/utils';
 
 interface EditorBlockToolbarProps {
@@ -21,6 +22,7 @@ export function EditorBlockToolbar({ editor, onHeadingClick }: EditorBlockToolba
   const [block, setBlock] = useState<EditorBlockInfo | null>(null);
   const [mounted, setMounted] = useState(false);
   const [style, setStyle] = useState<React.CSSProperties>({});
+  const interactingRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -32,7 +34,7 @@ export function EditorBlockToolbar({ editor, onHeadingClick }: EditorBlockToolba
       if (raf) return;
       raf = window.requestAnimationFrame(() => {
         raf = 0;
-        if (!editor.isFocused) {
+        if (!editor.isFocused && !interactingRef.current) {
           setBlock(null);
           setStyle({});
           return;
@@ -78,45 +80,52 @@ export function EditorBlockToolbar({ editor, onHeadingClick }: EditorBlockToolba
   const canMoveDown = block.index < editor.state.doc.childCount - 1;
 
   return createPortal(
-    <div className="editor-block-toolbar" style={style} contentEditable={false}>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={onHeadingClick}
+    <div
+      className="editor-block-toolbar"
+      style={style}
+      contentEditable={false}
+      onPointerDown={() => {
+        interactingRef.current = true;
+      }}
+      onPointerUp={() => {
+        window.setTimeout(() => {
+          interactingRef.current = false;
+        }, 0);
+      }}
+      onPointerCancel={() => {
+        interactingRef.current = false;
+      }}
+    >
+      <KeepEditorFocusButton
+        onActivate={onHeadingClick}
         className="editor-block-toolbar__type"
         aria-label="Changer le type de bloc"
       >
         {block.label}
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
+      </KeepEditorFocusButton>
+      <KeepEditorFocusButton
         disabled={!canMoveUp}
-        onClick={() => moveBlock(editor, 'up')}
+        onActivate={() => moveBlock(editor, 'up')}
         className={cn('editor-block-toolbar__btn', !canMoveUp && 'opacity-30')}
         aria-label="Monter le bloc"
       >
         <ChevronUp className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
+      </KeepEditorFocusButton>
+      <KeepEditorFocusButton
         disabled={!canMoveDown}
-        onClick={() => moveBlock(editor, 'down')}
+        onActivate={() => moveBlock(editor, 'down')}
         className={cn('editor-block-toolbar__btn', !canMoveDown && 'opacity-30')}
         aria-label="Descendre le bloc"
       >
         <ChevronDown className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => deleteActiveBlock(editor)}
+      </KeepEditorFocusButton>
+      <KeepEditorFocusButton
+        onActivate={() => deleteActiveBlock(editor)}
         className="editor-block-toolbar__btn text-red-600"
         aria-label="Supprimer le bloc"
       >
         <Trash2 className="h-4 w-4" />
-      </button>
+      </KeepEditorFocusButton>
     </div>,
     document.body
   );

@@ -1,8 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import { Heading2, Heading3, Pilcrow, X } from 'lucide-react';
 import { setBlockHeading } from '@/lib/redaction/editor-block-utils';
+import { KeepEditorFocusButton } from '@/lib/redaction/keep-editor-focus';
 import { cn } from '@/lib/utils';
 
 interface ArticleHeadingPickerProps {
@@ -24,9 +27,14 @@ export function ArticleHeadingPicker({
   onClose,
   bottomOffset = 0,
 }: ArticleHeadingPickerProps) {
-  if (!open) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
+  if (!open || !mounted) return null;
+
+  return createPortal(
     <div
       className="redaction-editor-fixed-panel z-[68] border-t border-border bg-background px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
       style={{
@@ -53,13 +61,9 @@ export function ArticleHeadingPicker({
                 ? editor.isActive('paragraph')
                 : editor.isActive('heading', { level });
             return (
-              <button
+              <KeepEditorFocusButton
                 key={id}
-                type="button"
-                onPointerDown={(e) => {
-                  if (e.button === 0) e.preventDefault();
-                }}
-                onClick={() => {
+                onActivate={() => {
                   setBlockHeading(editor, level);
                   onClose();
                 }}
@@ -72,11 +76,12 @@ export function ArticleHeadingPicker({
               >
                 <Icon className="mx-auto mb-1 h-5 w-5" />
                 {label}
-              </button>
+              </KeepEditorFocusButton>
             );
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

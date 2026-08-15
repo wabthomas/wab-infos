@@ -19,6 +19,7 @@ import {
   Video,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useKeepEditorFocusActivate } from '@/lib/redaction/keep-editor-focus';
 
 /** Toujours recentrer TipTap sans scroll — sinon les outils échouent dès que le focus a quitté l’éditeur (ex. mobile). */
 function runCommand(
@@ -43,19 +44,16 @@ function Btn({
   className?: string;
   children: React.ReactNode;
 }) {
+  const activate = useKeepEditorFocusActivate(onClick);
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={active}
       disabled={disabled}
-      // Empêche le blur / la perte de sélection avant le click (souris + tactile).
-      onPointerDown={(e) => {
-        if (e.button === 0) e.preventDefault();
-      }}
-      onClick={onClick}
+      {...activate}
       className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors',
+        'flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg transition-colors',
         'disabled:pointer-events-none disabled:opacity-40',
         active
           ? 'bg-primary text-primary-foreground shadow-sm'
@@ -78,6 +76,42 @@ function Group({ children, className }: { children: React.ReactNode; className?:
     >
       {children}
     </div>
+  );
+}
+
+function LinkImageToolbarButton({
+  label,
+  pressed,
+  disabled,
+  onActivate,
+  onPointerDownExtra,
+  className,
+  children,
+}: {
+  label: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  onActivate: () => void;
+  onPointerDownExtra?: () => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const activate = useKeepEditorFocusActivate(onActivate, onPointerDownExtra);
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={pressed}
+      disabled={disabled}
+      {...activate}
+      className={cn(
+        'flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg transition-colors',
+        'disabled:pointer-events-none disabled:opacity-40',
+        className
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -218,49 +252,32 @@ export function ArticleEditorToolbar({
         </Group>
 
         <Group>
-          <button
-            type="button"
-            aria-label="Lien"
-            aria-pressed={editor.isActive('link')}
-            onPointerDown={(e) => {
-              if (e.button === 0) {
-                e.preventDefault();
-                onLinkPointerDown?.();
-              }
-            }}
-            onClick={onLinkClick}
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors',
+          <LinkImageToolbarButton
+            label="Lien"
+            pressed={editor.isActive('link')}
+            onActivate={onLinkClick}
+            onPointerDownExtra={onLinkPointerDown}
+            className={
               editor.isActive('link')
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'text-foreground/85 active:bg-muted lg:hover:bg-muted lg:hover:text-foreground'
-            )}
+            }
           >
             <Link2 className="h-[17px] w-[17px]" strokeWidth={2.5} />
-          </button>
-          <button
-            type="button"
-            aria-label="Image"
+          </LinkImageToolbarButton>
+          <LinkImageToolbarButton
+            label="Image"
             disabled={uploading}
-            onPointerDown={(e) => {
-              if (e.button === 0) {
-                e.preventDefault();
-                onImagePointerDown?.();
-              }
-            }}
-            onClick={onImageClick}
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors',
-              'disabled:pointer-events-none disabled:opacity-40',
-              'text-foreground/85 active:bg-muted lg:hover:bg-muted lg:hover:text-foreground'
-            )}
+            onActivate={onImageClick}
+            onPointerDownExtra={onImagePointerDown}
+            className="text-foreground/85 active:bg-muted lg:hover:bg-muted lg:hover:text-foreground"
           >
             {uploading ? (
               <Loader2 className="h-[17px] w-[17px] animate-spin" />
             ) : (
               <ImageIcon className="h-[17px] w-[17px]" strokeWidth={2.5} />
             )}
-          </button>
+          </LinkImageToolbarButton>
           <Btn label="Vidéo ou réseau social" onClick={onEmbedClick}>
             <Video className="h-[17px] w-[17px]" strokeWidth={2.5} />
           </Btn>
