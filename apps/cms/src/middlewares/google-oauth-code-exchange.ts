@@ -10,7 +10,7 @@ export default () => {
       `${(
         process.env.REDACTION_APP_URL ||
         process.env.NEXT_PUBLIC_REDACTION_URL ||
-        'https://redaction.app.wab-infos.com'
+        'https://app.wab-infos.com'
       ).replace(/\/$/, '')}/auth/google/callback`;
     return configured.split('?')[0].replace(/\/$/, '');
   };
@@ -19,7 +19,7 @@ export default () => {
     try {
       return new URL('/login', resolveRedactionCallback()).href;
     } catch {
-      return 'https://redaction.app.wab-infos.com/login';
+      return 'https://app.wab-infos.com/login';
     }
   };
 

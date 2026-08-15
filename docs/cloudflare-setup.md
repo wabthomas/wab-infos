@@ -188,7 +188,7 @@ Remplacez `185.22.110.232` par l’**IP réelle** de votre serveur PlanetHoster 
 |------|-------------------|------------------|-------|
 | **A** | `cms.app` | `185.22.110.232` | **DNS only** (nuage gris) |
 | **A** | `redaction.app` | `185.22.110.232` | **DNS only** (nuage gris) |
-| **A** | `app` | `185.22.110.232` | DNS only (si encore utilisé) |
+| **A** | `app` | `185.22.110.232` | **Proxied** (nuage orange) — app rédaction |
 | **A** | `wp` | `185.22.110.232` | DNS only (WordPress) |
 
 > Le nom `cms.app` dans Cloudflare = le FQDN `cms.app.wab-infos.com`. Idem pour `redaction.app`.

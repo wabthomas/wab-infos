@@ -17,7 +17,7 @@ const product = (process.env.READER_ANDROID_PRODUCT || 'reader').trim().toLowerC
 const pushFlavor = resolveAndroidPushFlavor(googleServices, product);
 const applicationId = product === 'redaction' ? 'com.wabinfos.redaction' : 'com.wabinfos.app';
 const siteUrl =
-  product === 'redaction' ? 'https://redaction.app.wab-infos.com' : 'https://wab-infos.com';
+  product === 'redaction' ? 'https://app.wab-infos.com' : 'https://wab-infos.com';
 const flavorCombo = `${product}${pushFlavor.charAt(0).toUpperCase()}${pushFlavor.slice(1)}`;
 const apk = join(
   root,

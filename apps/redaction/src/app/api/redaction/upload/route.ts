@@ -70,7 +70,9 @@ export async function POST(request: Request) {
     const clientError =
       message === 'Image uniquement' ||
       message === 'Format d’image non reconnu' ||
-      message.startsWith('Image trop volumineuse');
+      message.startsWith('Image trop volumineuse') ||
+      message.startsWith('Cette image n’est pas lisible') ||
+      message.startsWith('Impossible de préparer cette image');
     return NextResponse.json({ error: message }, { status: clientError ? 400 : 500 });
   }
 }

@@ -9,7 +9,7 @@ const siteDownloadsUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com'
 ).replace(/\/$/, '');
 const redactionPublicUrl = (
-  process.env.NEXT_PUBLIC_REDACTION_URL || 'https://redaction.app.wab-infos.com'
+  process.env.NEXT_PUBLIC_REDACTION_URL || 'https://app.wab-infos.com'
 ).replace(/\/$/, '');
 
 export const metadata: Metadata = {

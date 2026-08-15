@@ -160,7 +160,7 @@ function resolveRedactionGoogleCallback() {
     `${(
       process.env.REDACTION_APP_URL ||
       process.env.NEXT_PUBLIC_REDACTION_URL ||
-      'https://redaction.app.wab-infos.com'
+      'https://app.wab-infos.com'
     ).replace(/\/$/, '')}/auth/google/callback`;
   return configured.split('?')[0].replace(/\/$/, '');
 }
@@ -169,7 +169,7 @@ function resolveRedactionLogin() {
   try {
     return new URL('/login', resolveRedactionGoogleCallback()).href;
   } catch {
-    return 'https://redaction.app.wab-infos.com/login';
+    return 'https://app.wab-infos.com/login';
   }
 }
 
@@ -182,7 +182,9 @@ function isAllowedFrontCallback(callback: string) {
   try {
     const url = new URL(callback);
     const allowed = new Set([
+      'https://app.wab-infos.com',
       'https://redaction.app.wab-infos.com',
+      'https://redaction.wab-infos.com',
       'http://localhost:3001',
       'http://localhost:3002',
     ]);
@@ -298,7 +300,7 @@ async function configureGoogleAuthProvider(strapi: Core.Strapi) {
     `${(
       process.env.NEXT_PUBLIC_REDACTION_URL ||
       process.env.REDACTION_APP_URL ||
-      'https://redaction.app.wab-infos.com'
+      'https://app.wab-infos.com'
     ).replace(/\/$/, '')}/auth/google/callback`;
 
   try {

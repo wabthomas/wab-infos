@@ -126,7 +126,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: https: blob:",
               "font-src 'self' https:",
               // Firebase / FCM + AdSense network
-              "connect-src 'self' https://cms.app.wab-infos.com https://redaction.app.wab-infos.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.googleapis.com https://*.gstatic.com https://*.firebaseio.com https://*.firebase.com wss://*.firebaseio.com https://*.doubleclick.net https://googleads.g.doubleclick.net https://*.google.com https://www.googleadservices.com https://*.adtrafficquality.google",
+              "connect-src 'self' https://cms.app.wab-infos.com https://app.wab-infos.com https://redaction.app.wab-infos.com https://www.google-analytics.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.googleapis.com https://*.gstatic.com https://*.firebaseio.com https://*.firebase.com wss://*.firebaseio.com https://*.doubleclick.net https://googleads.g.doubleclick.net https://*.google.com https://www.googleadservices.com https://*.adtrafficquality.google",
               "worker-src 'self' blob:",
               // YouTube embeds + AdSense creatives (iframes)
               "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://*.googlesyndication.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://www.google.com https://www.googleadservices.com https://*.adtrafficquality.google",

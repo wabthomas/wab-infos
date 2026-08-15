@@ -5,9 +5,11 @@ import {
   createOAuthState,
   getGoogleOAuthClientId,
   getGoogleOAuthRedirectUri,
+  useGoogleOAuthFormPost,
   googleOAuthStateCookieOptions,
   hashOAuthState,
   redactionPublicUrl,
+  resolveRedactionPublicOrigin,
 } from '@/lib/redaction/google-oauth';
 
 /**
@@ -22,15 +24,17 @@ export async function GET(request: Request) {
     return NextResponse.redirect(login, { status: 302 });
   }
 
-  const redirectUri = getGoogleOAuthRedirectUri(new URL(request.url).origin);
+  const preferWeb = new URL(request.url).searchParams.get('preferWeb') === '1';
+  const formPost = !preferWeb && useGoogleOAuthFormPost();
+  const redirectUri = getGoogleOAuthRedirectUri(resolveRedactionPublicOrigin(request));
   const state = createOAuthState();
-  const authorizeUrl = buildGoogleAuthorizeUrl({ clientId, redirectUri, state });
+  const authorizeUrl = buildGoogleAuthorizeUrl({ clientId, redirectUri, state, formPost });
 
   const response = NextResponse.redirect(authorizeUrl, { status: 302 });
   response.cookies.set(
     GOOGLE_OAUTH_STATE_COOKIE,
     hashOAuthState(state),
-    googleOAuthStateCookieOptions()
+    googleOAuthStateCookieOptions(60 * 10, formPost)
   );
 
   return response;

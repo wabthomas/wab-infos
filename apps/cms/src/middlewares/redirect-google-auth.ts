@@ -22,7 +22,7 @@ export default (_config: unknown, { strapi }: { strapi: { log: { info: (m: strin
     if (isGoogleFrontCallback) {
       const configured =
         process.env.REDACTION_GOOGLE_CALLBACK_URL?.trim() ||
-        `${(process.env.REDACTION_APP_URL || process.env.NEXT_PUBLIC_REDACTION_URL || 'https://redaction.app.wab-infos.com').replace(/\/$/, '')}/auth/google/callback`;
+        `${(process.env.REDACTION_APP_URL || process.env.NEXT_PUBLIC_REDACTION_URL || 'https://app.wab-infos.com').replace(/\/$/, '')}/auth/google/callback`;
       const base = configured.split('?')[0].replace(/\/$/, '');
       const qs = ctx.querystring ? `?${ctx.querystring}` : '';
       const target = `${base}${qs}`;

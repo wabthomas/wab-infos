@@ -4,7 +4,9 @@ const REDACTION_GOOGLE_PATH = '/auth/google/callback';
 
 function allowedGoogleCallbackOrigins(env: Core.Config.Shared.ConfigParams['env']): Set<string> {
   const origins = new Set<string>([
+    'https://app.wab-infos.com',
     'https://redaction.app.wab-infos.com',
+    'https://redaction.wab-infos.com',
     'http://localhost:3001',
     'http://localhost:3002',
   ]);
@@ -78,6 +80,8 @@ const config = ({ env }: Core.Config.Shared.ConfigParams): Core.Config.Plugin =>
       sharp: {
         cache: true,
         concurrency: 2,
+        // JPEG Samsung / métadonnées cassées : ne pas rejeter tout le fichier.
+        failOnError: false,
       },
     },
   },

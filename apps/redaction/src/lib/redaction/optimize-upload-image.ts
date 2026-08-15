@@ -1,5 +1,5 @@
 const MAX_WIDTH = 1920;
-const WEBP_QUALITY = 82;
+const JPEG_QUALITY = 82;
 const MAX_INPUT_BYTES = 20 * 1024 * 1024;
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|heic|heif|bmp|avif|svg|tiff?)$/i;
@@ -26,8 +26,34 @@ async function loadSharp() {
   }
 }
 
-function fallbackFile(file: File): File {
-  return file;
+/** Nom ASCII + extension — évite « Fil is not a valid image » (nom tronqué / sans extension). */
+export function safeImageFilename(originalName: string, ext: string): string {
+  const base = (originalName || 'image').replace(/\.[^.]+$/i, '');
+  const slug =
+    base
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'image';
+  const cleanExt = ext.replace(/^\./, '').toLowerCase() || 'jpg';
+  return `${slug}.${cleanExt}`;
+}
+
+function extFromMime(mime: string): string {
+  const type = mime.toLowerCase();
+  if (type.includes('png')) return 'png';
+  if (type.includes('gif')) return 'gif';
+  if (type.includes('svg')) return 'svg';
+  if (type.includes('webp')) return 'webp';
+  if (type.includes('jpeg') || type.includes('jpg')) return 'jpg';
+  return 'jpg';
+}
+
+function withSafeName(file: File, ext?: string): File {
+  const name = safeImageFilename(file.name, ext || extFromMime(file.type) || 'jpg');
+  if (name === file.name) return file;
+  return new File([file], name, { type: file.type || 'application/octet-stream' });
 }
 
 /** Vérifie qu'un fichier est une image (MIME, extension ou contenu binaire). */
@@ -50,7 +76,7 @@ export async function assertUploadableImage(file: File): Promise<void> {
 
   const input = Buffer.from(await file.arrayBuffer());
   try {
-    const meta = await sharp(input, { animated: true }).metadata();
+    const meta = await sharp(input, { failOn: 'none', animated: true }).metadata();
     if (!meta.format || !KNOWN_IMAGE_FORMATS.has(meta.format)) {
       throw new Error('Image uniquement');
     }
@@ -62,57 +88,75 @@ export async function assertUploadableImage(file: File): Promise<void> {
   }
 }
 
-/** Compresse et convertit en WebP avant envoi à Strapi (ignore SVG / GIF animés). */
+/**
+ * Réencode en JPEG/PNG propre avant Strapi.
+ * Les JPEG Samsung / HEIC / WebP bruts font échouer `isFaultyImage` (« File is not a valid image »).
+ */
 export async function optimizeUploadImage(file: File): Promise<File> {
   if (file.size > MAX_INPUT_BYTES) {
     throw new Error('Image trop volumineuse (max 20 Mo)');
   }
 
-  if (file.type === 'image/svg+xml') {
-    return file;
+  if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) {
+    return withSafeName(file, 'svg');
   }
 
   const sharp = await loadSharp();
   if (!sharp) {
-    return fallbackFile(file);
+    return withSafeName(file);
   }
 
   const input = Buffer.from(await file.arrayBuffer());
   let meta: import('sharp').Metadata;
   try {
-    meta = await sharp(input, { animated: true }).metadata();
+    meta = await sharp(input, { failOn: 'none', animated: true }).metadata();
   } catch {
-    return fallbackFile(file);
+    throw new Error(
+      'Cette image n’est pas lisible (HEIC, JPEG corrompu…). Enregistrez-la en JPEG ou PNG.'
+    );
   }
   if (!meta.format) {
-    return fallbackFile(file);
+    throw new Error(
+      'Cette image n’est pas lisible (HEIC, JPEG corrompu…). Enregistrez-la en JPEG ou PNG.'
+    );
   }
 
   const isAnimated = (meta.pages ?? 1) > 1;
-  if (isAnimated || meta.format === 'gif' || meta.format === 'svg') {
-    return file;
+  if (isAnimated || meta.format === 'gif') {
+    return withSafeName(file, 'gif');
+  }
+  if (meta.format === 'svg') {
+    return withSafeName(file, 'svg');
   }
 
-  try {
-    const quality =
-      input.length > 2 * 1024 * 1024
-        ? 72
-        : input.length > 1024 * 1024
-          ? 75
-          : input.length > 500 * 1024
-            ? 78
-            : WEBP_QUALITY;
-    const optimized = await sharp(input)
-      .rotate()
-      .resize({ width: MAX_WIDTH, withoutEnlargement: true })
-      .webp({ quality, effort: 4 })
-      .toBuffer();
+  const quality =
+    input.length > 2 * 1024 * 1024
+      ? 72
+      : input.length > 1024 * 1024
+        ? 75
+        : input.length > 500 * 1024
+          ? 78
+          : JPEG_QUALITY;
 
-    const baseName = file.name.replace(/\.[^.]+$/i, '') || 'image';
-    return new File([new Uint8Array(optimized)], `${baseName}.webp`, {
-      type: 'image/webp',
+  try {
+    const pipeline = sharp(input, { failOn: 'none' })
+      .rotate()
+      .resize({ width: MAX_WIDTH, withoutEnlargement: true });
+
+    if (meta.hasAlpha) {
+      const optimized = await pipeline.png({ compressionLevel: 8 }).toBuffer();
+      return new File([new Uint8Array(optimized)], safeImageFilename(file.name, 'png'), {
+        type: 'image/png',
+      });
+    }
+
+    const optimized = await pipeline.jpeg({ quality, mozjpeg: true }).toBuffer();
+    return new File([new Uint8Array(optimized)], safeImageFilename(file.name, 'jpg'), {
+      type: 'image/jpeg',
     });
   } catch {
-    return fallbackFile(file);
+    throw new Error(
+      'Impossible de préparer cette image pour le CMS. Enregistrez-la en JPEG ou PNG.'
+    );
   }
 }

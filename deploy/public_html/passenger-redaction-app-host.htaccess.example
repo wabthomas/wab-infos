@@ -1,0 +1,19 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/anvvbzrr/wab-infos/apps/redaction"
+PassengerBaseURI "/"
+PassengerNodejs "/home/anvvbzrr/nodevenv/wab-infos/apps/redaction/20/bin/node"
+PassengerAppType node
+PassengerStartupFile server.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION BEGIN
+<IfModule Litespeed>
+</IfModule>
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION END
+
+# Google OAuth : le WAF N0C/LiteSpeed bloque iss=https://accounts.google.com (403)
+# que ce soit en query (GET) ou dans le corps form_post (POST).
+<IfModule mod_security.c>
+  SecRuleEngine Off
+  SecFilterEngine Off
+  SecFilterScanPOST Off
+</IfModule>

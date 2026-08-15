@@ -1,27 +1,36 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { joinRedactionPublicPath } from '@wab-infos/shared';
+import {
+  CANONICAL_REDACTION_URL,
+  isAllowedRedactionOrigin,
+  joinRedactionPublicPath,
+} from '@wab-infos/shared';
 import { getRedactionPublicUrl } from '@/lib/redaction/config';
+
+function originFromRequest(request: Request): string {
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const host = forwardedHost || request.headers.get('host')?.split(',')[0]?.trim();
+  if (host) {
+    const proto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || 'https';
+    return `${proto}://${host}`.replace(/\/$/, '');
+  }
+  try {
+    return new URL(request.url).origin.replace(/\/$/, '');
+  } catch {
+    return '';
+  }
+}
 
 /** Origin public rédaction (évite les redirects localhost en prod derrière proxy). */
 export function resolveRedactionPublicOrigin(request: Request): string {
+  const fromRequest = originFromRequest(request);
+  if (fromRequest && isAllowedRedactionOrigin(fromRequest)) return fromRequest;
+
   const configured =
     process.env.REDACTION_APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_REDACTION_URL?.trim() ||
     '';
   if (configured) return configured.replace(/\/$/, '');
-
-  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
-  const host = forwardedHost || request.headers.get('host')?.trim();
-  if (host) {
-    const proto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || 'https';
-    return `${proto}://${host}`.replace(/\/$/, '');
-  }
-
-  try {
-    return new URL(request.url).origin;
-  } catch {
-    return getRedactionPublicUrl();
-  }
+  return fromRequest || getRedactionPublicUrl() || CANONICAL_REDACTION_URL;
 }
 
 export function redactionPublicUrl(request: Request, pathname: string): URL {
@@ -45,14 +54,19 @@ export function getGoogleOAuthClientSecret(): string {
 
 /** redirect_uri enregistré dans Google Cloud (doit matcher exactement). */
 export function getGoogleOAuthRedirectUri(requestOrigin?: string): string {
+  const origin = (requestOrigin || '').replace(/\/$/, '');
+  if (origin && isAllowedRedactionOrigin(origin)) {
+    return `${origin}/api/redaction/auth/google/oauth-callback`;
+  }
+
   const configured = process.env.REDACTION_GOOGLE_OAUTH_REDIRECT_URI?.trim();
   if (configured) return configured.replace(/\/$/, '');
 
   const base = (
     process.env.NEXT_PUBLIC_REDACTION_URL ||
     process.env.REDACTION_APP_URL ||
-    requestOrigin ||
-    getRedactionPublicUrl()
+    getRedactionPublicUrl() ||
+    CANONICAL_REDACTION_URL
   ).replace(/\/$/, '');
 
   return `${base}/api/redaction/auth/google/oauth-callback`;
@@ -71,12 +85,11 @@ export function useGoogleOAuthFormPost(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
-export function googleOAuthStateCookieOptions(maxAge = 60 * 10) {
-  const formPost = useGoogleOAuthFormPost();
+export function googleOAuthStateCookieOptions(maxAge = 60 * 10, formPost = useGoogleOAuthFormPost()) {
   return {
     httpOnly: true,
     sameSite: formPost ? ('none' as const) : ('lax' as const),
-    secure: formPost,
+    secure: formPost || process.env.NODE_ENV === 'production',
     path: '/',
     maxAge,
   };
@@ -86,6 +99,7 @@ export function buildGoogleAuthorizeUrl(opts: {
   clientId: string;
   redirectUri: string;
   state: string;
+  formPost?: boolean;
 }): string {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.searchParams.set('client_id', opts.clientId);
@@ -96,7 +110,8 @@ export function buildGoogleAuthorizeUrl(opts: {
   url.searchParams.set('include_granted_scopes', 'true');
   url.searchParams.set('prompt', 'select_account');
   url.searchParams.set('state', opts.state);
-  if (useGoogleOAuthFormPost()) {
+  const formPost = opts.formPost ?? useGoogleOAuthFormPost();
+  if (formPost) {
     url.searchParams.set('response_mode', 'form_post');
   }
   return url.toString();

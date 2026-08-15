@@ -75,6 +75,7 @@ import org.json.JSONObject;
 public class MainActivity extends AppCompatActivity {
 
     private static final String SITE_URL = BuildConfig.SITE_URL;
+    private static final String REDACTION_SITE_URL = "https://app.wab-infos.com";
     private static final int PERMISSION_REQUEST_CODE = 4321;
     private static final int PUSH_PERMISSION_REQUEST_CODE = 4322;
 
@@ -1104,13 +1105,14 @@ public class MainActivity extends AppCompatActivity {
                     && host != null
                     && host.endsWith("wab-infos.com")) {
                 // Si on est sur le site lecteur, forcer le host rédaction.
-                if ("redaction.app.wab-infos.com".equalsIgnoreCase(host)
+                if ("app.wab-infos.com".equalsIgnoreCase(host)
+                        || "redaction.app.wab-infos.com".equalsIgnoreCase(host)
                         || host.startsWith("redaction.")) {
                     return currentUri.getScheme() + "://" + host;
                 }
             }
         }
-        return "https://redaction.app.wab-infos.com";
+        return REDACTION_SITE_URL;
     }
 
     /** OAuth Google dans la WebView avec UA Chrome (Google refuse le marqueur "; wv)"). */
@@ -1159,7 +1161,7 @@ public class MainActivity extends AppCompatActivity {
         progressBar.setVisibility(View.GONE);
         String base = (configBase != null && !configBase.isEmpty())
                 ? configBase
-                : "https://redaction.app.wab-infos.com";
+                : REDACTION_SITE_URL;
         // preferWeb=1 empêche shouldOverrideUrlLoading de relancer le flux natif en boucle.
         beginGoogleOAuthInWebView(base + "/api/redaction/auth/google/start?preferWeb=1");
     }
@@ -1167,7 +1169,7 @@ public class MainActivity extends AppCompatActivity {
     private GoogleNativeConfig fetchGoogleNativeConfig(String base) throws Exception {
         String configBase = (base != null && !base.isEmpty())
                 ? base
-                : "https://redaction.app.wab-infos.com";
+                : REDACTION_SITE_URL;
 
         URL url = new URL(configBase + "/api/redaction/auth/google/native-config");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();

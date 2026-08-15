@@ -100,6 +100,12 @@ try {
     }
     'web' {
       Write-Host 'Build web + pack + upload + extraction + restart...' -ForegroundColor Cyan
+      $prodRedactionUrl = $envVars['REDACTION_PUBLIC_URL']
+      if (-not $prodRedactionUrl) {
+        $prodRedactionUrl = 'https://app.wab-infos.com'
+      }
+      $env:NEXT_PUBLIC_REDACTION_URL = $prodRedactionUrl
+      Write-Host "Build avec NEXT_PUBLIC_REDACTION_URL=$prodRedactionUrl" -ForegroundColor DarkGray
       if (Test-Path (Join-Path $RepoRoot 'web-next-build.tar.gz')) {
         Remove-Item -Force (Join-Path $RepoRoot 'web-next-build.tar.gz') -ErrorAction SilentlyContinue
       }
@@ -120,7 +126,7 @@ try {
       Write-Host 'Build redaction + pack + upload + extraction + restart...' -ForegroundColor Cyan
       $prodRedactionUrl = $envVars['REDACTION_PUBLIC_URL']
       if (-not $prodRedactionUrl) {
-        $prodRedactionUrl = 'https://redaction.app.wab-infos.com'
+        $prodRedactionUrl = 'https://app.wab-infos.com'
       }
       $env:NEXT_PUBLIC_REDACTION_URL = $prodRedactionUrl
       Write-Host "Build avec NEXT_PUBLIC_REDACTION_URL=$prodRedactionUrl" -ForegroundColor DarkGray

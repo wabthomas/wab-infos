@@ -18,6 +18,8 @@ import {
 
   redactionPublicUrl,
 
+  resolveRedactionPublicOrigin,
+
 } from '@/lib/redaction/google-oauth';
 
 
@@ -98,7 +100,7 @@ async function completeOAuthCallback(request: Request, params: OAuthCallbackPara
 
 
 
-  const redirectUri = getGoogleOAuthRedirectUri(new URL(request.url).origin);
+  const redirectUri = getGoogleOAuthRedirectUri(resolveRedactionPublicOrigin(request));
 
   const exchanged = await exchangeGoogleAuthorizationCode({
 

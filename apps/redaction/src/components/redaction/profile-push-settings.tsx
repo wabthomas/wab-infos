@@ -156,10 +156,10 @@ export function ProfilePushSettings() {
             <p className="mt-4 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-xs text-foreground">
               Pour les notifications push, ouvrez l’app sur{' '}
               <a
-                href="https://redaction.app.wab-infos.com/profil"
+                href="https://app.wab-infos.com/profil"
                 className="font-semibold text-primary underline"
               >
-                redaction.app.wab-infos.com
+                app.wab-infos.com
               </a>
               .
             </p>

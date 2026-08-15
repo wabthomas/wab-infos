@@ -1,5 +1,14 @@
 const LOCAL_HTTP = /^http:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?/;
 
+/** URL publique rédaction derrière Cloudflare (sous-domaine à un niveau). */
+export const CANONICAL_REDACTION_URL = 'https://app.wab-infos.com';
+
+export const REDACTION_PUBLIC_ORIGINS = [
+  CANONICAL_REDACTION_URL,
+  'https://redaction.app.wab-infos.com',
+  'https://redaction.wab-infos.com',
+] as const;
+
 function resolvePublicHttpsUrl(raw: string | undefined, fallback: string): string {
   const normalized = (raw?.trim() || fallback).replace(/\/$/, '');
   if (normalized.startsWith('http://') && !LOCAL_HTTP.test(normalized)) {
@@ -25,7 +34,13 @@ export function joinRedactionPublicPath(publicBase: string, pathname: string): s
 }
 
 export function resolveRedactionUrl(raw?: string): string {
-  return resolvePublicHttpsUrl(raw, 'http://localhost:3001');
+  return resolvePublicHttpsUrl(raw, CANONICAL_REDACTION_URL);
+}
+
+export function isAllowedRedactionOrigin(origin: string): boolean {
+  const normalized = origin.replace(/\/$/, '').toLowerCase();
+  if (REDACTION_PUBLIC_ORIGINS.some((item) => item.toLowerCase() === normalized)) return true;
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalized);
 }
 
 export function resolveRedactionLoginUrl(raw?: string): string {

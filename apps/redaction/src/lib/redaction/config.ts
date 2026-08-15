@@ -10,7 +10,7 @@ export function getRedactionPublicUrl(): string {
   return (
     process.env.NEXT_PUBLIC_REDACTION_URL ||
     process.env.REDACTION_APP_URL ||
-    'http://localhost:3002'
+    (process.env.NODE_ENV === 'production' ? 'https://app.wab-infos.com' : 'http://localhost:3002')
   ).replace(/\/$/, '');
 }
 

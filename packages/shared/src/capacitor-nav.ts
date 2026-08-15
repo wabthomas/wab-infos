@@ -20,8 +20,11 @@ export function resolvePublicHttpsUrl(raw: string | undefined, fallback: string)
 }
 
 export {
+  CANONICAL_REDACTION_URL,
+  isAllowedRedactionOrigin,
   joinRedactionPublicPath,
   redactionBasePathFromPublicUrl,
+  REDACTION_PUBLIC_ORIGINS,
   resolveRedactionLoginUrl,
   resolveRedactionUrl,
 } from './redaction-public-url';

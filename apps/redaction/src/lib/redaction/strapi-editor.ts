@@ -2136,8 +2136,21 @@ export async function uploadEditorImage(
     throw new DuplicateMediaError(existing);
   }
 
+  const mime = file.type && file.type !== 'application/octet-stream' ? file.type : 'image/jpeg';
+  const ext = mime.includes('png')
+    ? 'png'
+    : mime.includes('gif')
+      ? 'gif'
+      : mime.includes('svg')
+        ? 'svg'
+        : mime.includes('webp')
+          ? 'webp'
+          : 'jpg';
+  const filename = (file.name || `image.${ext}`).replace(/[^\w.\-]+/g, '-');
+  const safeName = /\.[a-z0-9]+$/i.test(filename) ? filename : `image.${ext}`;
+
   const form = new FormData();
-  form.append('files', new Blob([buffer], { type: file.type || 'application/octet-stream' }), file.name);
+  form.append('files', new File([buffer], safeName, { type: mime }));
 
   const res = await fetch(`${getStrapiUrl()}/api/upload`, {
     method: 'POST',
@@ -2155,7 +2168,13 @@ export async function uploadEditorImage(
     } catch {
       // corps HTML ou texte brut
     }
-    throw new Error(detail ? `Upload Strapi échoué : ${detail}` : `Upload échoué (${res.status})`);
+    throw new Error(
+      /not a valid image/i.test(detail)
+        ? 'Cette image n’est pas lisible par le CMS. Enregistrez-la en JPEG ou PNG et réessayez.'
+        : detail
+          ? `Upload Strapi échoué : ${detail}`
+          : `Upload échoué (${res.status})`
+    );
   }
 
   let data: { id: number; url: string }[];

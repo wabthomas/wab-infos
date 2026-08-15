@@ -17,6 +17,7 @@ export default [
         'https://app.wab-infos.com',
         'https://cms.app.wab-infos.com',
         'https://redaction.app.wab-infos.com',
+        'https://redaction.wab-infos.com',
       ],
       headers: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
     },
