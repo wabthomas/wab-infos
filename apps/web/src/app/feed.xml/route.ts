@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getArticlePath, siteConfig } from '@/config/site';
+import { editorialConfig, getArticlePath, siteConfig } from '@/config/site';
 import { getArticles } from '@/lib/strapi';
 import { getMockArticlesIfEnabled } from '@/lib/mock-data';
 import { getArticleDisplayDate, getStrapiMediaAbsoluteUrl } from '@/lib/utils';
+
+/** Logo canal RSS : 144×110 (plafond RSS 2.0 : 144×400). public/rss-image.png */
+const RSS_IMAGE = { path: '/rss-image.png', width: 144, height: 110 } as const;
 
 export async function GET() {
   let articles;
@@ -53,7 +56,16 @@ export async function GET() {
     <link>${siteConfig.url}</link>
     <description>${escapeXml(siteConfig.description)}</description>
     <language>fr</language>
+    <managingEditor>${escapeXml(editorialConfig.contactEmail)} (${escapeXml(siteConfig.name)})</managingEditor>
+    <webMaster>${escapeXml(editorialConfig.contactEmail)} (${escapeXml(siteConfig.name)})</webMaster>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    <image>
+      <url>${siteConfig.url}${RSS_IMAGE.path}</url>
+      <title>${escapeXml(siteConfig.name)}</title>
+      <link>${siteConfig.url}</link>
+      <width>${RSS_IMAGE.width}</width>
+      <height>${RSS_IMAGE.height}</height>
+    </image>
     <atom:link href="${siteConfig.url}/feed.xml" rel="self" type="application/rss+xml"/>
 ${items}
   </channel>

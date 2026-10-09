@@ -703,6 +703,48 @@ export interface ApiEditorPushSubscriptionEditorPushSubscription
   };
 }
 
+export interface ApiNewsletterSettingNewsletterSetting
+  extends Struct.SingleTypeSchema {
+  collectionName: 'newsletter_settings';
+  info: {
+    displayName: 'Param\u00E8tres newsletter';
+    pluralName: 'newsletter-settings';
+    singularName: 'newsletter-setting';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    enabled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::newsletter-setting.newsletter-setting'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    replyTo: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'redaction@wab-infos.com'>;
+    senderEmail: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'newsletter@wab-infos.com'>;
+    senderName: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'Wab-infos'>;
+    smtpHost: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'mail.wab-infos.com'>;
+    smtpPass: Schema.Attribute.String;
+    smtpPort: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<465>;
+    smtpSecure: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    smtpUser: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'newsletter@wab-infos.com'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiReaderPushSubscriptionReaderPushSubscription
   extends Struct.CollectionTypeSchema {
   collectionName: 'reader_push_subscriptions';
@@ -1458,6 +1500,7 @@ declare module '@strapi/strapi' {
       'api::category.category': ApiCategoryCategory;
       'api::comment.comment': ApiCommentComment;
       'api::editor-push-subscription.editor-push-subscription': ApiEditorPushSubscriptionEditorPushSubscription;
+      'api::newsletter-setting.newsletter-setting': ApiNewsletterSettingNewsletterSetting;
       'api::reader-push-subscription.reader-push-subscription': ApiReaderPushSubscriptionReaderPushSubscription;
       'api::show.show': ApiShowShow;
       'api::site-setting.site-setting': ApiSiteSettingSiteSetting;

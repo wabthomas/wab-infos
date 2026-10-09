@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { subscribeEmail } from '@/lib/newsletter/subscribers';
-import { isNewsletterConfigured, newsletterConfig } from '@/lib/newsletter/config';
+import { newsletterConfig } from '@/lib/newsletter/config';
+import { isMailReady } from '@/lib/newsletter/stored-settings';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     await subscribeEmail(email);
 
     return NextResponse.json({
-      message: isNewsletterConfigured()
+      message: (await isMailReady())
         ? 'Merci ! Vous recevrez bientôt notre newsletter.'
         : 'Merci ! Votre inscription est enregistrée. L\'envoi des e-mails sera activé prochainement.',
     });

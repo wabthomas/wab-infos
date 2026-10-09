@@ -146,15 +146,15 @@ export interface StrapiListResponse<T> {
 }
 
 export const CATEGORIES = [
-  { name: 'Actualités RDC', slug: 'actualites-rdc', color: '#E63946' },
-  { name: 'Politique', slug: 'politique', color: '#1D3557' },
-  { name: 'Économie', slug: 'economie', color: '#2A9D8F' },
-  { name: 'Sécurité', slug: 'securite', color: '#E76F51' },
-  { name: 'Société', slug: 'societe', color: '#F4A261' },
-  { name: 'Sports', slug: 'sports', color: '#264653' },
-  { name: 'International', slug: 'international', color: '#457B9D' },
-  { name: 'Technologies', slug: 'technologies', color: '#6C63FF' },
-  { name: 'Wab-infos TV', slug: 'wab-infos-tv', color: '#D62828' },
+  { name: 'Actualités RDC', slug: 'actualites-rdc', color: '#c41e3a' },
+  { name: 'Politique', slug: 'politique', color: '#1d3557' },
+  { name: 'Économie', slug: 'economie', color: '#1d3557' },
+  { name: 'Sécurité', slug: 'securite', color: '#8b1538' },
+  { name: 'Société', slug: 'societe', color: '#c41e3a' },
+  { name: 'Sports', slug: 'sports', color: '#8b1538' },
+  { name: 'International', slug: 'international', color: '#1d3557' },
+  { name: 'Technologies', slug: 'technologies', color: '#1d3557' },
+  { name: 'Wab-infos TV', slug: 'wab-infos-tv', color: '#c41e3a' },
 ] as const;
 
 export type CategorySlug = (typeof CATEGORIES)[number]['slug'];

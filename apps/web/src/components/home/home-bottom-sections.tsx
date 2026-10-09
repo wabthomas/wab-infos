@@ -135,7 +135,7 @@ function SportsSection({ category, articles }: { category: CategoryMeta; article
       <div
         className="relative overflow-hidden px-5 py-4 md:px-6"
         style={{
-          background: `linear-gradient(135deg, ${category.color} 0%, ${category.color}dd 55%, #1a3a44 100%)`,
+          background: `linear-gradient(135deg, ${category.color} 0%, ${category.color}dd 55%, #1d3557 100%)`,
         }}
       >
         <div

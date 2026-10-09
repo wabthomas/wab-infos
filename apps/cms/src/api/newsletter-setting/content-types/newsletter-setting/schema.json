@@ -1,0 +1,49 @@
+{
+  "kind": "singleType",
+  "collectionName": "newsletter_settings",
+  "info": {
+    "singularName": "newsletter-setting",
+    "pluralName": "newsletter-settings",
+    "displayName": "Paramètres newsletter"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "smtpHost": {
+      "type": "string",
+      "default": "mail.wab-infos.com"
+    },
+    "smtpPort": {
+      "type": "integer",
+      "default": 465
+    },
+    "smtpSecure": {
+      "type": "boolean",
+      "default": true
+    },
+    "smtpUser": {
+      "type": "string",
+      "default": "newsletter@wab-infos.com"
+    },
+    "smtpPass": {
+      "type": "string"
+    },
+    "senderEmail": {
+      "type": "string",
+      "default": "newsletter@wab-infos.com"
+    },
+    "senderName": {
+      "type": "string",
+      "default": "Wab-infos"
+    },
+    "replyTo": {
+      "type": "string",
+      "default": "redaction@wab-infos.com"
+    }
+  }
+}

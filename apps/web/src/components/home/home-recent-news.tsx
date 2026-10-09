@@ -15,7 +15,7 @@ interface HomeRecentNewsProps {
 function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
   const href = getArticlePath(article);
   const imageUrl = resolveArticleImageUrl(article.featuredImage, 'card');
-  const categoryColor = article.category?.color ?? '#E63946';
+  const categoryColor = article.category?.color ?? '#c41e3a';
 
   const displayDate = getArticleDisplayDate(article);
 
@@ -76,7 +76,7 @@ function RecentSideCard({ article, rank }: { article: Article; rank: number }) {
 function RecentCompactCard({ article }: { article: Article }) {
   const href = getArticlePath(article);
   const imageUrl = resolveArticleImageUrl(article.featuredImage, 'card');
-  const categoryColor = article.category?.color ?? '#E63946';
+  const categoryColor = article.category?.color ?? '#c41e3a';
 
   const displayDate = getArticleDisplayDate(article);
 
@@ -116,7 +116,7 @@ function RecentCompactCard({ article }: { article: Article }) {
 function PopularArticleRow({ article }: { article: Article }) {
   const href = getArticlePath(article);
   const displayDate = getArticleDisplayDate(article);
-  const categoryColor = article.category?.color ?? '#E63946';
+  const categoryColor = article.category?.color ?? '#c41e3a';
 
   return (
     <article className="border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0">

@@ -7,6 +7,7 @@ import {
   BarChart3,
   FileText,
   Home,
+  Mail,
   MessageSquare,
   PenLine,
   Settings,
@@ -46,6 +47,7 @@ function getDesktopPageTitle(pathname: string): string {
   if (pathname === '/profil/modifier') return 'Modifier le profil';
   if (pathname === '/profil' || pathname.startsWith('/profil/')) return 'Profil';
   if (pathname === '/parametres') return 'Paramètres du site';
+  if (pathname === '/newsletter') return 'Newsletter';
   if (pathname === '/nouveau') return 'Nouvel article';
   return 'Rédaction';
 }
@@ -178,12 +180,20 @@ function RedactionSidebar({
           />
         ))}
         {isSuperAdmin ? (
-          <SidebarNavItem
-            href="/parametres"
-            label="Paramètres"
-            icon={Settings}
-            active={pathname === '/parametres'}
-          />
+          <>
+            <SidebarNavItem
+              href="/newsletter"
+              label="Newsletter"
+              icon={Mail}
+              active={pathname === '/newsletter'}
+            />
+            <SidebarNavItem
+              href="/parametres"
+              label="Paramètres"
+              icon={Settings}
+              active={pathname === '/parametres'}
+            />
+          </>
         ) : null}
       </nav>
 
@@ -330,6 +340,14 @@ export function RedactionShell({
                 }
               />
             ))}
+            {isSuperAdmin ? (
+              <MobileNavItem
+                href="/newsletter"
+                label="E-mails"
+                icon={Mail}
+                active={pathname === '/newsletter'}
+              />
+            ) : null}
           </div>
         </nav>
       </div>

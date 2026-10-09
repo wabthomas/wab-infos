@@ -50,7 +50,7 @@ export function LiveNewsTimeline({
           {items.map((article, index) => {
             const href = getArticlePath(article);
             const imageUrl = getStrapiMediaUrl(article.featuredImage?.url);
-            const categoryColor = article.category?.color ?? '#E63946';
+            const categoryColor = article.category?.color ?? '#c41e3a';
             const isLatest = index === 0;
 
             const displayDate = getArticleDisplayDate(article);

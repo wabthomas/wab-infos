@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Eye,
   FileText,
+  Mail,
   MessageSquare,
   PenLine,
   Search,
@@ -286,6 +287,7 @@ export function RedactionDashboardHome({
               <QuickAction href="/stats" icon={BarChart3} label="Statistiques détaillées" />
               {isSuperAdmin ? (
                 <>
+                  <QuickAction href="/newsletter" icon={Mail} label="Newsletter" />
                   <QuickAction href="/parametres" icon={Settings} label="Paramètres du site" />
                   <QuickAction href="/parametres" icon={Search} label="SEO & indexation" />
                 </>

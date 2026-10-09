@@ -12,7 +12,11 @@ import type {
   StrapiMedia,
 } from '@wab-infos/shared';
 import { normalizeArticleSeoMeta } from '@wab-infos/shared';
-import { canonicalizeCategorySlug } from '@/config/site';
+import {
+  brandColors,
+  canonicalizeCategorySlug,
+  getCategoryBySlug as getSiteCategoryBySlug,
+} from '@/config/site';
 
 const STRAPI_URL = process.env.STRAPI_URL || process.env.NEXT_PUBLIC_STRAPI_URL || 'http://localhost:8090';
 const STRAPI_TOKEN = process.env.STRAPI_API_TOKEN;
@@ -186,13 +190,14 @@ function mapAuthor(entity: StrapiEntity): Author {
 }
 
 function mapCategory(entity: StrapiEntity): Category {
+  const slug = canonicalizeCategorySlug(entity.slug as string);
   return {
     id: entity.id,
     documentId: entity.documentId,
     name: entity.name as string,
     slug: entity.slug as string,
     description: entity.description as string | undefined,
-    color: entity.color as string | undefined,
+    color: getSiteCategoryBySlug(slug)?.color ?? brandColors.red,
   };
 }
 

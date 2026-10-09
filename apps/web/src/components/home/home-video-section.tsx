@@ -26,6 +26,7 @@ function VideoListItem({ video, index }: { video: YoutubeChannelVideo; index: nu
           src={thumb}
           alt={video.title}
           fill
+          unoptimized
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="80px"
         />

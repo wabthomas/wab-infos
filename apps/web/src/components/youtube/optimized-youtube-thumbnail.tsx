@@ -41,6 +41,7 @@ export function OptimizedYouTubeThumbnail({
         src={src}
         alt={title}
         fill
+        unoptimized
         className="object-cover transition-transform duration-500 group-hover:scale-105"
         sizes={sizes}
         priority={priority}

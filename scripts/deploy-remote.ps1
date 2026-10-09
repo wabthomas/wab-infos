@@ -120,7 +120,9 @@ try {
       Send-File -SshHost $sshHost -LocalPath $tarPath -RemotePath "$remoteBase/web-next-build.tar.gz"
       Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && tar -xzf web-next-build.tar.gz -C apps/web && test -f apps/web/.next/BUILD_ID && echo web unpack OK"
       Restart-RemotePassenger -SshHost $sshHost -RemoteBase $remoteBase -AppRelativePath 'apps/web'
-      Write-Host 'Deploiement web termine (Passenger redemarre via tmp/restart.txt).' -ForegroundColor Green
+      Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'scripts/restart-web-node.sh') -RemotePath "$remoteBase/scripts/restart-web-node.sh"
+      Invoke-Remote -SshHost $sshHost -Command "tr -d '\r' < $remoteBase/scripts/restart-web-node.sh | bash -s $remoteBase/apps/web"
+      Write-Host 'Deploiement web termine (processus node recharge).' -ForegroundColor Green
     }
     'redaction' {
       Write-Host 'Build redaction + pack + upload + extraction + restart...' -ForegroundColor Cyan

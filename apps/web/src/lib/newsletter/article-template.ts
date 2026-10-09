@@ -1,4 +1,6 @@
 import { newsletterConfig } from '@/lib/newsletter/config';
+import { siteConfig } from '@/config/site';
+import { renderNewsletterEmail, renderNewsletterEmailFooterText } from '@wab-infos/shared';
 
 export interface ArticleNewsletterData {
   title: string;
@@ -54,26 +56,14 @@ export function renderArticleNewsletterHtml(data: ArticleNewsletterData): string
     ? `<span style="display:inline-block;background:#dc2626;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;margin-bottom:12px;">Flash info</span><br />`
     : '';
 
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${title}</title>
-</head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f5;padding:24px 12px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;">
-          <tr>
-            <td style="padding:0 0 16px;text-align:center;">
-              <a href="${siteUrl}" style="font-size:22px;font-weight:700;color:#c41e3a;text-decoration:none;letter-spacing:-0.02em;">${escapeHtml(siteName)}</a>
-              <p style="margin:6px 0 0;font-size:12px;color:#71717a;">L'essentiel de l'actualité congolaise et africaine</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+  return renderNewsletterEmail({
+    siteUrl,
+    siteName,
+    tagline: siteConfig.tagline,
+    preheader: data.excerpt,
+    unsubscribeUrl: data.unsubscribeUrl,
+    bodyHtml: `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;">
+              <tr><td>
               ${heroBlock}
               <div style="padding:28px 24px 32px;">
                 ${breakingBadge}
@@ -89,24 +79,9 @@ export function renderArticleNewsletterHtml(data: ArticleNewsletterData): string
                 <p style="margin:0 0 24px;font-size:16px;line-height:1.65;color:#3f3f46;">${excerpt}</p>
                 <a href="${data.articleUrl}" style="display:inline-block;background:#c41e3a;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:8px;">Lire l'article</a>
               </div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:20px 8px 0;text-align:center;font-size:11px;line-height:1.6;color:#a1a1aa;">
-              <p style="margin:0 0 8px;">Vous recevez cet e-mail car vous êtes abonné à la newsletter ${escapeHtml(siteName)}.</p>
-              <p style="margin:0;">
-                <a href="${siteUrl}" style="color:#71717a;">Visiter le site</a>
-                &nbsp;·&nbsp;
-                <a href="${data.unsubscribeUrl}" style="color:#71717a;">Se désinscrire</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+              </td></tr>
+            </table>`,
+  });
 }
 
 export function renderArticleNewsletterText(data: ArticleNewsletterData): string {
@@ -116,8 +91,7 @@ export function renderArticleNewsletterText(data: ArticleNewsletterData): string
     data.excerpt,
     '',
     `Lire l'article : ${data.articleUrl}`,
-    '',
-    `Se désinscrire : ${data.unsubscribeUrl}`,
+    renderNewsletterEmailFooterText(newsletterConfig.siteUrl, data.unsubscribeUrl),
   ];
   return lines.join('\n');
 }

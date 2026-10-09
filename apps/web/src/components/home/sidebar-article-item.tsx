@@ -27,7 +27,7 @@ export function SidebarArticleItem({
 }: SidebarArticleItemProps) {
   const href = getArticlePath(article);
   const imageUrl = resolveArticleImageUrl(article.featuredImage, 'card');
-  const categoryColor = article.category?.color ?? '#E63946';
+  const categoryColor = article.category?.color ?? '#c41e3a';
   const displayDate = getArticleDisplayDate(article);
 
   const imageEl = (

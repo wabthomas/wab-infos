@@ -8,7 +8,8 @@ import {
   renderArticleNewsletterText,
   type ArticleNewsletterData,
 } from '@/lib/newsletter/article-template';
-import { isNewsletterConfigured, newsletterConfig } from '@/lib/newsletter/config';
+import { newsletterConfig } from '@/lib/newsletter/config';
+import { isMailReady } from '@/lib/newsletter/stored-settings';
 import { sendBatchEmails } from '@/lib/newsletter/transport';
 import {
   buildUnsubscribeUrl,
@@ -91,7 +92,7 @@ export async function sendArticleNewsletter(slug: string): Promise<SendArticleNe
     return { ok: true, skipped: true, reason: 'newsletter_disabled' };
   }
 
-  if (!isNewsletterConfigured()) {
+  if (!(await isMailReady())) {
     return { ok: true, skipped: true, reason: 'mail_not_configured' };
   }
 

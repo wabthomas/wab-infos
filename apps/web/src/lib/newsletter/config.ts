@@ -1,6 +1,11 @@
 export const newsletterConfig = {
   enabled: process.env.NEWSLETTER_ENABLED === 'true',
   sendOnPublish: process.env.NEWSLETTER_SEND_ON_PUBLISH === 'true',
+  sendOnYoutube:
+    process.env.NEWSLETTER_SEND_ON_YOUTUBE === 'false'
+      ? false
+      : process.env.NEWSLETTER_SEND_ON_YOUTUBE === 'true' ||
+        process.env.NEWSLETTER_SEND_ON_PUBLISH === 'true',
   brevoApiKey: process.env.BREVO_API_KEY || '',
   senderEmail: process.env.NEWSLETTER_SENDER_EMAIL || 'newsletter@wab-infos.com',
   senderName: process.env.NEWSLETTER_SENDER_NAME || 'Wab-infos',

@@ -80,18 +80,25 @@ export const editorialConfig = {
   foundedYear: process.env.NEXT_PUBLIC_FOUNDED_YEAR || '2010',
 } as const;
 
+/** Charte : rouge cardinal, bordeaux, bleu nuit. */
+export const brandColors = {
+  red: '#c41e3a',
+  burgundy: '#8b1538',
+  navy: '#1d3557',
+} as const;
+
 export const categories = [
-  { name: 'Actualité', slug: 'actualite', color: '#E63946' },
-  { name: 'Actualités RDC', slug: 'actualites-rdc', color: '#E63946' },
-  { name: 'Politique', slug: 'politique', color: '#1D3557' },
-  { name: 'Économie', slug: 'economie', color: '#2A9D8F' },
-  { name: 'Sécurité', slug: 'securite', color: '#E76F51' },
-  { name: 'Société', slug: 'societe', color: '#F4A261' },
-  { name: 'Faits divers', slug: 'faits-divers', color: '#9A3412' },
-  { name: 'Sports', slug: 'sports', color: '#264653' },
-  { name: 'International', slug: 'international', color: '#457B9D' },
-  { name: 'Technologies', slug: 'technologies', color: '#6C63FF' },
-  { name: 'Wab-infos TV', slug: 'wab-infos-tv', color: '#D62828' },
+  { name: 'Actualité', slug: 'actualite', color: brandColors.red },
+  { name: 'Actualités RDC', slug: 'actualites-rdc', color: brandColors.red },
+  { name: 'Politique', slug: 'politique', color: brandColors.navy },
+  { name: 'Économie', slug: 'economie', color: brandColors.navy },
+  { name: 'Sécurité', slug: 'securite', color: brandColors.burgundy },
+  { name: 'Société', slug: 'societe', color: brandColors.red },
+  { name: 'Faits divers', slug: 'faits-divers', color: brandColors.burgundy },
+  { name: 'Sports', slug: 'sports', color: brandColors.burgundy },
+  { name: 'International', slug: 'international', color: brandColors.navy },
+  { name: 'Technologies', slug: 'technologies', color: brandColors.navy },
+  { name: 'Wab-infos TV', slug: 'wab-infos-tv', color: brandColors.red },
 ] as const;
 
 export type CategorySlug = (typeof categories)[number]['slug'];
@@ -176,6 +183,6 @@ export function resolveCategoryMeta(
       fallback?.name ??
       slug.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
     slug,
-    color: fallback?.color ?? '#E63946',
+    color: fallback?.color ?? brandColors.red,
   };
 }
