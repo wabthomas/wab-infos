@@ -33,12 +33,10 @@ export function renderNewsletterEmail(options: NewsletterEmailLayoutOptions): st
     : '';
 
   const socials = DEFAULT_SITE_SOCIAL_LINKS.filter((link) => link.visible)
-    .map((link) => {
-      const onDark = link.id === 'x' || link.id === 'tiktok';
-      const background = onDark ? '#ffffff' : link.brandColor;
-      const color = onDark ? '#18181b' : '#ffffff';
-      return `<a href="${link.href}" style="display:inline-block;margin:4px 6px 4px 0;padding:8px 14px;background:${background};color:${color};font-size:13px;font-weight:700;text-decoration:none;border-radius:999px;">${escapeHtml(link.label)}</a>`;
-    })
+    .map(
+      (link) =>
+        `<a href="${link.href}" style="display:inline-block;margin:0 5px;text-decoration:none;"><img src="${origin}/email/social-${link.id}.png" alt="${escapeHtml(link.label)}" width="36" height="36" style="display:block;width:36px;height:36px;border:0;" /></a>`
+    )
     .join('');
 
   return `<!DOCTYPE html>
@@ -80,26 +78,15 @@ export function renderNewsletterEmail(options: NewsletterEmailLayoutOptions): st
                 <tr>
                   <td style="padding:28px 24px 24px;text-align:center;">
                     <a href="${origin}" style="text-decoration:none;">
-                      <img src="${logoDark}" alt="${siteName}" width="120" height="92" style="display:inline-block;width:120px;height:auto;border:0;" />
+                      <img src="${logoDark}" alt="${siteName}" width="96" height="74" style="display:inline-block;width:96px;height:auto;border:0;" />
                     </a>
-                    <p style="margin:14px 0 0;font-size:15px;line-height:1.5;color:#ffffff;font-weight:700;">L'actualité congolaise et africaine, et Wab-infos TV.</p>
-                    <p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:#e2e8f0;">Politique, sécurité, économie, sport et international. Direct, replays et podcasts sur la chaîne.</p>
-                    <p style="margin:22px 0 8px;font-size:12px;font-weight:700;letter-spacing:0.04em;color:#fecdd3;">Nos réseaux sociaux</p>
-                    <div style="line-height:2.2;">${socials}</div>
-                    <p style="margin:18px 0 0;font-size:13px;line-height:1.8;">
-                      <a href="${origin}" style="color:#ffffff;text-decoration:none;font-weight:700;">Le site</a>
-                      &nbsp;&nbsp;·&nbsp;&nbsp;
-                      <a href="${origin}/tv" style="color:#ffffff;text-decoration:none;font-weight:700;">Wab-infos TV</a>
-                      &nbsp;&nbsp;·&nbsp;&nbsp;
-                      <a href="${origin}/contact" style="color:#ffffff;text-decoration:none;font-weight:700;">Contact</a>
-                      &nbsp;&nbsp;·&nbsp;&nbsp;
-                      <a href="${origin}/feed.xml" style="color:#ffffff;text-decoration:none;font-weight:700;">Flux RSS</a>
-                    </p>
-                    <p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:#cbd5e1;">Kinshasa · République démocratique du Congo<br />redaction@wab-infos.com</p>
-                    <p style="margin:14px 0 0;font-size:11px;line-height:1.6;color:#94a3b8;">
-                      © ${year} ${siteName}. Tous droits réservés.
-                      ${unsubscribe ? `<br />${unsubscribe}` : ''}
-                    </p>
+                    <div style="margin-top:16px;line-height:0;">${socials}</div>
+                    ${
+                      unsubscribe
+                        ? `<p style="margin:16px 0 0;font-size:13px;line-height:1.5;">${unsubscribe}</p>`
+                        : ''
+                    }
+                    <p style="margin:12px 0 0;font-size:11px;line-height:1.5;color:#94a3b8;">© ${year} ${siteName}</p>
                   </td>
                 </tr>
               </table>
@@ -113,18 +100,12 @@ export function renderNewsletterEmail(options: NewsletterEmailLayoutOptions): st
 </html>`;
 }
 
-export function renderNewsletterEmailFooterText(siteUrl: string, unsubscribeUrl?: string): string {
-  const origin = siteOrigin(siteUrl);
+export function renderNewsletterEmailFooterText(_siteUrl: string, unsubscribeUrl?: string): string {
   const lines = [
     '',
-    'Nos réseaux sociaux',
     ...DEFAULT_SITE_SOCIAL_LINKS.filter((link) => link.visible).map(
       (link) => `${link.label} : ${link.href}`
     ),
-    '',
-    `Le site : ${origin}`,
-    `Wab-infos TV : ${origin}/tv`,
-    `Contact : ${origin}/contact`,
   ];
   if (unsubscribeUrl) lines.push('', `Se désinscrire : ${unsubscribeUrl}`);
   return lines.join('\n');
