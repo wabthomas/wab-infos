@@ -48,7 +48,7 @@ export function renderArticleNewsletterHtml(data: ArticleNewsletterData): string
 
   const heroBlock = data.imageUrl
     ? `<a href="${data.articleUrl}" style="display:block;text-decoration:none;">
-        <img src="${data.imageUrl}" alt="" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;border-radius:8px 8px 0 0;" />
+        <img src="${data.imageUrl}" alt="" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;" />
       </a>`
     : '';
 
@@ -62,9 +62,7 @@ export function renderArticleNewsletterHtml(data: ArticleNewsletterData): string
     tagline: siteConfig.tagline,
     preheader: data.excerpt,
     unsubscribeUrl: data.unsubscribeUrl,
-    bodyHtml: `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;">
-              <tr><td>
-              ${heroBlock}
+    bodyHtml: `${heroBlock}
               <div style="padding:28px 24px 32px;">
                 ${breakingBadge}
                 ${
@@ -78,9 +76,7 @@ export function renderArticleNewsletterHtml(data: ArticleNewsletterData): string
                 </p>
                 <p style="margin:0 0 24px;font-size:16px;line-height:1.65;color:#3f3f46;">${excerpt}</p>
                 <a href="${data.articleUrl}" style="display:inline-block;background:#c41e3a;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:8px;">Lire l'article</a>
-              </div>
-              </td></tr>
-            </table>`,
+              </div>`,
   });
 }
 

@@ -128,6 +128,14 @@ Les articles avec `status=scheduled` et `scheduledAt <= now` passent en publié 
 
 Le même cron déclenche l’**agrégation actus** (flux RSS → brouillons rédaction) : jusqu’à `NEWS_INGEST_MAX_PER_RUN` nouveaux articles par source à chaque minute, plafond journalier `NEWS_INGEST_DAILY_QUOTA`. Variables dans `apps/web/.env` — voir `.env.example`.
 
+### Assistant IA rédaction
+
+Le cron site appelle aussi `POST {REDACTION}/api/redaction/ai/process-imports` (secret de revalidation). L’IA reformule les brouillons `isImported` non encore traités, remplit le SEO (`analyzeArticleSeo`), signe **Rédaction Wab-infos**, et **publie automatiquement** si `AI_AUTO_PUBLISH=true` et score ≥ `AI_SEO_MIN_SCORE` (défaut 70), sans checks `fail`. Sinon le texte reste en brouillon (`aiAssisted`, `aiProcessedAt`).
+
+UI admin : **Paramètres** → panneau Assistant IA (clés fournisseurs, chaîne de repli, auto-publish, seuils, quotas, file, test, proposition de sujet). Action liste : **Reformuler (IA)** sur un import.
+
+Stockage : single-type Strapi `ai-setting` (prioritaire). Le `.env` (`AI_*`) reste un repli. Chaîne multi-fournisseurs calquée sur Wab-Market.
+
 ## Publication réseaux sociaux (Facebook & X)
 
 À chaque publication d’un article récent (≤ 48 h), Strapi appelle `POST /api/social/publish-article` sur le site Next.js.

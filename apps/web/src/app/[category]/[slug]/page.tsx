@@ -59,6 +59,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export const revalidate = 300;
 
+/** Sans generateStaticParams, Next 16 rend chaque article à la requête (no-store) : trop lent pour les aperçus WhatsApp/Facebook. */
+export async function generateStaticParams() {
+  return [];
+}
+
 export default async function ArticlePage({ params }: PageProps) {
   const { category, slug } = await params;
 

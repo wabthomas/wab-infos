@@ -1,7 +1,7 @@
-import Image from 'next/image';
 import Link from 'next/link';
-import { Play, Radio, Tv } from 'lucide-react';
+import { Radio, Tv } from 'lucide-react';
 import { YouTubeEmbed } from '@/components/tv/youtube-embed';
+import { OptimizedYouTubeThumbnail } from '@/components/youtube/optimized-youtube-thumbnail';
 import { getVideoPagePath, siteConfig } from '@/config/site';
 import {
   getChannelLiveStatus,
@@ -14,29 +14,18 @@ import { formatRelativeDate } from '@/lib/utils';
 import { VideoViewCount } from '@/components/tv/video-view-count';
 
 function VideoListItem({ video, index }: { video: YoutubeChannelVideo; index: number }) {
-  const thumb = `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`;
-
   return (
     <Link
       href={getVideoPagePath(video.videoId)}
       className="group flex gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5 transition-colors hover:border-white/20 hover:bg-white/10"
     >
-      <div className="relative h-[4.5rem] w-20 shrink-0 overflow-hidden rounded-lg bg-black/40">
-        <Image
-          src={thumb}
-          alt={video.title}
-          fill
-          unoptimized
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          sizes="80px"
-        />
-        <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
-          <Play className="h-5 w-5 fill-white text-white" />
-        </span>
-        <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 text-[9px] font-bold text-white">
-          {index + 2}
-        </span>
-      </div>
+      <OptimizedYouTubeThumbnail
+        videoId={video.videoId}
+        title={video.title}
+        className="h-[4.5rem] w-20 shrink-0"
+        sizes="80px"
+        index={index}
+      />
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <p className="line-clamp-2 text-sm font-medium leading-snug text-white group-hover:text-red-200">
           {video.title}

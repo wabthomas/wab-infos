@@ -92,12 +92,20 @@ function renderTopSection(section: HomepageSection, articlesByCategory: Record<s
     );
   }
 
+  // Mobile : grille 2 cols ; sm+ : rail horizontal (Actualités RDC, Politique…)
   return (
-    <section key={section.id}>
+    <section key={section.id} aria-label={category.name}>
       <SectionHeader title={category.name} color={category.color} href={`/${category.slug}`} />
-      <div className="grid grid-cols-2 gap-3 sm:gap-5">
+      <div className="grid grid-cols-2 gap-3 sm:hidden">
         {catArticles.map((article) => (
-          <ArticleCard key={article.id} article={article} />
+          <ArticleCard key={article.id} article={article} className="h-full" />
+        ))}
+      </div>
+      <div className="-mx-4 hidden gap-4 overflow-x-auto overscroll-x-contain px-4 pb-2 scrollbar-none snap-x snap-proximity sm:flex [-webkit-overflow-scrolling:touch]">
+        {catArticles.map((article) => (
+          <div key={article.id} className="w-[260px] shrink-0 snap-start">
+            <ArticleCard article={article} className="h-full" />
+          </div>
         ))}
       </div>
     </section>

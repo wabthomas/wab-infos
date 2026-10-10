@@ -1,6 +1,6 @@
 'use client';
 
-import { ImageIcon, MoreVertical, Search, Settings2, Trash2 } from 'lucide-react';
+import { ImageIcon, MoreVertical, Search, Settings2, Sparkles, Trash2 } from 'lucide-react';
 import { seoScoreToneClass } from '@wab-infos/shared';
 import { cn } from '@/lib/utils';
 
@@ -9,6 +9,7 @@ interface ArticleEditorOptionsMenuProps {
   onOpenChange: (open: boolean) => void;
   onOpenSettings: () => void;
   onOpenSeo?: () => void;
+  onOpenAi?: () => void;
   onOpenFeaturedImage: () => void;
   onSaveDraft: () => void;
   onDelete?: () => void;
@@ -24,6 +25,7 @@ export function ArticleEditorOptionsMenu({
   onOpenChange,
   onOpenSettings,
   onOpenSeo,
+  onOpenAi,
   onOpenFeaturedImage,
   onSaveDraft,
   onDelete,
@@ -63,6 +65,16 @@ export function ArticleEditorOptionsMenu({
             onClick={close}
           />
           <div className="absolute right-0 top-full z-50 mt-1 w-56 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg">
+            {onOpenAi ? (
+              <button
+                type="button"
+                onClick={() => run(onOpenAi)}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-primary active:bg-primary/10"
+              >
+                <Sparkles className="h-4 w-4 shrink-0" />
+                Wab Ai
+              </button>
+            ) : null}
             {onOpenSeo ? (
               <button
                 type="button"

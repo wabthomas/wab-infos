@@ -198,7 +198,7 @@ function SportsSection({ category, articles }: { category: CategoryMeta; article
               <ArticleCard key={article.id} article={article} className="h-full" />
             ))}
           </div>
-          <div className="-mx-1 hidden gap-3 overflow-x-auto pb-1 scrollbar-none snap-x snap-mandatory md:flex">
+          <div className="-mx-1 hidden gap-3 overflow-x-auto overscroll-x-contain pb-1 scrollbar-none snap-x snap-proximity md:flex">
             {moreArticles.map((article) => (
               <div
                 key={article.id}
@@ -316,7 +316,12 @@ function StackListSection({ category, articles }: { category: CategoryMeta; arti
       <div className="pr-5 md:pr-6">
         <SectionHeader title={category.name} color={category.color} href={`/${category.slug}`} />
       </div>
-      <div className="divide-y divide-border pr-5 md:pr-6">
+      <div className="grid grid-cols-2 gap-3 pr-5 sm:hidden">
+        {articles.map((article) => (
+          <ArticleCard key={article.id} article={article} className="h-full" />
+        ))}
+      </div>
+      <div className="hidden divide-y divide-border pr-5 sm:block md:pr-6">
         {articles.map((article) => (
           <div key={article.id} className="py-3 first:pt-0 last:pb-0">
             <ArticleCard article={article} variant="horizontal" className="border-0 bg-transparent shadow-none" />
@@ -328,6 +333,7 @@ function StackListSection({ category, articles }: { category: CategoryMeta; arti
 }
 
 function ThreeUpSection({ category, articles }: { category: CategoryMeta; articles: Article[] }) {
+  const mobileArticles = articles.slice(0, 4);
   const rowArticles = articles.slice(0, 3);
 
   return (
@@ -336,7 +342,12 @@ function ThreeUpSection({ category, articles }: { category: CategoryMeta; articl
       style={{ borderTopWidth: 4, borderTopColor: category.color }}
     >
       <SectionHeader title={category.name} color={category.color} href={`/${category.slug}`} />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5">
+      <div className="grid grid-cols-2 gap-3 md:hidden">
+        {mobileArticles.map((article) => (
+          <ArticleCard key={article.id} article={article} className="h-full" />
+        ))}
+      </div>
+      <div className="hidden gap-5 md:grid md:grid-cols-3">
         {rowArticles.map((article) => (
           <ArticleCard key={article.id} article={article} className="h-full" />
         ))}
@@ -372,12 +383,9 @@ function CarouselSection({ category, articles }: { category: CategoryMeta; artic
           <ArticleCard key={article.id} article={article} className="h-full" />
         ))}
       </div>
-      <div className="-mx-4 hidden gap-4 overflow-x-auto px-4 pb-2 scrollbar-none snap-x snap-mandatory sm:flex">
+      <div className="-mx-4 hidden gap-4 overflow-x-auto overscroll-x-contain px-4 pb-2 scrollbar-none snap-x snap-proximity sm:flex [-webkit-overflow-scrolling:touch]">
         {articles.map((article) => (
-          <div
-            key={article.id}
-            className="w-[min(85vw,300px)] shrink-0 snap-start sm:w-[280px]"
-          >
+          <div key={article.id} className="w-[280px] shrink-0 snap-start">
             <ArticleCard article={article} className="h-full" />
           </div>
         ))}

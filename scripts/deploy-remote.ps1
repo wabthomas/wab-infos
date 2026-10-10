@@ -152,11 +152,12 @@ try {
       Write-Host 'Deploiement redaction termine (Passenger redemarre via tmp/restart.txt).' -ForegroundColor Green
     }
     'cms' {
-      if (-not (Test-Path (Join-Path $RepoRoot 'cms-build.tar.gz'))) {
-        Write-Host 'Pack CMS...' -ForegroundColor Cyan
-        npm run build:cms
-        npm run pack:cms-build
-      }
+      Write-Host 'Build + pack CMS...' -ForegroundColor Cyan
+      Remove-Item (Join-Path $RepoRoot 'cms-build.tar.gz') -Force -ErrorAction SilentlyContinue
+      npm run build:cms
+      if ($LASTEXITCODE -ne 0) { throw "Build CMS echoue (code $LASTEXITCODE) - ancien tar NON envoye." }
+      npm run pack:cms-build
+      if ($LASTEXITCODE -ne 0) { throw "Pack CMS echoue (code $LASTEXITCODE)." }
       Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'cms-build.tar.gz') -RemotePath "$remoteBase/cms-build.tar.gz"
       Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && rm -rf apps/cms/dist && tar -xzf cms-build.tar.gz -C apps/cms"
       Restart-RemotePassenger -SshHost $sshHost -RemoteBase $remoteBase -AppRelativePath 'apps/cms'

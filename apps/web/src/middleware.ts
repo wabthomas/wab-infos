@@ -44,9 +44,15 @@ async function publishedArticleExists(slug: string): Promise<boolean | null> {
   }
 }
 
+const SOCIAL_CRAWLER_UA = /WhatsApp|facebookexternalhit|facebookcatalog|Twitterbot|TelegramBot|LinkedInBot|Discordbot|Slackbot/i;
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get('host')?.split(':')[0]?.toLowerCase() ?? '';
+  const userAgent = request.headers.get('user-agent') ?? '';
+  if (SOCIAL_CRAWLER_UA.test(userAgent)) {
+    console.info(`[social-crawler] page ${pathname} ua="${userAgent.slice(0, 120)}"`);
+  }
 
   // Canonique HTTPS apex (complément Cloudflare Always HTTPS / www → apex).
   // Exception : assetlinks.json — Play et Android refusent toute redirection HTTPS.

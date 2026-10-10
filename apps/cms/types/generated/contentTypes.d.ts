@@ -475,6 +475,48 @@ export interface ApiAdPlacementAdPlacement extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiAiSettingAiSetting extends Struct.SingleTypeSchema {
+  collectionName: 'ai_settings';
+  info: {
+    displayName: 'Param\u00E8tres IA r\u00E9daction';
+    pluralName: 'ai-settings';
+    singularName: 'ai-setting';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    autoPublish: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dailyPublishLimit: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<20>;
+    dailyReformulateLimit: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<40>;
+    dailyResearchLimit: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<10>;
+    enabled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::ai-setting.ai-setting'
+    > &
+      Schema.Attribute.Private;
+    maxPerRun: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<2>;
+    maxSeoPasses: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<2>;
+    providerChain: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'gemini,groq,cerebras,openrouter'>;
+    providers: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    seoMinScore: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<70>;
+    timeoutMs: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<60000>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
   collectionName: 'articles';
   info: {
@@ -487,6 +529,8 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    aiAssisted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    aiProcessedAt: Schema.Attribute.DateTime;
     author: Schema.Attribute.Relation<'manyToOne', 'api::author.author'>;
     canonicalUrl: Schema.Attribute.String;
     category: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
@@ -1495,6 +1539,7 @@ declare module '@strapi/strapi' {
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
       'api::ad-placement.ad-placement': ApiAdPlacementAdPlacement;
+      'api::ai-setting.ai-setting': ApiAiSettingAiSetting;
       'api::article.article': ApiArticleArticle;
       'api::author.author': ApiAuthorAuthor;
       'api::category.category': ApiCategoryCategory;

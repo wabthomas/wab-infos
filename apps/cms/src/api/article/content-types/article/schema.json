@@ -130,6 +130,13 @@
       "type": "boolean",
       "default": false
     },
+    "aiAssisted": {
+      "type": "boolean",
+      "default": false
+    },
+    "aiProcessedAt": {
+      "type": "datetime"
+    },
     "sourceName": {
       "type": "string",
       "maxLength": 120

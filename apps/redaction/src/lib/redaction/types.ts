@@ -126,6 +126,9 @@ export interface RedactionArticle {
   seoScore?: number;
   /** Article issu de l’agrégation (revue de presse), pas de rédaction maison. */
   isImported?: boolean;
+  /** Reformulé / rédigé avec l’assistant IA. */
+  aiAssisted?: boolean;
+  aiProcessedAt?: string;
   sourceName?: string;
   sourceUrl?: string;
   publishedAt?: string;

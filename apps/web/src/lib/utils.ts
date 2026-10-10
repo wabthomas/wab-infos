@@ -252,7 +252,9 @@ export function shouldBypassNextImageOptimization(src?: string | null): boolean 
     return (
       hostname === 'cms.app.wab-infos.com' ||
       hostname === 'wp.wab-infos.com' ||
-      hostname === 'app.wab-infos.com'
+      hostname === 'app.wab-infos.com' ||
+      hostname === 'i.ytimg.com' ||
+      hostname === 'img.youtube.com'
     );
   } catch {
     return false;

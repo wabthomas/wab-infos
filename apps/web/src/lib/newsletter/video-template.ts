@@ -44,9 +44,7 @@ export function renderVideoNewsletterHtml(data: VideoNewsletterData): string {
     tagline: siteConfig.tagline,
     preheader: data.excerpt,
     unsubscribeUrl: data.unsubscribeUrl,
-    bodyHtml: `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;">
-              <tr><td>
-              <a href="${data.videoUrl}" style="display:block;text-decoration:none;">
+    bodyHtml: `<a href="${data.videoUrl}" style="display:block;text-decoration:none;">
                 <img src="${data.imageUrl}" alt="" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;" />
               </a>
               <div style="padding:28px 24px 32px;">
@@ -55,9 +53,7 @@ export function renderVideoNewsletterHtml(data: VideoNewsletterData): string {
                 <p style="margin:0 0 16px;font-size:13px;color:#71717a;">${dateLabel}</p>
                 <p style="margin:0 0 24px;font-size:16px;line-height:1.65;color:#3f3f46;">${excerpt}</p>
                 <a href="${data.videoUrl}" style="display:inline-block;background:#c41e3a;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:8px;">Regarder la vidéo</a>
-              </div>
-              </td></tr>
-            </table>`,
+              </div>`,
   });
 }
 

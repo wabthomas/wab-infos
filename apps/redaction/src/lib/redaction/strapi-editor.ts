@@ -416,6 +416,8 @@ function mapArticle(entity: StrapiEntity): RedactionArticle {
     viewCount: (entity.viewCount as number) ?? 0,
     readingTime: (entity.readingTime as number) ?? 3,
     isImported: Boolean(entity.isImported),
+    aiAssisted: Boolean(entity.aiAssisted),
+    aiProcessedAt: (entity.aiProcessedAt as string | undefined) || undefined,
     sourceName: (entity.sourceName as string | undefined) || undefined,
     sourceUrl: (entity.sourceUrl as string | undefined) || undefined,
     publishedAt: entity.publishedAt as string | undefined,

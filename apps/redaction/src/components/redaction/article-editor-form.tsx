@@ -8,6 +8,7 @@ import {
   Loader2,
   Redo2,
   Settings2,
+  Sparkles,
   Undo2,
 } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
@@ -35,6 +36,11 @@ import { ArticleEditorSettingsSheet } from '@/components/redaction/article-edito
 import { ArticleEditorOptionsMenu } from '@/components/redaction/article-editor-options-menu';
 import { ArticlePublishSheet } from '@/components/redaction/article-publish-sheet';
 import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
+import {
+  AiEditorChat,
+  applyAiChatSeoMeta,
+  type AiChatAction,
+} from '@/components/redaction/ai-editor-chat';
 import {
   ArticleSeoWizard,
   SeoScoreBadge,
@@ -256,6 +262,7 @@ export function ArticleEditorForm({
   const [scheduledAt, setScheduledAt] = useState(toDatetimeLocal(initial?.scheduledAt));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [seoWizardOpen, setSeoWizardOpen] = useState(false);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
   const [featuredAltDraft, setFeaturedAltDraft] = useState(initial?.featuredImageAlt ?? '');
@@ -806,6 +813,71 @@ export function ArticleEditorForm({
     setFeaturedAltDraft(media.alternativeText ?? '');
   }
 
+  function applyAiChatActions(actions: AiChatAction[]) {
+    if (!actions.length) return;
+
+    setValues((current) => {
+      let next = { ...current };
+      for (const action of actions) {
+        if (action.type === 'set_title') {
+          next = applyDerivedFields({ ...next, title: action.value });
+          continue;
+        }
+        if (action.type === 'set_excerpt') {
+          excerptTouchedRef.current = true;
+          next = { ...next, excerpt: action.value };
+          continue;
+        }
+        if (action.type === 'set_content') {
+          next = applyDerivedFields({
+            ...next,
+            content: toEditorContent(action.value),
+          });
+          continue;
+        }
+        if (action.type === 'set_seo') {
+          if (action.seoTitle) seoTitleTouchedRef.current = true;
+          if (action.seoDescription) seoDescriptionTouchedRef.current = true;
+          const seoMeta = {
+            ...applyAiChatSeoMeta(action),
+            focusKeyphrase:
+              action.focusKeyphrase ||
+              next.seoMeta?.focusKeyphrase ||
+              '',
+          };
+          next = {
+            ...next,
+            seoTitle: action.seoTitle ?? next.seoTitle,
+            seoDescription: action.seoDescription ?? next.seoDescription,
+            seoMeta,
+          };
+          continue;
+        }
+        if (action.type === 'set_featured_image') {
+          next = {
+            ...next,
+            featuredImageId: action.mediaId,
+            featuredImageUrl: action.url || next.featuredImageUrl,
+            featuredImageAlt: action.alternativeText ?? next.featuredImageAlt ?? '',
+          };
+          setFeaturedAltDraft(action.alternativeText ?? '');
+          continue;
+        }
+        if (action.type === 'set_category_slug') {
+          const match = categories.find((row) => row.slug === action.value);
+          if (match) {
+            next = { ...next, categoryDocumentIds: [match.documentId] };
+          }
+          continue;
+        }
+        if (action.type === 'set_canonical_url') {
+          next = { ...next, canonicalUrl: action.value };
+        }
+      }
+      return next;
+    });
+  }
+
   function removeFeaturedImage() {
     setValues((v) => ({
       ...v,
@@ -959,7 +1031,12 @@ export function ArticleEditorForm({
     scheduledAt && new Date(scheduledAt).getTime() > Date.now() ? 'schedule' : 'publish';
 
   return (
-    <div className="jetpack-editor-screen fixed inset-0 flex flex-col bg-background lg:static lg:inset-auto lg:h-full lg:min-h-0 lg:flex-1">
+    <div
+      className={cn(
+        'jetpack-editor-screen fixed inset-0 flex flex-col bg-background lg:static lg:inset-auto lg:h-full lg:min-h-0 lg:flex-1',
+        aiChatOpen && 'lg:pr-[min(100%,380px)]'
+      )}
+    >
       <header
         ref={headerRef}
         className={cn(
@@ -1009,6 +1086,22 @@ export function ArticleEditorForm({
 
           <button
             type="button"
+            onClick={() => setAiChatOpen((open) => !open)}
+            className={cn(
+              'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+              aiChatOpen
+                ? 'bg-primary text-primary-foreground'
+                : 'text-primary hover:bg-primary/10'
+            )}
+            aria-label="Wab Ai"
+            title="Wab Ai"
+            aria-pressed={aiChatOpen}
+          >
+            <Sparkles className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
             disabled={!!saving}
             onClick={() => void save('draft')}
             className="hidden h-10 shrink-0 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60 lg:inline-flex"
@@ -1021,6 +1114,7 @@ export function ArticleEditorForm({
             onOpenChange={setMenuOpen}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenSeo={() => setSeoWizardOpen(true)}
+            onOpenAi={() => setAiChatOpen(true)}
             onOpenFeaturedImage={() => setMediaLibraryOpen(true)}
             onSaveDraft={() => void save('draft')}
             onDelete={() => void deleteArticle()}
@@ -1068,7 +1162,9 @@ export function ArticleEditorForm({
         className="jetpack-editor-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
         style={{
           paddingTop: headerHeight,
-          paddingBottom: `calc(3.75rem + env(safe-area-inset-bottom) + ${keyboardInset}px)`,
+          paddingBottom: aiChatOpen
+            ? `calc(3.75rem + env(safe-area-inset-bottom) + ${keyboardInset}px + min(42vh, 22rem))`
+            : `calc(3.75rem + env(safe-area-inset-bottom) + ${keyboardInset}px)`,
         }}
       >
         {error && (
@@ -1157,6 +1253,7 @@ export function ArticleEditorForm({
                 settingsOpen ||
                 mediaLibraryOpen ||
                 seoWizardOpen ||
+                aiChatOpen ||
                 publishSheetMode !== null
               }
             />
@@ -1233,6 +1330,24 @@ export function ArticleEditorForm({
         onClose={() => setMediaLibraryOpen(false)}
         onSelect={selectFeaturedImage}
         title="Photo à la une"
+      />
+
+      <AiEditorChat
+        open={aiChatOpen}
+        onClose={() => setAiChatOpen(false)}
+        article={{
+          title: values.title,
+          excerpt: values.excerpt,
+          contentHtml: values.content,
+          seoTitle: values.seoTitle,
+          seoDescription: values.seoDescription,
+          focusKeyphrase: values.seoMeta?.focusKeyphrase,
+          categorySlug: primaryCategorySlug || undefined,
+          canonicalUrl: values.canonicalUrl,
+          featuredImageId: values.featuredImageId,
+          featuredImageUrl: values.featuredImageUrl,
+        }}
+        onActions={applyAiChatActions}
       />
 
       <ArticleSeoWizard

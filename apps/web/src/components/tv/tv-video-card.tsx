@@ -1,8 +1,8 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { Play } from 'lucide-react';
 import { getVideoPagePath } from '@/config/site';
 import { VideoViewCount } from '@/components/tv/video-view-count';
+import { OptimizedYouTubeThumbnail } from '@/components/youtube/optimized-youtube-thumbnail';
 import { formatDisplayTitle, isValidVideoPublishedAt, type YoutubeChannelVideo } from '@/lib/youtube-channel';
 import { cn, formatRelativeDate } from '@/lib/utils';
 
@@ -14,10 +14,6 @@ interface TvVideoCardProps {
   variant?: 'card' | 'feature' | 'row';
   /** Texte clair, pour un fond sombre. */
   tone?: 'default' | 'light';
-}
-
-function thumbUrl(videoId: string) {
-  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
 export function TvVideoCard({
@@ -40,19 +36,12 @@ export function TvVideoCard({
         href={href}
         className={cn('group flex gap-3 rounded-xl p-1.5 transition-colors hover:bg-muted/70', className)}
       >
-        <div className="relative h-[4.5rem] w-28 shrink-0 overflow-hidden rounded-lg bg-muted">
-          <Image
-            src={thumbUrl(video.videoId)}
-            alt=""
-            fill
-            unoptimized
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="112px"
-          />
-          <span className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
-            <Play className="h-5 w-5 fill-white text-white" aria-hidden />
-          </span>
-        </div>
+        <OptimizedYouTubeThumbnail
+          videoId={video.videoId}
+          title={title}
+          className="h-[4.5rem] w-28 shrink-0 rounded-lg"
+          sizes="112px"
+        />
         <div className="flex min-w-0 flex-1 flex-col justify-center">
           <p
             className={cn(
@@ -89,17 +78,16 @@ export function TvVideoCard({
             feature ? 'rounded-2xl shadow-md ring-1 ring-black/5' : 'rounded-xl'
           )}
         >
-          <Image
-            src={thumbUrl(video.videoId)}
-            alt=""
-            fill
-            unoptimized
-            priority={priority}
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          <OptimizedYouTubeThumbnail
+            videoId={video.videoId}
+            title={title}
+            className="absolute inset-0 rounded-none"
             sizes={feature ? '(min-width: 1024px) 58vw, 100vw' : '(min-width: 640px) 280px, 78vw'}
+            priority={priority}
+            showPlayIcon={false}
           />
-          <span className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
-          <span className="absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform group-hover:scale-105">
+          <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+          <span className="pointer-events-none absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform group-hover:scale-105">
             <Play className="ml-0.5 h-4 w-4 fill-current" aria-hidden />
           </span>
         </div>

@@ -1,0 +1,57 @@
+{
+  "kind": "singleType",
+  "collectionName": "ai_settings",
+  "info": {
+    "singularName": "ai-setting",
+    "pluralName": "ai-settings",
+    "displayName": "Paramètres IA rédaction"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "autoPublish": {
+      "type": "boolean",
+      "default": true
+    },
+    "providerChain": {
+      "type": "string",
+      "default": "gemini,groq,cerebras,openrouter"
+    },
+    "seoMinScore": {
+      "type": "integer",
+      "default": 70
+    },
+    "maxSeoPasses": {
+      "type": "integer",
+      "default": 2
+    },
+    "maxPerRun": {
+      "type": "integer",
+      "default": 2
+    },
+    "dailyReformulateLimit": {
+      "type": "integer",
+      "default": 40
+    },
+    "dailyPublishLimit": {
+      "type": "integer",
+      "default": 20
+    },
+    "dailyResearchLimit": {
+      "type": "integer",
+      "default": 10
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "default": 60000
+    },
+    "providers": {
+      "type": "json"
+    }
+  }
+}

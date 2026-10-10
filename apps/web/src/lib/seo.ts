@@ -115,7 +115,8 @@ export function generatePersonJsonLd(author: {
   };
 }
 
-export function getYoutubeThumbnailUrl(youtubeId: string, quality: 'maxres' | 'hq' = 'maxres'): string {
+export function getYoutubeThumbnailUrl(youtubeId: string, quality: 'maxres' | 'hq' = 'hq'): string {
+  // hqdefault est toujours disponible ; maxresdefault renvoie souvent un placeholder 120×90.
   const file = quality === 'maxres' ? 'maxresdefault.jpg' : 'hqdefault.jpg';
   return `https://i.ytimg.com/vi/${youtubeId}/${file}`;
 }

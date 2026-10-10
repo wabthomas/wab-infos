@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { AiDeskPanel } from '@/components/redaction/ai-desk-panel';
 import { SiteSettingsForm } from '@/components/redaction/site-settings-form';
 import { getEditorProfile, isRedactionSuperAdmin, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 
@@ -19,6 +20,7 @@ export default async function RedactionSettingsPage() {
           Bandeau PWA/APK, en-tête, sections d&apos;accueil, vues et réseaux sociaux — {author.name}
         </p>
       </div>
+      <AiDeskPanel />
       <SiteSettingsForm authorName={author.name} />
     </div>
   );

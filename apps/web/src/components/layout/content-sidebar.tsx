@@ -2,10 +2,9 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import type { Article, Video } from '@wab-infos/shared';
 import { deviceVisibilityClass, type DeviceVisibility } from '@wab-infos/shared';
-import { ArrowRight, Play, Radio, Tv } from 'lucide-react';
+import { ArrowRight, Radio, Tv } from 'lucide-react';
 import { getVideoPagePath, siteConfig } from '@/config/site';
 import { LiveNewsTimeline } from '@/components/home/live-news-timeline';
 import { NewsletterSignup } from '@/components/home/newsletter-signup';
@@ -14,7 +13,7 @@ import { useSiteChrome } from '@/components/providers/site-chrome-context';
 import { SidebarArticleItem } from '@/components/home/sidebar-article-item';
 import { ArticleCard } from '@/components/articles/article-card';
 import { SidebarAd } from '@/components/ads/adsense';
-import { getYoutubeThumbnailUrl } from '@/lib/seo';
+import { OptimizedYouTubeThumbnail } from '@/components/youtube/optimized-youtube-thumbnail';
 import { isValidVideoPublishedAt } from '@/lib/youtube-channel';
 import { VideoViewCount } from '@/components/tv/video-view-count';
 import { formatRelativeDate, cn } from '@/lib/utils';
@@ -45,8 +44,6 @@ interface SidebarVideoItemProps {
 }
 
 function SidebarVideoItem({ video, index }: SidebarVideoItemProps) {
-  const thumb = getYoutubeThumbnailUrl(video.youtubeId, 'hq');
-
   return (
     <article className="group flex gap-3 rounded-lg p-2 transition-colors hover:bg-muted/60">
       {index !== undefined && (
@@ -58,16 +55,12 @@ function SidebarVideoItem({ video, index }: SidebarVideoItemProps) {
         tabIndex={-1}
         aria-hidden
       >
-        <Image
-          src={thumb}
-          alt=""
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
+        <OptimizedYouTubeThumbnail
+          videoId={video.youtubeId}
+          title={video.title}
+          className="absolute inset-0 rounded-md"
           sizes="88px"
         />
-        <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
-          <Play className="h-5 w-5 fill-white text-white" />
-        </span>
       </Link>
       <div className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
         <Link href={getVideoPagePath(video.youtubeId)}>

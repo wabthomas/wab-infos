@@ -73,10 +73,15 @@ function parseYoutubeFeed(xml: string, limit: number): YoutubeChannelVideo[] {
 async function fetchYoutubeFeed(
   feedUrl: string,
   limit: number,
-  revalidate = 600
+  options?: { revalidate?: number; fresh?: boolean }
 ): Promise<YoutubeChannelVideo[]> {
   try {
-    const response = await fetch(feedUrl, { next: { revalidate } });
+    const response = await fetch(
+      feedUrl,
+      options?.fresh
+        ? { cache: 'no-store' }
+        : { next: { revalidate: options?.revalidate ?? 600 } }
+    );
     if (!response.ok) return [];
     return parseYoutubeFeed(await response.text(), limit);
   } catch {
@@ -91,7 +96,19 @@ export async function getChannelRecentVideos(
   return fetchYoutubeFeed(
     `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`,
     limit,
-    300
+    { revalidate: 300 }
+  );
+}
+
+/** Flux chaîne sans cache — pour cron / webhooks push & newsletter. */
+export async function getChannelRecentVideosFresh(
+  channelId: string,
+  limit = 12
+): Promise<YoutubeChannelVideo[]> {
+  return fetchYoutubeFeed(
+    `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`,
+    limit,
+    { fresh: true }
   );
 }
 

@@ -55,7 +55,7 @@ export function TvHorizontalRail({ children, className, label }: TvHorizontalRai
       )}
       <div
         ref={scrollerRef}
-        className="flex gap-4 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory touch-pan-x [-webkit-overflow-scrolling:touch]"
+        className="flex gap-4 overflow-x-auto overscroll-x-contain pb-2 scrollbar-none snap-x snap-proximity [-webkit-overflow-scrolling:touch]"
       >
         {children}
       </div>

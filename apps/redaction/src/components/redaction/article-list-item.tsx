@@ -45,10 +45,53 @@ export function ArticleListItem({
   const [deleting, setDeleting] = useState(false);
   const [togglingPublication, setTogglingPublication] = useState(false);
   const [indexing, setIndexing] = useState(false);
+  const [reformulating, setReformulating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const isDraft = article.status === 'draft' && !article.publishedAt;
   const isLive = isLiveRedactionArticle(article);
   const canDelete = canDeleteAny || isDraft;
+  const canReformulate =
+    canManagePublication && Boolean(article.isImported) && !isLive && !article.aiProcessedAt;
+
+  async function reformulateArticle() {
+    if (!canReformulate || reformulating) return;
+    setReformulating(true);
+    try {
+      const res = await fetchRedaction('/api/redaction/ai/reformulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId: article.documentId }),
+      });
+      const data = await readApiJsonResponse<{
+        published?: boolean;
+        seoScore?: number;
+        title?: string;
+        reason?: string;
+        error?: string;
+      }>(res);
+      if (!res.ok) throw new Error(data.error ?? 'Reformulation impossible');
+      toast.success(
+        data.published ? 'Publié par l’IA' : 'Brouillon reformulé',
+        `${data.title || article.title} · SEO ${data.seoScore ?? '—'}${
+          data.reason ? ` · ${data.reason}` : ''
+        }`
+      );
+      onPublicationChange?.(article.documentId, {
+        ...article,
+        title: data.title || article.title,
+        status: data.published ? 'published' : 'draft',
+        aiAssisted: true,
+        seoScore: data.seoScore,
+      });
+    } catch (err) {
+      toast.error(
+        'Reformulation impossible',
+        err instanceof Error ? err.message : 'Une erreur est survenue.'
+      );
+    } finally {
+      setReformulating(false);
+    }
+  }
 
   async function indexArticle() {
     if (!isLive || indexing) return;
@@ -257,6 +300,14 @@ export function ArticleListItem({
               {article.sourceName ? `Import · ${article.sourceName}` : 'Importé'}
             </span>
           ) : null}
+          {article.aiAssisted ? (
+            <span
+              className="shrink-0 rounded bg-violet-700 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white"
+              title="Reformulé ou rédigé avec l’assistant IA"
+            >
+              IA
+            </span>
+          ) : null}
           {article.isBreaking ? (
             <span className="shrink-0 rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
               Flash
@@ -295,12 +346,15 @@ export function ArticleListItem({
                 showPublish={!isLive && article.status !== 'scheduled'}
                 showUnpublish={isLive}
                 showIndex={isLive}
+                showReformulate={canReformulate}
                 deleting={deleting}
                 togglingPublication={togglingPublication}
                 indexing={indexing}
+                reformulating={reformulating}
                 onPublish={() => void togglePublication(true)}
                 onUnpublish={() => void togglePublication(false)}
                 onIndex={() => void indexArticle()}
+                onReformulate={() => void reformulateArticle()}
                 onShare={publicUrl ? () => void shareArticle() : undefined}
                 onDelete={() => void deleteArticle()}
               />
@@ -338,12 +392,15 @@ export function ArticleListItem({
             showPublish={!isLive && article.status !== 'scheduled'}
             showUnpublish={isLive}
             showIndex={isLive}
+            showReformulate={canReformulate}
             deleting={deleting}
             togglingPublication={togglingPublication}
             indexing={indexing}
+            reformulating={reformulating}
             onPublish={() => void togglePublication(true)}
             onUnpublish={() => void togglePublication(false)}
             onIndex={() => void indexArticle()}
+            onReformulate={() => void reformulateArticle()}
             onShare={publicUrl ? () => void shareArticle() : undefined}
             onDelete={() => void deleteArticle()}
           />

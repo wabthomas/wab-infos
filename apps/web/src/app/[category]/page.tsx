@@ -63,6 +63,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export const revalidate = 60;
 
+export async function generateStaticParams() {
+  return [];
+}
+
 export default async function CategoryPage({ params }: PageProps) {
   const { category } = await params;
 

@@ -9,6 +9,7 @@ import {
   MoreVertical,
   Pencil,
   Share2,
+  Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -23,12 +24,15 @@ interface ArticleListOptionsMenuProps {
   showPublish?: boolean;
   showUnpublish?: boolean;
   showIndex?: boolean;
+  showReformulate?: boolean;
   deleting?: boolean;
   togglingPublication?: boolean;
   indexing?: boolean;
+  reformulating?: boolean;
   onPublish?: () => void;
   onUnpublish?: () => void;
   onIndex?: () => void;
+  onReformulate?: () => void;
   onShare?: () => void;
   onDelete?: () => void;
 }
@@ -43,12 +47,15 @@ export function ArticleListOptionsMenu({
   showPublish = false,
   showUnpublish = false,
   showIndex = false,
+  showReformulate = false,
   deleting = false,
   togglingPublication = false,
   indexing = false,
+  reformulating = false,
   onPublish,
   onUnpublish,
   onIndex,
+  onReformulate,
   onShare,
   onDelete,
 }: ArticleListOptionsMenuProps) {
@@ -90,6 +97,21 @@ export function ArticleListOptionsMenu({
               <Pencil className="h-4 w-4 shrink-0 text-muted-foreground" />
               Modifier
             </Link>
+            {showReformulate && onReformulate ? (
+              <button
+                type="button"
+                disabled={reformulating}
+                onClick={() => run(onReformulate)}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-violet-700 active:bg-muted disabled:opacity-50 dark:text-violet-300"
+              >
+                {reformulating ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 shrink-0" />
+                )}
+                Reformuler (IA)
+              </button>
+            ) : null}
             {canManagePublication && showPublish && onPublish ? (
               <button
                 type="button"

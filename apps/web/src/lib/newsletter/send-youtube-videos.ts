@@ -14,7 +14,11 @@ import {
   claimYoutubeNewsletterSend,
   releaseYoutubeNewsletterClaim,
 } from '@/lib/newsletter/youtube-newsletter-log';
-import { formatDisplayTitle, getChannelRecentVideos, truncateVideoDescription } from '@/lib/youtube-channel';
+import {
+  formatDisplayTitle,
+  getChannelRecentVideosFresh,
+  truncateVideoDescription,
+} from '@/lib/youtube-channel';
 
 export interface PublishYoutubeVideosNewsletterResult {
   ok: boolean;
@@ -59,7 +63,7 @@ export async function publishNewYoutubeVideoNewsletters(
     return { ok: true, skipped: true, reason: 'no_subscribers', processed: [] };
   }
 
-  const recent = await getChannelRecentVideos(channelId, targetVideoId ? 20 : 8);
+  const recent = await getChannelRecentVideosFresh(channelId, targetVideoId ? 20 : 8);
   const processed: NonNullable<PublishYoutubeVideosNewsletterResult['processed']> = [];
 
   for (const video of recent) {
@@ -136,7 +140,7 @@ export async function sendLatestYoutubeVideoNewsletter(): Promise<PublishYoutube
     return { ok: true, skipped: true, reason: 'no_youtube_channel' };
   }
 
-  const recent = await getChannelRecentVideos(channelId, 20);
+  const recent = await getChannelRecentVideosFresh(channelId, 20);
   const newest = recent.reduce<(typeof recent)[number] | null>((best, video) => {
     if (!best) return video;
     return Date.parse(video.publishedAt) > Date.parse(best.publishedAt) ? video : best;

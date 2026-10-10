@@ -5,7 +5,7 @@ import { pushConfig } from '@/lib/push/config';
 import { sendPushToReaders } from '@/lib/push/send';
 import { hasYoutubePushBeenSent, markYoutubePushSent } from '@/lib/push/youtube-push-log';
 import { listReaderPushSubscriptions } from '@/lib/push/subscriptions';
-import { getChannelRecentVideos } from '@/lib/youtube-channel';
+import { getChannelRecentVideosFresh } from '@/lib/youtube-channel';
 
 export interface PublishYoutubeVideosPushResult {
   ok: boolean;
@@ -40,7 +40,7 @@ export async function publishNewYoutubeVideoPushes(): Promise<PublishYoutubeVide
     return { ok: true, skipped: true, reason: 'no_subscribers' };
   }
 
-  const recent = await getChannelRecentVideos(channelId, 8);
+  const recent = await getChannelRecentVideosFresh(channelId, 8);
   const processed: NonNullable<PublishYoutubeVideosPushResult['processed']> = [];
 
   for (const video of recent) {

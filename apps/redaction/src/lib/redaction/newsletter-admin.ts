@@ -200,12 +200,10 @@ export async function sendNewsletterTest(to: string): Promise<void> {
         siteName: view.senderName || 'Wab-infos',
         tagline: "S'informer pour mieux s'armer !",
         preheader: 'E-mail de test — la configuration Wab-infos fonctionne.',
-        bodyHtml: `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;">
-          <tr><td style="padding:28px 24px;">
+        bodyHtml: `<div style="padding:28px 24px;">
             <p style="margin:0 0 12px;font-size:16px;line-height:1.6;color:#18181b;">Ceci est un e-mail de test envoyé depuis la rédaction <strong>Wab-infos</strong>.</p>
-            <p style="margin:0;font-size:15px;line-height:1.6;color:#3f3f46;">La configuration fonctionne. Les actualités et les vidéos partiront avec ce même en-tête, ce logo et ce pied de page.</p>
-          </td></tr>
-        </table>`,
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#3f3f46;">La configuration fonctionne. Les actualités et les vidéos partiront avec ce même en-tête et ce pied de page.</p>
+          </div>`,
       }),
     });
   } catch (error) {

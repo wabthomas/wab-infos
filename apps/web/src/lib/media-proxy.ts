@@ -49,6 +49,10 @@ export async function proxyUpstreamMedia(
   const upstream = `${origin}${prefix}/${joined}`;
 
   const incoming = new URL(request.url);
+  const userAgent = request.headers.get('user-agent') ?? '';
+  if (/WhatsApp|facebookexternalhit|Twitterbot|TelegramBot|LinkedInBot/i.test(userAgent)) {
+    console.info(`[social-crawler] media ${request.method} ${prefix}/${joined} ua="${userAgent.slice(0, 120)}"`);
+  }
 
   let res: Response;
   try {

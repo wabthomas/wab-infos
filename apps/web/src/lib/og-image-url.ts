@@ -90,23 +90,25 @@ function addMediaCandidate(
 ): void {
   if (!media) return;
 
-  const entries: { url?: string; rank: number }[] = [
-    { url: media.formats?.large?.url, rank: baseRank },
+  /** Largeurs des breakpoints Strapi (large/medium/small), utilisées pour déclarer la taille réelle. */
+  const entries: { url?: string; rank: number; maxWidth?: number }[] = [
+    { url: media.formats?.large?.url, rank: baseRank, maxWidth: 1000 },
     { url: media.url, rank: baseRank + 1 },
-    { url: media.formats?.medium?.url, rank: baseRank + 2 },
-    { url: media.formats?.small?.url, rank: baseRank + 3 },
+    { url: media.formats?.medium?.url, rank: baseRank + 2, maxWidth: 750 },
+    { url: media.formats?.small?.url, rank: baseRank + 3, maxWidth: 500 },
   ];
 
   for (const entry of entries) {
     const path = normalizeMediaPathForSite(entry.url);
     if (!path || UNSUPPORTED_EXT.test(path)) continue;
     if (candidates.some((c) => c.path === path)) continue;
-    candidates.push({
-      path,
-      width: media.width,
-      height: media.height,
-      rank: entry.rank,
-    });
+    let width = media.width;
+    let height = media.height;
+    if (entry.maxWidth && width && height && width > entry.maxWidth) {
+      height = Math.round((height * entry.maxWidth) / width);
+      width = entry.maxWidth;
+    }
+    candidates.push({ path, width, height, rank: entry.rank });
   }
 }
 

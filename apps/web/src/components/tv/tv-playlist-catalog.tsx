@@ -289,7 +289,7 @@ interface TvPlaylistCatalogProps {
 export function TvPlaylistCatalog({ tab, playlists, latest = [] }: TvPlaylistCatalogProps) {
   return (
     <div className="space-y-10 md:space-y-14">
-      <nav aria-label="Rubriques" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none">
+      <nav aria-label="Rubriques" className="-mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 scrollbar-none [-webkit-overflow-scrolling:touch]">
         {tab === 'replay' && latest.length > 0 ? (
           <a
             href="#dernieres-videos"

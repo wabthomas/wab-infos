@@ -42,6 +42,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export const revalidate = 3600;
 
+export async function generateStaticParams() {
+  return [];
+}
+
 async function getSidebarVideos(currentId: string) {
   const channelId = siteConfig.youtubeChannelId;
 
