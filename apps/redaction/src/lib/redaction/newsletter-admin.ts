@@ -321,19 +321,12 @@ export async function addNewsletterSubscribers(raw: string): Promise<{
     );
     const existing = await strapi<{
       data?: Array<{ documentId: string; email: string; status: string }>;
-      meta?: { pagination?: { total?: number } };
     }>(`/subscribers?${query}`);
     if (existing.status === 401 || existing.status === 403) {
       throw new Error('Le jeton API n’a pas le droit de modifier les abonnés.');
     }
     const known = existing.data?.data;
-    const knownTotal = existing.data?.meta?.pagination?.total;
-    if (
-      existing.status < 200 ||
-      existing.status >= 300 ||
-      !Array.isArray(known) ||
-      (typeof knownTotal === 'number' && knownTotal > known.length)
-    ) {
+    if (existing.status < 200 || existing.status >= 300 || !Array.isArray(known)) {
       throw new Error('Vérification des abonnés impossible. Aucun nouvel abonné n’a été ajouté pour ce lot.');
     }
 

@@ -13,7 +13,7 @@ import {
   sanitizeGeneratedArticleHtml,
   type RelatedArticleLink,
 } from '@/lib/ai/editorial';
-import { consumeAiQuota, peekAiQuota } from '@/lib/ai/quotas';
+import { consumeAiQuota } from '@/lib/ai/quotas';
 import {
   getAiArticle,
   listCategoriesForAi,
@@ -204,11 +204,6 @@ export async function reformulateImportedArticle(
     throw new Error('Assistant IA désactivé (Paramètres → Assistant IA)');
   }
 
-  const reformulateQuota = peekAiQuota('reformulate', config.dailyReformulateLimit);
-  if (reformulateQuota.remaining <= 0) {
-    throw new Error('Quota journalier de reformulation atteint');
-  }
-
   const article = await getAiArticle(documentId);
   if (!article) throw new Error('Article introuvable');
   if (!article.isImported && !options?.force) {
@@ -221,6 +216,7 @@ export async function reformulateImportedArticle(
     throw new Error('Article déjà traité par l’IA');
   }
 
+  // Consommer le quota juste avant le travail IA (atomique) — pas de peek avant les await.
   if (!consumeAiQuota('reformulate', config.dailyReformulateLimit)) {
     throw new Error('Quota journalier de reformulation atteint');
   }
@@ -334,18 +330,6 @@ export async function reformulateImportedArticle(
     Boolean(article.featuredImage);
 
   if (canAutoPublish) {
-    const publishQuota = peekAiQuota('publish', config.dailyPublishLimit);
-    if (publishQuota.remaining <= 0) {
-      await saveAiArticleDraft(documentId, payload);
-      return {
-        documentId,
-        published: false,
-        seoScore: analysis.score,
-        provider,
-        reason: 'quota_publish',
-        title: draft.title,
-      };
-    }
     if (!consumeAiQuota('publish', config.dailyPublishLimit)) {
       await saveAiArticleDraft(documentId, payload);
       return {

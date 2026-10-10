@@ -11,7 +11,7 @@ import {
   sanitizeGeneratedArticleHtml,
   type RelatedArticleLink,
 } from '@/lib/ai/editorial';
-import { consumeAiQuota, peekAiQuota } from '@/lib/ai/quotas';
+import { consumeAiQuota } from '@/lib/ai/quotas';
 import {
   createAiDraftArticle,
   listCategoriesForAi,
@@ -124,8 +124,7 @@ ${topic ? `Consignes complémentaires :\n${topic}\n\n` : ''}Rédige un article d
     userPrompt = `Sujet demandé par la rédaction :\n${topic}`;
   }
 
-  const quota = peekAiQuota('research', config.dailyResearchLimit);
-  if (quota.remaining <= 0) throw new Error('Quota journalier de recherche atteint');
+  // Consommation atomique juste avant l’appel modèle (après fetch source / validations sync).
   if (!consumeAiQuota('research', config.dailyResearchLimit)) {
     throw new Error('Quota journalier de recherche atteint');
   }

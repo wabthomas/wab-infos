@@ -13,7 +13,7 @@ import {
   formatRelatedForPrompt,
   sanitizeGeneratedArticleHtml,
 } from '@/lib/ai/editorial';
-import { consumeAiQuota, peekAiQuota } from '@/lib/ai/quotas';
+import { consumeAiQuota } from '@/lib/ai/quotas';
 import { listCategoriesForAi } from '@/lib/ai/strapi-ai';
 import { uploadAiImageFromUrl } from '@/lib/ai/upload-from-url';
 
@@ -242,8 +242,6 @@ export async function runEditorChatTurn(input: {
   const config = await getRedactionAiConfig();
   if (!config.enabled) throw new Error('Assistant IA désactivé (Paramètres → Assistant IA)');
 
-  const quota = peekAiQuota('research', config.dailyResearchLimit);
-  if (quota.remaining <= 0) throw new Error('Quota journalier IA atteint');
   if (!consumeAiQuota('research', config.dailyResearchLimit)) {
     throw new Error('Quota journalier IA atteint');
   }
