@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import qs from 'qs';
 import { renderNewsletterEmail } from '@wab-infos/shared';
 import { getStrapiUrl } from '@/lib/redaction/config';
+import { partitionEmailsByMx } from '@/lib/redaction/email-mx';
 import { localMailRelayAvailable, localRelayTransportOptions } from '@/lib/redaction/local-relay';
 import type { NewsletterSettingsView, NewsletterSubscriberRow } from '@/lib/redaction/newsletter-types';
 
@@ -294,23 +295,61 @@ export async function listNewsletterSubscribers(page = 1, query = ''): Promise<{
   };
 }
 
+async function deactivateSubscriber(documentId: string): Promise<boolean> {
+  const updated = await strapi(`/subscribers/${documentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      data: {
+        status: 'unsubscribed',
+        source: 'mx-invalid',
+        unsubscribedAt: new Date().toISOString(),
+      },
+    }),
+  });
+  return updated.status >= 200 && updated.status < 300;
+}
+
 export async function addNewsletterSubscribers(raw: string): Promise<{
   created: number;
   reactivated: number;
   skipped: number;
   invalid: number;
+  noMx: number;
+  deactivated: number;
 }> {
   const { emails, invalid } = parseEmailList(raw);
   if (emails.length === 0) {
-    return { created: 0, reactivated: 0, skipped: 0, invalid };
+    return { created: 0, reactivated: 0, skipped: 0, invalid, noMx: 0, deactivated: 0 };
   }
 
+  const { accepted, rejected } = await partitionEmailsByMx(emails);
+  const noMx = rejected.length;
   let created = 0;
   let reactivated = 0;
   let skipped = 0;
+  let deactivated = 0;
 
-  for (let offset = 0; offset < emails.length; offset += 100) {
-    const chunk = emails.slice(offset, offset + 100);
+  // Adresses déjà en base mais domaine mort → désactivation
+  for (let offset = 0; offset < rejected.length; offset += 100) {
+    const chunk = rejected.slice(offset, offset + 100);
+    const query = qs.stringify(
+      {
+        filters: { email: { $in: chunk }, status: { $eq: 'active' } },
+        fields: ['email', 'status'],
+        pagination: { pageSize: 100 },
+      },
+      { encodeValuesOnly: true }
+    );
+    const existing = await strapi<{
+      data?: Array<{ documentId: string; email: string }>;
+    }>(`/subscribers?${query}`);
+    for (const row of existing.data?.data ?? []) {
+      if (await deactivateSubscriber(row.documentId)) deactivated += 1;
+    }
+  }
+
+  for (let offset = 0; offset < accepted.length; offset += 100) {
+    const chunk = accepted.slice(offset, offset + 100);
     const query = qs.stringify(
       {
         filters: { email: { $in: chunk } },
@@ -372,5 +411,61 @@ export async function addNewsletterSubscribers(raw: string): Promise<{
     }
   }
 
-  return { created, reactivated, skipped, invalid };
+  return { created, reactivated, skipped, invalid, noMx, deactivated };
+}
+
+/** Désinscrit tous les abonnés actifs dont le domaine n’accepte pas le mail. */
+export async function cleanupSubscribersWithoutMx(): Promise<{
+  checked: number;
+  deactivated: number;
+  domains: string[];
+}> {
+  const activeRows: Array<{ documentId: string; email: string }> = [];
+  let page = 1;
+  let pageCount = 1;
+
+  while (page <= pageCount && page <= 200) {
+    const query = qs.stringify(
+      {
+        filters: { status: { $eq: 'active' } },
+        fields: ['email', 'status'],
+        pagination: { page, pageSize: 100 },
+      },
+      { encodeValuesOnly: true }
+    );
+    const list = await strapi<{
+      data?: Array<{ documentId: string; email: string }>;
+      meta?: { pagination?: { pageCount?: number; total?: number } };
+    }>(`/subscribers?${query}`);
+    if (list.status === 401 || list.status === 403) {
+      throw new Error('Le jeton API n’a pas le droit de modifier les abonnés.');
+    }
+    if (list.status >= 400 || !Array.isArray(list.data?.data)) {
+      throw new Error('Lecture des abonnés impossible.');
+    }
+    pageCount = list.data?.meta?.pagination?.pageCount ?? 1;
+    activeRows.push(...(list.data?.data ?? []));
+    page += 1;
+  }
+
+  const emails = activeRows.map((row) => row.email.toLowerCase());
+  const { rejected } = await partitionEmailsByMx(emails);
+  const rejectedSet = new Set(rejected);
+  const toDisable = activeRows.filter((row) => rejectedSet.has(row.email.toLowerCase()));
+
+  let deactivated = 0;
+  const domains = new Set<string>();
+  for (const row of toDisable) {
+    if (await deactivateSubscriber(row.documentId)) {
+      deactivated += 1;
+      const domain = row.email.split('@')[1];
+      if (domain) domains.add(domain.toLowerCase());
+    }
+  }
+
+  return {
+    checked: activeRows.length,
+    deactivated,
+    domains: [...domains].sort(),
+  };
 }

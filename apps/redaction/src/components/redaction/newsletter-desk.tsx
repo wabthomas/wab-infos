@@ -126,13 +126,22 @@ export function NewsletterDesk() {
         reactivated?: number;
         skipped?: number;
         invalid?: number;
+        noMx?: number;
+        deactivated?: number;
         error?: string;
       }>(response);
       if (!response.ok) throw new Error(data.error || 'Import impossible');
-      toast.success(
-        'Liste mise à jour',
-        `${data.created ?? 0} ajoutée(s), ${data.reactivated ?? 0} réactivée(s), ${data.skipped ?? 0} déjà présente(s), ${data.invalid ?? 0} ignorée(s).`
-      );
+      const parts = [
+        `${data.created ?? 0} ajoutée(s)`,
+        `${data.reactivated ?? 0} réactivée(s)`,
+        `${data.skipped ?? 0} déjà présente(s)`,
+        `${data.invalid ?? 0} format invalide`,
+        `${data.noMx ?? 0} domaine sans mail`,
+      ];
+      if ((data.deactivated ?? 0) > 0) {
+        parts.push(`${data.deactivated} désactivée(s) (MX)`);
+      }
+      toast.success('Liste mise à jour', `${parts.join(', ')}.`);
       setSingleEmail('');
       setImportText('');
       await loadList(1, query);
