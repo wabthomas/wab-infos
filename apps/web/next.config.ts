@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
     root: path.join(__dirname, '../..'),
   },
   images: {
+    // Limite la durée de conservation côté Next (le cron scripts/cleanup-next-caches.sh purge aussi le disque).
+    minimumCacheTTL: 60 * 60 * 24,
     qualities: [75, 90],
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '8090', pathname: '/uploads/**' },

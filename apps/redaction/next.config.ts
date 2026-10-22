@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
   // Pas de output: 'standalone' — incompatible avec server.js (PlanetHoster / Passenger)
   ...(basePath ? { basePath } : {}),
   serverExternalPackages: ['sharp'],
+  images: {
+    minimumCacheTTL: 60 * 60 * 24,
+  },
   turbopack: {
     root: path.join(__dirname, '../..'),
   },
