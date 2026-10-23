@@ -3,6 +3,7 @@
 export type AiProviderName =
   | 'ollama'
   | 'gemini'
+  | 'deepseek'
   | 'groq'
   | 'cerebras'
   | 'openrouter'
@@ -36,6 +37,9 @@ const DEPRECATED_MODEL_IDS: Record<string, string> = {
   'llama3.1-70b': 'gpt-oss-120b',
   'deepseek/deepseek-chat-v3-0324:free': 'google/gemma-4-31b-it:free',
   'deepseek/deepseek-r1:free': 'google/gemma-4-31b-it:free',
+  'deepseek-chat': 'deepseek-flash',
+  'deepseek-reasoner': 'deepseek-flash',
+  'deepseek-v4-flash': 'deepseek-flash',
 };
 
 export function resolveAiModelId(model: string | null | undefined, fallback = ''): string {
@@ -53,6 +57,15 @@ export const AI_PROVIDER_CATALOG: AiProviderDefinition[] = [
     defaultModel: 'gemini-3.8-flash',
     freeTier: 'Google AI Studio — quota gratuit',
     apiKeyUrl: 'https://aistudio.google.com/apikey',
+  },
+  {
+    name: 'deepseek',
+    label: 'DeepSeek',
+    protocol: 'openai',
+    defaultBaseUrl: 'https://api.deepseek.com',
+    defaultModel: 'deepseek-flash',
+    freeTier: 'Payant à l’usage — crédit prépayé, très bon marché',
+    apiKeyUrl: 'https://platform.deepseek.com/api_keys',
   },
   {
     name: 'groq',

@@ -38,7 +38,8 @@ export interface SiteFooterCta {
 }
 
 /** Pied du menu latéral mobile (sous les rubriques). */
-export type MobileMenuFooterAction = 'none' | 'tv' | 'play_store';
+/** tv = TV + Télécharger l'app ; tv_only = TV seule ; play_store = Télécharger seul. */
+export type MobileMenuFooterAction = 'none' | 'tv' | 'tv_only' | 'play_store';
 
 export interface SiteChromeSettings {
   headerUtilityBarEnabled: boolean;
@@ -242,7 +243,7 @@ function normalizeNavLinks(raw: unknown, defaults: SiteNavLink[]): SiteNavLink[]
 }
 
 function normalizeMobileMenuFooterAction(raw: unknown): MobileMenuFooterAction {
-  if (raw === 'none' || raw === 'tv' || raw === 'play_store') return raw;
+  if (raw === 'none' || raw === 'tv' || raw === 'tv_only' || raw === 'play_store') return raw;
   return DEFAULT_SITE_CHROME.mobileMenuFooterAction;
 }
 

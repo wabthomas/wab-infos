@@ -87,10 +87,16 @@ async function throwProviderError(label: string, response: Response): Promise<ne
       : `${label} : limite de débit atteinte, réessayer dans un instant`;
   } else if (response.status === 413) {
     message = `${label} : requête trop longue pour le plan gratuit`;
+  } else if (response.status === 402) {
+    message = `${label} : crédit épuisé, rechargez le compte`;
+  } else if (response.status === 401) {
+    message = `${label} : clé API refusée`;
   }
   const error = new AiProviderError(message, response.status, retryAfterMs);
   if (response.status === 429) {
     providerCooldowns.set(label, Date.now() + cooldownFor(error, body));
+  } else if (response.status === 402) {
+    providerCooldowns.set(label, Date.now() + 30 * 60_000);
   }
   throw error;
 }
@@ -98,6 +104,10 @@ async function throwProviderError(label: string, response: Response): Promise<ne
 function reasoningOptions(provider: AiResolvedProvider): Record<string, unknown> {
   if (provider.name === 'groq' || provider.name === 'cerebras') {
     return { reasoning_effort: 'low' };
+  }
+  if (provider.name === 'deepseek') {
+    // Mode réflexion actif par défaut chez DeepSeek : tokens facturés inutilement pour de la rédaction.
+    return { thinking: { type: 'disabled' } };
   }
   return {};
 }

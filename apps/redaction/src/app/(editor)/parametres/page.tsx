@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { AiDeskPanel } from '@/components/redaction/ai-desk-panel';
 import { SiteSettingsForm } from '@/components/redaction/site-settings-form';
 import { getEditorProfile, isRedactionSuperAdmin, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 
@@ -17,10 +16,9 @@ export default async function RedactionSettingsPage() {
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Administration</p>
         <h1 className="font-display text-xl font-bold">Paramètres du site</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Bandeau PWA/APK, en-tête, sections d&apos;accueil, vues et réseaux sociaux — {author.name}
+          Bandeau PWA/APK, en-tête, accueil, SEO, notifications et assistant IA — {author.name}
         </p>
       </div>
-      <AiDeskPanel />
       <SiteSettingsForm authorName={author.name} />
     </div>
   );

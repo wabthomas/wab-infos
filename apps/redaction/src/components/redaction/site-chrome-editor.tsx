@@ -367,11 +367,12 @@ export function SiteChromeEditor({
               className="mt-1 h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
             >
               <option value="none">Masqué</option>
-              <option value="tv">Wab-infos TV</option>
-              <option value="play_store">Télécharger (Play Store / APK)</option>
+              <option value="tv">Wab-infos TV + Télécharger l’app</option>
+              <option value="tv_only">Wab-infos TV seul</option>
+              <option value="play_store">Télécharger l’app seul (Play Store / APK)</option>
             </select>
           </label>
-          {chrome.mobileMenuFooterAction === 'play_store' ? (
+          {chrome.mobileMenuFooterAction === 'play_store' || chrome.mobileMenuFooterAction === 'tv' ? (
             <input
               value={chrome.mobileMenuPlayStoreUrl}
               onChange={(e) => patch({ mobileMenuPlayStoreUrl: e.target.value })}

@@ -34,5 +34,14 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/screenshots/mobile.png', sizes: '390x844', type: 'image/png', form_factor: 'narrow' },
       { src: '/screenshots/desktop.png', sizes: '1920x1080', type: 'image/png', form_factor: 'wide' },
     ],
+    // Permet navigator.getInstalledRelatedApps() de savoir si l'app Play est installée.
+    related_applications: [
+      {
+        platform: 'play',
+        url: siteConfig.androidPlayStoreUrl,
+        id: siteConfig.androidAppPackage,
+      },
+    ],
+    prefer_related_applications: false,
   };
 }

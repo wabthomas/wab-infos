@@ -19,4 +19,6 @@
     <string name="update_install_failed">Mise à jour impossible. Réessayez ou téléchargez l’APK depuis le site.</string>
     <string name="update_install_permission">Autorisez l’installation d’applications pour Wab-infos</string>
     <string name="update_success">Bravo, vous êtes à jour (v%1$s)</string>
+    <!-- Lien site ↔ app : getInstalledRelatedApps() côté wab-infos.com masque le bandeau Play si l'app est installée. -->
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://wab-infos.com\"}}]</string>
 </resources>

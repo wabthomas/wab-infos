@@ -281,7 +281,8 @@ html.dark body {
   }
 
   .redaction-editor-fixed-panel {
-    left: 260px;
+    left: var(--redaction-sidebar-w, 260px);
+    transition: left 200ms ease-out;
   }
 
   .jetpack-editor-title {
@@ -335,6 +336,14 @@ html.redaction-writing body {
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+/* Dashboard : seul #redaction-main-scroll défile (pas de scroll document ni d’espace vide en bas). */
+html:not(.redaction-writing):has(.redaction-shell-root),
+html:not(.redaction-writing):has(.redaction-shell-root) body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 /* APK Capacitor — un seul conteneur de scroll (#redaction-main-scroll) */

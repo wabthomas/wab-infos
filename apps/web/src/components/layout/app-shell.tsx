@@ -12,6 +12,7 @@ import { Footer } from '@/components/layout/footer';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { SiteOptInPrompts } from '@/components/opt-in/site-opt-in-prompts';
 import { PwaInstallBanner } from '@/components/pwa/pwa-install-banner';
+import { PlayStoreBanner } from '@/components/pwa/play-store-banner';
 import { useSiteChrome } from '@/components/providers/site-chrome-context';
 import { WhatsAppChannelPopup } from '@/components/social/whatsapp-channel-popup';
 import { getWhatsAppChannelHref } from '@wab-infos/shared';
@@ -71,6 +72,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {isHomePage ? (
         <PwaInstallBanner variant="site" display="fab" showAfterMs={3000} />
       ) : null}
+      <PlayStoreBanner />
       {isAuthPage ? (
         <main className="min-h-screen">{children}</main>
       ) : (

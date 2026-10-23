@@ -12,7 +12,7 @@ const inputClass =
 
 type ProviderDraft = AiProviderAdminView & { apiKeyDraft: string; clearApiKey: boolean };
 
-export function AiDeskPanel() {
+export function AiDeskPanel({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [settings, setSettings] = useState<AiSettingsAdminView | null>(null);
@@ -220,27 +220,43 @@ export function AiDeskPanel() {
     );
   }
 
+  const sourceLabel =
+    settings.source === 'cms'
+      ? ' Configuration enregistrée dans le CMS.'
+      : settings.source === 'env'
+        ? ' Repli sur les variables d’environnement.'
+        : settings.source === 'mixed'
+          ? ' Mix CMS + .env.'
+          : ' Aucune clé pour l’instant.';
+
   return (
-    <section className="space-y-5 rounded-2xl border border-border bg-card p-4 shadow-sm lg:p-6">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Sparkles className="h-4 w-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="font-display text-lg font-bold">Assistant IA rédaction</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Clés et règles gérées ici (prioritaires sur le .env). Reformule les imports, remplit le
-            SEO, signe « Rédaction Wab-infos » et publie si le seuil est atteint.
-            {settings.source === 'cms'
-              ? ' Configuration enregistrée dans le CMS.'
-              : settings.source === 'env'
-                ? ' Repli sur les variables d’environnement.'
-                : settings.source === 'mixed'
-                  ? ' Mix CMS + .env.'
-                  : ' Aucune clé pour l’instant.'}
-          </p>
+    <section
+      className={
+        embedded
+          ? 'space-y-5'
+          : 'space-y-5 rounded-2xl border border-border bg-card p-4 shadow-sm lg:p-6'
+      }
+    >
+      {embedded ? (
+        <p className="text-sm text-muted-foreground">
+          Clés et règles prioritaires sur le .env : reformulation des imports, SEO, signature
+          « Rédaction Wab-infos » et publication si le seuil est atteint.{sourceLabel} Cet onglet a
+          son propre bouton d’enregistrement.
+        </p>
+      ) : (
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-lg font-bold">Assistant IA rédaction</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Clés et règles gérées ici (prioritaires sur le .env). Reformule les imports, remplit le
+              SEO, signe « Rédaction Wab-infos » et publie si le seuil est atteint.{sourceLabel}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex flex-wrap gap-4">
         <label className="flex items-center gap-2 text-sm font-medium">
@@ -269,7 +285,7 @@ export function AiDeskPanel() {
           <input
             className={inputClass}
             value={settings.providerChain}
-            placeholder="gemini,groq,cerebras,openrouter"
+            placeholder="deepseek,groq,cerebras,gemini"
             onChange={(event) => patch({ providerChain: event.target.value })}
           />
         </label>

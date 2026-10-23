@@ -11,6 +11,7 @@ const isLowMemBuild = process.env.LOW_MEM_BUILD === '1';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  serverExternalPackages: ['sharp'],
   productionBrowserSourceMaps: false,
   staticPageGenerationTimeout: Number(process.env.STATIC_PAGE_TIMEOUT_SEC || 180),
   typescript: {

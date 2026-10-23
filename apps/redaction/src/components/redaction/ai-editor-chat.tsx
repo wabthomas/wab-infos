@@ -31,8 +31,13 @@ export type AiChatAction =
       url?: string;
       alternativeText?: string;
     }
+  | { type: 'set_featured_alt'; value: string }
   | { type: 'set_category_slug'; value: string }
-  | { type: 'set_canonical_url'; value: string };
+  | { type: 'set_canonical_url'; value: string }
+  | { type: 'set_tags'; values: string[] }
+  | { type: 'set_breaking'; value: boolean }
+  | { type: 'set_schedule'; at: string | null }
+  | { type: 'publish'; mode: 'publish' | 'schedule' | 'draft' };
 
 export interface AiChatArticleSnapshot {
   title?: string;
@@ -45,6 +50,11 @@ export interface AiChatArticleSnapshot {
   canonicalUrl?: string;
   featuredImageId?: number | null;
   featuredImageUrl?: string | null;
+  featuredImageAlt?: string;
+  tags?: string[];
+  isBreaking?: boolean;
+  scheduledAt?: string;
+  status?: string;
 }
 
 interface ChatAttachment {
@@ -88,10 +98,24 @@ function summarizeActions(actions: AiChatAction[]): string[] {
         return 'SEO';
       case 'set_featured_image':
         return 'Photo à la une';
+      case 'set_featured_alt':
+        return 'Texte alternatif';
       case 'set_category_slug':
         return 'Rubrique';
       case 'set_canonical_url':
         return 'URL canonique';
+      case 'set_tags':
+        return 'Mots-clés';
+      case 'set_breaking':
+        return action.value ? 'Alerte activée' : 'Alerte retirée';
+      case 'set_schedule':
+        return action.at ? 'Programmation' : 'Programmation annulée';
+      case 'publish':
+        return action.mode === 'publish'
+          ? 'Publication'
+          : action.mode === 'schedule'
+            ? 'Programmation lancée'
+            : 'Brouillon enregistré';
       default:
         return 'Mise à jour';
     }

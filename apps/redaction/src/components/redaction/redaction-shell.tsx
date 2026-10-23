@@ -1,19 +1,25 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BarChart3,
+  ChevronDown,
   FileText,
   Home,
+  LogOut,
   Mail,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   PenLine,
   Settings,
   User,
+  UserPen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fetchRedaction } from '@/lib/redaction/public-path';
 import { RedactionPushBanner } from '@/components/redaction/redaction-push-setup';
 import {
   RedactionNotificationsBell,
@@ -21,14 +27,41 @@ import {
 } from '@/components/redaction/redaction-notifications';
 import { touchRedactionSession } from '@/lib/redaction/touch-session';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import {
+  SIDEBAR_COOKIE,
+  SIDEBAR_WIDTH_COLLAPSED,
+  SIDEBAR_WIDTH_EXPANDED,
+} from '@/lib/redaction/sidebar-pref';
 
-const NAV_ITEMS = [
+type NavIcon = typeof Home;
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: NavIcon;
+  exact?: boolean;
+  badge?: 'drafts' | 'comments';
+}
+
+const NAV_MAIN: NavItem[] = [
   { href: '/', label: 'Accueil', icon: Home, exact: true },
-  { href: '/articles', label: 'Articles', icon: FileText, draftsBadge: true },
-  { href: '/comments', label: 'Commentaires', icon: MessageSquare, commentsBadge: true },
+  { href: '/articles', label: 'Articles', icon: FileText, badge: 'drafts' },
+  { href: '/comments', label: 'Commentaires', icon: MessageSquare, badge: 'comments' },
+  { href: '/stats', label: 'Statistiques', icon: BarChart3 },
+];
+
+const NAV_ADMIN: NavItem[] = [
+  { href: '/newsletter', label: 'Newsletter', icon: Mail },
+  { href: '/parametres', label: 'Paramètres', icon: Settings },
+];
+
+const MOBILE_NAV: NavItem[] = [
+  { href: '/', label: 'Accueil', icon: Home, exact: true },
+  { href: '/articles', label: 'Articles', icon: FileText, badge: 'drafts' },
+  { href: '/comments', label: 'Commentaires', icon: MessageSquare, badge: 'comments' },
   { href: '/stats', label: 'Stats', icon: BarChart3 },
   { href: '/profil', label: 'Profil', icon: User },
-] as const;
+];
 
 function isWritingPage(pathname: string): boolean {
   return pathname === '/nouveau' || /\/articles\/[^/]+\/edit$/.test(pathname);
@@ -39,17 +72,19 @@ function isNavActive(pathname: string, href: string, exact?: boolean): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function getDesktopPageTitle(pathname: string): string {
-  if (pathname === '/') return 'Tableau de bord';
-  if (pathname === '/articles' || pathname.startsWith('/articles/')) return 'Articles';
-  if (pathname === '/comments') return 'Commentaires';
-  if (pathname === '/stats') return 'Statistiques';
-  if (pathname === '/profil/modifier') return 'Modifier le profil';
-  if (pathname === '/profil' || pathname.startsWith('/profil/')) return 'Profil';
-  if (pathname === '/parametres') return 'Paramètres du site';
-  if (pathname === '/newsletter') return 'Newsletter';
-  if (pathname === '/nouveau') return 'Nouvel article';
-  return 'Rédaction';
+function getDesktopPageTitle(pathname: string): { title: string; eyebrow: string } {
+  if (pathname === '/') return { title: 'Tableau de bord', eyebrow: 'Vue d’ensemble' };
+  if (pathname === '/articles' || pathname.startsWith('/articles/'))
+    return { title: 'Articles', eyebrow: 'Contenus' };
+  if (pathname === '/comments') return { title: 'Commentaires', eyebrow: 'Modération' };
+  if (pathname === '/stats') return { title: 'Statistiques', eyebrow: 'Audience' };
+  if (pathname === '/profil/modifier') return { title: 'Modifier le profil', eyebrow: 'Mon compte' };
+  if (pathname === '/profil' || pathname.startsWith('/profil/'))
+    return { title: 'Profil', eyebrow: 'Mon compte' };
+  if (pathname === '/parametres') return { title: 'Paramètres du site', eyebrow: 'Administration' };
+  if (pathname === '/newsletter') return { title: 'Newsletter', eyebrow: 'Administration' };
+  if (pathname === '/nouveau') return { title: 'Nouvel article', eyebrow: 'Rédaction' };
+  return { title: 'Rédaction', eyebrow: 'Wab-infos' };
 }
 
 function formatBadge(count: number, max = 99): string {
@@ -57,11 +92,46 @@ function formatBadge(count: number, max = 99): string {
   return count > max ? `${max}+` : String(count);
 }
 
+function initialsOf(name?: string): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'W';
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 interface RedactionShellProps {
   children: React.ReactNode;
   authorName?: string;
+  avatarUrl?: string;
   isSuperAdmin?: boolean;
   initialPendingComments?: number;
+  initialSidebarCollapsed?: boolean;
+}
+
+function Avatar({ name, src, size = 36 }: { name?: string; src?: string; size?: number }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full object-cover ring-2 ring-background"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-xs font-bold text-primary-foreground ring-2 ring-background"
+      style={{ width: size, height: size }}
+    >
+      {initialsOf(name)}
+    </span>
+  );
 }
 
 function MobileNavItem({
@@ -73,7 +143,7 @@ function MobileNavItem({
 }: {
   href: string;
   label: string;
-  icon: typeof Home;
+  icon: NavIcon;
   active: boolean;
   badgeCount?: number;
 }) {
@@ -103,39 +173,56 @@ function MobileNavItem({
 }
 
 function SidebarNavItem({
-  href,
-  label,
-  icon: Icon,
+  item,
   active,
+  collapsed,
   badgeCount,
 }: {
-  href: string;
-  label: string;
-  icon: typeof Home;
+  item: NavItem;
   active: boolean;
+  collapsed: boolean;
   badgeCount?: number;
 }) {
+  const Icon = item.icon;
   const badge = formatBadge(badgeCount ?? 0);
   return (
     <Link
-      href={href}
+      href={item.href}
       prefetch
+      aria-label={collapsed ? item.label : undefined}
       className={cn(
-        'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+        'group relative flex h-11 items-center rounded-xl text-sm font-medium transition-colors',
+        collapsed ? 'justify-center px-0' : 'gap-3 px-3',
         active
           ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
-      <Icon className={cn('h-5 w-5 shrink-0', active && 'text-primary')} />
-      <span className="flex-1 truncate">{label}</span>
-      {badge ? (
+      {active ? (
+        <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+      ) : null}
+      <span className="relative flex shrink-0 items-center justify-center">
+        <Icon className={cn('h-5 w-5', active && 'text-primary')} />
+        {collapsed && badge ? (
+          <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white ring-2 ring-card">
+            {formatBadge(badgeCount ?? 0, 9)}
+          </span>
+        ) : null}
+      </span>
+      {!collapsed ? <span className="flex-1 truncate">{item.label}</span> : null}
+      {!collapsed && badge ? (
         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
           {badge}
         </span>
       ) : null}
-      {active ? (
-        <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+      {collapsed ? (
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg bg-foreground px-2.5 py-1.5 text-xs font-semibold text-background opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        >
+          {item.label}
+          {badge ? ` (${badge})` : ''}
+        </span>
       ) : null}
     </Link>
   );
@@ -143,89 +230,309 @@ function SidebarNavItem({
 
 function RedactionSidebar({
   pathname,
-  authorName,
   isSuperAdmin,
   draftCount,
   pendingComments,
+  collapsed,
+  onToggle,
 }: {
   pathname: string;
-  authorName?: string;
   isSuperAdmin: boolean;
   draftCount: number;
   pendingComments: number;
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
+  const badgeFor = (item: NavItem) =>
+    item.badge === 'drafts' ? draftCount : item.badge === 'comments' ? pendingComments : 0;
+
   return (
-    <aside className="redaction-sidebar hidden w-[260px] shrink-0 flex-col border-r border-border bg-card lg:flex">
-      <div className="border-b border-border px-5 py-5">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Wab-infos</p>
-        <p className="mt-0.5 font-display text-lg font-bold leading-tight">Rédaction</p>
-        <p className="mt-1.5 truncate text-sm text-muted-foreground">{authorName ?? 'Éditeur'}</p>
+    <aside
+      className="redaction-sidebar hidden shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200 ease-out lg:flex"
+      style={{ width: 'var(--redaction-sidebar-w)' }}
+    >
+      <div
+        className={cn(
+          'flex h-16 shrink-0 items-center border-b border-border',
+          collapsed ? 'justify-center px-2' : 'gap-3 px-4'
+        )}
+      >
+        <Link
+          href="/"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 font-display text-lg font-bold text-primary-foreground shadow-md shadow-primary/25"
+          aria-label="Tableau de bord"
+        >
+          W
+        </Link>
+        {!collapsed ? (
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Wab-infos</p>
+            <p className="font-display text-base font-bold leading-tight">Rédaction</p>
+          </div>
+        ) : null}
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
-        {NAV_ITEMS.map((item) => (
+      <nav
+        className={cn(
+          'flex flex-1 flex-col gap-1 p-3',
+          collapsed ? 'overflow-visible' : 'overflow-y-auto'
+        )}
+        aria-label="Navigation rédaction"
+      >
+        {!collapsed ? (
+          <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/80">
+            Menu
+          </p>
+        ) : null}
+        {NAV_MAIN.map((item) => (
           <SidebarNavItem
             key={item.href}
-            href={item.href}
-            label={item.label}
-            icon={item.icon}
-            active={isNavActive(pathname, item.href, 'exact' in item && item.exact)}
-            badgeCount={
-              'draftsBadge' in item && item.draftsBadge
-                ? draftCount
-                : 'commentsBadge' in item && item.commentsBadge
-                  ? pendingComments
-                  : 0
-            }
+            item={item}
+            collapsed={collapsed}
+            active={isNavActive(pathname, item.href, item.exact)}
+            badgeCount={badgeFor(item)}
           />
         ))}
+
         {isSuperAdmin ? (
           <>
-            <SidebarNavItem
-              href="/newsletter"
-              label="Newsletter"
-              icon={Mail}
-              active={pathname === '/newsletter'}
-            />
-            <SidebarNavItem
-              href="/parametres"
-              label="Paramètres"
-              icon={Settings}
-              active={pathname === '/parametres'}
-            />
+            {collapsed ? (
+              <span className="mx-auto my-2 h-px w-8 bg-border" aria-hidden />
+            ) : (
+              <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/80">
+                Administration
+              </p>
+            )}
+            {NAV_ADMIN.map((item) => (
+              <SidebarNavItem
+                key={item.href}
+                item={item}
+                collapsed={collapsed}
+                active={isNavActive(pathname, item.href, item.exact)}
+              />
+            ))}
           </>
         ) : null}
       </nav>
 
-      <div className="border-t border-border p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <span className="text-xs font-medium text-muted-foreground">Apparence</span>
-          <ThemeToggle />
+      <div className="shrink-0 border-t border-border p-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          className={cn(
+            'flex h-10 w-full items-center rounded-xl text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+            collapsed ? 'justify-center' : 'gap-3 px-3'
+          )}
+          aria-label={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
+          title={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="h-5 w-5" />
+          ) : (
+            <>
+              <PanelLeftClose className="h-5 w-5" />
+              <span>Réduire</span>
+            </>
+          )}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function ProfileMenu({
+  authorName,
+  avatarUrl,
+  isSuperAdmin,
+}: {
+  authorName?: string;
+  avatarUrl?: string;
+  isSuperAdmin: boolean;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  async function logout() {
+    setLoggingOut(true);
+    try {
+      await fetchRedaction('/api/redaction/auth/logout', { method: 'POST' });
+    } finally {
+      router.replace('/login');
+      router.refresh();
+    }
+  }
+
+  const roleLabel = isSuperAdmin ? 'Administrateur' : 'Rédacteur';
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          'flex h-11 items-center gap-2.5 rounded-full border border-transparent py-1 pl-1 pr-3 transition-colors hover:border-border hover:bg-muted',
+          open && 'border-border bg-muted'
+        )}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <Avatar name={authorName} src={avatarUrl} size={34} />
+        <span className="hidden min-w-0 text-left xl:block">
+          <span className="block max-w-[10rem] truncate text-sm font-semibold leading-tight">
+            {authorName ?? 'Éditeur'}
+          </span>
+          <span className="block text-[11px] leading-tight text-muted-foreground">{roleLabel}</span>
+        </span>
+        <ChevronDown
+          className={cn('h-4 w-4 text-muted-foreground transition-transform', open && 'rotate-180')}
+        />
+      </button>
+
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-border bg-card shadow-xl shadow-black/10"
+        >
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
+            <Avatar name={authorName} src={avatarUrl} size={40} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{authorName ?? 'Éditeur'}</p>
+              <p className="text-xs text-muted-foreground">{roleLabel}</p>
+            </div>
+          </div>
+          <div className="p-1.5">
+            <Link
+              href="/profil"
+              role="menuitem"
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-muted"
+            >
+              <User className="h-4 w-4 text-muted-foreground" />
+              Voir le profil
+            </Link>
+            <Link
+              href="/profil/modifier"
+              role="menuitem"
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-muted"
+            >
+              <UserPen className="h-4 w-4 text-muted-foreground" />
+              Modifier le profil
+            </Link>
+          </div>
+          <div className="border-t border-border p-1.5">
+            <button
+              type="button"
+              role="menuitem"
+              disabled={loggingOut}
+              onClick={() => void logout()}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-600/10 disabled:opacity-60 dark:text-red-400"
+            >
+              <LogOut className="h-4 w-4" />
+              {loggingOut ? 'Déconnexion…' : 'Déconnexion'}
+            </button>
+          </div>
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DesktopTopbar({
+  pathname,
+  summary,
+  authorName,
+  avatarUrl,
+  isSuperAdmin,
+  collapsed,
+  onToggleSidebar,
+}: {
+  pathname: string;
+  summary: ReturnType<typeof useRedactionNotifications>;
+  authorName?: string;
+  avatarUrl?: string;
+  isSuperAdmin: boolean;
+  collapsed: boolean;
+  onToggleSidebar: () => void;
+}) {
+  const { title, eyebrow } = getDesktopPageTitle(pathname);
+  return (
+    <header className="hidden h-16 shrink-0 items-center gap-4 border-b border-border bg-card/80 px-6 backdrop-blur supports-[backdrop-filter]:bg-card/70 lg:flex">
+      <button
+        type="button"
+        onClick={onToggleSidebar}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        aria-label={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
+        title={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
+      >
+        {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+      </button>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">{eyebrow}</p>
+        <h1 className="truncate font-display text-lg font-bold leading-tight">{title}</h1>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <RedactionNotificationsBell summary={summary} />
+        <ThemeToggle className="h-10 w-10 rounded-full border-transparent bg-transparent shadow-none hover:border-border" />
         <Link
           href="/nouveau"
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 transition-transform hover:brightness-105 active:scale-[0.98]"
+          className="ml-1 inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 transition hover:brightness-105 active:scale-[0.98]"
         >
           <PenLine className="h-4 w-4" />
           Nouvel article
         </Link>
+        <span className="mx-1 h-6 w-px bg-border" aria-hidden />
+        <ProfileMenu authorName={authorName} avatarUrl={avatarUrl} isSuperAdmin={isSuperAdmin} />
       </div>
-    </aside>
+    </header>
   );
 }
 
 export function RedactionShell({
   children,
   authorName,
+  avatarUrl,
   isSuperAdmin = false,
   initialPendingComments = 0,
+  initialSidebarCollapsed = false,
 }: RedactionShellProps) {
   const pathname = usePathname();
   const writing = isWritingPage(pathname);
   const summary = useRedactionNotifications();
   const [pendingComments, setPendingComments] = useState(initialPendingComments);
+  const [collapsed, setCollapsed] = useState(initialSidebarCollapsed);
   const draftCount = summary.draftCount;
   const effectivePending = summary.pendingComments || pendingComments;
+
+  const toggleSidebar = useCallback(() => {
+    setCollapsed((value) => {
+      const next = !value;
+      document.cookie = `${SIDEBAR_COOKIE}=${next ? '1' : '0'}; path=/; max-age=31536000; samesite=lax`;
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (summary.pendingComments > 0 || summary.draftCount >= 0) {
@@ -246,16 +553,32 @@ export function RedactionShell({
     };
   }, []);
 
+  useEffect(() => {
+    document.getElementById('redaction-main-scroll')?.scrollTo({ top: 0 });
+  }, [pathname]);
+
+  const rootStyle = {
+    '--redaction-sidebar-w': `${collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED}px`,
+  } as React.CSSProperties;
+
+  const sidebar = (
+    <RedactionSidebar
+      pathname={pathname}
+      isSuperAdmin={isSuperAdmin}
+      draftCount={draftCount}
+      pendingComments={effectivePending}
+      collapsed={collapsed}
+      onToggle={toggleSidebar}
+    />
+  );
+
   if (writing) {
     return (
-      <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-background">
-        <RedactionSidebar
-          pathname={pathname}
-          authorName={authorName}
-          isSuperAdmin={isSuperAdmin}
-          draftCount={draftCount}
-          pendingComments={effectivePending}
-        />
+      <div
+        className="redaction-shell-root flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-background"
+        style={rootStyle}
+      >
+        {sidebar}
         <div className="fixed inset-0 z-50 flex min-w-0 flex-col overflow-hidden bg-background lg:static lg:z-auto lg:flex-1">
           {children}
         </div>
@@ -264,14 +587,11 @@ export function RedactionShell({
   }
 
   return (
-    <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-background">
-      <RedactionSidebar
-        pathname={pathname}
-        authorName={authorName}
-        isSuperAdmin={isSuperAdmin}
-        draftCount={draftCount}
-        pendingComments={effectivePending}
-      />
+    <div
+      className="redaction-shell-root flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-background"
+      style={rootStyle}
+    >
+      {sidebar}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
@@ -286,22 +606,29 @@ export function RedactionShell({
           </div>
         </header>
 
-        <header className="hidden shrink-0 border-b border-border bg-card/80 px-8 py-4 backdrop-blur lg:block">
-          <div className="flex items-center justify-between gap-4">
-            <p className="font-display text-xl font-bold">{getDesktopPageTitle(pathname)}</p>
-            <RedactionNotificationsBell summary={summary} />
-          </div>
-        </header>
+        <DesktopTopbar
+          pathname={pathname}
+          summary={summary}
+          authorName={authorName}
+          avatarUrl={avatarUrl}
+          isSuperAdmin={isSuperAdmin}
+          collapsed={collapsed}
+          onToggleSidebar={toggleSidebar}
+        />
 
         <main
           id="redaction-main-scroll"
-          className={cn(
-            'redaction-main-scroll mx-auto w-full min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] lg:px-8 lg:py-8 lg:pb-8',
-            pathname === '/parametres' ? 'lg:max-w-[1440px]' : 'lg:max-w-6xl'
-          )}
+          className="redaction-main-scroll min-h-0 w-full flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
         >
-          <RedactionPushBanner />
-          {children}
+          <div
+            className={cn(
+              'mx-auto w-full px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:px-8 lg:py-8 lg:pb-10',
+              pathname === '/parametres' ? 'lg:max-w-[1440px]' : 'lg:max-w-6xl'
+            )}
+          >
+            <RedactionPushBanner />
+            {children}
+          </div>
         </main>
 
         {isSuperAdmin ? (
@@ -324,17 +651,17 @@ export function RedactionShell({
 
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:hidden">
           <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
-            {NAV_ITEMS.map((item) => (
+            {MOBILE_NAV.map((item) => (
               <MobileNavItem
                 key={item.href}
                 href={item.href}
                 label={item.label}
                 icon={item.icon}
-                active={isNavActive(pathname, item.href, 'exact' in item && item.exact)}
+                active={isNavActive(pathname, item.href, item.exact)}
                 badgeCount={
-                  'draftsBadge' in item && item.draftsBadge
+                  item.badge === 'drafts'
                     ? draftCount
-                    : 'commentsBadge' in item && item.commentsBadge
+                    : item.badge === 'comments'
                       ? effectivePending
                       : 0
                 }

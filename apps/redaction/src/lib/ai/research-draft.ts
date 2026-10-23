@@ -18,6 +18,7 @@ import {
   resolveRedactionHouseAuthor,
 } from '@/lib/ai/strapi-ai';
 import { uploadAiImageFromUrl } from '@/lib/ai/upload-from-url';
+import { searchAndRead } from '@/lib/ai/web-search';
 
 interface ResearchDraftJson {
   title: string;
@@ -68,11 +69,17 @@ function readingTimeFromHtml(html: string): number {
 
 function finalizeContent(
   contentHtml: string,
-  options: { title: string; sourceUrl: string | null; related: RelatedArticleLink[] }
+  options: {
+    title: string;
+    sourceUrl: string | null;
+    related: RelatedArticleLink[];
+    extraHrefs?: string[];
+  }
 ): string {
   const allowedHrefs = [
     ...options.related.map((row) => row.path),
     ...(options.sourceUrl ? [options.sourceUrl] : []),
+    ...(options.extraHrefs ?? []),
   ];
   let html = sanitizeGeneratedArticleHtml(contentHtml, { title: options.title, allowedHrefs });
   html = ensureReadAlso(html, options.related);
@@ -89,6 +96,7 @@ async function generateResearchDraft(input: {
   imageUrl: string | null;
   imageAlt: string | null;
   related: RelatedArticleLink[];
+  extraHrefs: string[];
 }> {
   const config = await getRedactionAiConfig();
   if (!config.enabled) throw new Error('Assistant IA désactivé (Paramètres → Assistant IA)');
@@ -102,6 +110,7 @@ async function generateResearchDraft(input: {
   let imageAlt: string | null = null;
   let userPrompt = '';
   let sourceTitle = '';
+  const extraHrefs: string[] = [];
 
   if (url) {
     const source = await fetchSourceFromUrl(url);
@@ -121,7 +130,22 @@ ${source.text.slice(0, 10_000)}
 ${topic ? `Consignes complémentaires :\n${topic}\n\n` : ''}Rédige un article de presse original pour Wab-infos à partir de ces éléments. Ne copie pas le texte source : reformule, structure et contextualise.`;
   } else {
     if (topic.length < 8) throw new Error('Sujet trop court');
-    userPrompt = `Sujet demandé par la rédaction :\n${topic}`;
+    const { sources } = await searchAndRead([topic], { freshness: 'month', maxRead: 4 });
+    if (sources.length) {
+      sourceUrl = sources[0].url;
+      sourceTitle = sources.map((source) => source.title).join(' ');
+      extraHrefs.push(...sources.map((source) => source.url));
+      userPrompt = `Sujet demandé par la rédaction :\n${topic}
+
+SOURCES TROUVÉES SUR LE WEB (lues par le serveur — croise-les et attribue les informations) :
+${sources
+  .map((source) => `URL : ${source.url}\nTitre : ${source.title}\nTexte :\n${source.text.slice(0, 4_000)}\n---`)
+  .join('\n')}
+
+Rédige un article de presse original pour Wab-infos à partir de ces sources.`;
+    } else {
+      userPrompt = `Sujet demandé par la rédaction :\n${topic}\n\n(Aucune source web n'a pu être lue : reste factuel et prudent, n'invente rien.)`;
+    }
   }
 
   // Consommation atomique juste avant l’appel modèle (après fetch source / validations sync).
@@ -149,7 +173,7 @@ ${EDITORIAL_STYLE_BLOCK}
 
 ARTICLES WAB-INFOS LIÉS (seuls liens internes autorisés)
 ${formatRelatedForPrompt(related)}
-${sourceUrl ? `\nLIEN EXTERNE AUTORISÉ : ${sourceUrl}` : ''}
+${extraHrefs.length ? `\nLIENS EXTERNES AUTORISÉS : ${extraHrefs.join(', ')}` : sourceUrl ? `\nLIEN EXTERNE AUTORISÉ : ${sourceUrl}` : ''}
 
 SCHÉMA
 {
@@ -180,6 +204,7 @@ SCHÉMA
     imageUrl,
     imageAlt,
     related,
+    extraHrefs,
   };
 }
 
@@ -188,12 +213,13 @@ async function buildProposal(
   options: { persist: boolean }
 ): Promise<ResearchDraftProposal> {
   const categories = await listCategoriesForAi();
-  const { draft, provider, sourceUrl, imageUrl, imageAlt, related } = generated;
+  const { draft, provider, sourceUrl, imageUrl, imageAlt, related, extraHrefs } = generated;
   const category = categories.find((row) => row.slug === draft.categorySlug) || null;
   const content = finalizeContent(draft.contentHtml, {
     title: draft.title,
     sourceUrl,
     related,
+    extraHrefs,
   });
 
   let featuredImage: ResearchDraftProposal['featuredImage'] = null;

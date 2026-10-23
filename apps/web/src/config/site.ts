@@ -43,6 +43,7 @@ export const siteConfig = {
   androidPlayStoreUrl:
     process.env.NEXT_PUBLIC_ANDROID_PLAY_STORE_URL ||
     'https://play.google.com/store/apps/details?id=com.wabinfos.app',
+  androidAppPackage: process.env.NEXT_PUBLIC_ANDROID_APP_PACKAGE || 'com.wabinfos.app',
   /** Logo rectangulaire Publisher Center / JSON-LD (400×200) — public/publisher-logo.png */
   publisherLogoUrl: `${SITE_URL}/publisher-logo.png`,
 } as const;

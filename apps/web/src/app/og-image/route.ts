@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import sharp from 'sharp';
 import { siteConfig } from '@/config/site';
 import { isAllowedOgImagePath } from '@/lib/og-image-url';
 
@@ -83,6 +82,8 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Import dynamique : si le binaire natif manque, on sert l’original au lieu d’un 500.
+    const { default: sharp } = await import('sharp');
     const jpeg = await sharp(input, { animated: false, failOn: 'none' })
       .rotate()
       .resize({ width: 1200, withoutEnlargement: true })
@@ -93,9 +94,17 @@ export async function GET(request: Request) {
       status: 200,
       headers: responseHeaders('image/jpeg', { 'Content-Disposition': 'inline; filename="og-image.jpg"' }),
     });
-  } catch {
-    if (WEBP_EXT.test(src)) {
-      return NextResponse.redirect(`${SITE_ORIGIN}${src}`, 302);
+  } catch (error) {
+    console.error('[og-image] conversion JPEG impossible', src, error instanceof Error ? error.message : error);
+    if (WEBP_EXT.test(src) || upstreamType.includes('webp')) {
+      return new NextResponse(new Uint8Array(input), {
+        status: 200,
+        headers: {
+          ...responseHeaders('image/webp'),
+          // Ne pas figer un repli dégradé un an dans Cloudflare.
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
     }
 
     try {

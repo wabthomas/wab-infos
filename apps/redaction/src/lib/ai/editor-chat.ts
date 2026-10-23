@@ -16,9 +16,11 @@ import {
 import { consumeAiQuota } from '@/lib/ai/quotas';
 import { listCategoriesForAi } from '@/lib/ai/strapi-ai';
 import { uploadAiImageFromUrl } from '@/lib/ai/upload-from-url';
+import { searchAndRead, type SearchFreshness, type WebSearchResult } from '@/lib/ai/web-search';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '');
 const SEO_TARGET_SCORE = 90;
+const MAX_TOOL_ROUNDS = 2;
 
 export interface EditorChatAttachment {
   mediaId: number;
@@ -38,6 +40,11 @@ export interface EditorArticleSnapshot {
   canonicalUrl?: string;
   featuredImageId?: number | null;
   featuredImageUrl?: string | null;
+  featuredImageAlt?: string;
+  tags?: string[];
+  isBreaking?: boolean;
+  scheduledAt?: string;
+  status?: string;
 }
 
 export interface EditorChatHistoryMessage {
@@ -61,8 +68,13 @@ export type EditorChatAction =
       url?: string;
       alternativeText?: string;
     }
+  | { type: 'set_featured_alt'; value: string }
   | { type: 'set_category_slug'; value: string }
-  | { type: 'set_canonical_url'; value: string };
+  | { type: 'set_canonical_url'; value: string }
+  | { type: 'set_tags'; values: string[] }
+  | { type: 'set_breaking'; value: boolean }
+  | { type: 'set_schedule'; at: string | null }
+  | { type: 'publish'; mode: 'publish' | 'schedule' | 'draft' };
 
 export interface EditorChatTurnResult {
   reply: string;
@@ -73,8 +85,22 @@ export interface EditorChatTurnResult {
 }
 
 interface ChatModelResponse {
-  reply: string;
+  reply?: string;
   actions?: Array<Record<string, unknown>>;
+  tool?: string;
+  search?: unknown;
+  read?: unknown;
+  freshness?: unknown;
+}
+
+interface ReadSource {
+  url: string;
+  title: string;
+  text: string;
+  imageUrl: string | null;
+  ok: boolean;
+  via?: string;
+  origin: 'link' | 'search';
 }
 
 const URL_RE =
@@ -90,9 +116,23 @@ function extractUrls(text: string): string[] {
 }
 
 function wantsResearchOrWrite(message: string): boolean {
-  return /r[eé]dig|article|recherch|cherche|lis\s+(le\s+)?lien|ouvre\s+(le\s+)?lien|analyse|source|d[eé]velop|r[eé]sum|seo|brouillon|bas[eé]\s+sur|d['’]apr[eè]s/i.test(
+  return /r[eé]dig|article|recherch|cherche|lis\s+(le\s+)?lien|ouvre\s+(le\s+)?lien|analyse|source|d[eé]velop|r[eé]sum|seo|brouillon|bas[eé]\s+sur|d['’]apr[eè]s|actualit|derni[eè]re|info/i.test(
     message
   );
+}
+
+/** La publication n'est acceptée que sur demande explicite du journaliste. */
+function explicitPublishMode(message: string): 'publish' | 'schedule' | 'draft' | null {
+  const text = message.toLowerCase();
+  if (/(ne|n['’])\s*(le\s+|la\s+|l['’])?(publie|publier)\s+pas|sans\s+publier|pas\s+encore\s+publi/.test(text)) {
+    return /brouillon/.test(text) ? 'draft' : null;
+  }
+  if (/programm|planifi/.test(text)) return 'schedule';
+  if (/publie|publier|publication|mets?\s+(le\s+|l['’]article\s+)?en\s+ligne|mise\s+en\s+ligne/.test(text)) {
+    return 'publish';
+  }
+  if (/(enregistre|sauvegarde|garde)[\w\s]*brouillon|en\s+brouillon/.test(text)) return 'draft';
+  return null;
 }
 
 function clip(text: string, max: number): string {
@@ -109,6 +149,18 @@ function wantsFeaturedFromAttachment(message: string): boolean {
 
 function wantsSeoWork(message: string): boolean {
   return /seo|optimis|meta|keyphrase|requ[eê]te|score/i.test(message) || wantsResearchOrWrite(message);
+}
+
+function todayInKinshasa(): string {
+  return new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'Africa/Kinshasa',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date());
 }
 
 function mergeActionsIntoSnapshot(
@@ -129,6 +181,7 @@ function mergeActionsIntoSnapshot(
       next.featuredImageUrl = action.url || next.featuredImageUrl;
     } else if (action.type === 'set_category_slug') next.categorySlug = action.value;
     else if (action.type === 'set_canonical_url') next.canonicalUrl = action.value;
+    else if (action.type === 'set_tags') next.tags = action.values;
   }
   return next;
 }
@@ -142,7 +195,7 @@ function scoreSnapshot(snapshot: EditorArticleSnapshot, categoryName?: string) {
     seoDescription: snapshot.seoDescription || snapshot.excerpt || '',
     canonicalUrl: snapshot.canonicalUrl,
     hasFeaturedImage: Boolean(snapshot.featuredImageId || snapshot.featuredImageUrl),
-    featuredImageAlt: '',
+    featuredImageAlt: snapshot.featuredImageAlt || '',
     categoryName: categoryName || (snapshot.categorySlug ? snapshot.categorySlug : undefined),
     categorySlug: snapshot.categorySlug,
     siteUrl: SITE_URL,
@@ -163,11 +216,12 @@ const SEO_RULES_BLOCK = `SEO (discret — ne doit jamais dégrader la qualité j
 - seoDescription : 120–158 caractères, phrase complète qui donne envie de lire, contient la focusKeyphrase.
 - excerpt (chapô) : 1–2 phrases, différent de l'attaque mot pour mot.
 - Corps ≥ 300 mots quand la source le permet ; ne délaye jamais pour atteindre un nombre de mots.
-- Quand tu rédiges : set_title + set_excerpt + set_content + set_seo + set_category_slug ensemble.`;
+- Quand tu rédiges : set_title + set_excerpt + set_content + set_seo + set_category_slug + set_tags ensemble.`;
 
 function normalizeActions(
   raw: Array<Record<string, unknown>> | undefined,
-  attachments: EditorChatAttachment[]
+  attachments: EditorChatAttachment[],
+  allowPublish: 'publish' | 'schedule' | 'draft' | null
 ): EditorChatAction[] {
   if (!Array.isArray(raw)) return [];
   const actions: EditorChatAction[] = [];
@@ -217,15 +271,140 @@ function normalizeActions(
       });
       continue;
     }
+    if (type === 'set_featured_alt' && typeof row.value === 'string' && row.value.trim()) {
+      actions.push({ type: 'set_featured_alt', value: row.value.trim().slice(0, 200) });
+      continue;
+    }
     if (type === 'set_category_slug' && typeof row.value === 'string' && row.value.trim()) {
       actions.push({ type: 'set_category_slug', value: row.value.trim() });
       continue;
     }
     if (type === 'set_canonical_url' && typeof row.value === 'string' && row.value.startsWith('http')) {
       actions.push({ type: 'set_canonical_url', value: row.value.trim() });
+      continue;
+    }
+    if (type === 'set_tags' && Array.isArray(row.values)) {
+      const values = [
+        ...new Set(
+          row.values
+            .filter((value): value is string => typeof value === 'string')
+            .map((value) => value.trim().replace(/^#/, ''))
+            .filter((value) => value.length >= 2 && value.length <= 60)
+        ),
+      ].slice(0, 8);
+      if (values.length) actions.push({ type: 'set_tags', values });
+      continue;
+    }
+    if (type === 'set_breaking' && typeof row.value === 'boolean') {
+      actions.push({ type: 'set_breaking', value: row.value });
+      continue;
+    }
+    if (type === 'set_schedule') {
+      if (row.at === null) {
+        actions.push({ type: 'set_schedule', at: null });
+        continue;
+      }
+      if (typeof row.at === 'string') {
+        const at = new Date(row.at);
+        if (!Number.isNaN(at.getTime()) && at.getTime() > Date.now()) {
+          actions.push({ type: 'set_schedule', at: at.toISOString() });
+        }
+      }
+      continue;
+    }
+    if (type === 'publish' && allowPublish) {
+      const mode =
+        row.mode === 'schedule' || row.mode === 'draft' || row.mode === 'publish'
+          ? row.mode
+          : allowPublish;
+      actions.push({ type: 'publish', mode });
     }
   }
-  return actions;
+
+  // Une seule publication, appliquée après toutes les modifications.
+  const publish = actions.filter((action) => action.type === 'publish');
+  return [...actions.filter((action) => action.type !== 'publish'), ...publish.slice(-1)];
+}
+
+function buildSystemPrompt(rubriques: string): string {
+  return `Tu es Wab Ai, l'assistant de la rédaction de Wab-infos (Kinshasa, RDC), intégré à l'éditeur d'article. Tu travailles comme un secrétaire de rédaction senior : rigoureux, rapide, professionnel. Tu traites TOUTES les demandes du journaliste : rédaction, réécriture, correction, traduction, résumé, titrage, SEO, rubrique, mots-clés, photo, planification, publication, questions d'actualité ou de vérification.
+
+DATE ET HEURE À KINSHASA : ${todayInKinshasa()}
+
+OUTIL WEB (recherche sur les moteurs + lecture des pages)
+- Si la demande porte sur l'actualité, un fait à vérifier, un sujet à documenter, ou un article à rédiger sans source suffisante, demande d'abord une recherche :
+  {"tool":"web","search":["requête 1","requête 2"],"read":["https://..."],"freshness":"day|week|month|any"}
+  (1 à 3 requêtes précises, en français ou en anglais selon le sujet ; "read" pour des URL précises à lire.)
+- Le serveur exécute la recherche, lit les pages et te renvoie les résultats dans « RÉSULTATS WEB ». Tu réponds ensuite normalement.
+- N'utilise pas l'outil pour une simple correction, un titrage ou un réglage sur l'article existant.
+
+RÈGLES
+1. Réponds TOUJOURS en JSON valide uniquement : soit l'appel d'outil ci-dessus, soit {"reply":"...","actions":[...]}.
+2. "reply" : professionnel et utile. Bref (1–3 phrases) quand tu appliques des modifications ; complet et structuré quand on te pose une question (faits datés, nuances, sources citées par nom de média + URL).
+3. "actions" : modifications à appliquer dans l'éditeur (vide si tu réponds seulement).
+4. N'invente aucun fait, chiffre, nom, date ou citation absent des sources, des résultats web ou de l'article existant. Si l'information est introuvable ou non confirmée, dis-le clairement.
+5. Reformule entièrement : aucune phrase recopiée d'une source. Croise plusieurs sources quand c'est possible et attribue les informations (« selon RFI », « d'après Actualite.cd »).
+6. categorySlug parmi : ${rubriques || 'politique'}.
+7. Photo à la une : set_featured_image avec un mediaId listé dans les pièces jointes.
+8. Si on te demande seulement le SEO, ne réécris pas le corps : envoie set_seo (et set_excerpt si vide).
+9. PUBLICATION : n'envoie {"type":"publish"} QUE si le journaliste le demande explicitement dans son dernier message (« publie », « mets en ligne », « programme pour 18h », « enregistre en brouillon »). Complète d'abord l'article si nécessaire (titre, contenu, rubrique, SEO), puis ajoute publish en dernière action. Pour une programmation, envoie set_schedule (date ISO 8601 avec fuseau, ex. 2026-10-23T18:00:00+01:00) puis publish mode "schedule".
+10. Liens externes : seulement les URL réellement présentes dans les sources ou résultats web. Liens internes : seulement les articles Wab-infos listés.
+
+${EDITORIAL_STYLE_BLOCK}
+
+${SEO_RULES_BLOCK}
+
+ACTIONS POSSIBLES
+- {"type":"set_title","value":"..."}
+- {"type":"set_excerpt","value":"..."}
+- {"type":"set_content","value":"<p>...</p>"}
+- {"type":"set_seo","seoTitle":"...","seoDescription":"...","focusKeyphrase":"..."}
+- {"type":"set_featured_image","mediaId":123,"url":"...","alternativeText":"..."}
+- {"type":"set_featured_alt","value":"texte alternatif de la photo"}
+- {"type":"set_category_slug","value":"politique"}
+- {"type":"set_tags","values":["Kinshasa","Assemblée nationale"]}
+- {"type":"set_breaking","value":true}
+- {"type":"set_canonical_url","value":"https://..."}
+- {"type":"set_schedule","at":"2026-10-23T18:00:00+01:00"}  (ou null pour annuler)
+- {"type":"publish","mode":"publish|schedule|draft"}
+
+SCHÉMAS DE RÉPONSE
+{"reply":"string","actions":[...]}
+{"tool":"web","search":["..."],"read":["..."],"freshness":"week"}`;
+}
+
+function formatWebResults(results: WebSearchResult[], sources: ReadSource[], errors: string[]): string {
+  if (!results.length && !sources.length) {
+    return `Aucun résultat exploitable.${errors.length ? ` (${errors.slice(0, 4).join(' · ')})` : ''}`;
+  }
+  const list = results
+    .slice(0, 10)
+    .map((row, index) => `${index + 1}. ${row.title} — ${row.url}${row.published ? ` (${row.published})` : ''}\n   ${clip(row.snippet, 260)}`)
+    .join('\n');
+  const read = sources
+    .map((source) => `URL: ${source.url}\nTitre: ${source.title}\nTexte:\n${clip(source.text, 5_000)}\n---`)
+    .join('\n');
+  return `RÉSULTATS DE RECHERCHE\n${list || '(aucun)'}\n\nPAGES LUES\n${read || '(aucune page lisible)'}`;
+}
+
+function parseToolRequest(data: ChatModelResponse | undefined): {
+  search: string[];
+  read: string[];
+  freshness: SearchFreshness;
+} | null {
+  if (!data || data.tool !== 'web') return null;
+  const search = Array.isArray(data.search)
+    ? data.search.filter((value): value is string => typeof value === 'string' && value.trim().length > 1)
+    : [];
+  const read = Array.isArray(data.read)
+    ? data.read.filter((value): value is string => typeof value === 'string' && /^https?:\/\//i.test(value))
+    : [];
+  if (!search.length && !read.length) return null;
+  const freshness: SearchFreshness =
+    data.freshness === 'day' || data.freshness === 'week' || data.freshness === 'month'
+      ? data.freshness
+      : 'any';
+  return { search: search.slice(0, 3), read: read.slice(0, 3), freshness };
 }
 
 export async function runEditorChatTurn(input: {
@@ -250,8 +429,9 @@ export async function runEditorChatTurn(input: {
   const categories = await listCategoriesForAi();
   const rubriques = categories.map((row) => `${row.slug} (${row.name})`).join(', ');
   const history = (input.history || []).slice(-12);
+  const publishMode = explicitPublishMode(message);
 
-  // Liens du message courant + historique (si on demande de rédiger / chercher)
+  // Liens fournis par le journaliste (message, historique, canonical)
   const urlsFromMessage = extractUrls(message);
   const urlsFromHistory = wantsResearchOrWrite(message)
     ? history.flatMap((row) => extractUrls(row.content))
@@ -265,14 +445,7 @@ export async function runEditorChatTurn(input: {
     4
   );
 
-  const researched: Array<{
-    url: string;
-    title: string;
-    text: string;
-    imageUrl: string | null;
-    ok: boolean;
-    via?: string;
-  }> = [];
+  const researched: ReadSource[] = [];
   for (const url of urls) {
     try {
       const source = await fetchSourceFromUrl(url);
@@ -283,6 +456,7 @@ export async function runEditorChatTurn(input: {
         imageUrl: source.imageUrl,
         ok: true,
         via: source.via,
+        origin: 'link',
       });
     } catch (error) {
       researched.push({
@@ -291,11 +465,12 @@ export async function runEditorChatTurn(input: {
         text: `ÉCHEC LECTURE: ${error instanceof Error ? error.message : 'impossible'}`,
         imageUrl: null,
         ok: false,
+        origin: 'link',
       });
     }
   }
 
-  // Si une image source est trouvée et pas encore jointe, tenter l’upload pour la proposer.
+  // Image d'un lien fourni par le journaliste : proposée en photo à la une.
   const uploadedFromResearch: EditorChatAttachment[] = [];
   for (const source of researched) {
     if (!source.imageUrl) continue;
@@ -312,15 +487,14 @@ export async function runEditorChatTurn(input: {
 
   const allAttachments = [...attachments, ...uploadedFromResearch];
   const article = input.article || {};
-
-  const okSources = researched.filter((row) => row.ok);
+  const linkSources = researched.filter((row) => row.ok);
   const failedSources = researched.filter((row) => !row.ok);
 
   const writing = wantsResearchOrWrite(message) || wantsSeoWork(message);
   const related = writing
     ? await findRelatedArticles({
         topic: [
-          okSources.map((row) => row.title).join(' '),
+          linkSources.map((row) => row.title).join(' '),
           article.title || '',
           article.focusKeyphrase || '',
           message,
@@ -329,54 +503,19 @@ export async function runEditorChatTurn(input: {
         limit: 5,
       })
     : [];
-  const existingHrefs = [
-    ...(article.contentHtml || '').matchAll(/href\s*=\s*["']([^"']+)["']/gi),
-  ].map((match) => match[1]);
-  const allowedHrefs = [
-    ...related.map((row) => row.path),
-    ...okSources.map((row) => row.url),
-    ...existingHrefs,
-  ];
-
-  const system = `Tu es Wab Ai, assistant de la rédaction de Wab-infos (Kinshasa, RDC), intégré à l'éditeur d'article.
-Tu échanges en français avec le journaliste, comme un secrétaire de rédaction expérimenté. Le serveur LIT déjà les liens pour toi : le texte récupéré est dans « SOURCES LUES ».
-
-RÈGLES
-1. Réponds TOUJOURS en JSON valide uniquement (pas de markdown hors JSON).
-2. "reply" : message bref et professionnel (1–4 phrases). Indique si tu as lu le(s) lien(s).
-3. "actions" : actions à appliquer dans l'éditeur (vide si tu discutes seulement).
-4. Si le journaliste demande de rédiger / rechercher et qu'une SOURCE LUE est disponible : rédige un article original à partir d'elle (set_title, set_excerpt, set_content, set_seo, set_category_slug, set_canonical_url = URL source).
-5. N'invente aucun fait, chiffre, nom ou citation absent des sources ou de l'article existant. Si la lecture a échoué, dis-le et ne fabrique pas d'article.
-6. Reformule entièrement : aucune phrase recopiée de la source.
-7. categorySlug parmi : ${rubriques || 'politique'}.
-8. Photo à la une : set_featured_image avec un mediaId listé dans les pièces jointes.
-9. Si on te demande seulement le SEO, ne réécris pas le corps : envoie set_seo (et set_excerpt si vide).
-
-${EDITORIAL_STYLE_BLOCK}
-
-${SEO_RULES_BLOCK}
-
-ACTIONS POSSIBLES
-- {"type":"set_title","value":"..."}
-- {"type":"set_excerpt","value":"..."}
-- {"type":"set_content","value":"<p>...</p>"}
-- {"type":"set_seo","seoTitle":"...","seoDescription":"...","focusKeyphrase":"..."}
-- {"type":"set_featured_image","mediaId":123,"url":"...","alternativeText":"..."}
-- {"type":"set_category_slug","value":"politique"}
-- {"type":"set_canonical_url","value":"https://..."}
-
-SCHÉMA
-{"reply":"string","actions":[...]}`;
 
   const contextBlock = `ÉTAT ACTUEL DE L'ARTICLE
+Statut: ${article.status || 'brouillon'}${article.scheduledAt ? ` · programmé pour ${article.scheduledAt}` : ''}
 Titre: ${article.title || '(vide)'}
 Chapô: ${clip(article.excerpt || '', 280) || '(vide)'}
 SEO title: ${article.seoTitle || '(vide)'}
 SEO description: ${clip(article.seoDescription || '', 200) || '(vide)'}
 Focus keyphrase: ${article.focusKeyphrase || '(vide)'}
 Rubrique: ${article.categorySlug || '(vide)'}
+Mots-clés: ${article.tags?.length ? article.tags.join(', ') : '(aucun)'}
+Alerte (breaking): ${article.isBreaking ? 'oui' : 'non'}
 Canonical: ${article.canonicalUrl || '(vide)'}
-Featured: ${article.featuredImageId ? `id=${article.featuredImageId}` : '(aucune)'} ${article.featuredImageUrl || ''}
+Photo à la une: ${article.featuredImageId ? `id=${article.featuredImageId}` : '(aucune)'} ${article.featuredImageUrl || ''}${article.featuredImageAlt ? ` · alt: ${article.featuredImageAlt}` : ''}
 Contenu (extrait):
 ${clip((article.contentHtml || '').replace(/<[^>]+>/g, ' '), 2_500) || '(vide)'}
 
@@ -395,7 +534,7 @@ ${
     : '(aucune)'
 }
 
-SOURCES LUES DEPUIS LES LIENS (faites par le serveur — utilise-les)
+LIENS FOURNIS PAR LE JOURNALISTE (déjà lus par le serveur)
 ${
   researched.length
     ? researched
@@ -404,21 +543,18 @@ ${
             `URL: ${source.url}\nStatut: ${source.ok ? `OK${source.via ? ` via ${source.via}` : ''}` : 'ÉCHEC'}\nTitre: ${source.title || '(vide)'}\nTexte:\n${source.text}\n---`
         )
         .join('\n')
-    : '(aucun lien détecté dans le message / historique ce tour)'
+    : '(aucun lien fourni ce tour)'
 }
 ${
-  failedSources.length && !okSources.length
-    ? '\nATTENTION: aucun lien n’a pu être lu. Explique-le au journaliste, ne rédige pas un faux article.'
+  failedSources.length && !linkSources.length
+    ? '\nATTENTION: le lien fourni n’a pas pu être lu. Tu peux utiliser l’outil web pour trouver d’autres sources, sinon explique-le.'
     : ''
 }`;
 
   const messages: LlmMessage[] = [
-    { role: 'system', content: system },
+    { role: 'system', content: buildSystemPrompt(rubriques) },
     { role: 'system', content: contextBlock },
-    ...history.map((row) => ({
-      role: row.role,
-      content: row.content,
-    })),
+    ...history.map((row) => ({ role: row.role, content: row.content })),
     {
       role: 'user',
       content: [
@@ -432,49 +568,98 @@ ${
     },
   ];
 
-  const result = await completeMessagesJson<ChatModelResponse>({
+  const searchSources: ReadSource[] = [];
+  const searchResults: WebSearchResult[] = [];
+  let result = await completeMessagesJson<ChatModelResponse>({
     messages,
     temperature: 0.4,
     maxTokens: 4_000,
   });
 
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+    const tool = parseToolRequest(result.data);
+    if (!tool) break;
+
+    const { results, sources, errors } = await searchAndRead(tool.search, {
+      freshness: tool.freshness,
+      maxRead: 4,
+    });
+    const extraReads = await Promise.allSettled(
+      tool.read
+        .filter((url) => !sources.some((source) => source.url === url))
+        .map((url) => fetchSourceFromUrl(url))
+    );
+    const roundSources: ReadSource[] = [
+      ...sources.map((source) => ({ ...source, ok: true, origin: 'search' as const })),
+      ...extraReads
+        .filter((row): row is PromiseFulfilledResult<Awaited<ReturnType<typeof fetchSourceFromUrl>>> => row.status === 'fulfilled')
+        .map((row) => ({ ...row.value, ok: true, origin: 'search' as const })),
+    ];
+    searchResults.push(...results);
+    searchSources.push(...roundSources);
+
+    messages.push(
+      { role: 'assistant', content: JSON.stringify({ tool: 'web', search: tool.search, read: tool.read }) },
+      {
+        role: 'user',
+        content: `RÉSULTATS WEB (recherche ${round + 1}) pour : ${tool.search.join(' | ') || tool.read.join(' | ')}\n\n${formatWebResults(results, roundSources, errors)}\n\nRéponds maintenant à ma demande initiale au format {"reply","actions"}${round + 1 < MAX_TOOL_ROUNDS ? ' (ou une dernière recherche si vraiment indispensable)' : ''}.`,
+      }
+    );
+    result = await completeMessagesJson<ChatModelResponse>({
+      messages,
+      temperature: 0.4,
+      maxTokens: 4_000,
+    });
+  }
+
+  const okSources = [...linkSources, ...searchSources];
+  const existingHrefs = [
+    ...(article.contentHtml || '').matchAll(/href\s*=\s*["']([^"']+)["']/gi),
+  ].map((match) => match[1]);
+  const allowedHrefs = [
+    ...related.map((row) => row.path),
+    ...okSources.map((row) => row.url),
+    ...searchResults.map((row) => row.url),
+    ...existingHrefs,
+  ];
+
   let reply =
     typeof result.data?.reply === 'string' && result.data.reply.trim()
       ? result.data.reply.trim()
-      : 'C’est noté.';
+      : parseToolRequest(result.data)
+        ? 'Je n’ai pas trouvé assez d’éléments fiables pour répondre. Précisez le sujet ou donnez-moi un lien.'
+        : 'C’est noté.';
 
-  if (okSources.length) {
-    const listed = okSources.map((row) => row.url).join(', ');
-    if (!/lien|source|lu|lecture|analys/i.test(reply)) {
-      reply = `${reply}\n\nLien(s) lu(s) : ${listed}`;
-    }
-  } else if (urls.length && failedSources.length) {
+  if (linkSources.length && !/lien|source|lu|lecture|analys/i.test(reply)) {
+    reply = `${reply}\n\nLien(s) lu(s) : ${linkSources.map((row) => row.url).join(', ')}`;
+  } else if (urls.length && failedSources.length && !searchSources.length) {
     reply = `${reply}\n\n⚠️ Impossible de lire : ${failedSources.map((row) => row.url).join(', ')}`;
   }
 
-  let actions = normalizeActions(result.data?.actions, allAttachments);
+  let actions = normalizeActions(result.data?.actions, allAttachments, publishMode);
 
   const finalTitle =
     actions.find((action): action is Extract<EditorChatAction, { type: 'set_title' }> => action.type === 'set_title')
       ?.value || article.title;
+  const primarySource = linkSources[0] || searchSources[0];
   actions = actions.map((action) => {
     if (action.type !== 'set_content') return action;
     let html = sanitizeGeneratedArticleHtml(action.value, { title: finalTitle, allowedHrefs });
     html = ensureReadAlso(html, related);
-    if (okSources[0]) html = ensureSourceLink(html, okSources[0].url);
+    if (primarySource) html = ensureSourceLink(html, primarySource.url);
     return { ...action, value: html };
   });
 
-  // Si on a lu une source et que l'utilisateur demande de rédiger, forcer le canonical
+  // Réécriture d'un lien fourni : l'original devient l'URL canonique.
   if (
-    okSources[0] &&
+    linkSources[0] &&
     wantsResearchOrWrite(message) &&
+    actions.some((action) => action.type === 'set_content') &&
     !actions.some((action) => action.type === 'set_canonical_url')
   ) {
-    actions.push({ type: 'set_canonical_url', value: okSources[0].url });
+    actions.push({ type: 'set_canonical_url', value: linkSources[0].url });
   }
 
-  // Heuristique : « mets cette photo en une » + pièce jointe
   if (
     wantsFeaturedFromAttachment(message) &&
     attachments[0] &&
@@ -491,7 +676,6 @@ ${
     ];
   }
 
-  // Si une image a été récupérée d'un lien et qu'on rédige un article sans featured, proposer la photo
   if (
     uploadedFromResearch[0] &&
     actions.some((action) => action.type === 'set_content') &&
@@ -506,9 +690,17 @@ ${
     });
   }
 
+  // Publication demandée explicitement mais oubliée par le modèle.
+  if (publishMode && !actions.some((action) => action.type === 'publish')) {
+    actions.push({ type: 'publish', mode: publishMode });
+  }
+  // La publication passe toujours en dernier, après le SEO éventuel.
+  const publishAction = actions.find((action) => action.type === 'publish');
+  actions = actions.filter((action) => action.type !== 'publish');
+
   let seoScore: number | null = null;
   const wroteOrSeo =
-    wantsSeoWork(message) &&
+    (wantsSeoWork(message) || Boolean(publishAction)) &&
     actions.some(
       (action) =>
         action.type === 'set_content' ||
@@ -603,11 +795,21 @@ ${clip((merged.contentHtml || '').replace(/<[^>]+>/g, ' '), 5_000)}`,
     }
   }
 
+  if (publishAction) actions.push(publishAction);
+
+  if (searchSources.length) {
+    const cited = searchSources
+      .slice(0, 5)
+      .map((source) => `• ${source.title ? `${clip(source.title, 80)} — ` : ''}${source.url}`)
+      .join('\n');
+    if (!reply.includes(searchSources[0].url)) reply = `${reply}\n\nSources consultées :\n${cited}`;
+  }
+
   return {
     reply,
     actions,
     provider: result.provider,
-    researchedUrls: researched.map((row) => row.url),
+    researchedUrls: [...researched.map((row) => row.url), ...searchSources.map((row) => row.url)],
     seoScore,
   };
 }

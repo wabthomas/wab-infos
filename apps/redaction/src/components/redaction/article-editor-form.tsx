@@ -263,6 +263,8 @@ export function ArticleEditorForm({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [seoWizardOpen, setSeoWizardOpen] = useState(false);
   const [aiChatOpen, setAiChatOpen] = useState(false);
+  /** Publication demandée par Wab Ai : exécutée après application des modifications au state. */
+  const [aiPendingSave, setAiPendingSave] = useState<'draft' | 'publish' | 'schedule' | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
   const [featuredAltDraft, setFeaturedAltDraft] = useState(initial?.featuredImageAlt ?? '');
@@ -816,6 +818,31 @@ export function ArticleEditorForm({
   function applyAiChatActions(actions: AiChatAction[]) {
     if (!actions.length) return;
 
+    for (const action of actions) {
+      if (action.type === 'set_schedule') {
+        setScheduledAt(action.at ? toDatetimeLocal(action.at) : '');
+      }
+      if (action.type === 'set_featured_alt') {
+        setFeaturedAltDraft(action.value);
+        const mediaId =
+          actions.find(
+            (row): row is Extract<AiChatAction, { type: 'set_featured_image' }> =>
+              row.type === 'set_featured_image'
+          )?.mediaId ?? values.featuredImageId;
+        if (mediaId) {
+          void fetchRedaction(`/api/redaction/media/${mediaId}`, {
+            method: 'PATCH',
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ alternativeText: action.value }),
+          }).catch(() => undefined);
+        }
+      }
+    }
+    const publishAction = actions.find(
+      (action): action is Extract<AiChatAction, { type: 'publish' }> => action.type === 'publish'
+    );
+    if (publishAction) setAiPendingSave(publishAction.mode);
+
     setValues((current) => {
       let next = { ...current };
       for (const action of actions) {
@@ -872,6 +899,18 @@ export function ArticleEditorForm({
         }
         if (action.type === 'set_canonical_url') {
           next = { ...next, canonicalUrl: action.value };
+          continue;
+        }
+        if (action.type === 'set_tags') {
+          next = { ...next, tagNames: action.values };
+          continue;
+        }
+        if (action.type === 'set_breaking') {
+          next = { ...next, isBreaking: action.value };
+          continue;
+        }
+        if (action.type === 'set_featured_alt') {
+          next = { ...next, featuredImageAlt: action.value };
         }
       }
       return next;
@@ -1026,6 +1065,19 @@ export function ArticleEditorForm({
       setSaving(null);
     }
   }
+
+  useEffect(() => {
+    if (!aiPendingSave) return;
+    const mode = aiPendingSave;
+    setAiPendingSave(null);
+    if (mode === 'schedule' && !(scheduledAt && new Date(scheduledAt).getTime() > Date.now())) {
+      toast.error('Programmation impossible', 'Indiquez une date future à Wab Ai ou dans les réglages.');
+      return;
+    }
+    void save(mode);
+    // save lit les valeurs à jour du rendu courant : seule la demande doit déclencher l'effet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiPendingSave]);
 
   const primaryMode =
     scheduledAt && new Date(scheduledAt).getTime() > Date.now() ? 'schedule' : 'publish';
@@ -1346,6 +1398,11 @@ export function ArticleEditorForm({
           canonicalUrl: values.canonicalUrl,
           featuredImageId: values.featuredImageId,
           featuredImageUrl: values.featuredImageUrl,
+          featuredImageAlt: values.featuredImageAlt,
+          tags: values.tagNames,
+          isBreaking: values.isBreaking,
+          scheduledAt: scheduledAt || undefined,
+          status: articleIsLive ? 'publié (en ligne)' : values.articleStatus || 'brouillon',
         }}
         onActions={applyAiChatActions}
       />

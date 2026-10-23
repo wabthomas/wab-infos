@@ -19,6 +19,7 @@ import {
   Save,
   Search,
   Smartphone,
+  Sparkles,
   Trash2,
   Type,
   Users,
@@ -39,6 +40,7 @@ import {
   type SocialFollowPlatform,
 } from '@wab-infos/shared';
 import { readApiJsonResponse } from '@/lib/redaction/api-response';
+import { AiDeskPanel } from '@/components/redaction/ai-desk-panel';
 import {
   HomepageSectionsEditor,
   HomepageSectionsSettingCard,
@@ -85,6 +87,7 @@ type SheetKey =
   | 'homepage-sections'
   | 'social-links'
   | 'social-edit'
+  | 'ai'
   | null;
 
 type SettingsSectionId =
@@ -96,7 +99,21 @@ type SettingsSectionId =
   | 'seo'
   | 'typography'
   | 'social'
-  | 'notify';
+  | 'notify'
+  | 'ai';
+
+const SECTION_IDS: SettingsSectionId[] = [
+  'pwa',
+  'chrome',
+  'homepage',
+  'articles',
+  'support',
+  'seo',
+  'typography',
+  'social',
+  'notify',
+  'ai',
+];
 
 const DESKTOP_SECTIONS: {
   id: SettingsSectionId;
@@ -157,6 +174,12 @@ const DESKTOP_SECTIONS: {
     label: 'Notifications',
     description: 'Push lecteurs & rédacteurs',
     icon: Bell,
+  },
+  {
+    id: 'ai',
+    label: 'Assistant IA',
+    description: 'Fournisseurs, quotas & brouillons',
+    icon: Sparkles,
   },
 ];
 
@@ -704,6 +727,7 @@ function DesktopSectionNav({
     notify: settings.chrome.readerDailyPush?.enabled
       ? `Lecteurs auto ${String(settings.chrome.readerDailyPush.hour).padStart(2, '0')}h · rédacteurs`
       : 'Push lecteurs manuel · rédacteurs',
+    ai: 'Clés API · chaîne de repli · quotas',
   };
 
   return (
@@ -1187,6 +1211,12 @@ function DesktopSettingsPanel({
           <EditorPushComposer />
         </div>
       ) : null}
+
+      {section === 'ai' ? (
+        <div className="max-w-4xl">
+          <AiDeskPanel embedded />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1203,6 +1233,23 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
   const [editingSocialIndex, setEditingSocialIndex] = useState<number | null>(null);
   const [bulkIndexing, setBulkIndexing] = useState(false);
   const [bulkMessage, setBulkMessage] = useState('');
+
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('onglet');
+    if (requested && (SECTION_IDS as string[]).includes(requested)) {
+      setDesktopSection(requested as SettingsSectionId);
+      if (requested === 'ai' && window.matchMedia('(max-width: 1023px)').matches) {
+        setSheet('ai');
+      }
+    }
+  }, []);
+
+  function selectDesktopSection(id: SettingsSectionId) {
+    setDesktopSection(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set('onglet', id);
+    window.history.replaceState(null, '', url);
+  }
 
   useEffect(() => {
     void (async () => {
@@ -1353,7 +1400,13 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
               {authorName ? ` Connecté en tant que ${authorName}.` : ''}
             </p>
           </div>
-          <SaveButton saving={saving} saved={saved} onClick={() => void save()} className="shrink-0" />
+          {desktopSection === 'ai' ? (
+            <span className="shrink-0 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+              Enregistrement dans l’onglet
+            </span>
+          ) : (
+            <SaveButton saving={saving} saved={saved} onClick={() => void save()} className="shrink-0" />
+          )}
         </div>
 
         <div className="flex gap-8">
@@ -1362,7 +1415,7 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
               <DesktopSectionNav
                 activeSection={desktopSection}
                 settings={settings}
-                onSelect={setDesktopSection}
+                onSelect={selectDesktopSection}
               />
             </div>
           </aside>
@@ -1640,7 +1693,32 @@ export function SiteSettingsForm({ authorName }: { authorName?: string }) {
           />
           <EditorPushComposer />
         </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h3 className="text-base font-bold">Assistant IA</h3>
+          </div>
+          <SettingCard
+            icon={Sparkles}
+            label="Assistant IA rédaction"
+            value="Clés · chaîne · quotas"
+            description="Fournisseurs (DeepSeek, Groq…), quotas journaliers et brouillons IA."
+            onClick={() => setSheet('ai')}
+          />
+        </section>
       </div>
+
+      <BottomSheet
+        open={sheet === 'ai'}
+        onClose={() => setSheet(null)}
+        title="Assistant IA rédaction"
+        description="Cet onglet a son propre bouton d’enregistrement."
+      >
+        <div className="pb-6">
+          <AiDeskPanel embedded />
+        </div>
+      </BottomSheet>
 
       <div className="fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-lg items-center gap-3">

@@ -69,6 +69,21 @@ export async function detectInstalledPwa(manifestPath = '/manifest.webmanifest')
   }
 }
 
+/** Détecte l'app Android (Play) installée — nécessite related_applications + asset_statements côté app. */
+export async function detectInstalledAndroidApp(packageId: string): Promise<boolean> {
+  if (typeof navigator === 'undefined') return false;
+  const getInstalled = (
+    navigator as Navigator & { getInstalledRelatedApps?: () => Promise<InstalledRelatedApp[]> }
+  ).getInstalledRelatedApps;
+  if (!getInstalled) return false;
+  try {
+    const apps = await getInstalled.call(navigator);
+    return apps.some((app) => app.platform === 'play' && (!app.id || app.id === packageId));
+  } catch {
+    return false;
+  }
+}
+
 export function shouldHideInstallBanner(variant: PwaVariant): boolean {
   return (
     isStandalonePwa() ||
