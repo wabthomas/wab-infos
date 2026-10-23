@@ -158,14 +158,10 @@ export async function saveNewsletterSettings(input: {
   return getNewsletterSettings();
 }
 
-export async function sendNewsletterTest(to: string): Promise<void> {
-  const email = to.trim().toLowerCase();
-  if (!EMAIL_PATTERN.test(email)) throw new Error('Adresse de test invalide.');
-
+async function resolveSmtpTransporter() {
   const view = await getNewsletterSettings();
   const stored = await strapi<{ data?: StoredSettings | null }>('/newsletter-setting');
-  const pass =
-    stored.data?.data?.smtpPass?.trim() || process.env.SMTP_PASS?.trim() || '';
+  const pass = stored.data?.data?.smtpPass?.trim() || process.env.SMTP_PASS?.trim() || '';
   const local = await localMailRelayAvailable();
   if (!view.senderEmail || (!local && (!view.smtpHost || !view.smtpUser || !pass))) {
     throw new Error('Renseignez l’hôte, l’utilisateur, l’expéditeur et le mot de passe, puis enregistrez.');
@@ -189,6 +185,15 @@ export async function sendNewsletterTest(to: string): Promise<void> {
         )
   );
 
+  return { view, transporter };
+}
+
+export async function sendNewsletterTest(to: string): Promise<void> {
+  const email = to.trim().toLowerCase();
+  if (!EMAIL_PATTERN.test(email)) throw new Error('Adresse de test invalide.');
+
+  const { view, transporter } = await resolveSmtpTransporter();
+
   try {
     await transporter.sendMail({
       from: { name: view.senderName || 'Wab-infos', address: view.senderEmail },
@@ -210,6 +215,96 @@ export async function sendNewsletterTest(to: string): Promise<void> {
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'erreur SMTP';
     throw new Error(`Envoi impossible : ${detail}`);
+  }
+}
+
+async function sendUnsubscribeNotice(email: string): Promise<void> {
+  const { view, transporter } = await resolveSmtpTransporter();
+  const siteUrl = 'https://wab-infos.com';
+  const siteName = view.senderName || 'Wab-infos';
+
+  await transporter.sendMail({
+    from: { name: siteName, address: view.senderEmail },
+    to: email,
+    replyTo: view.replyTo || view.senderEmail,
+    subject: `Désinscription confirmée — ${siteName}`,
+    text: `Bonjour,\n\nVotre adresse ${email} a été désinscrite de la newsletter ${siteName}. Vous ne recevrez plus nos actualités par e-mail.\n\nSi vous souhaitez vous réinscrire plus tard : ${siteUrl}\n\n— L’équipe ${siteName}`,
+    html: renderNewsletterEmail({
+      siteUrl,
+      siteName,
+      tagline: "S'informer pour mieux s'armer !",
+      preheader: 'Confirmation de désinscription de la newsletter.',
+      bodyHtml: `<div style="padding:28px 24px;">
+          <p style="margin:0 0 14px;font-size:16px;line-height:1.6;color:#18181b;">Bonjour,</p>
+          <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#3f3f46;">Votre adresse <strong>${email.replace(/</g, '&lt;')}</strong> a été désinscrite de la newsletter <strong>${siteName.replace(/</g, '&lt;')}</strong>.</p>
+          <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#3f3f46;">Vous ne recevrez plus nos actualités ni nos alertes vidéo par e-mail.</p>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#3f3f46;">Pour vous réinscrire plus tard, rendez-vous sur <a href="${siteUrl}" style="color:#18181b;font-weight:600;">wab-infos.com</a>.</p>
+        </div>`,
+    }),
+  });
+}
+
+/** Désinscription manuelle depuis la rédaction (+ notification e-mail optionnelle). */
+export async function unsubscribeNewsletterSubscriber(
+  documentId: string,
+  options?: { notify?: boolean }
+): Promise<{
+  email: string;
+  notified: boolean;
+  alreadyUnsubscribed: boolean;
+  notifyError?: string;
+}> {
+  const id = documentId.trim();
+  if (!id) throw new Error('Abonné introuvable.');
+
+  const existing = await strapi<{
+    data?: { documentId?: string; email?: string; status?: string } | null;
+  }>(`/subscribers/${encodeURIComponent(id)}?fields[0]=email&fields[1]=status`);
+
+  if (existing.status === 401 || existing.status === 403) {
+    throw new Error('Le jeton API n’a pas le droit de modifier les abonnés.');
+  }
+  const row = existing.data?.data;
+  if (existing.status >= 400 || !row?.email) {
+    throw new Error('Abonné introuvable.');
+  }
+
+  const email = row.email.toLowerCase();
+  if (row.status === 'unsubscribed') {
+    return { email, notified: false, alreadyUnsubscribed: true };
+  }
+
+  const updated = await strapi(`/subscribers/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      data: {
+        status: 'unsubscribed',
+        source: 'redaction',
+        unsubscribedAt: new Date().toISOString(),
+      },
+    }),
+  });
+  if (updated.status >= 400) {
+    throw new Error(`Désinscription impossible pour ${email}.`);
+  }
+
+  const shouldNotify = options?.notify !== false;
+  if (!shouldNotify) {
+    return { email, notified: false, alreadyUnsubscribed: false };
+  }
+
+  try {
+    await sendUnsubscribeNotice(email);
+    return { email, notified: true, alreadyUnsubscribed: false };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'erreur SMTP';
+    // La désinscription est déjà effective : on remonte l’échec d’envoi sans l’annuler.
+    return {
+      email,
+      notified: false,
+      alreadyUnsubscribed: false,
+      notifyError: detail,
+    };
   }
 }
 

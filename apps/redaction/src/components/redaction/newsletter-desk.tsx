@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Loader2, Mail, Send, Upload } from 'lucide-react';
+import { Loader2, Mail, Send, Upload, UserMinus } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { readApiJsonResponse } from '@/lib/redaction/api-response';
 import { useToast } from '@/components/ui/toast';
@@ -18,6 +18,7 @@ export function NewsletterDesk() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [unsubscribingId, setUnsubscribingId] = useState<string | null>(null);
   const [settings, setSettings] = useState<NewsletterSettingsView | null>(null);
   const [password, setPassword] = useState('');
   const [testTo, setTestTo] = useState('');
@@ -110,6 +111,49 @@ export function NewsletterDesk() {
       toast.error('Test', error instanceof Error ? error.message : 'Erreur');
     } finally {
       setTesting(false);
+    }
+  }
+
+  async function unsubscribeRow(row: NewsletterSubscriberRow) {
+    if (row.status !== 'active') return;
+    const ok = window.confirm(
+      `Désinscrire ${row.email} ?\n\nUn e-mail de confirmation lui sera envoyé.`
+    );
+    if (!ok) return;
+
+    setUnsubscribingId(row.documentId);
+    try {
+      const response = await fetchRedaction('/api/redaction/newsletter/subscribers/unsubscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId: row.documentId, notify: true }),
+      });
+      const data = await readApiJsonResponse<{
+        email?: string;
+        notified?: boolean;
+        alreadyUnsubscribed?: boolean;
+        notifyError?: string;
+        error?: string;
+      }>(response);
+      if (!response.ok) throw new Error(data.error || 'Désinscription impossible');
+
+      if (data.alreadyUnsubscribed) {
+        toast.success('Déjà désinscrit', data.email || row.email);
+      } else if (data.notified) {
+        toast.success('Désinscrit', `${data.email || row.email} — confirmation envoyée.`);
+      } else if (data.notifyError) {
+        toast.error(
+          'Désinscrit sans e-mail',
+          `L’adresse est désinscrite, mais l’envoi a échoué : ${data.notifyError}`
+        );
+      } else {
+        toast.success('Désinscrit', data.email || row.email);
+      }
+      await loadList(page, query);
+    } catch (error) {
+      toast.error('Désinscription', error instanceof Error ? error.message : 'Erreur');
+    } finally {
+      setUnsubscribingId(null);
     }
   }
 
@@ -359,13 +403,14 @@ export function NewsletterDesk() {
                 <th className="py-2 pr-3 font-semibold">Adresse</th>
                 <th className="py-2 pr-3 font-semibold">État</th>
                 <th className="py-2 pr-3 font-semibold">Origine</th>
-                <th className="py-2 font-semibold">Inscription</th>
+                <th className="py-2 pr-3 font-semibold">Inscription</th>
+                <th className="py-2 font-semibold">Action</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-6 text-muted-foreground">
+                  <td colSpan={5} className="py-6 text-muted-foreground">
                     Aucune adresse pour le moment.
                   </td>
                 </tr>
@@ -377,10 +422,30 @@ export function NewsletterDesk() {
                       {row.status === 'active' ? 'Actif' : 'Désinscrit'}
                     </td>
                     <td className="py-2.5 pr-3 text-muted-foreground">{row.source}</td>
-                    <td className="py-2.5 text-muted-foreground">
+                    <td className="py-2.5 pr-3 text-muted-foreground">
                       {row.subscribedAt
                         ? format(new Date(row.subscribedAt), 'd MMM yyyy', { locale: fr })
                         : '—'}
+                    </td>
+                    <td className="py-2.5">
+                      {row.status === 'active' ? (
+                        <button
+                          type="button"
+                          disabled={unsubscribingId === row.documentId}
+                          onClick={() => void unsubscribeRow(row)}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold hover:bg-muted disabled:opacity-60"
+                          title="Désinscrire et notifier"
+                        >
+                          {unsubscribingId === row.documentId ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <UserMinus className="h-3.5 w-3.5" />
+                          )}
+                          Désinscrire
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
                   </tr>
                 ))
