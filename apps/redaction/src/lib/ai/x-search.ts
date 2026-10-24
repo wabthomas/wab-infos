@@ -212,6 +212,8 @@ export async function searchCredibleX(
       const search = await searchWeb(query, {
         limit: 8,
         freshness: options?.freshness ?? 'week',
+        // Recherche X : inutile d’interroger les flux news / médias locaux.
+        channels: ['tavily', 'brave', 'serper', 'google-cse', 'duckduckgo', 'bing'],
       });
       errors.push(...search.errors);
       for (const row of search.results) {

@@ -130,7 +130,7 @@ ${source.text.slice(0, 10_000)}
 ${topic ? `Consignes complémentaires :\n${topic}\n\n` : ''}Rédige un article de presse original pour Wab-infos à partir de ces éléments. Ne copie pas le texte source : reformule, structure et contextualise.`;
   } else {
     if (topic.length < 8) throw new Error('Sujet trop court');
-    const { sources } = await searchAndRead([topic], { freshness: 'month', maxRead: 4 });
+    const { sources } = await searchAndRead([topic], { freshness: 'month', maxRead: 6 });
     if (sources.length) {
       sourceUrl = sources[0].url;
       sourceTitle = sources.map((source) => source.title).join(' ');

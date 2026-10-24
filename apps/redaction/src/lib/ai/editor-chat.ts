@@ -21,7 +21,7 @@ import { CREDIBLE_X_HANDLES, searchCredibleX } from '@/lib/ai/x-search';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '');
 const SEO_TARGET_SCORE = 90;
-const MAX_TOOL_ROUNDS = 2;
+const MAX_TOOL_ROUNDS = 3;
 
 export interface EditorChatAttachment {
   mediaId: number;
@@ -355,12 +355,13 @@ function buildSystemPrompt(rubriques: string): string {
 
 DATE ET HEURE À KINSHASA : ${todayInKinshasa()}
 
-OUTIL WEB + X (recherche moteurs, pages, et posts X de comptes crédibles)
-- Si la demande porte sur l'actualité, un fait à vérifier, un sujet à documenter, ou un article à rédiger sans source suffisante, demande d'abord une recherche :
-  {"tool":"web","search":["requête 1","requête 2"],"x":["sujet ou @Compte"],"read":["https://..."],"freshness":"day|week|month|any"}
-  (1 à 3 requêtes web ; "x" pour chercher sur X/Twitter auprès de comptes crédibles — médias / institutions RDC & Afrique ; "read" pour des URL précises, y compris des posts x.com.)
-- Pour l'actu fraîche ou une réaction officielle, inclus toujours "x" (ex. ["Kinshasa manifestations","@RadioOkapi","@Presidence_RDC"]).
+OUTIL DE RECHERCHE LARGE (web, Google News, médias congolais, X)
+- Le serveur interroge en parallèle : Google (Serper / CSE si configuré), Brave, Tavily, Google News, Bing News, les médias congolais (Actualite.cd, 7sur7, Le Potentiel, Opinion-Info), DuckDuckGo et Bing. Tu n'as pas à choisir le moteur : donne les angles de recherche.
+- Pour toute demande d'actualité, de vérification, de contexte, de chiffre, de nom ou de citation, tu DOIS chercher AVANT de répondre, même si tu crois connaître la réponse. N'invente jamais.
+- Formule 2 à 5 requêtes complémentaires : français ET anglais si utile, noms propres, dates, opérateurs <site:radiookapi.net>, <site:actualite.cd>, <filetype:pdf>, etc.
+- Pour l'actu chaude ou une réaction officielle, ajoute toujours "x" (ex. ["Kinshasa manifestations","@RadioOkapi","@Presidence_RDC"]).
 - Comptes déjà autorisés côté serveur (extrait) : ${CREDIBLE_X_HANDLES.slice(0, 16).join(', ')}… — tu peux aussi passer un @handle supplémentaire dans "x".
+- Tu peux enchaîner jusqu'à 3 rounds : si une information manque, se contredit ou vient d'un seul média, relance une recherche ciblée avant de conclure.
 - Le serveur exécute la recherche, lit les pages/posts et te renvoie « RÉSULTATS WEB ». Tu réponds ensuite normalement.
 - N'utilise pas l'outil pour une simple correction, un titrage ou un réglage sur l'article existant.
 - Sur X : ne cite que des posts effectivement renvoyés ; attribue clairement (« selon @RadioOkapi sur X »).
@@ -402,18 +403,29 @@ SCHÉMAS DE RÉPONSE
 {"tool":"web","search":["..."],"x":["..."],"read":["..."],"freshness":"week"}`;
 }
 
-function formatWebResults(results: WebSearchResult[], sources: ReadSource[], errors: string[]): string {
+function formatWebResults(
+  results: WebSearchResult[],
+  sources: ReadSource[],
+  errors: string[],
+  engines?: string[]
+): string {
+  const channels = engines?.length ? `Canaux interrogés : ${engines.join(', ')}.\n` : '';
   if (!results.length && !sources.length) {
-    return `Aucun résultat exploitable.${errors.length ? ` (${errors.slice(0, 4).join(' · ')})` : ''}`;
+    return `${channels}Aucun résultat exploitable.${errors.length ? ` (${errors.slice(0, 4).join(' · ')})` : ''}`;
   }
   const list = results
-    .slice(0, 10)
-    .map((row, index) => `${index + 1}. ${row.title} — ${row.url}${row.published ? ` (${row.published})` : ''}\n   ${clip(row.snippet, 260)}`)
+    .slice(0, 16)
+    .map(
+      (row, index) =>
+        `${index + 1}. ${row.title} — ${row.url}${row.published ? ` (${row.published})` : ''}${
+          row.engine ? ` [${row.engine}]` : ''
+        }${row.noRead ? ' (lien de découverte)' : ''}\n   ${clip(row.snippet, 280)}`
+    )
     .join('\n');
   const read = sources
     .map((source) => `URL: ${source.url}\nTitre: ${source.title}\nTexte:\n${clip(source.text, 5_000)}\n---`)
     .join('\n');
-  return `RÉSULTATS DE RECHERCHE\n${list || '(aucun)'}\n\nPAGES LUES\n${read || '(aucune page lisible)'}`;
+  return `${channels}RÉSULTATS DE RECHERCHE\n${list || '(aucun)'}\n\nPAGES LUES\n${read || '(aucune page lisible)'}`;
 }
 
 function parseToolRequest(data: ChatModelResponse | undefined): {
@@ -439,7 +451,7 @@ function parseToolRequest(data: ChatModelResponse | undefined): {
     data.freshness === 'day' || data.freshness === 'week' || data.freshness === 'month'
       ? data.freshness
       : 'any';
-  return { search: search.slice(0, 3), x: x.slice(0, 3), read: read.slice(0, 3), freshness };
+  return { search: search.slice(0, 5), x: x.slice(0, 4), read: read.slice(0, 5), freshness };
 }
 
 export async function runEditorChatTurn(input: {
@@ -619,11 +631,17 @@ ${
     const webPromise = tool.search.length
       ? searchAndRead(tool.search, {
           freshness: tool.freshness,
-          maxRead: 4,
+          maxRead: 6,
+          perQuery: 8,
         })
-      : Promise.resolve({ results: [] as WebSearchResult[], sources: [], errors: [] as string[] });
+      : Promise.resolve({
+          results: [] as WebSearchResult[],
+          sources: [],
+          errors: [] as string[],
+          engines: [] as string[],
+        });
     const xPromise = tool.x.length
-      ? searchCredibleX(tool.x, { freshness: tool.freshness, maxPosts: 4 })
+      ? searchCredibleX(tool.x, { freshness: tool.freshness, maxPosts: 6 })
       : Promise.resolve({ results: [] as WebSearchResult[], posts: [], errors: [] as string[] });
 
     const [web, x] = await Promise.all([webPromise, xPromise]);
@@ -676,7 +694,7 @@ ${
       },
       {
         role: 'user',
-        content: `RÉSULTATS WEB (recherche ${round + 1}) pour : ${[...tool.search, ...tool.x].join(' | ') || tool.read.join(' | ')}\n\n${formatWebResults(results, roundSources, errors)}${xBlock}\n\nRéponds maintenant à ma demande initiale au format {"reply","actions"}${round + 1 < MAX_TOOL_ROUNDS ? ' (ou une dernière recherche si vraiment indispensable)' : ''}.`,
+        content: `RÉSULTATS WEB (recherche ${round + 1}) pour : ${[...tool.search, ...tool.x].join(' | ') || tool.read.join(' | ')}\n\n${formatWebResults(results, roundSources, errors, [...web.engines, ...(x.posts.length ? ['x'] : [])])}${xBlock}\n\nRéponds maintenant à ma demande initiale au format {"reply","actions"}${round + 1 < MAX_TOOL_ROUNDS ? ' (ou une dernière recherche si vraiment indispensable)' : ''}.`,
       }
     );
     result = await completeMessagesJson<ChatModelResponse>({

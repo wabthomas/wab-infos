@@ -102,9 +102,25 @@ fi
 
 if [ ! -f "$APP_DIR/apps/redaction/.env.local" ]; then
   echo "→ Création apps/redaction/.env.local depuis .env"
-  grep -E '^(NEXT_PUBLIC_|STRAPI_|REDACTION_|FIREBASE_|PUSH_)' "$APP_DIR/.env" > "$APP_DIR/apps/redaction/.env.local" || true
+  grep -E '^(NEXT_PUBLIC_|STRAPI_|REDACTION_|FIREBASE_|PUSH_|REVALIDATION_|TAVILY_|BRAVE_|SERPER_|GOOGLE_CSE_)' "$APP_DIR/.env" > "$APP_DIR/apps/redaction/.env.local" || true
 else
-  echo "→ apps/redaction/.env.local déjà présent"
+  echo "→ Mise à jour apps/redaction/.env.local (secrets et clés de recherche)"
+  TMP_ENV=$(mktemp)
+  # On ne réécrit que les secrets : les URLs publiques restent propres à la rédaction.
+  grep -E '^(REVALIDATION_|TAVILY_|BRAVE_|SERPER_|GOOGLE_CSE_)' "$APP_DIR/.env" > "$TMP_ENV" || true
+  if [ -s "$TMP_ENV" ]; then
+    while IFS= read -r line; do
+      key="${line%%=*}"
+      if [ -n "$key" ]; then
+        if grep -q "^${key}=" "$APP_DIR/apps/redaction/.env.local" 2>/dev/null; then
+          sed -i "s|^${key}=.*|${line}|" "$APP_DIR/apps/redaction/.env.local"
+        else
+          echo "$line" >> "$APP_DIR/apps/redaction/.env.local"
+        fi
+      fi
+    done < "$TMP_ENV"
+  fi
+  rm -f "$TMP_ENV"
 fi
 
 echo "→ git pull"
