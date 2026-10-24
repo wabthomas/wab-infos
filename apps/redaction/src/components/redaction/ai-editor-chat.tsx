@@ -138,6 +138,49 @@ export function AiEditorChat({ open, onClose, article, onActions }: AiEditorChat
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  /**
+   * Mobile : tirer la conversation vers le bas quand on est déjà en haut
+   * déclenchait le pull-to-refresh du navigateur — la page se rechargeait et
+   * le brouillon en cours était perdu. On coupe le geste à la source :
+   *  1. classe sur <html> → `overscroll-behavior: none` (navigateurs récents) ;
+   *  2. `touchmove` non passif sur la liste → blocage du rebond quand scrollTop = 0
+   *     (couvre les WebView qui ignorent `overscroll-behavior`).
+   */
+  useEffect(() => {
+    if (!open) return;
+
+    const root = document.documentElement;
+    root.classList.add('redaction-ai-chat-open');
+
+    const list = listRef.current;
+    let startY = 0;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (touch) startY = touch.clientY;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch || !list) return;
+      const deltaY = touch.clientY - startY;
+      // Seul le geste vers le bas, conversation déjà en haut, est neutralisé :
+      // le défilement normal (vers le haut) reste natif.
+      if (deltaY > 0 && list.scrollTop <= 0) {
+        event.preventDefault();
+      }
+    };
+
+    list?.addEventListener('touchstart', handleTouchStart, { passive: true });
+    list?.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      root.classList.remove('redaction-ai-chat-open');
+      list?.removeEventListener('touchstart', handleTouchStart);
+      list?.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const el = listRef.current;

@@ -351,6 +351,14 @@ html.native-capacitor {
   overscroll-behavior-y: none;
 }
 
+/* Chat IA ouvert : aucun pull-to-refresh navigateur ne doit recharger l’éditeur
+   (un rechargement perd le brouillon). Complète le blocage touchmove du composant. */
+html.redaction-ai-chat-open,
+html.redaction-ai-chat-open body {
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+}
+
 html.native-capacitor:has(#redaction-main-scroll) {
   height: 100%;
 }
