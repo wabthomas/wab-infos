@@ -447,9 +447,75 @@ html.native-capacitor #redaction-main-scroll {
   opacity: 0.35;
 }
 
-.wab-ai-avatar__letter {
+/* ——— Robot Wab Ai : cligne, flotte, balaie du regard ——— */
+.wab-ai-avatar__robot {
   position: relative;
   z-index: 1;
+  height: 84%;
+  width: 84%;
+  color: #fff;
+  overflow: visible;
+  animation: wab-ai-float 5.2s ease-in-out infinite;
+}
+
+.wab-ai-avatar__robot-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0.32;
+}
+
+.wab-ai-avatar__robot-arc {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+}
+
+.wab-ai-avatar__robot-head {
+  transform-box: fill-box;
+  transform-origin: 50% 78%;
+}
+
+.wab-ai-avatar__robot-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.wab-ai-avatar__robot-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wab-ai-eye-blink 5.6s ease-in-out infinite;
+}
+
+.wab-ai-avatar__robot-bulb {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wab-ai-bulb 3s ease-in-out infinite;
+}
+
+.wab-ai-avatar--thinking .wab-ai-avatar__robot {
+  animation-duration: 3.2s;
+}
+
+.wab-ai-avatar--thinking .wab-ai-avatar__robot-head {
+  animation: wab-ai-head-tilt 2.6s ease-in-out infinite;
+}
+
+.wab-ai-avatar--thinking .wab-ai-avatar__robot-eyes {
+  animation: wab-ai-eye-scan 2.4s ease-in-out infinite;
+}
+
+.wab-ai-avatar--thinking .wab-ai-avatar__robot-orbit {
+  animation: wab-ai-spin 2.8s linear infinite;
+  opacity: 0.9;
+}
+
+.wab-ai-avatar--thinking .wab-ai-avatar__robot-arc {
+  opacity: 1;
+  animation: wab-ai-spin 1.7s linear infinite;
+}
+
+.wab-ai-avatar--thinking .wab-ai-avatar__robot-bulb {
+  animation-duration: 0.9s;
 }
 
 .wab-ai-avatar__ring {
@@ -505,6 +571,63 @@ html.native-capacitor #redaction-main-scroll {
   }
 }
 
+@keyframes wab-ai-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.2px);
+  }
+}
+
+@keyframes wab-ai-eye-blink {
+  0%,
+  90%,
+  100% {
+    transform: scaleY(1);
+  }
+  93%,
+  96% {
+    transform: scaleY(0.08);
+  }
+}
+
+@keyframes wab-ai-eye-scan {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-1.8px);
+  }
+  75% {
+    transform: translateX(1.8px);
+  }
+}
+
+@keyframes wab-ai-head-tilt {
+  0%,
+  100% {
+    transform: rotate(-2.4deg) translateY(0);
+  }
+  50% {
+    transform: rotate(2.4deg) translateY(-0.7px);
+  }
+}
+
+@keyframes wab-ai-bulb {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [class*='redaction-toast-in'] {
     animation: none !important;
@@ -512,7 +635,14 @@ html.native-capacitor #redaction-main-scroll {
 
   .wab-ai-avatar--thinking .wab-ai-avatar__core,
   .wab-ai-avatar--thinking .wab-ai-avatar__glow,
-  .wab-ai-avatar--thinking .wab-ai-avatar__ring {
+  .wab-ai-avatar--thinking .wab-ai-avatar__ring,
+  .wab-ai-avatar__robot,
+  .wab-ai-avatar__robot-head,
+  .wab-ai-avatar__robot-eyes,
+  .wab-ai-avatar__robot-eye,
+  .wab-ai-avatar__robot-orbit,
+  .wab-ai-avatar__robot-arc,
+  .wab-ai-avatar__robot-bulb {
     animation: none !important;
   }
 
