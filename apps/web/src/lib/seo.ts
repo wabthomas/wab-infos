@@ -14,7 +14,6 @@ import {
   editorialConfig,
   getArticlePath,
   getVideoPagePath,
-  resolveArticleCategorySlug,
   siteConfig,
   siteSocialProfiles,
 } from '@/config/site';
@@ -74,6 +73,7 @@ export function generateOrganizationJsonLd(): WithContext<NewsMediaOrganization>
   return {
     '@context': 'https://schema.org',
     '@type': 'NewsMediaOrganization',
+    '@id': `${siteConfig.url}/#organization`,
     name: siteConfig.publisher,
     alternateName: ['Wab-infos', 'Wab infos', 'wab-infos'],
     url: siteConfig.url,
@@ -126,7 +126,6 @@ export function generateArticleJsonLd(
   urlCategory?: string
 ): WithContext<NewsArticle> {
   const images = collectArticleImages(article);
-  const categorySlug = resolveArticleCategorySlug(article, urlCategory);
   const articleUrl = `${siteConfig.url}${getArticlePath(article, urlCategory)}`;
   const plainBody = stripHtml(article.content);
   const ogImage = resolveArticleOgImage(article);
@@ -142,12 +141,26 @@ export function generateArticleJsonLd(
       : { width: '1200', height: '630' }),
   }));
 
+  const publisher = {
+    '@type': 'NewsMediaOrganization' as const,
+    '@id': `${siteConfig.url}/#organization`,
+    name: siteConfig.publisher,
+    url: siteConfig.url,
+    logo: publisherLogoObject(),
+    sameAs: [...siteSocialProfiles],
+  };
+
+  const publishedYear = new Date(displayDate).getUTCFullYear();
+
   return {
     '@context': 'https://schema.org',
     '@type': schemaType,
     headline: seoMeta.breadcrumbTitle || article.title,
+    alternativeHeadline:
+      article.title && article.title !== seoMeta.breadcrumbTitle ? article.title : undefined,
     description: article.seoDescription || article.excerpt,
     image: imageObjects,
+    thumbnailUrl: images[0],
     url: articleUrl,
     datePublished: displayDate,
     dateModified: article.updatedAt || displayDate,
@@ -158,10 +171,16 @@ export function generateArticleJsonLd(
           url: `${siteConfig.url}/auteur/${article.author.slug}`,
         }
       : { '@type': 'NewsMediaOrganization', name: siteConfig.publisher },
-    publisher: {
-      '@type': 'NewsMediaOrganization',
-      name: siteConfig.publisher,
-      logo: publisherLogoObject(),
+    publisher,
+    copyrightHolder: publisher,
+    copyrightYear: Number.isFinite(publishedYear) ? publishedYear : undefined,
+    creditText: siteConfig.name,
+    license: `${siteConfig.url}/mentions-legales`,
+    isPartOf: {
+      '@type': 'WebSite',
+      '@id': `${siteConfig.url}/#website`,
+      name: siteConfig.name,
+      url: siteConfig.url,
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
@@ -172,7 +191,15 @@ export function generateArticleJsonLd(
       cssSelector: ['article h1', 'header h1'],
     },
     articleSection: article.category?.name,
+    about: article.category
+      ? { '@type': 'Thing', name: article.category.name }
+      : { '@type': 'Thing', name: 'Actualité' },
+    mentions: article.tags?.length
+      ? article.tags.map((tag) => ({ '@type': 'Thing' as const, name: tag.name }))
+      : undefined,
     keywords: article.tags?.map((t) => t.name).join(', '),
+    dateline: editorialConfig.address,
+    contentLocation: { '@type': 'Place', name: editorialConfig.address },
     wordCount: plainBody.split(/\s+/).filter(Boolean).length,
     articleBody: plainBody.slice(0, 5000),
     isAccessibleForFree: true,
@@ -199,6 +226,7 @@ export function generateWebsiteJsonLd(): WithContext<WebSite> {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
+    '@id': `${siteConfig.url}/#website`,
     name: siteConfig.name,
     url: siteConfig.url,
     description: siteConfig.description,
@@ -355,6 +383,12 @@ export function generateArticleMetadata(article: Article, urlCategory?: string) 
       'max-image-preview': 'large' as const,
       'max-snippet': -1,
       'max-video-preview': -1,
+    },
+    // Signal de thématique encore lu par plusieurs agrégateurs / moteurs.
+    other: {
+      ...(article.tags?.length
+        ? { news_keywords: article.tags.map((tag) => tag.name).join(', ') }
+        : {}),
     },
   };
 }

@@ -30,21 +30,28 @@ export function sortDiscoveredByRecency<T extends { publishedAt?: string }>(item
   );
 }
 
-export async function fetchText(url: string): Promise<string> {
+export async function fetchText(
+  url: string,
+  options?: { timeoutMs?: number }
+): Promise<string> {
   const res = await fetch(url, {
     headers: {
       'User-Agent': 'WabInfosNewsIngest/1.0 (+https://wab-infos.com)',
       Accept: 'text/html,application/rss+xml,application/xml;q=0.9,*/*;q=0.8',
     },
-    signal: AbortSignal.timeout(25_000),
+    signal: AbortSignal.timeout(options?.timeoutMs ?? 25_000),
     redirect: 'follow',
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   return res.text();
 }
 
-export async function discoverFromRss(rssUrl: string, limit = 12): Promise<DiscoveredItem[]> {
-  const xml = await fetchText(rssUrl);
+export async function discoverFromRss(
+  rssUrl: string,
+  limit = 12,
+  options?: { timeoutMs?: number }
+): Promise<DiscoveredItem[]> {
+  const xml = await fetchText(rssUrl, options);
   const items: DiscoveredItem[] = [];
   const itemRe = /<item[\s>]([\s\S]*?)<\/item>/gi;
   let match: RegExpExecArray | null;
@@ -62,13 +69,14 @@ export async function discoverFromRss(rssUrl: string, limit = 12): Promise<Disco
 
 export async function discoverFromRssList(
   rssUrls: string[],
-  limit = 12
+  limit = 12,
+  options?: { timeoutMs?: number }
 ): Promise<DiscoveredItem[]> {
   const seen = new Set<string>();
   const out: DiscoveredItem[] = [];
   for (const rssUrl of rssUrls) {
     try {
-      const items = await discoverFromRss(rssUrl, limit);
+      const items = await discoverFromRss(rssUrl, limit, options);
       for (const item of items) {
         if (seen.has(item.url)) continue;
         seen.add(item.url);

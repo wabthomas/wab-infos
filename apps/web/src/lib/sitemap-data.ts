@@ -12,9 +12,14 @@ import { getChannelRecentVideos } from '@/lib/youtube-channel';
 /** ~4k URLs/chunk — well under Google’s 50k/50MB limits, keeps each response fast. */
 export const ARTICLES_PER_SITEMAP = 4000;
 
+/**
+ * Cache court : un article publié doit apparaître dans les sitemaps en quelques
+ * minutes, pas dans l’heure. La purge Cloudflare (à la publication) coupe de
+ * toute façon le cache edge pour les URLs concernées.
+ */
 export const SITEMAP_RESPONSE_HEADERS = {
   'Content-Type': 'application/xml; charset=utf-8',
-  'Cache-Control': 'public, max-age=1800, s-maxage=3600',
+  'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=600',
 } as const;
 
 export function escapeXml(text: string): string {
@@ -106,7 +111,7 @@ function staticAndCategoryEntries(): MetadataRoute.Sitemap {
 }
 
 async function videoAuthorTagEntries(): Promise<MetadataRoute.Sitemap> {
-  let videoPages: MetadataRoute.Sitemap = [];
+  const videoPages: MetadataRoute.Sitemap = [];
   const seenVideoIds = new Set<string>();
   const seenUrls = new Set<string>();
 
@@ -151,7 +156,7 @@ async function videoAuthorTagEntries(): Promise<MetadataRoute.Sitemap> {
     // YouTube indisponible
   }
 
-  let authorPages: MetadataRoute.Sitemap = [];
+  const authorPages: MetadataRoute.Sitemap = [];
   try {
     const authorSlugs = await getAllAuthorSlugs();
     const uniqueAuthors = [...new Set(authorSlugs.filter(Boolean))];
@@ -189,6 +194,10 @@ export async function buildSitemapIndexXml(): Promise<string> {
   const chunkCount = await getArticleSitemapChunkCount();
   const urls = [
     `${siteConfig.url}/sitemaps/static.xml`,
+    // Déclarés dans l’index : News et vidéos sont ainsi découverts même si
+    // Search Console n’a pas encore été reconfiguré.
+    `${siteConfig.url}/sitemap-news.xml`,
+    `${siteConfig.url}/sitemap-videos.xml`,
     ...Array.from({ length: chunkCount }, (_, i) => `${siteConfig.url}/sitemaps/articles/${i}`),
   ];
   return toSitemapIndexXml(urls);

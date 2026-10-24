@@ -6,10 +6,21 @@ import {
   notifyGoogleIndexing,
 } from '@/lib/google-indexing';
 import { siteConfig } from '@/config/site';
+import { purgeCloudflareUrls } from '@/lib/cache/cloudflare';
+import { getIndexingHealth } from '@/lib/seo/health';
 import { getSiteSettings } from '@/lib/site-settings.server';
 
+const ALWAYS_PURGE = [
+  siteConfig.url,
+  `${siteConfig.url}/`,
+  `${siteConfig.url}/sitemap.xml`,
+  `${siteConfig.url}/sitemap-news.xml`,
+  `${siteConfig.url}/sitemap-videos.xml`,
+  `${siteConfig.url}/feed.xml`,
+];
+
 /**
- * IndexNow + Google Indexing API — secret partagé avec /api/revalidate.
+ * IndexNow + Google Indexing API + purge CDN — secret partagé avec /api/revalidate.
  * Body: {
  *   urls?: string[],
  *   articles?: { category: string; slug: string }[],
@@ -66,7 +77,7 @@ export async function POST(request: Request) {
     const uniqueGoogle = [...new Set(googleUrls)].slice(0, 40);
     const googleType = body.type === 'URL_DELETED' ? 'URL_DELETED' : 'URL_UPDATED';
 
-    const [indexNow, google] = await Promise.all([
+    const [indexNow, google, cloudflare] = await Promise.all([
       seo.indexNowEnabled !== false
         ? notifyIndexNow(uniqueIndexNow)
         : Promise.resolve({ ok: false as const, status: undefined }),
@@ -79,6 +90,9 @@ export async function POST(request: Request) {
             succeeded: 0,
             failed: 0,
           }),
+      // Les sitemaps/feeds doivent refléter l’article tout de suite, même si le
+      // HTML de l’article a déjà été coupé par la purge de /api/revalidate.
+      purgeCloudflareUrls([...uniqueIndexNow, ...ALWAYS_PURGE]),
     ]);
 
     const ok = indexNow.ok || google.ok;
@@ -100,6 +114,8 @@ export async function POST(request: Request) {
         failed: 'failed' in google ? google.failed : 0,
         errors: 'errors' in google ? google.errors ?? [] : [],
       },
+      cloudflare,
+      health: getIndexingHealth(),
     });
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });

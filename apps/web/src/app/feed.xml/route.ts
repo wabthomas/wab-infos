@@ -58,7 +58,8 @@ export async function GET() {
     <language>fr</language>
     <managingEditor>${escapeXml(editorialConfig.contactEmail)} (${escapeXml(siteConfig.name)})</managingEditor>
     <webMaster>${escapeXml(editorialConfig.contactEmail)} (${escapeXml(siteConfig.name)})</webMaster>
-    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    <lastBuildDate>${feedLastBuildDate(articles)}</lastBuildDate>
+    <ttl>5</ttl>
     <image>
       <url>${siteConfig.url}${RSS_IMAGE.path}</url>
       <title>${escapeXml(siteConfig.name)}</title>
@@ -74,9 +75,26 @@ ${items}
   return new NextResponse(xml, {
     headers: {
       'Content-Type': 'application/rss+xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=1800',
+      // 5 min : un article publié doit entrer dans le flux sans attendre 30 min.
+      'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=600',
     },
   });
+}
+
+/**
+ * `lastBuildDate` = date du dernier article, pas « maintenant ».
+ * Un flux qui change d’horodatage sans nouvel article fait perdre confiance
+ * aux agrégateurs (et ressemble à du faux contenu frais).
+ */
+function feedLastBuildDate(
+  articles: readonly { publishedAt?: string | null; wpPublishedAt?: string | null }[]
+): string {
+  let newest = 0;
+  for (const article of articles) {
+    const time = new Date(getArticleDisplayDate(article)).getTime();
+    if (Number.isFinite(time) && time > newest) newest = time;
+  }
+  return new Date(newest || Date.now()).toUTCString();
 }
 
 function escapeXml(text: string): string {

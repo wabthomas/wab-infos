@@ -38,6 +38,7 @@ export async function notifyIndexNow(urls: string[]): Promise<{ ok: boolean; sta
         keyLocation: config.keyLocation,
         urlList,
       }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {

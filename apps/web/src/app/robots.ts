@@ -1,23 +1,28 @@
 import type { MetadataRoute } from 'next';
 import { siteConfig } from '@/config/site';
 
+/**
+ * Robots.txt — pensé pour le crawl News.
+ *
+ * On ne bloque plus `/_next/` : Googlebot doit pouvoir charger JS/CSS pour
+ * rendre la page (sinon pénalité de rendu et faux « contenu vide »).
+ * Seuls l’API et l’admin restent fermés.
+ */
 export default function robots(): MetadataRoute.Robots {
+  const disallow = ['/api/', '/admin/'];
+
   return {
     rules: [
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/admin/', '/_next/'],
+        disallow,
       },
       {
-        userAgent: 'Googlebot',
+        // Crawlers News : accès complet au HTML, aux assets et aux flux.
+        userAgent: ['Googlebot', 'Googlebot-News', 'Bingbot'],
         allow: '/',
-        disallow: ['/api/', '/admin/', '/_next/'],
-      },
-      {
-        userAgent: 'Googlebot-News',
-        allow: '/',
-        disallow: ['/api/', '/admin/'],
+        disallow,
       },
     ],
     sitemap: [

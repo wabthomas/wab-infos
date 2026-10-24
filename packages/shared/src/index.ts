@@ -9,6 +9,7 @@ export * from './site-support-settings';
 export * from './article-seo-meta';
 export * from './site-seo-settings';
 export * from './seo-analysis';
+export * from './seo-competition';
 export * from './capacitor-push';
 export * from './capacitor-nav';
 export * from './capacitor-detect';

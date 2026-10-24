@@ -6,6 +6,7 @@ import {
   type SiteSeoSettings,
 } from '@wab-infos/shared';
 import { Loader2 } from 'lucide-react';
+import { SeoCompetitionPanel } from '@/components/redaction/seo-competition-panel';
 
 function ToggleRow({
   label,
@@ -219,6 +220,8 @@ export function SiteSeoSettingsEditor({
           </li>
         </ul>
       </section>
+
+      <SeoCompetitionPanel />
 
       <button
         type="button"

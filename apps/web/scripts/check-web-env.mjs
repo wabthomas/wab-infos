@@ -51,6 +51,11 @@ const checks = [
   { label: 'REVALIDATION_SECRET', ok: isSet('REVALIDATION_SECRET'), required: true },
   { label: 'INDEXNOW_KEY (Bing à la publication)', ok: isSet('INDEXNOW_KEY'), required: false },
   {
+    label: 'CLOUDFLARE purge (zone + token)',
+    ok: isSet('CLOUDFLARE_ZONE_ID') && isSet('CLOUDFLARE_API_TOKEN'),
+    required: false,
+  },
+  {
     label: 'GOOGLE_INDEXING (Search Console)',
     ok:
       isSet('GOOGLE_INDEXING_SERVICE_ACCOUNT_JSON') ||

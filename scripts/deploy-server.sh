@@ -80,11 +80,11 @@ fi
 # Sync frontend env from root .env
 if [ ! -f "$APP_DIR/apps/web/.env.local" ]; then
   echo "→ Création apps/web/.env.local depuis .env"
-  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|FIREBASE_|PUSH_|GOOGLE_)' "$APP_DIR/.env" > "$APP_DIR/apps/web/.env.local" || true
+  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|FIREBASE_|PUSH_|GOOGLE_|INDEXNOW_|CLOUDFLARE_)' "$APP_DIR/.env" > "$APP_DIR/apps/web/.env.local" || true
 else
   echo "→ Mise à jour apps/web/.env.local (variables clés depuis .env)"
   TMP_ENV=$(mktemp)
-  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|FIREBASE_|PUSH_|GOOGLE_)' "$APP_DIR/.env" > "$TMP_ENV" || true
+  grep -E '^(NEXT_PUBLIC_|STRAPI_|REVALIDATION_|NEWSLETTER_|SMTP_|BREVO_|FIREBASE_|PUSH_|GOOGLE_|INDEXNOW_|CLOUDFLARE_)' "$APP_DIR/.env" > "$TMP_ENV" || true
   if [ -s "$TMP_ENV" ]; then
     while IFS= read -r line; do
       key="${line%%=*}"

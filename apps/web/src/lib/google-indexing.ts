@@ -94,6 +94,7 @@ async function getAccessToken(creds: ServiceAccountCreds): Promise<string | null
         assertion,
       }),
       cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
     });
 
     const data = (await response.json().catch(() => ({}))) as {
@@ -150,6 +151,7 @@ async function publishOneUrl(
       },
       body: JSON.stringify({ url, type }),
       cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (response.ok) {
