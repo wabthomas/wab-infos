@@ -23,7 +23,12 @@ import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
 import { computeMediaContentHash } from '@/lib/redaction/media-fingerprint';
 import { DuplicateMediaError } from '@/lib/redaction/duplicate-media-error';
 import { triggerSiteArticleRevalidation } from '@/lib/redaction/trigger-site-revalidation';
-import { analyzeArticleSeo, DEFAULT_ARTICLE_UI, normalizeArticleSeoMeta } from '@wab-infos/shared';
+import {
+  analyzeArticleSeo,
+  DEFAULT_ARTICLE_UI,
+  normalizeArticleSeoMeta,
+  trimArticleSeoMeta,
+} from '@wab-infos/shared';
 
 export { isLiveRedactionArticle };
 
@@ -1657,7 +1662,7 @@ function buildArticleData(
     data.canonicalUrl = payload.canonicalUrl.trim() || null;
   }
   if (payload.seoMeta !== undefined) {
-    data.seoMeta = normalizeArticleSeoMeta(payload.seoMeta);
+    data.seoMeta = trimArticleSeoMeta(normalizeArticleSeoMeta(payload.seoMeta));
   }
   if (payload.featuredImageId !== undefined) data.featuredImage = payload.featuredImageId;
   if (payload.isBreaking !== undefined) data.isBreaking = payload.isBreaking;

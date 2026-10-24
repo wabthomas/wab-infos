@@ -17,6 +17,7 @@ import { consumeAiQuota } from '@/lib/ai/quotas';
 import { listCategoriesForAi } from '@/lib/ai/strapi-ai';
 import { uploadAiImageFromUrl } from '@/lib/ai/upload-from-url';
 import { searchAndRead, type SearchFreshness, type WebSearchResult } from '@/lib/ai/web-search';
+import { CREDIBLE_X_HANDLES, searchCredibleX } from '@/lib/ai/x-search';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '');
 const SEO_TARGET_SCORE = 90;
@@ -74,7 +75,8 @@ export type EditorChatAction =
   | { type: 'set_tags'; values: string[] }
   | { type: 'set_breaking'; value: boolean }
   | { type: 'set_schedule'; at: string | null }
-  | { type: 'publish'; mode: 'publish' | 'schedule' | 'draft' };
+  | { type: 'publish'; mode: 'publish' | 'schedule' | 'draft' }
+  | { type: 'request_index' };
 
 export interface EditorChatTurnResult {
   reply: string;
@@ -89,6 +91,7 @@ interface ChatModelResponse {
   actions?: Array<Record<string, unknown>>;
   tool?: string;
   search?: unknown;
+  x?: unknown;
   read?: unknown;
   freshness?: unknown;
 }
@@ -133,6 +136,17 @@ function explicitPublishMode(message: string): 'publish' | 'schedule' | 'draft' 
   }
   if (/(enregistre|sauvegarde|garde)[\w\s]*brouillon|en\s+brouillon/.test(text)) return 'draft';
   return null;
+}
+
+/** Indexation Google / IndexNow uniquement sur demande explicite. */
+function explicitIndexRequest(message: string): boolean {
+  const text = message.toLowerCase();
+  if (/(ne|n['’])\s*(l['’])?indexe\s+pas|sans\s+index(er|ation)|pas\s+d['’]?index/.test(text)) {
+    return false;
+  }
+  return /index(e|er|ation|now)?|soumet(s|tre)?\s+(à|a)\s+(google|bing|indexnow)|demande\s+d['’]?index|fais\s+indexer|envoie\s+(à|a)\s+google/.test(
+    text
+  );
 }
 
 function clip(text: string, max: number): string {
@@ -221,7 +235,8 @@ const SEO_RULES_BLOCK = `SEO (discret — ne doit jamais dégrader la qualité j
 function normalizeActions(
   raw: Array<Record<string, unknown>> | undefined,
   attachments: EditorChatAttachment[],
-  allowPublish: 'publish' | 'schedule' | 'draft' | null
+  allowPublish: 'publish' | 'schedule' | 'draft' | null,
+  allowIndex: boolean
 ): EditorChatAction[] {
   if (!Array.isArray(raw)) return [];
   const actions: EditorChatAction[] = [];
@@ -318,12 +333,21 @@ function normalizeActions(
           ? row.mode
           : allowPublish;
       actions.push({ type: 'publish', mode });
+      continue;
+    }
+    if (type === 'request_index' && allowIndex) {
+      actions.push({ type: 'request_index' });
     }
   }
 
-  // Une seule publication, appliquée après toutes les modifications.
+  // Une seule publication, puis une seule indexation — toujours en dernier.
   const publish = actions.filter((action) => action.type === 'publish');
-  return [...actions.filter((action) => action.type !== 'publish'), ...publish.slice(-1)];
+  const index = actions.filter((action) => action.type === 'request_index');
+  return [
+    ...actions.filter((action) => action.type !== 'publish' && action.type !== 'request_index'),
+    ...publish.slice(-1),
+    ...index.slice(-1),
+  ];
 }
 
 function buildSystemPrompt(rubriques: string): string {
@@ -331,12 +355,15 @@ function buildSystemPrompt(rubriques: string): string {
 
 DATE ET HEURE À KINSHASA : ${todayInKinshasa()}
 
-OUTIL WEB (recherche sur les moteurs + lecture des pages)
+OUTIL WEB + X (recherche moteurs, pages, et posts X de comptes crédibles)
 - Si la demande porte sur l'actualité, un fait à vérifier, un sujet à documenter, ou un article à rédiger sans source suffisante, demande d'abord une recherche :
-  {"tool":"web","search":["requête 1","requête 2"],"read":["https://..."],"freshness":"day|week|month|any"}
-  (1 à 3 requêtes précises, en français ou en anglais selon le sujet ; "read" pour des URL précises à lire.)
-- Le serveur exécute la recherche, lit les pages et te renvoie les résultats dans « RÉSULTATS WEB ». Tu réponds ensuite normalement.
+  {"tool":"web","search":["requête 1","requête 2"],"x":["sujet ou @Compte"],"read":["https://..."],"freshness":"day|week|month|any"}
+  (1 à 3 requêtes web ; "x" pour chercher sur X/Twitter auprès de comptes crédibles — médias / institutions RDC & Afrique ; "read" pour des URL précises, y compris des posts x.com.)
+- Pour l'actu fraîche ou une réaction officielle, inclus toujours "x" (ex. ["Kinshasa manifestations","@RadioOkapi","@Presidence_RDC"]).
+- Comptes déjà autorisés côté serveur (extrait) : ${CREDIBLE_X_HANDLES.slice(0, 16).join(', ')}… — tu peux aussi passer un @handle supplémentaire dans "x".
+- Le serveur exécute la recherche, lit les pages/posts et te renvoie « RÉSULTATS WEB ». Tu réponds ensuite normalement.
 - N'utilise pas l'outil pour une simple correction, un titrage ou un réglage sur l'article existant.
+- Sur X : ne cite que des posts effectivement renvoyés ; attribue clairement (« selon @RadioOkapi sur X »).
 
 RÈGLES
 1. Réponds TOUJOURS en JSON valide uniquement : soit l'appel d'outil ci-dessus, soit {"reply":"...","actions":[...]}.
@@ -348,7 +375,8 @@ RÈGLES
 7. Photo à la une : set_featured_image avec un mediaId listé dans les pièces jointes.
 8. Si on te demande seulement le SEO, ne réécris pas le corps : envoie set_seo (et set_excerpt si vide).
 9. PUBLICATION : n'envoie {"type":"publish"} QUE si le journaliste le demande explicitement dans son dernier message (« publie », « mets en ligne », « programme pour 18h », « enregistre en brouillon »). Complète d'abord l'article si nécessaire (titre, contenu, rubrique, SEO), puis ajoute publish en dernière action. Pour une programmation, envoie set_schedule (date ISO 8601 avec fuseau, ex. 2026-10-23T18:00:00+01:00) puis publish mode "schedule".
-10. Liens externes : seulement les URL réellement présentes dans les sources ou résultats web. Liens internes : seulement les articles Wab-infos listés.
+10. INDEXATION : n'envoie {"type":"request_index"} QUE sur demande explicite (« indexe », « indexe l'article », « envoie à Google », « IndexNow »). L'article doit être publié en ligne (publie d'abord si demandé dans le même message). Place request_index tout à la fin, après publish.
+11. Liens externes : seulement les URL réellement présentes dans les sources ou résultats web. Liens internes : seulement les articles Wab-infos listés.
 
 ${EDITORIAL_STYLE_BLOCK}
 
@@ -367,10 +395,11 @@ ACTIONS POSSIBLES
 - {"type":"set_canonical_url","value":"https://..."}
 - {"type":"set_schedule","at":"2026-10-23T18:00:00+01:00"}  (ou null pour annuler)
 - {"type":"publish","mode":"publish|schedule|draft"}
+- {"type":"request_index"}
 
 SCHÉMAS DE RÉPONSE
 {"reply":"string","actions":[...]}
-{"tool":"web","search":["..."],"read":["..."],"freshness":"week"}`;
+{"tool":"web","search":["..."],"x":["..."],"read":["..."],"freshness":"week"}`;
 }
 
 function formatWebResults(results: WebSearchResult[], sources: ReadSource[], errors: string[]): string {
@@ -389,6 +418,7 @@ function formatWebResults(results: WebSearchResult[], sources: ReadSource[], err
 
 function parseToolRequest(data: ChatModelResponse | undefined): {
   search: string[];
+  x: string[];
   read: string[];
   freshness: SearchFreshness;
 } | null {
@@ -396,15 +426,20 @@ function parseToolRequest(data: ChatModelResponse | undefined): {
   const search = Array.isArray(data.search)
     ? data.search.filter((value): value is string => typeof value === 'string' && value.trim().length > 1)
     : [];
+  const x = Array.isArray(data.x)
+    ? data.x.filter((value): value is string => typeof value === 'string' && value.trim().length > 1)
+    : data.x === true && search[0]
+      ? [search[0]]
+      : [];
   const read = Array.isArray(data.read)
     ? data.read.filter((value): value is string => typeof value === 'string' && /^https?:\/\//i.test(value))
     : [];
-  if (!search.length && !read.length) return null;
+  if (!search.length && !x.length && !read.length) return null;
   const freshness: SearchFreshness =
     data.freshness === 'day' || data.freshness === 'week' || data.freshness === 'month'
       ? data.freshness
       : 'any';
-  return { search: search.slice(0, 3), read: read.slice(0, 3), freshness };
+  return { search: search.slice(0, 3), x: x.slice(0, 3), read: read.slice(0, 3), freshness };
 }
 
 export async function runEditorChatTurn(input: {
@@ -430,6 +465,7 @@ export async function runEditorChatTurn(input: {
   const rubriques = categories.map((row) => `${row.slug} (${row.name})`).join(', ');
   const history = (input.history || []).slice(-12);
   const publishMode = explicitPublishMode(message);
+  const wantIndex = explicitIndexRequest(message);
 
   // Liens fournis par le journaliste (message, historique, canonical)
   const urlsFromMessage = extractUrls(message);
@@ -580,17 +616,38 @@ ${
     const tool = parseToolRequest(result.data);
     if (!tool) break;
 
-    const { results, sources, errors } = await searchAndRead(tool.search, {
-      freshness: tool.freshness,
-      maxRead: 4,
-    });
+    const webPromise = tool.search.length
+      ? searchAndRead(tool.search, {
+          freshness: tool.freshness,
+          maxRead: 4,
+        })
+      : Promise.resolve({ results: [] as WebSearchResult[], sources: [], errors: [] as string[] });
+    const xPromise = tool.x.length
+      ? searchCredibleX(tool.x, { freshness: tool.freshness, maxPosts: 4 })
+      : Promise.resolve({ results: [] as WebSearchResult[], posts: [], errors: [] as string[] });
+
+    const [web, x] = await Promise.all([webPromise, xPromise]);
+    const results = [...web.results, ...x.results];
+    const sources = web.sources;
+    const errors = [...web.errors, ...x.errors];
+
     const extraReads = await Promise.allSettled(
       tool.read
         .filter((url) => !sources.some((source) => source.url === url))
+        .filter((url) => !x.posts.some((post) => post.url === url))
         .map((url) => fetchSourceFromUrl(url))
     );
     const roundSources: ReadSource[] = [
       ...sources.map((source) => ({ ...source, ok: true, origin: 'search' as const })),
+      ...x.posts.map((post) => ({
+        url: post.url,
+        title: post.title,
+        text: post.text,
+        imageUrl: post.imageUrl,
+        ok: true as const,
+        via: post.via,
+        origin: 'search' as const,
+      })),
       ...extraReads
         .filter((row): row is PromiseFulfilledResult<Awaited<ReturnType<typeof fetchSourceFromUrl>>> => row.status === 'fulfilled')
         .map((row) => ({ ...row.value, ok: true, origin: 'search' as const })),
@@ -598,11 +655,28 @@ ${
     searchResults.push(...results);
     searchSources.push(...roundSources);
 
+    const xBlock = x.posts.length
+      ? `\n\nPOSTS X (comptes crédibles)\n${x.posts
+          .map(
+            (post, index) =>
+              `${index + 1}. ${post.title} — ${post.url}${post.published ? ` (${post.published})` : ''}\n   ${clip(post.text, 400)}`
+          )
+          .join('\n')}`
+      : '';
+
     messages.push(
-      { role: 'assistant', content: JSON.stringify({ tool: 'web', search: tool.search, read: tool.read }) },
+      {
+        role: 'assistant',
+        content: JSON.stringify({
+          tool: 'web',
+          search: tool.search,
+          x: tool.x,
+          read: tool.read,
+        }),
+      },
       {
         role: 'user',
-        content: `RÉSULTATS WEB (recherche ${round + 1}) pour : ${tool.search.join(' | ') || tool.read.join(' | ')}\n\n${formatWebResults(results, roundSources, errors)}\n\nRéponds maintenant à ma demande initiale au format {"reply","actions"}${round + 1 < MAX_TOOL_ROUNDS ? ' (ou une dernière recherche si vraiment indispensable)' : ''}.`,
+        content: `RÉSULTATS WEB (recherche ${round + 1}) pour : ${[...tool.search, ...tool.x].join(' | ') || tool.read.join(' | ')}\n\n${formatWebResults(results, roundSources, errors)}${xBlock}\n\nRéponds maintenant à ma demande initiale au format {"reply","actions"}${round + 1 < MAX_TOOL_ROUNDS ? ' (ou une dernière recherche si vraiment indispensable)' : ''}.`,
       }
     );
     result = await completeMessagesJson<ChatModelResponse>({
@@ -636,7 +710,7 @@ ${
     reply = `${reply}\n\n⚠️ Impossible de lire : ${failedSources.map((row) => row.url).join(', ')}`;
   }
 
-  let actions = normalizeActions(result.data?.actions, allAttachments, publishMode);
+  let actions = normalizeActions(result.data?.actions, allAttachments, publishMode, wantIndex);
 
   const finalTitle =
     actions.find((action): action is Extract<EditorChatAction, { type: 'set_title' }> => action.type === 'set_title')
@@ -690,13 +764,19 @@ ${
     });
   }
 
-  // Publication demandée explicitement mais oubliée par le modèle.
+  // Publication / indexation demandées explicitement mais oubliées par le modèle.
   if (publishMode && !actions.some((action) => action.type === 'publish')) {
     actions.push({ type: 'publish', mode: publishMode });
   }
-  // La publication passe toujours en dernier, après le SEO éventuel.
+  if (wantIndex && !actions.some((action) => action.type === 'request_index')) {
+    actions.push({ type: 'request_index' });
+  }
+  // Publication puis indexation toujours en dernier, après le SEO éventuel.
   const publishAction = actions.find((action) => action.type === 'publish');
-  actions = actions.filter((action) => action.type !== 'publish');
+  const indexAction = actions.find((action) => action.type === 'request_index');
+  actions = actions.filter(
+    (action) => action.type !== 'publish' && action.type !== 'request_index'
+  );
 
   let seoScore: number | null = null;
   const wroteOrSeo =
@@ -796,6 +876,7 @@ ${clip((merged.contentHtml || '').replace(/<[^>]+>/g, ' '), 5_000)}`,
   }
 
   if (publishAction) actions.push(publishAction);
+  if (indexAction) actions.push(indexAction);
 
   if (searchSources.length) {
     const cited = searchSources

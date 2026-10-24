@@ -14,6 +14,7 @@ import type { RedactionMediaItem } from '@/lib/redaction/types';
 import { useEditorKeyboardInset } from '@/lib/redaction/use-editor-keyboard-inset';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
+import { WabAiAvatar } from '@/components/redaction/wab-ai-avatar';
 
 export type AiChatAction =
   | { type: 'set_title'; value: string }
@@ -37,7 +38,8 @@ export type AiChatAction =
   | { type: 'set_tags'; values: string[] }
   | { type: 'set_breaking'; value: boolean }
   | { type: 'set_schedule'; at: string | null }
-  | { type: 'publish'; mode: 'publish' | 'schedule' | 'draft' };
+  | { type: 'publish'; mode: 'publish' | 'schedule' | 'draft' }
+  | { type: 'request_index' };
 
 export interface AiChatArticleSnapshot {
   title?: string;
@@ -116,6 +118,8 @@ function summarizeActions(actions: AiChatAction[]): string[] {
           : action.mode === 'schedule'
             ? 'Programmation lancée'
             : 'Brouillon enregistré';
+      case 'request_index':
+        return 'Indexation demandée';
       default:
         return 'Mise à jour';
     }
@@ -137,7 +141,10 @@ export function AiEditorChat({ open, onClose, article, onActions }: AiEditorChat
   useEffect(() => {
     if (!open) return;
     const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    // Ne force le bas que si l'utilisateur est déjà près du bas (ou pendant la réflexion).
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+    if (nearBottom || busy) el.scrollTop = el.scrollHeight;
   }, [messages, open, busy, keyboardInset]);
 
   async function uploadFiles(files: FileList | File[]) {
@@ -261,8 +268,9 @@ export function AiEditorChat({ open, onClose, article, onActions }: AiEditorChat
   return (
     <aside
       className={cn(
-        'fixed inset-x-0 z-[70] flex flex-col border-t border-border bg-card shadow-2xl',
-        'bottom-[var(--ai-chat-kb,0px)] max-h-[min(78vh,calc(100dvh-var(--ai-chat-kb,0px)-0.5rem))]',
+        'fixed inset-x-0 z-[70] flex flex-col overflow-hidden border-t border-border bg-card shadow-2xl',
+        // Hauteur bornée obligatoire : sinon flex-1 grandit avec le contenu et le scroll est cassé.
+        'bottom-[var(--ai-chat-kb,0px)] h-[min(78vh,calc(100dvh-var(--ai-chat-kb,0px)-0.5rem))]',
         'lg:inset-y-0 lg:right-0 lg:bottom-auto lg:left-auto lg:top-0 lg:h-full lg:max-h-none lg:w-[min(100%,400px)] lg:border-l lg:border-t-0'
       )}
       style={
@@ -271,20 +279,14 @@ export function AiEditorChat({ open, onClose, article, onActions }: AiEditorChat
         } as CSSProperties
       }
     >
-      <header className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-primary-foreground"
-          style={{
-            background:
-              'linear-gradient(145deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 70%, #1a1a2e) 100%)',
-          }}
-          aria-hidden
-        >
-          W
-        </span>
-        <p className="min-w-0 flex-1 text-[15px] font-semibold tracking-tight text-foreground">
-          Wab Ai
-        </p>
+      <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+        <WabAiAvatar state={busy ? 'thinking' : 'idle'} size="sm" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold tracking-tight text-foreground">Wab Ai</p>
+          {busy ? (
+            <p className="truncate text-[12px] text-muted-foreground">Réflexion en cours…</p>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={onClose}
@@ -297,21 +299,15 @@ export function AiEditorChat({ open, onClose, article, onActions }: AiEditorChat
 
       <div
         ref={listRef}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 [-webkit-overflow-scrolling:touch]"
+        className="min-h-0 flex-1 touch-pan-y space-y-4 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]"
       >
         {messages.length === 0 && !busy ? (
-          <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-3 px-4 text-center">
-            <span
-              className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-primary-foreground"
-              style={{
-                background:
-                  'linear-gradient(145deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 70%, #1a1a2e) 100%)',
-              }}
-              aria-hidden
-            >
-              W
-            </span>
+          <div className="flex min-h-[12rem] flex-col items-center justify-center gap-3 px-4 text-center">
+            <WabAiAvatar size="lg" />
             <p className="text-base font-semibold text-foreground">Wab Ai</p>
+            <p className="max-w-[16rem] text-[13px] leading-snug text-muted-foreground">
+              Rédaction, SEO, X, publication ou indexation — demandez simplement.
+            </p>
           </div>
         ) : null}
 
@@ -319,10 +315,13 @@ export function AiEditorChat({ open, onClose, article, onActions }: AiEditorChat
           <div
             key={message.id}
             className={cn(
-              'flex w-full',
+              'flex w-full gap-2',
               message.role === 'user' ? 'justify-end' : 'justify-start'
             )}
           >
+            {message.role === 'assistant' ? (
+              <WabAiAvatar size="sm" className="mt-0.5" />
+            ) : null}
             <div
               className={cn(
                 'max-w-[85%] text-[15px] leading-relaxed',
@@ -359,20 +358,19 @@ export function AiEditorChat({ open, onClose, article, onActions }: AiEditorChat
           </div>
         ))}
         {busy ? (
-          <div className="flex justify-start">
-            <div className="inline-flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-muted/80 px-3.5 py-2.5 text-muted-foreground">
-              <span className="flex gap-1">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary/70" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary/70 [animation-delay:150ms]" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary/70 [animation-delay:300ms]" />
-              </span>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <WabAiAvatar
+              state="thinking"
+              size="md"
+              showLabel
+              label="Rédaction / réflexion…"
+            />
           </div>
         ) : null}
       </div>
 
       {pendingFiles.length > 0 ? (
-        <div className="flex gap-2 overflow-x-auto px-4 pb-1">
+        <div className="flex shrink-0 gap-2 overflow-x-auto px-4 pb-1">
           {pendingFiles.map((item) => (
             <div key={item.mediaId} className="relative shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -399,7 +397,7 @@ export function AiEditorChat({ open, onClose, article, onActions }: AiEditorChat
       ) : null}
 
       <div
-        className="px-3 pb-3 pt-1.5 lg:pb-3"
+        className="shrink-0 px-3 pb-3 pt-1.5 lg:pb-3"
         style={{
           paddingBottom:
             keyboardInset > 0
@@ -442,12 +440,20 @@ export function AiEditorChat({ open, onClose, article, onActions }: AiEditorChat
               });
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                void send();
+              if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) {
+                return;
               }
+              // Mobile / clavier virtuel : Entrée = retour à la ligne (comportement natif).
+              // Desktop : Entrée envoie, Shift+Entrée pour une nouvelle ligne.
+              const softKeyboard =
+                typeof window !== 'undefined' &&
+                window.matchMedia('(pointer: coarse)').matches;
+              if (softKeyboard) return;
+              event.preventDefault();
+              void send();
             }}
             rows={1}
+            enterKeyHint="enter"
             placeholder="Demander à Wab Ai"
             disabled={busy}
             className="max-h-28 min-h-[2.25rem] flex-1 resize-none bg-transparent px-1 py-2 text-[15px] outline-none placeholder:text-muted-foreground/70 disabled:opacity-60"

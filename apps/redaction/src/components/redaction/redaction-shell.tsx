@@ -27,6 +27,10 @@ import {
 } from '@/components/redaction/redaction-notifications';
 import { touchRedactionSession } from '@/lib/redaction/touch-session';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { AiEditorChat, type AiChatAction } from '@/components/redaction/ai-editor-chat';
+import { WabAiAvatar } from '@/components/redaction/wab-ai-avatar';
+import { useToast } from '@/components/ui/toast';
+import { storePendingAiActions } from '@/lib/redaction/ai-pending-actions';
 import {
   SIDEBAR_COOKIE,
   SIDEBAR_WIDTH_COLLAPSED,
@@ -99,6 +103,23 @@ function initialsOf(name?: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
+}
+
+function AiFab({ onOpen, className }: { onOpen: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn(
+        'fixed z-50 flex items-center justify-center rounded-full bg-transparent p-0 shadow-lg shadow-primary/25 ring-2 ring-background transition-transform hover:scale-105 active:scale-95',
+        className
+      )}
+      aria-label="Ouvrir Wab Ai"
+      title="Wab Ai — assistant de rédaction"
+    >
+      <WabAiAvatar size="md" className="pointer-events-none" />
+    </button>
+  );
 }
 
 interface RedactionShellProps {
@@ -519,10 +540,25 @@ export function RedactionShell({
   initialSidebarCollapsed = false,
 }: RedactionShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const toast = useToast();
   const writing = isWritingPage(pathname);
   const summary = useRedactionNotifications();
   const [pendingComments, setPendingComments] = useState(initialPendingComments);
   const [collapsed, setCollapsed] = useState(initialSidebarCollapsed);
+  const [aiOpen, setAiOpen] = useState(false);
+
+  /** Hors éditeur : une proposition d'article s'ouvre dans un nouveau brouillon. */
+  const handleAiActions = useCallback(
+    (actions: AiChatAction[]) => {
+      if (!actions.length) return;
+      storePendingAiActions(actions);
+      setAiOpen(false);
+      toast.success('Wab Ai', 'Ouverture de la proposition dans l’éditeur…');
+      router.push('/nouveau');
+    },
+    [router, toast]
+  );
   const draftCount = summary.draftCount;
   const effectivePending = summary.pendingComments || pendingComments;
 
@@ -648,6 +684,27 @@ export function RedactionShell({
         >
           <PenLine className="h-6 w-6" />
         </Link>
+
+        {!aiOpen ? (
+          <>
+            {/* Mobile : au-dessus du bouton « Rédiger » (h-14 + 0.75rem d'écart). */}
+            <AiFab
+              onOpen={() => setAiOpen(true)}
+              className="bottom-[calc(9rem+env(safe-area-inset-bottom))] right-5 h-12 w-12 lg:hidden"
+            />
+            <AiFab
+              onOpen={() => setAiOpen(true)}
+              className="bottom-6 right-6 hidden h-14 w-14 lg:flex"
+            />
+          </>
+        ) : null}
+
+        <AiEditorChat
+          open={aiOpen}
+          onClose={() => setAiOpen(false)}
+          article={{}}
+          onActions={handleAiActions}
+        />
 
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:hidden">
           <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">

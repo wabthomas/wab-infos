@@ -18,6 +18,7 @@ import {
   emptyArticleSeoMeta,
   normalizeArticleSeoMeta,
   normalizeArticleUiSettings,
+  trimArticleSeoMeta,
   type ArticleSeoMeta,
   type ArticleUiSettings,
 } from '@wab-infos/shared';
@@ -46,6 +47,7 @@ import {
   SeoScoreBadge,
 } from '@/components/redaction/article-seo-wizard';
 import type { RedactionAuthor } from '@/lib/redaction/types';
+import { takePendingAiActions } from '@/lib/redaction/ai-pending-actions';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 
@@ -191,7 +193,9 @@ function buildSavePayload(
   const canonicalUrl = values.canonicalUrl?.trim();
   if (canonicalUrl) payload.canonicalUrl = canonicalUrl;
 
-  payload.seoMeta = normalizeArticleSeoMeta(values.seoMeta ?? emptyArticleSeoMeta());
+  payload.seoMeta = trimArticleSeoMeta(
+    normalizeArticleSeoMeta(values.seoMeta ?? emptyArticleSeoMeta())
+  );
 
   if (mode !== 'draft' && values.authorDocumentId) {
     payload.authorDocumentId = values.authorDocumentId;
@@ -265,6 +269,8 @@ export function ArticleEditorForm({
   const [aiChatOpen, setAiChatOpen] = useState(false);
   /** Publication demandée par Wab Ai : exécutée après application des modifications au state. */
   const [aiPendingSave, setAiPendingSave] = useState<'draft' | 'publish' | 'schedule' | null>(null);
+  /** Indexation demandée par Wab Ai (après publication éventuelle). */
+  const aiPendingIndexRef = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
   const [featuredAltDraft, setFeaturedAltDraft] = useState(initial?.featuredImageAlt ?? '');
@@ -414,6 +420,19 @@ export function ArticleEditorForm({
       })
       .catch(() => setError('Impossible de charger les rubriques'));
   }, [values.categoryDocumentIds.length]);
+
+  const pendingAiAppliedRef = useRef(false);
+  useEffect(() => {
+    if (documentId || pendingAiAppliedRef.current || !categories.length) return;
+    pendingAiAppliedRef.current = true;
+    const pending = takePendingAiActions();
+    if (pending.length) {
+      applyAiChatActions(pending);
+      toast.success('Wab Ai', 'La proposition de l’assistant a été chargée dans l’éditeur.');
+    }
+    // applyAiChatActions lit l'état courant ; seul le chargement des rubriques déclenche l'effet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories.length, documentId]);
 
   const primaryCategoryId = values.categoryDocumentIds[0] ?? categories[0]?.documentId ?? '';
   const primaryCategoryName =
@@ -841,7 +860,25 @@ export function ArticleEditorForm({
     const publishAction = actions.find(
       (action): action is Extract<AiChatAction, { type: 'publish' }> => action.type === 'publish'
     );
+    const wantsIndex = actions.some((action) => action.type === 'request_index');
     if (publishAction) setAiPendingSave(publishAction.mode);
+    if (wantsIndex) {
+      if (publishAction?.mode === 'publish') {
+        // Indexer après que la publication ait réussi.
+        aiPendingIndexRef.current = true;
+      } else if (publishAction) {
+        toast.error(
+          'Indexation',
+          'Publiez l’article en ligne avant de demander l’indexation.'
+        );
+      } else {
+        void (async () => {
+          const result = await requestArticleIndex();
+          if (result.ok) toast.success('Indexation', result.message);
+          else toast.error('Indexation', result.message);
+        })();
+      }
+    }
 
     setValues((current) => {
       let next = { ...current };
@@ -1039,9 +1076,18 @@ export function ArticleEditorForm({
       if (mode === 'publish') {
         setArticleIsLive(true);
         articleIsLiveRef.current = true;
+        if (aiPendingIndexRef.current) {
+          aiPendingIndexRef.current = false;
+          void (async () => {
+            const result = await requestArticleIndex();
+            if (result.ok) toast.success('Indexation', result.message);
+            else toast.error('Indexation', result.message);
+          })();
+        }
       } else if (mode === 'schedule') {
         setArticleIsLive(false);
         articleIsLiveRef.current = false;
+        aiPendingIndexRef.current = false;
       }
       onSuccess?.(savedId, mode);
     } catch (err) {
@@ -1050,6 +1096,18 @@ export function ArticleEditorForm({
         const recovered = await recoverPublishAfterNetworkError(documentId, mode);
         if (recovered) {
           lastSavedSnapshot.current = createSnapshot(values, scheduledAt);
+          if (mode === 'publish') {
+            setArticleIsLive(true);
+            articleIsLiveRef.current = true;
+            if (aiPendingIndexRef.current) {
+              aiPendingIndexRef.current = false;
+              void (async () => {
+                const result = await requestArticleIndex();
+                if (result.ok) toast.success('Indexation', result.message);
+                else toast.error('Indexation', result.message);
+              })();
+            }
+          }
           toast.success(
             mode === 'schedule' ? 'Article planifié' : 'Article publié',
             'Enregistrement confirmé après vérification réseau.'
@@ -1058,6 +1116,7 @@ export function ArticleEditorForm({
           return;
         }
       }
+      aiPendingIndexRef.current = false;
       const message = formatSaveError(err);
       setError(message);
       toast.error(mode === 'schedule' ? 'Planification impossible' : 'Publication impossible', message);
@@ -1071,6 +1130,7 @@ export function ArticleEditorForm({
     const mode = aiPendingSave;
     setAiPendingSave(null);
     if (mode === 'schedule' && !(scheduledAt && new Date(scheduledAt).getTime() > Date.now())) {
+      aiPendingIndexRef.current = false;
       toast.error('Programmation impossible', 'Indiquez une date future à Wab Ai ou dans les réglages.');
       return;
     }

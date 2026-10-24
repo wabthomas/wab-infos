@@ -10,7 +10,7 @@ export interface FetchedSource {
   imageUrl: string | null;
   imageAlt: string | null;
   kind: 'twitter' | 'web';
-  via?: 'direct' | 'oembed' | 'reader';
+  via?: 'direct' | 'oembed' | 'reader' | 'fxtwitter';
 }
 
 function decodeHtmlEntities(input: string): string {
@@ -126,6 +126,24 @@ async function fetchViaReader(url: string): Promise<FetchedSource> {
 }
 
 async function fetchTwitterSource(url: string): Promise<FetchedSource> {
+  try {
+    const { fetchXPostByUrl } = await import('@/lib/ai/x-search');
+    const post = await fetchXPostByUrl(url);
+    if (post?.text) {
+      return {
+        url: post.url,
+        title: post.title,
+        text: post.text,
+        imageUrl: post.imageUrl,
+        imageAlt: post.title,
+        kind: 'twitter',
+        via: 'fxtwitter',
+      };
+    }
+  } catch {
+    // repli oEmbed
+  }
+
   const oembedUrl = `https://publish.twitter.com/oembed?omit_script=true&url=${encodeURIComponent(url)}`;
   try {
     const raw = await fetchText(oembedUrl, 'application/json,text/javascript,*/*;q=0.8');

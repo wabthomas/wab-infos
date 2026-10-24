@@ -37,7 +37,23 @@ export const DEFAULT_ARTICLE_SEO_META: ArticleSeoMeta = {
 };
 
 function asString(value: unknown, fallback = ''): string {
-  return typeof value === 'string' ? value.trim() : fallback;
+  // Ne pas trimmer ici : sinon les espaces en fin de saisie (ex. « Requête cible »)
+  // sont effacés à chaque frappe, surtout visible sur mobile.
+  return typeof value === 'string' ? value : fallback;
+}
+
+/** Trim des champs texte au moment de la persistance / lecture API. */
+export function trimArticleSeoMeta(meta: ArticleSeoMeta): ArticleSeoMeta {
+  return {
+    ...meta,
+    focusKeyphrase: meta.focusKeyphrase.trim().slice(0, 120),
+    ogTitle: meta.ogTitle.trim().slice(0, 70),
+    ogDescription: meta.ogDescription.trim().slice(0, 200),
+    ogImageUrl: meta.ogImageUrl.trim().slice(0, 500),
+    twitterTitle: meta.twitterTitle.trim().slice(0, 70),
+    twitterDescription: meta.twitterDescription.trim().slice(0, 200),
+    breadcrumbTitle: meta.breadcrumbTitle.trim().slice(0, 80),
+  };
 }
 
 function asBool(value: unknown, fallback: boolean): boolean {
