@@ -1,4 +1,4 @@
-﻿# Deploiement Wab-infos -> N0C via SSH (Windows).
+# Deploiement Wab-infos -> N0C via SSH (Windows).
 # Usage:
 #   npm run deploy:web
 #   npm run deploy:redaction
@@ -118,7 +118,11 @@ try {
         throw 'Archive web-next-build.tar.gz absente apres le pack.'
       }
       Send-File -SshHost $sshHost -LocalPath $tarPath -RemotePath "$remoteBase/web-next-build.tar.gz"
-      Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && tar -xzf web-next-build.tar.gz -C apps/web && test -f apps/web/.next/BUILD_ID && echo web unpack OK"
+      # Remplacement atomique de .next : extraction dans un dossier temporaire,
+      # vérification du BUILD_ID, puis bascule. Évite l'empilement des anciens
+      # chunks (5,6 Go constatés) qui finissait par saturer le quota disque et
+      # bloquait l'écriture du cache ISR (accueil figé).
+      Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && rm -rf apps/web/.next.new && mkdir -p apps/web/.next.new && tar -xzf web-next-build.tar.gz -C apps/web/.next.new .next && test -f apps/web/.next.new/.next/BUILD_ID && rm -rf apps/web/.next && mv apps/web/.next.new/.next apps/web/.next && rm -rf apps/web/.next.new && tar -xzf web-next-build.tar.gz -C apps/web public && echo web unpack OK"
       Restart-RemotePassenger -SshHost $sshHost -RemoteBase $remoteBase -AppRelativePath 'apps/web'
       Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'scripts/restart-web-node.sh') -RemotePath "$remoteBase/scripts/restart-web-node.sh"
       Invoke-Remote -SshHost $sshHost -Command "tr -d '\r' < $remoteBase/scripts/restart-web-node.sh | bash -s $remoteBase/apps/web"
