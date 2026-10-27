@@ -848,6 +848,33 @@ function DesktopSettingsPanel({
               setSettings((current) => ({ ...current, apkBannerVisible }))
             }
           />
+          <label className="rounded-xl border border-border bg-card px-4 py-3">
+            <span className="block text-sm font-semibold text-foreground">
+              Délai du bandeau application
+            </span>
+            <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+              Secondes passées sur le site avant de proposer l’app Play Store / APK (Android).
+              15 s par défaut, 0 = immédiat, 300 s maximum.
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={300}
+              step={1}
+              inputMode="numeric"
+              value={settings.chrome.apkBannerDelaySeconds}
+              onChange={(event) =>
+                setSettings((current) => ({
+                  ...current,
+                  chrome: {
+                    ...current.chrome,
+                    apkBannerDelaySeconds: Number(event.target.value),
+                  },
+                }))
+              }
+              className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
+            />
+          </label>
         </div>
       ) : null}
 

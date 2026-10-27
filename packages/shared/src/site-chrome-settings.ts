@@ -56,6 +56,8 @@ export interface SiteChromeSettings {
   mobileMenuFooterAction: MobileMenuFooterAction;
   /** Lien Play Store (si mobileMenuFooterAction = play_store). */
   mobileMenuPlayStoreUrl: string;
+  /** Délai avant d’afficher le bandeau « Installer l’app » sur mobile (secondes). */
+  apkBannerDelaySeconds: number;
   /** Afficher « App vX.Y.Z » en bas du menu mobile. */
   mobileMenuShowAppVersion: boolean;
   headerThemeToggleEnabled: boolean;
@@ -192,6 +194,7 @@ export const DEFAULT_SITE_CHROME: SiteChromeSettings = {
   mobileMenuFooterAction: 'play_store',
   mobileMenuPlayStoreUrl:
     'https://play.google.com/store/apps/details?id=com.wabinfos.app',
+  apkBannerDelaySeconds: 15,
   mobileMenuShowAppVersion: true,
   headerThemeToggleEnabled: true,
   headerAuthLinkEnabled: true,
@@ -251,6 +254,20 @@ function normalizePushActiveColor(raw: unknown): string {
   return parseCssHexColor(raw) ?? DEFAULT_SITE_CHROME.headerPushAlertsActiveColor;
 }
 
+const APK_BANNER_DELAY_MIN_SECONDS = 0;
+const APK_BANNER_DELAY_MAX_SECONDS = 300;
+export const DEFAULT_APK_BANNER_DELAY_SECONDS = 15;
+
+/** Délai du bandeau application : 0 à 300 s, 15 s par défaut. */
+export function normalizeApkBannerDelaySeconds(raw: unknown): number {
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(value)) return DEFAULT_APK_BANNER_DELAY_SECONDS;
+  return Math.min(
+    APK_BANNER_DELAY_MAX_SECONDS,
+    Math.max(APK_BANNER_DELAY_MIN_SECONDS, Math.round(value))
+  );
+}
+
 function normalizeFooterCta(raw: unknown): SiteFooterCta {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_FOOTER_CTA };
   const row = raw as Record<string, unknown>;
@@ -307,6 +324,7 @@ export function normalizeSiteChromeSettings(raw: unknown): SiteChromeSettings {
       typeof row.mobileMenuPlayStoreUrl === 'string' && row.mobileMenuPlayStoreUrl.trim()
         ? row.mobileMenuPlayStoreUrl.trim()
         : DEFAULT_SITE_CHROME.mobileMenuPlayStoreUrl,
+    apkBannerDelaySeconds: normalizeApkBannerDelaySeconds(row.apkBannerDelaySeconds),
     mobileMenuShowAppVersion:
       row.mobileMenuShowAppVersion !== undefined
         ? row.mobileMenuShowAppVersion !== false

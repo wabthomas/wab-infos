@@ -3,13 +3,16 @@
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { isAndroidDevice, isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
+import {
+  isAndroidDevice,
+  isNativeCapacitorFromUserAgent,
+  normalizeApkBannerDelaySeconds,
+} from '@wab-infos/shared';
 import { siteConfig } from '@/config/site';
 import { GooglePlayIcon } from '@/components/icons/google-play-icon';
 import { useSiteChrome } from '@/components/providers/site-chrome-context';
 import { detectInstalledAndroidApp, isStandalonePwa } from '@/lib/pwa/detect';
 
-const SHOW_AFTER_MS = 30_000;
 const SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
 const STATE_KEY = 'wab_play_banner';
 /** Début de la visite en cours : le délai court sur toutes les pages, même après rechargement. */
@@ -69,6 +72,8 @@ export function PlayStoreBanner() {
   const { chrome } = useSiteChrome();
   const [visible, setVisible] = useState(false);
   const [entered, setEntered] = useState(false);
+  // Réglage éditable dans la rédaction (15 s par défaut).
+  const showAfterMs = normalizeApkBannerDelaySeconds(chrome.apkBannerDelaySeconds) * 1000;
 
   const playUrl = withReferrer(
     chrome.mobileMenuPlayStoreUrl?.trim() || siteConfig.androidPlayStoreUrl
@@ -94,7 +99,7 @@ export function PlayStoreBanner() {
       }
       if (cancelled) return;
 
-      const remaining = Math.max(0, SHOW_AFTER_MS - visitElapsedMs());
+      const remaining = Math.max(0, showAfterMs - visitElapsedMs());
       timer = window.setTimeout(() => {
         if (!cancelled && !isSnoozed(readState())) setVisible(true);
       }, remaining);
@@ -104,7 +109,7 @@ export function PlayStoreBanner() {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, []);
+  }, [showAfterMs]);
 
   useEffect(() => {
     if (!visible) return;
