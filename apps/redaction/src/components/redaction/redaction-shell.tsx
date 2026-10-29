@@ -17,6 +17,7 @@ import {
   Settings,
   User,
   UserPen,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchRedaction } from '@/lib/redaction/public-path';
@@ -55,6 +56,7 @@ const NAV_MAIN: NavItem[] = [
 ];
 
 const NAV_ADMIN: NavItem[] = [
+  { href: '/rh', label: 'Ressources humaines', icon: Users },
   { href: '/newsletter', label: 'Newsletter', icon: Mail },
   { href: '/parametres', label: 'Paramètres', icon: Settings },
 ];
@@ -86,6 +88,7 @@ function getDesktopPageTitle(pathname: string): { title: string; eyebrow: string
   if (pathname === '/profil' || pathname.startsWith('/profil/'))
     return { title: 'Profil', eyebrow: 'Mon compte' };
   if (pathname === '/parametres') return { title: 'Paramètres du site', eyebrow: 'Administration' };
+  if (pathname === '/rh' || pathname.startsWith('/rh/')) return { title: 'Ressources humaines', eyebrow: 'Administration' };
   if (pathname === '/newsletter') return { title: 'Newsletter', eyebrow: 'Administration' };
   if (pathname === '/nouveau') return { title: 'Nouvel article', eyebrow: 'Rédaction' };
   return { title: 'Rédaction', eyebrow: 'Wab-infos' };

@@ -1,6 +1,9 @@
 import Image from 'next/image';
+import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
+import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
+import { getMyCollaborator } from '@/lib/redaction/rh/database';
 import Link from 'next/link';
-import { BarChart3, FileText, MessageSquare, PenLine, Pencil } from 'lucide-react';
+import { BarChart3, FileText, MessageSquare, PenLine, Pencil, User } from 'lucide-react';
 import { getEditorProfile, getEditorStats, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 import { cn, getStrapiMediaUrl } from '@/lib/utils';
 import { ProfileAppVersion } from '@/components/redaction/profile-app-version';
@@ -14,6 +17,12 @@ export default async function RedactionProfilePage() {
     getEditorProfile(user),
     getEditorStats(user),
   ]);
+
+  // L'absence de base configurée ou d'identité RH ne doit pas bloquer le profil existant.
+  let hasRh = false;
+  let hasRhAdmin = isSuperAdmin;
+  if (!hasRhAdmin) { try { const rights = await getRhCapabilities(); hasRhAdmin = rights.hrManage || rights.financeManage; } catch { /* accès fermé */ } }
+  try { hasRh = !!(await getMyCollaborator(await requireRhPrincipal())); } catch { /* accès fermé */ }
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '');
   const avatarSrc = author.avatar?.url
@@ -89,6 +98,8 @@ export default async function RedactionProfilePage() {
           icon={FileText}
           label={isSuperAdmin ? 'Tous les articles' : 'Mes articles'}
         />
+        {hasRhAdmin ? <ProfileLink href="/rh" icon={User} label="Ressources humaines" /> : null}
+        {hasRh ? <ProfileLink href="/mon-rh" icon={User} label="Mon espace RH" /> : null}
         <ProfileLink href="/stats" icon={BarChart3} label="Statistiques" />
         <ProfileLink href="/comments" icon={MessageSquare} label="Commentaires" />
         <ProfileLink href="/nouveau" icon={PenLine} label="Nouvel article" />
