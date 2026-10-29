@@ -150,6 +150,11 @@ try {
       Send-File -SshHost $sshHost -LocalPath $tarPath -RemotePath "$remoteBase/redaction-next-build.tar.gz"
       Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'apps/redaction/public/sw-redaction.js') -RemotePath "$remoteBase/apps/redaction/public/sw-redaction.js"
       Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'apps/redaction/public/fcm-background.js') -RemotePath "$remoteBase/apps/redaction/public/fcm-background.js"
+      # Le serveur peut avoir un package.json plus ancien que le build : sans cette
+      # synchronisation, les nouvelles dépendances (ex. pg pour le module RH) ne
+      # sont pas installées et les routes répondent 500.
+      Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'apps/redaction/package.json') -RemotePath "$remoteBase/apps/redaction/package.json"
+      Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'package-lock.json') -RemotePath "$remoteBase/package-lock.json"
       Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && rm -rf apps/redaction/.next && tar -xzf redaction-next-build.tar.gz -C apps/redaction && test -f apps/redaction/.next/BUILD_ID && echo redaction unpack OK"
       Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && bash scripts/noc-npm-install.sh redaction"
       Restart-RemotePassenger -SshHost $sshHost -RemoteBase $remoteBase -AppRelativePath 'apps/redaction'
