@@ -5,10 +5,10 @@ import { handleError, json, readBody, validOrigin } from '@/lib/redaction/rh/api
 export const dynamic = 'force-dynamic';
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireRhPermission('team_read');
+    await requireRhPermission('hr_manage');
     const { id } = await params;
     if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: 'Identifiant invalide.' },400);
-    const result=await db().query(`SELECT birth_date AS "birthDate",employee_number AS "employeeNumber",work_location AS "workLocation",contract_type AS "contractType",to_char(contract_end_date,'YYYY-MM-DD') AS "contractEndDate" FROM redaction_rh.employee_profiles WHERE collaborator_id=$1`,[id]);
+    const result=await db().query(`SELECT to_char(p.birth_date,'YYYY-MM-DD') AS "birthDate",p.employee_number AS "employeeNumber",p.work_location AS "workLocation",p.contract_type AS "contractType",to_char(p.contract_end_date,'YYYY-MM-DD') AS "contractEndDate",p.phone,p.work_email AS "workEmail",p.address,p.country,p.province,p.city,p.emergency_contact AS "emergencyContact",p.specialty,p.languages,p.signature,CASE WHEN p.photo_bytes IS NULL THEN NULL ELSE 'data:'||p.photo_mime||';base64,'||encode(p.photo_bytes,'base64') END AS photo,to_char(c.start_date,'YYYY-MM-DD') AS "startDate" FROM redaction_rh.employee_profiles p JOIN redaction_rh.collaborators c ON c.id=p.collaborator_id WHERE p.collaborator_id=$1`,[id]);
     return json({profile:result.rows[0]??null});
   } catch(error){return handleError(error);}
 }

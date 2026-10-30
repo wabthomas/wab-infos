@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Clock3, Printer, ReceiptText, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Clock3, Download, Printer, ReceiptText, ShieldCheck } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { formatMinorUnits } from '@/lib/redaction/rh/money';
@@ -15,6 +15,34 @@ const methodLabels: Record<string, string> = {
 };
 const assetUrl = (key: string) => `/api/redaction/rh/organisation/assets/${key}`;
 
+function imageAsJpeg(source: string | null | undefined): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (!source?.startsWith('data:image/')) return resolve(null);
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d');
+      if (!context) return resolve(null);
+      context.drawImage(image, 0, 0);
+      try { resolve(canvas.toDataURL('image/jpeg', 0.9)); } catch { resolve(null); }
+    };
+    image.onerror = () => resolve(null);
+    image.src = source;
+  });
+}
+
+async function deliverPdf(blob: Blob, filename: string) {
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Reçu RH' }); return; }
+    catch (error) { if (error instanceof DOMException && error.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.hidden = true;
+  document.body.appendChild(anchor); anchor.click(); anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
 export function PaymentReceipt({
   person,
   withdrawal,
@@ -24,6 +52,8 @@ export function PaymentReceipt({
 }) {
   const [company, setCompany] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
   const [assets, setAssets] = useState<Record<string, string | null>>({});
+  const [downloading, setDownloading] = useState(false);
+  const [pdfMessage, setPdfMessage] = useState('');
   const reference = withdrawal.paymentReference?.trim() || `RH-${withdrawal.id.slice(0, 8).toUpperCase()}`;
   const paid = withdrawal.status === 'paid';
 
@@ -42,10 +72,64 @@ export function PaymentReceipt({
     return () => { active = false; };
   }, []);
 
-  return <div className="mx-auto max-w-3xl space-y-4 p-3 sm:p-5 print:max-w-none print:p-0">
-    <div className="flex justify-end print:hidden">
-      <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:brightness-105"><Printer className="h-4 w-4" /> Imprimer / PDF</button>
+  function printReceipt() {
+    const root = document.documentElement;
+    root.dataset.rhPrintTarget = 'payment-receipt';
+    const cleanup = () => { delete root.dataset.rhPrintTarget; };
+    window.addEventListener('afterprint', cleanup, { once: true });
+    window.print();
+    window.setTimeout(cleanup, 15_000);
+  }
+
+  async function downloadPdf() {
+    setDownloading(true); setPdfMessage('');
+    try {
+      const { jsPDF } = await import('jspdf');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+      const width = pdf.internal.pageSize.getWidth(); const margin = 16;
+      const logo = await imageAsJpeg(assets['company-logo']);
+      const seal = await imageAsJpeg(assets['company-seal'] || assets['rh-seal']);
+      const directorSignature = await imageAsJpeg(assets['director-signature']);
+      pdf.setFillColor(23, 25, 35); pdf.rect(0, 0, width, 44, 'F');
+      if (logo) pdf.addImage(logo, 'JPEG', margin, 10, 25, 20, undefined, 'FAST');
+      pdf.setTextColor(255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.text(company.companyName || 'Wab-infos', margin + (logo ? 31 : 0), 16);
+      pdf.setFontSize(18); pdf.text(paid ? 'REÇU DE PAIEMENT' : 'RÉCAPITULATIF DE RETRAIT', margin + (logo ? 31 : 0), 27);
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.text([company.companyAddress, company.companyPhone, company.companyEmail, company.companyWebsite].filter(Boolean).join(' · '), margin, 38, { maxWidth: width - margin * 2 });
+      pdf.setTextColor(70); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.text(`STATUT : ${statusLabels[withdrawal.status] ?? withdrawal.status}`, margin, 56);
+      pdf.setFillColor(245, 246, 248); pdf.roundedRect(margin, 63, width - margin * 2, 30, 3, 3, 'F');
+      pdf.setTextColor(100); pdf.setFontSize(8); pdf.text(paid ? 'MONTANT VERSÉ' : 'MONTANT DEMANDÉ', margin + 5, 72);
+      pdf.setTextColor(23, 25, 35); pdf.setFontSize(24); pdf.text(formatMinorUnits(BigInt(withdrawal.amountMinor), withdrawal.currency), margin + 5, 85);
+      pdf.setFontSize(9); pdf.text(`Référence : ${reference}`, width - margin - 5, 80, { align: 'right', maxWidth: 75 });
+      let y = 108;
+      const line = (label: string, value: string, x: number, at: number, maxWidth: number) => { pdf.setTextColor(110); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.text(label.toUpperCase(), x, at); pdf.setTextColor(35, 39, 48); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.text(pdf.splitTextToSize(value || '—', maxWidth), x, at + 6); };
+      line('Bénéficiaire', `${person.firstName} ${person.lastName}`, margin, y, 78);
+      line('Fonction / équipe', `${person.jobTitle} · ${person.team}`, width / 2 + 3, y, 75); y += 24;
+      line('Mode de paiement', methodLabels[withdrawal.method] ?? withdrawal.method, margin, y, 78);
+      line('Date de paiement', withdrawal.paymentDate || '—', width / 2 + 3, y, 75); y += 24;
+      line('Référence de paiement', withdrawal.paymentReference || reference, margin, y, width - margin * 2);
+      if (withdrawal.decisionNote) { y += 21; line('Note RH', withdrawal.decisionNote, margin, y, width - margin * 2); }
+      y = Math.max(y + 28, 190);
+      if (seal) pdf.addImage(seal, 'JPEG', width / 2 - 14, y, 28, 28, undefined, 'FAST');
+      if (directorSignature) pdf.addImage(directorSignature, 'JPEG', width / 2 - 22, y + 13, 44, 14, undefined, 'FAST');
+      pdf.setTextColor(100); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7);
+      pdf.text(company.directorName || 'Direction générale', width / 2, y + 33, { align: 'center' });
+      pdf.text(company.directorTitle, width / 2, y + 37, { align: 'center' });
+      const footer = company.documentFooter || (paid ? 'Ce reçu atteste du paiement enregistré dans le système. Il ne remplace pas un relevé bancaire ou Mobile Money.' : 'Ce document récapitule une demande de retrait et ne constitue pas une preuve de paiement.');
+      pdf.setTextColor(125); pdf.setFontSize(7); pdf.text(pdf.splitTextToSize(footer, width - margin * 2), margin, 270);
+      pdf.text(`ID fiscal : ${company.companyTaxId || '—'} · RCCM : ${company.companyRegistration || '—'} · Réf. ${reference}`, margin, 286, { maxWidth: width - margin * 2 });
+      const safeName = `${person.lastName}-${person.firstName}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+      await deliverPdf(pdf.output('blob'), `recu-rh-${safeName}-${withdrawal.id.slice(0, 8)}.pdf`);
+      setPdfMessage('PDF prêt à être enregistré ou partagé.');
+    } catch (error) { setPdfMessage(error instanceof Error ? `PDF impossible : ${error.message}` : 'PDF impossible.'); }
+    finally { setDownloading(false); }
+  }
+
+  return <div className="payment-receipt-document mx-auto max-w-3xl space-y-4 p-3 sm:p-5 print:max-w-none print:p-0">
+    <div className="flex flex-wrap justify-end gap-2 print:hidden">
+      <button type="button" onClick={printReceipt} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold shadow-sm"><Printer className="h-4 w-4" /> Imprimer</button>
+      <button type="button" disabled={downloading} onClick={() => void downloadPdf()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm disabled:opacity-50"><Download className="h-4 w-4" />{downloading ? 'Préparation…' : 'Télécharger PDF'}</button>
     </div>
+    {pdfMessage && <p role="status" className="print:hidden text-right text-xs text-primary">{pdfMessage}</p>}
 
     <article className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white text-[#171923] shadow-xl shadow-slate-900/5 print:break-inside-avoid print:rounded-none print:border-0 print:shadow-none">
       <div className="relative overflow-hidden bg-[#171923] px-5 py-6 text-white sm:px-8 sm:py-8 print:px-8 print:py-6">

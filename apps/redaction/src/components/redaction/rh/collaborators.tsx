@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Search, UsersRound } from 'lucide-react';
 import { AccountLink } from './account-link';
@@ -83,6 +84,7 @@ export function Collaborators({ allowAccountLinks = true, canManage = true }: { 
               {row.startDate && <p className="mt-1 text-xs text-muted-foreground">Arrivée : {row.startDate}</p>}</div></div>
               {canManage && !row.archived && <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-sm">
                 <button type="button" disabled={busy} className="font-semibold text-primary hover:underline" onClick={() => { setEditing(row); setFormOpen(true); setForm({ firstName: row.firstName, lastName: row.lastName, jobTitle: row.jobTitle, team: row.team, contractStatus: row.contractStatus, startDate: row.startDate }); setError(''); }}>Modifier</button>
+                <Link href={`/rh/equipe/${row.id}/fiche`} className="font-semibold text-primary hover:underline">Fiche · imprimer / PDF</Link>
                 {allowAccountLinks && <button type="button" disabled={busy} className="text-primary hover:underline" onClick={() => setLinkPerson(linkPerson === row.id ? null : row.id)}>Compte</button>}
                 <button type="button" disabled={busy} className="text-red-700 hover:underline dark:text-red-300" onClick={() => { if (window.confirm(`Archiver le dossier de ${row.firstName} ${row.lastName} ? Le compte de connexion ne sera pas modifié.`)) void send('PATCH', { action: 'archive', id: row.id, version: row.version }); }}>Archiver</button>
               </div>}
