@@ -72,7 +72,8 @@ export async function POST(request: Request) {
       message === 'Format d’image non reconnu' ||
       message.startsWith('Image trop volumineuse') ||
       message.startsWith('Cette image n’est pas lisible') ||
-      message.startsWith('Impossible de préparer cette image');
+      message.startsWith('Impossible de préparer cette image') ||
+      message.startsWith('Conversion d’image indisponible');
     return NextResponse.json({ error: message }, { status: clientError ? 400 : 500 });
   }
 }

@@ -1,56 +1,85 @@
 'use client';
 
-import { Printer } from 'lucide-react';
+import { useEffect, useState, type ChangeEvent } from 'react';
+import { fetchRedaction } from '@/lib/redaction/public-path';
+import { Printer, UserRoundPen } from 'lucide-react';
 
-export function EmployeeIdCard({
-  person,
-}: {
-  person: { firstName: string; lastName: string; jobTitle: string; team: string; contractStatus: string; startDate: string | null };
-}) {
-  const initials = `${person.firstName.charAt(0)}${person.lastName.charAt(0)}`.toUpperCase();
-  return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 print:max-w-none print:p-0">
-      <div className="flex justify-end print:hidden">
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-        >
-          <Printer className="h-4 w-4" /> Imprimer / PDF
-        </button>
-      </div>
-      <article className="relative overflow-hidden rounded-2xl border border-border bg-white p-8 text-[#191923] shadow-sm print:rounded-none print:border-0">
-        <div className="flex items-start justify-between gap-6 border-b-4 border-[#191923] pb-5">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-rose-600">Wab-infos</p>
-            <h1 className="mt-1 text-2xl font-bold">Fiche d’identification du collaborateur</h1>
-            <p className="mt-1 text-xs text-zinc-500">Document interne · ressources humaines</p>
-          </div>
-          <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-zinc-300 text-2xl font-bold text-zinc-400">
-            {initials}
-          </div>
-        </div>
-
-        <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
-          <div><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Nom complet</dt><dd className="mt-1 font-semibold">{person.firstName} {person.lastName}</dd></div>
-          <div><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Fonction</dt><dd className="mt-1 font-semibold">{person.jobTitle}</dd></div>
-          <div><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Équipe</dt><dd className="mt-1">{person.team}</dd></div>
-          <div><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Statut</dt><dd className="mt-1">{person.contractStatus}</dd></div>
-          <div><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Date d’arrivée</dt><dd className="mt-1">{person.startDate ?? '—'}</dd></div>
-          <div><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Matricule</dt><dd className="mt-1">—</dd></div>
-        </dl>
-
-        <div className="mt-10 grid grid-cols-3 gap-6 text-center text-[10px] text-zinc-500">
-          <div><div className="mx-auto h-24 w-24 rounded-full border-2 border-dashed border-zinc-300" /><p className="mt-2 uppercase tracking-wider">Photo</p></div>
-          <div><div className="mx-auto h-24 w-24 rounded-full border-2 border-dashed border-zinc-300" /><p className="mt-2 uppercase tracking-wider">Sceau RH</p></div>
-          <div><div className="mx-auto h-24 w-24 rounded-full border-2 border-dashed border-zinc-300" /><p className="mt-2 uppercase tracking-wider">Signature</p></div>
-        </div>
-
-        <p className="mt-8 border-t border-zinc-200 pt-3 text-[10px] leading-4 text-zinc-400">
-          À compléter par le collaborateur puis à déposer dans ses documents RH. Toute modification doit être validée par
-          l’administration.
-        </p>
-      </article>
+type Person = { firstName: string; lastName: string; jobTitle: string; team: string; contractStatus: string; startDate: string | null };
+export function EmployeeIdCard({ person }: { person: Person }) {
+  const [details, setDetails] = useState({ birthDate: '', phone: '', email: '', address: '', emergencyContact: '', matricule: '', workLocation: '', supervisor: '', contractType: '', contractEndDate: '', specialty: '', languages: '' });
+  const [photo, setPhoto] = useState('');
+  const [seal, setSeal] = useState('');
+  const [signature, setSignature] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [profile, setProfile] = useState<Record<string, string | null>>({});
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    fetchRedaction('/api/redaction/rh/mon-espace/fiche', { cache: 'no-store' }).then(async (response) => {
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      const value = data.profile ?? {};
+      setProfile(value);
+      setPhoto(value.photo ?? '');
+      setSignature(value.signature ?? '');
+      setDetails((current) => ({ ...current, phone: value.phone ?? '', email: value.workEmail ?? '', address: value.address ?? '', emergencyContact: value.emergencyContact ?? '', specialty: value.specialty ?? '', languages: value.languages ?? '' }));
+    }).catch(() => setMessage('Les informations complémentaires ne sont pas disponibles.'));
+    fetchRedaction('/api/redaction/rh/sceau', { cache: 'no-store' }).then(async (response) => { if (response.ok) { const data = await response.json(); setSeal(data.seal ?? ''); } }).catch(() => {});
+  }, []);
+  async function saveDetails() {
+    setSaving(true); setMessage('');
+    try {
+      const response = await fetchRedaction('/api/redaction/rh/mon-espace/fiche', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: details.phone, workEmail: details.email, address: details.address, emergencyContact: details.emergencyContact, specialty: details.specialty, languages: details.languages, signature }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Enregistrement impossible.');
+      setProfile(data.profile ?? {}); setMessage('Informations enregistrées.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Enregistrement impossible.'); }
+    finally { setSaving(false); }
+  }
+  async function uploadPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 2_000_000) { setMessage('Choisissez une photo JPG, PNG ou WebP de 2 Mo maximum.'); return; }
+    const form = new FormData(); form.set('photo', file);
+    setSaving(true); setMessage('');
+    try {
+      const response = await fetchRedaction('/api/redaction/rh/mon-espace/fiche/photo', { method: 'POST', body: form });
+      const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Envoi impossible.');
+      setPhoto(data.photo);
+      setMessage('Photo enregistrée.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Envoi impossible.'); }
+    finally { setSaving(false); event.target.value = ''; }
+  }
+  return <div className="mx-auto max-w-3xl space-y-4 p-2 sm:p-4 print:max-w-none print:p-0">
+    <div className="flex flex-wrap justify-end gap-2 print:hidden">
+      <button type="button" onClick={() => setEditing((open) => !open)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><UserRoundPen className="h-4 w-4" />{editing ? 'Fermer le formulaire' : 'Compléter ma fiche'}</button>
+      <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"><Printer className="h-4 w-4" /> Imprimer / PDF</button>
     </div>
-  );
+    {editing && <section className="grid gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-2 print:hidden">
+      {([['phone','Téléphone'],['email','Adresse e-mail professionnelle'],['address','Adresse'],['emergencyContact','Contact d’urgence'],['specialty','Spécialité'],['languages','Langues parlées']] as const).map(([key,label]) => <label key={key} className="text-sm font-medium">{label}<input type={key === 'birthDate' || key === 'contractEndDate' ? 'date' : key === 'email' ? 'email' : 'text'} value={details[key]} onChange={(e) => setDetails({ ...details, [key]: e.target.value })} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>)}
+      <label className="text-sm font-medium">Photo (JPG, PNG ou WebP, 2 Mo max)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadPhoto} className="mt-1 block w-full rounded-lg border border-border bg-background p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground" /></label>
+      <label className="text-sm font-medium">Signature (nom à afficher)<input maxLength={120} value={signature} onChange={(e) => setSignature(e.target.value)} placeholder="Saisir votre signature" className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+      {message && <p role="status" className="text-xs text-primary sm:col-span-2">{message}</p>}
+      <button type="button" disabled={saving} onClick={() => void saveDetails()} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:col-span-2">{saving ? 'Enregistrement…' : 'Enregistrer mes informations'}</button>
+      <p className="text-xs text-muted-foreground sm:col-span-2">Les informations personnelles et la photo sont enregistrées dans le dossier RH. Les données administratives restent modifiables par l’administration uniquement.</p>
+    </section>}
+    <article className="mx-auto max-w-3xl rounded-2xl border border-border bg-white p-5 text-[#191923] shadow-sm sm:p-8 print:rounded-none print:border-0 print:shadow-none">
+      <header className="flex items-center justify-between gap-3 border-b-4 border-[#191923] pb-4 sm:gap-6 sm:pb-5">
+        <div className="min-w-0"><img src="/logo.png" alt="Wab-infos" className="mb-2 h-9 w-auto object-contain object-left" /><h1 className="text-lg font-bold leading-tight sm:text-2xl">Fiche d’identification</h1><p className="mt-1 text-[10px] text-zinc-500 sm:text-xs">Document interne · ressources humaines</p></div>
+        <div className="h-20 w-16 shrink-0 overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 sm:h-24 sm:w-20">{photo ? <img src={photo} alt="Photo du collaborateur" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-2xl font-bold text-zinc-400">{person.firstName[0]}{person.lastName[0]}</div>}</div>
+      </header>
+      <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 sm:gap-y-4">
+        {([['Nom complet',`${person.firstName} ${person.lastName}`],['Fonction',person.jobTitle],['Équipe',person.team],['Statut',person.contractStatus],['Date d’arrivée',person.startDate ?? '—'],['Matricule',profile.employeeNumber],['Date de naissance',profile.birthDate],['Téléphone',details.phone],['E-mail professionnel',details.email],['Adresse',details.address],['Contact d’urgence',details.emergencyContact],['Lieu d’affectation',profile.workLocation],['Type de contrat',profile.contractType],['Fin de contrat',profile.contractEndDate],['Spécialité',details.specialty],['Langues parlées',details.languages]] as const).map(([label,value]) => <div key={label}><dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{label}</dt><dd className="mt-1 min-h-5 font-medium">{value || '—'}</dd></div>)}
+      </dl>
+      <div className="mt-8 flex flex-col items-center justify-between gap-6 border-t border-zinc-200 pt-5 text-center text-[10px] text-zinc-500 sm:flex-row">
+        <p className="uppercase tracking-wider">Signature du collaborateur</p>
+        <div className="relative flex h-28 w-28 items-center justify-center">
+          {seal ? <img src={seal} alt="Sceau officiel RH" className="absolute inset-0 h-full w-full object-contain" /> : <span className="rounded-full border-2 border-dashed border-zinc-300 px-2 py-8 text-[9px]">Sceau à téléverser</span>}
+          {signature && <span className="relative z-10 -rotate-12 break-words px-2 font-serif text-sm italic text-blue-900">{signature}</span>}
+        </div>
+        <p className="uppercase tracking-wider">Validation RH</p>
+      </div>
+      <p className="mt-6 border-t border-zinc-200 pt-3 text-[10px] leading-4 text-zinc-400">Fiche d’identification personnelle. Les données complémentaires saisies dans le formulaire ne sont pas sauvegardées ; toute mise à jour officielle doit être validée par l’administration RH.</p>
+    </article>
+  </div>;
 }

@@ -103,6 +103,11 @@ export async function optimizeUploadImage(file: File): Promise<File> {
 
   const sharp = await loadSharp();
   if (!sharp) {
+    // Ne jamais renommer un HEIC/AVIF en .jpg sans convertir les octets : Strapi
+    // rejette alors le faux JPEG avec « not a valid image ».
+    if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type.toLowerCase())) {
+      throw new Error('Conversion d’image indisponible sur le serveur. Enregistrez la photo en JPEG ou PNG, puis réessayez.');
+    }
     return withSafeName(file);
   }
 
