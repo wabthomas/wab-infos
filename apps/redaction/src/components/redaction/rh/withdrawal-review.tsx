@@ -55,9 +55,9 @@ export function WithdrawalReview({
   const [person, setPerson] = useState(initialCollaboratorId ?? '');
   const [balances, setBalances] = useState<Balance[]>([]);
   const [items, setItems] = useState<Withdrawal[]>([]);
-  const [displayCurrency, setDisplayCurrency] = useState<RhCurrency>(initialCurrency ?? 'CDF');
+  const [displayCurrency, setDisplayCurrency] = useState<RhCurrency>(initialCurrency ?? 'USD');
   const [filter, setFilter] = useState<Filter>('to_process');
-  const [openingCurrency, setOpeningCurrency] = useState<RhCurrency>(initialCurrency ?? 'CDF');
+  const [openingCurrency, setOpeningCurrency] = useState<RhCurrency>(initialCurrency ?? 'USD');
   const [openingMonth, setOpeningMonth] = useState(today.slice(0, 7));
   const [openingAmount, setOpeningAmount] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -248,9 +248,7 @@ export function WithdrawalReview({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-lg font-bold">Demandes de retrait</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Suivi manuel : aucun transfert d’argent n’est effectué par le système.
-            </p>
+            
           </div>
           <label className="w-full text-sm font-medium sm:w-80">
             Collaborateur

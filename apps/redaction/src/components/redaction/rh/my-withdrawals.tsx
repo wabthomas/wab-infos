@@ -58,7 +58,7 @@ export function MyWithdrawals({
   const [items, setItems] = useState<Withdrawal[]>([]);
   const [methods, setMethods] = useState<PayoutMethod[]>([]);
   const [payoutMethodId, setPayoutMethodId] = useState('');
-  const [currency, setCurrency] = useState<RhCurrency>(initialCurrency ?? 'CDF');
+  const [currency, setCurrency] = useState<RhCurrency>(initialCurrency ?? 'USD');
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<WithdrawalMethod>('mobile_money');
   const [loading, setLoading] = useState(true);

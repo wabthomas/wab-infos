@@ -32,7 +32,7 @@ export function MyRemunerations({
   const [rows, setRows] = useState<Remuneration[]>([]);
   const [balances, setBalances] = useState<Balance[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [currency, setCurrency] = useState<RhCurrency>(initialCurrency ?? 'CDF');
+  const [currency, setCurrency] = useState<RhCurrency>(initialCurrency ?? 'USD');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 

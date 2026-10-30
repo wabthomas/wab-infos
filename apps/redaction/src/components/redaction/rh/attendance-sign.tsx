@@ -48,9 +48,7 @@ export function AttendanceSign() {
     <div className="space-y-4">
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="font-display text-lg font-bold">Signer ma présence</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Enregistrez votre heure d’arrivée et de sortie. Un seul pointage par jour et par type.
-        </p>
+        
         {error && <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
         {message && <p role="status" className="mt-3 text-sm text-primary">{message}</p>}
         <div className="mt-4 flex flex-wrap gap-3">

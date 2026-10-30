@@ -123,9 +123,7 @@ export function PayoutMethods() {
       <section className="rounded-2xl border border-border bg-card p-5">
         <div>
           <h2 className="font-display text-lg font-bold">Mes moyens de retrait</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Mobile Money ou compte bancaire. Les coordonnées servent uniquement à l’administration pour le paiement.
-          </p>
+          
         </div>
         {error && <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
         {message && <p role="status" className="mt-3 text-sm text-primary">{message}</p>}
