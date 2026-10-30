@@ -106,7 +106,7 @@ export function RhWorkspace({ month, today, financeEnabled, withdrawalsEnabled, 
         {section === 'team' && capabilities.hrManage && <Collaborators allowAccountLinks={capabilities.accessManage} />}
         {section === 'activity' && capabilities.hrManage && <div className="space-y-4"><SubmissionReview /><Activities initialMonth={month} today={today} /></div>}
         {section === 'leave' && capabilities.hrManage && <Absences />}
-        {section === 'pay' && capabilities.financeManage && <div className="space-y-4"><Remunerations enabled={financeEnabled} initialMonth={month} /><Adjustments enabled={withdrawalsEnabled} /><RhCalendar initialMonth={month} /></div>}
+        {section === 'pay' && capabilities.financeManage && <div className="space-y-4"><Remunerations enabled={financeEnabled} withdrawalsEnabled={withdrawalsEnabled} initialMonth={month} /><Adjustments enabled={withdrawalsEnabled} /><RhCalendar initialMonth={month} /></div>}
         {section === 'withdrawals' && capabilities.financeManage && <WithdrawalReview enabled={withdrawalsEnabled} today={today} allowOpening={capabilities.accessManage} />}
         {section === 'documents' && capabilities.accessManage && <Documents enabled={documentsEnabled} />}
         {section === 'reports' && capabilities.hrManage && <Reports today={today} />}
