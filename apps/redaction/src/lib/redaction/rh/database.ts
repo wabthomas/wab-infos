@@ -594,7 +594,7 @@ export async function archiveDocument(id: string, version: number, actor: string
   finally { client.release(); }
 }
 /** Vérification du lien et journalisation dans la transaction de lecture du fichier. */
-export async function downloadDocument(id: string, actor: string, principal?: import('./principal').RhPrincipal): Promise<{ bytes: Buffer; fileType: import('./documents').DocumentFileType } | null> {
+export async function downloadDocument(id: string, actor: string, principal: import('./principal').RhPrincipal | null): Promise<{ bytes: Buffer; fileType: import('./documents').DocumentFileType } | null> {
   const client = await db().connect();
   try {
     await client.query('BEGIN');

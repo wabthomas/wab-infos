@@ -21,7 +21,10 @@ export default async function RedactionProfilePage() {
   // L'absence de base configurée ou d'identité RH ne doit pas bloquer le profil existant.
   let hasRh = false;
   let hasRhAdmin = isSuperAdmin;
-  if (!hasRhAdmin) { try { const rights = await getRhCapabilities(); hasRhAdmin = rights.hrManage || rights.financeManage; } catch { /* accès fermé */ } }
+  try {
+    const rights = await getRhCapabilities();
+    hasRhAdmin = isSuperAdmin || rights.hrManage || rights.financeManage;
+  } catch { /* accès fermé */ }
   try { hasRh = !!(await getMyCollaborator(await requireRhPrincipal())); } catch { /* accès fermé */ }
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com').replace(/\/$/, '');
