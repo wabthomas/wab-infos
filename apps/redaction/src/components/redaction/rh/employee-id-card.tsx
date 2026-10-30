@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { COUNTRIES, LANGUAGES, RDC_PROVINCES } from '@/lib/redaction/rh/geo';
 import { Printer, UserRoundPen } from 'lucide-react';
 
 type Person = { firstName: string; lastName: string; jobTitle: string; team: string; contractStatus: string; startDate: string | null };
 export function EmployeeIdCard({ person }: { person: Person }) {
+  const searchParams = useSearchParams();
   const [details, setDetails] = useState({ birthDate: '', startDate: '', phone: '', email: '', address: '', country: COUNTRIES[0], province: 'Kinshasa', city: 'Kinshasa', emergencyContact: '', specialty: '', languages: '' });
   const [photo, setPhoto] = useState('');
   const [seal, setSeal] = useState('');
@@ -15,6 +17,9 @@ export function EmployeeIdCard({ person }: { person: Person }) {
   const [profile, setProfile] = useState<Record<string, string | null>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  useEffect(() => {
+    if (searchParams.get('edit') === '1') setEditing(true);
+  }, [searchParams]);
   useEffect(() => {
     fetchRedaction('/api/redaction/rh/mon-espace/fiche', { cache: 'no-store' }).then(async (response) => {
       if (!response.ok) throw new Error();

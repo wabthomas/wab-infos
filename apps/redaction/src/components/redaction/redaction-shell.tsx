@@ -27,6 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { ManagementBell, useManagementNotifications } from '@/components/redaction/rh/management-bell';
+import { MyRhTopbarActions } from '@/components/redaction/rh/my-rh-topbar';
 import { RedactionPushBanner } from '@/components/redaction/redaction-push-setup';
 import {
   RedactionNotificationsBell,
@@ -683,7 +684,7 @@ export function RedactionShell({
               </p>
               <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
             </div>
-            <div className="flex items-center gap-1"><ManagementBell state={managementNotifications} />{!rhOnly && <RedactionNotificationsBell summary={summary} />}</div>
+            <div className="flex items-center gap-1">{inMyRh ? <MyRhTopbarActions /> : <><ManagementBell state={managementNotifications} />{!rhOnly && <RedactionNotificationsBell summary={summary} />}</>}</div>
           </div>
         </header>
 
