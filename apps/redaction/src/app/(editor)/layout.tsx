@@ -47,6 +47,7 @@ export default async function RedactionEditorLayout({
     <>
       <RedactionPushSetup />
       <RedactionShell
+        managementNotificationsEnabled={process.env.REDACTION_RH_MANAGEMENT_NOTIFICATIONS_ENABLED === 'true'}
         authorName={shellProps.authorName}
         avatarUrl={shellProps.avatarUrl}
         isSuperAdmin={shellProps.isSuperAdmin}

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { ManagementBell, useManagementNotifications } from '@/components/redaction/rh/management-bell';
 import { RedactionPushBanner } from '@/components/redaction/redaction-push-setup';
 import {
   RedactionNotificationsBell,
@@ -132,6 +133,7 @@ interface RedactionShellProps {
   isSuperAdmin?: boolean;
   initialPendingComments?: number;
   initialSidebarCollapsed?: boolean;
+  managementNotificationsEnabled?: boolean;
 }
 
 function Avatar({ name, src, size = 36 }: { name?: string; src?: string; size?: number }) {
@@ -486,6 +488,7 @@ function ProfileMenu({
 function DesktopTopbar({
   pathname,
   summary,
+  managementNotifications,
   authorName,
   avatarUrl,
   isSuperAdmin,
@@ -494,6 +497,7 @@ function DesktopTopbar({
 }: {
   pathname: string;
   summary: ReturnType<typeof useRedactionNotifications>;
+  managementNotifications: ReturnType<typeof useManagementNotifications>;
   authorName?: string;
   avatarUrl?: string;
   isSuperAdmin: boolean;
@@ -518,7 +522,7 @@ function DesktopTopbar({
       </div>
 
       <div className="flex items-center gap-2">
-        <RedactionNotificationsBell summary={summary} />
+        <ManagementBell state={managementNotifications} /><RedactionNotificationsBell summary={summary} />
         <ThemeToggle className="h-10 w-10 rounded-full border-transparent bg-transparent shadow-none hover:border-border" />
         <Link
           href="/nouveau"
@@ -541,12 +545,14 @@ export function RedactionShell({
   isSuperAdmin = false,
   initialPendingComments = 0,
   initialSidebarCollapsed = false,
+  managementNotificationsEnabled = false,
 }: RedactionShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const toast = useToast();
   const writing = isWritingPage(pathname);
   const summary = useRedactionNotifications();
+  const managementNotifications = useManagementNotifications(managementNotificationsEnabled);
   const [pendingComments, setPendingComments] = useState(initialPendingComments);
   const [collapsed, setCollapsed] = useState(initialSidebarCollapsed);
   const [aiOpen, setAiOpen] = useState(false);
@@ -641,13 +647,14 @@ export function RedactionShell({
               </p>
               <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
             </div>
-            <RedactionNotificationsBell summary={summary} />
+            <div className="flex items-center"><ManagementBell state={managementNotifications} /><RedactionNotificationsBell summary={summary} /></div>
           </div>
         </header>
 
         <DesktopTopbar
           pathname={pathname}
           summary={summary}
+          managementNotifications={managementNotifications}
           authorName={authorName}
           avatarUrl={avatarUrl}
           isSuperAdmin={isSuperAdmin}

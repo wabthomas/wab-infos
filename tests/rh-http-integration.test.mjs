@@ -40,10 +40,36 @@ test('HTTP RH : authentification, périmètres, origine et retraits', { skip: !b
   assert.equal((await send('mon-espace/retraits','alice','PATCH',{action:'cancel',id,version:1})).status,409);
   assert.equal((await send('mon-espace/retraits','alice')).data.balances.find((b) => b.currency === 'CDF').available,'8000');
   assert.equal((await send('mon-espace/ajustements','bob')).data.adjustments.length,0);
+  assert.equal((await send('contestations?collaboratorId='+person,'bob')).status,403);
+  const disputeBody={key:randomUUID(),category:'autre',message:'Pouvez-vous vérifier ?'};
+  assert.equal((await send('mon-espace/contestations','alice','POST',disputeBody,'http://evil.example')).status,403);
+  const dispute = await send('mon-espace/contestations','alice','POST',disputeBody); assert.equal(dispute.status,201);
+  assert.ok((await send('contestations?status=open','admin')).data.disputes.some(d=>d.id===dispute.data.dispute.id));
+  assert.equal((await send('contestations?status=open','bob')).status,403);
+  const retryDispute = await send('mon-espace/contestations','alice','POST',disputeBody); assert.equal(retryDispute.data.dispute.id,dispute.data.dispute.id);
+  assert.equal((await send('mon-espace/contestations','bob')).data.disputes.length,0);
+  assert.equal((await send('mon-espace/contestations','bob','PATCH',{action:'cancel',id:dispute.data.dispute.id,version:1})).status,409);
+  assert.equal((await send('contestations','admin','PATCH',{id:dispute.data.dispute.id,version:1,response:'Nous avons vérifié.'})).status,200);
+  assert.ok(!(await send('contestations?status=open','admin')).data.disputes.some(d=>d.id===dispute.data.dispute.id));
+  assert.equal((await send('mon-espace/contestations','alice')).data.disputes.find(d=>d.id===dispute.data.dispute.id).response,'Nous avons vérifié.');
+
+  assert.equal((await send('notifications-gestion','alice')).status,403);
+  const allEvents = await send('notifications-gestion','admin'); assert.equal(allEvents.status,200);
+  const financeEvents = await send('notifications-gestion','bob'); assert.equal(financeEvents.status,200);
+  assert.ok(financeEvents.data.notifications.some(e=>e.type==='retrait'));
+  assert.ok(financeEvents.data.notifications.every(e=>e.type==='retrait'));
+  const contestEvent=allEvents.data.notifications.find(e=>e.type==='contestation');
+  const withdrawalEvent=financeEvents.data.notifications.find(e=>e.type==='retrait');
+  assert.ok(contestEvent && withdrawalEvent);
+  assert.equal((await send('notifications-gestion','bob','PATCH',{id:contestEvent.id})).status,404);
+  assert.equal((await send('notifications-gestion','bob','PATCH',{id:withdrawalEvent.id},'http://evil.example')).status,403);
+  assert.equal((await send('notifications-gestion','bob','PATCH',{id:withdrawalEvent.id})).status,200);
+  assert.ok((await send('notifications-gestion','bob')).data.notifications.find(e=>e.id===withdrawalEvent.id).readAt);
+  assert.equal((await send('notifications-gestion','admin')).data.notifications.find(e=>e.id===withdrawalEvent.id).readAt,null);
   const bobPerson = (await send('mon-espace','bob')).data.person.id;
   const grant = { collaboratorId:bobPerson, role:'finance_manager' };
   assert.equal((await send('droits','admin','POST',{...grant,action:'revoke'})).status,200);
-  try { assert.equal((await send(`retraits?collaboratorId=${person}`,'bob')).status,403); }
+  try { assert.equal((await send(`retraits?collaboratorId=${person}`,'bob')).status,403); assert.equal((await send('notifications-gestion','bob')).status,403); }
   finally { assert.equal((await send('droits','admin','POST',{...grant,action:'grant'})).status,200); }
   assert.equal((await send(`retraits?collaboratorId=${person}`,'bob')).status,200);
   const form = new FormData(); form.set('collaboratorId',person); form.set('title','Fixture test'); form.set('category','autre'); form.set('share','yes'); form.set('file',new File(['%PDF-test'], 'test.pdf', { type:'application/pdf' }));

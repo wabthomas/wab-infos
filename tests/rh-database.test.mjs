@@ -20,6 +20,8 @@ test('migrations RH et contraintes des prestations', async () => {
     await db.exec(await readFile(new URL('../docs/sql/rh-documents.sql', import.meta.url), 'utf8'));
     await db.exec(await readFile(new URL('../docs/sql/rh-soldes-initiaux.sql', import.meta.url), 'utf8'));
     await db.exec(await readFile(new URL('../docs/sql/rh-ajustements.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../docs/sql/rh-contestations.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../docs/sql/rh-notifications-gestion.sql', import.meta.url), 'utf8'));
     const person = '01234567-89ab-cdef-0123-456789abcdef';
     const activity = '11111111-2222-3333-4444-555555555555';
     await db.query('INSERT INTO redaction_rh.collaborators (id,first_name,last_name,job_title,team,contract_status) VALUES ($1,$2,$3,$4,$5,$6)', [person, 'A', 'B', 'Monteur', 'Audiovisuel', 'Salarié']);
@@ -39,6 +41,13 @@ test('migrations RH et contraintes des prestations', async () => {
     const history = await db.query(`SELECT id FROM redaction_rh.absence_requests WHERE collaborator_id=$1 AND status='approved' AND start_date < ($2::date + interval '1 month') AND end_date >= $2::date`, [person, '2026-01-01']);
     assert.equal(history.rows.length, 1);
     await db.query('INSERT INTO redaction_rh.account_links (collaborator_id,account_id,account_email) VALUES ($1,$2,$3)', [person, 12, 'alice@example.com']);
+    const dispute = 'abababab-2222-3333-4444-555555555555';
+    const disputeKey = 'abababab-2222-3333-4444-555555555556';
+    await db.query(`INSERT INTO redaction_rh.disputes (id,collaborator_id,requester_account_id,requester_email,idempotency_key,category,message) VALUES ($1,$2,12,'alice@example.com',$3,'autre','Question')`,[dispute,person,disputeKey]);
+    await assert.rejects(db.query(`INSERT INTO redaction_rh.disputes (id,collaborator_id,requester_account_id,requester_email,idempotency_key,category,message) VALUES ($1,$2,12,'alice@example.com',$3,'autre','Question')`,['abababab-2222-3333-4444-555555555557',person,disputeKey]));
+    await assert.rejects(db.query(`UPDATE redaction_rh.disputes SET status='answered' WHERE id=$1`,[dispute]));
+    assert.equal((await db.query(`UPDATE redaction_rh.disputes SET status='answered',response='Réponse',resolved_at=now(),version=version+1 WHERE id=$1 AND version=1 AND status='open' RETURNING id`,[dispute])).rows.length,1);
+    assert.equal((await db.query(`UPDATE redaction_rh.disputes SET status='cancelled',version=version+1 WHERE id=$1 AND version=1 AND status='open' RETURNING id`,[dispute])).rows.length,0);
     const own = `SELECT c.id FROM redaction_rh.collaborators c JOIN redaction_rh.account_links l ON l.collaborator_id=c.id WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived`;
     assert.equal((await db.query(own, [12, 'alice@example.com'])).rows.length, 1);
     assert.equal((await db.query(own, [13, 'alice@example.com'])).rows.length, 0);

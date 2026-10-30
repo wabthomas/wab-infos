@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowDownUp, Bell, CalendarDays, ClipboardList, FileLock2, LockKeyhole, WalletCards } from 'lucide-react';
+import { MyDisputes } from './disputes';
 import { MyAdjustments } from './adjustments';
 import { MyDocuments } from './documents';
 import { MyNotifications } from './my-notifications';
@@ -11,7 +12,7 @@ import { fetchRedaction } from '@/lib/redaction/public-path';
 import { validateAbsence, type Absence, type AbsenceStatus } from '@/lib/redaction/rh/absences';
 
 const labels: Record<AbsenceStatus, string> = { pending: 'En attente', approved: 'Approuvée', rejected: 'Refusée', cancelled: 'Annulée' };
-export function MyRh({ today, financeEnabled, withdrawalsEnabled, notificationsEnabled, documentsEnabled }: { today: string; financeEnabled: boolean; withdrawalsEnabled: boolean; notificationsEnabled: boolean; documentsEnabled: boolean }) {
+export function MyRh({ today, financeEnabled, withdrawalsEnabled, notificationsEnabled, documentsEnabled, disputesEnabled }: { disputesEnabled: boolean; today: string; financeEnabled: boolean; withdrawalsEnabled: boolean; notificationsEnabled: boolean; documentsEnabled: boolean }) {
   const [person, setPerson] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
   const [items, setItems] = useState<Absence[]>([]);
   const [start, setStart] = useState(''); const [end, setEnd] = useState(''); const [category, setCategory] = useState('');
@@ -62,6 +63,7 @@ export function MyRh({ today, financeEnabled, withdrawalsEnabled, notificationsE
       <nav aria-label="Sections de mon espace RH" className="flex gap-2 overflow-x-auto pb-1">
         {notificationsEnabled && <a href="#mes-notifications" className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-xs font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"><Bell className="h-4 w-4 text-primary" /> Notifications</a>}
         {documentsEnabled && <a href="#mes-documents" className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-xs font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"><FileLock2 className="h-4 w-4 text-primary" /> Documents</a>}
+        {disputesEnabled && <a href="#mes-contestations" className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-xs font-semibold"><ClipboardList className="h-4 w-4 text-primary" /> Contestations</a>}
         <a href="#mes-prestations" className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-xs font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"><ClipboardList className="h-4 w-4 text-primary" /> Prestations</a>
         <a href="#mes-conges" className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-xs font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"><CalendarDays className="h-4 w-4 text-primary" /> Congés & absences</a>
         {financeEnabled && <a href="#mes-remunerations" className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-xs font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"><WalletCards className="h-4 w-4 text-primary" /> Rémunérations</a>}
@@ -72,6 +74,7 @@ export function MyRh({ today, financeEnabled, withdrawalsEnabled, notificationsE
       <div id="mes-prestations" className="scroll-mt-4"><MySubmissions today={today} /></div>
       {financeEnabled && <div id="mes-remunerations" className="scroll-mt-4"><MyRemunerations /></div>}
       {withdrawalsEnabled && <div id="mes-retraits" className="scroll-mt-4 space-y-4"><MyWithdrawals /><MyAdjustments /></div>}
+      {disputesEnabled && <div id="mes-contestations" className="scroll-mt-4"><MyDisputes /></div>}
       <div id="mes-conges" className="scroll-mt-4 space-y-4"><section className="space-y-3 rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold">Mes demandes</h2>
         {items.length === 0 && <p className="text-sm text-muted-foreground">Aucune demande enregistrée.</p>}

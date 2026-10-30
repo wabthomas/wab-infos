@@ -19,6 +19,21 @@ async function queueRhNotification(client: PoolClient, collaboratorId: string, t
     SELECT $1,l.collaborator_id,l.account_id,l.account_email,$3,$4,$5 FROM redaction_rh.account_links l
     WHERE l.collaborator_id=$2 ON CONFLICT (collaborator_id,event_type,source_id,source_version) DO NOTHING`, [randomUUID(), collaboratorId, type, sourceId, sourceVersion]);
 }
+/** Une alerte générique est créée dans la même transaction que la demande. */
+async function queueManagementEvent(client: PoolClient, type: import('./management-notifications').ManagementEventType, sourceId: string): Promise<void> {
+  if (process.env.REDACTION_RH_MANAGEMENT_NOTIFICATIONS_ENABLED !== 'true') return;
+  await client.query('INSERT INTO redaction_rh.management_events (id,event_type,source_id) VALUES ($1,$2,$3) ON CONFLICT (event_type,source_id) DO NOTHING', [randomUUID(),type,sourceId]);
+}
+export async function listManagementEvents(actor: {id:number;email:string}, types: readonly import('./management-notifications').ManagementEventType[]): Promise<import('./management-notifications').ManagementEvent[]> {
+  if (!types.length) return [];
+  const result = await db().query(`SELECT e.id,e.event_type AS type,e.created_at AS "createdAt",r.read_at AS "readAt" FROM redaction_rh.management_events e LEFT JOIN redaction_rh.management_event_reads r ON r.event_id=e.id AND r.actor_id=$1 AND r.actor_email=$2 WHERE e.event_type=ANY($3::varchar[]) ORDER BY e.created_at DESC,e.id DESC LIMIT 30`,[actor.id,actor.email.toLowerCase(),types]);
+  return result.rows;
+}
+export async function markManagementEventRead(actor: {id:number;email:string}, id:string, types: readonly import('./management-notifications').ManagementEventType[]): Promise<boolean> {
+  if (!types.length) return false;
+  const result = await db().query(`INSERT INTO redaction_rh.management_event_reads (event_id,actor_id,actor_email) SELECT id,$2,$3 FROM redaction_rh.management_events WHERE id=$1 AND event_type=ANY($4::varchar[]) ON CONFLICT (event_id,actor_id,actor_email) DO UPDATE SET read_at=redaction_rh.management_event_reads.read_at RETURNING event_id`,[id,actor.id,actor.email.toLowerCase(),types]);
+  return !!result.rowCount;
+}
 const columns = `id, first_name AS "firstName", last_name AS "lastName", job_title AS "jobTitle", team,
   contract_status AS "contractStatus", to_char(start_date, 'YYYY-MM-DD') AS "startDate", archived, version`;
 
@@ -110,6 +125,7 @@ export async function createAbsence(input: import('./absences').AbsenceInput, ac
     if (overlap.rowCount) { await client.query('ROLLBACK'); return null; }
     const result = await client.query(`INSERT INTO redaction_rh.absence_requests (id,collaborator_id,start_date,end_date,category) VALUES ($1,$2,$3,$4,$5) RETURNING ${absenceColumns}`, [randomUUID(), input.collaboratorId, input.startDate, input.endDate, input.category]);
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,absence_id) VALUES ($1,$2,$3,$4)', [actor, 'absence_create', input.collaboratorId, result.rows[0].id]);
+    if (principal) await queueManagementEvent(client, 'absence', result.rows[0].id);
     await client.query('COMMIT');
     return result.rows[0];
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -220,6 +236,7 @@ export async function createMySubmission(principal: import('./principal').RhPrin
     const created = await client.query(`INSERT INTO redaction_rh.activity_submissions (id, collaborator_id, activity_date, description) VALUES ($1,$2,$3,$4) ON CONFLICT (collaborator_id, activity_date) WHERE status='pending' DO NOTHING RETURNING ${submissionColumns}`, [randomUUID(), id, input.date, input.description]);
     if (!created.rowCount) { await client.query('ROLLBACK'); return null; }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,submission_id) VALUES ($1,$2,$3,$4)', [principal.email, 'submission_create', id, created.rows[0].id]);
+    await queueManagementEvent(client, 'prestation', created.rows[0].id);
     await client.query('COMMIT');
     return created.rows[0];
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -384,6 +401,7 @@ export async function createMyWithdrawal(principal: import('./principal').RhPrin
     const result = await client.query(`INSERT INTO redaction_rh.withdrawals (id,collaborator_id,idempotency_key,requester_email,currency,amount_minor,method) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (idempotency_key) DO NOTHING RETURNING ${withdrawalCols}`, [randomUUID(), collaboratorId, input.key, principal.email, input.currency, input.amountMinor, input.method]);
     if (!result.rowCount) { await client.query('ROLLBACK'); return null; }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,withdrawal_id) VALUES ($1,$2,$3,$4)', [principal.email, 'withdrawal_create', collaboratorId, result.rows[0].id]);
+    await queueManagementEvent(client, 'retrait', result.rows[0].id);
     await client.query('COMMIT'); return result.rows[0];
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
@@ -632,4 +650,67 @@ export async function decideAdjustment(id: string, version: number, action: 'val
     await client.query('COMMIT'); return true;
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
+}
+
+const disputeCols = `id,category,message,status,response,version,created_at AS "createdAt",resolved_at AS "resolvedAt"`;
+export async function listMyDisputes(principal: import('./principal').RhPrincipal): Promise<import('./disputes').Dispute[]> {
+  return (await db().query(`SELECT d.id,d.category,d.message,d.status,d.response,d.version,d.created_at AS "createdAt",d.resolved_at AS "resolvedAt" FROM redaction_rh.disputes d JOIN redaction_rh.collaborators c ON c.id=d.collaborator_id JOIN redaction_rh.account_links l ON l.collaborator_id=c.id AND l.account_id=d.requester_account_id AND l.account_email=d.requester_email WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived ORDER BY d.created_at DESC,d.id LIMIT 500`, [principal.id,principal.email])).rows;
+}
+export async function listOpenDisputes(): Promise<{ id: string; collaboratorId: string; firstName: string; lastName: string; category: import('./disputes').DisputeCategory; createdAt: string }[]> {
+  return (await db().query(`SELECT d.id,d.collaborator_id AS "collaboratorId",c.first_name AS "firstName",c.last_name AS "lastName",d.category,d.created_at AS "createdAt" FROM redaction_rh.disputes d JOIN redaction_rh.collaborators c ON c.id=d.collaborator_id WHERE d.status='open' AND NOT c.archived ORDER BY d.created_at ASC,d.id LIMIT 100`)).rows;
+}
+export async function listDisputes(collaboratorId: string): Promise<import('./disputes').Dispute[]> {
+  return (await db().query(`SELECT ${disputeCols} FROM redaction_rh.disputes WHERE collaborator_id=$1 ORDER BY created_at DESC,id LIMIT 500`, [collaboratorId])).rows;
+}
+export async function createMyDispute(principal: import('./principal').RhPrincipal, input: { key: string; category: import('./disputes').DisputeCategory; message: string }): Promise<import('./disputes').Dispute | null> {
+  const client = await db().connect();
+  try {
+    await client.query('BEGIN');
+    const person = await client.query(`SELECT c.id FROM redaction_rh.collaborators c JOIN redaction_rh.account_links l ON l.collaborator_id=c.id WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived FOR UPDATE OF c`, [principal.id,principal.email]);
+    if (!person.rowCount) { await client.query('ROLLBACK'); return null; }
+    const id = person.rows[0].id;
+    const link = await client.query('SELECT 1 FROM redaction_rh.account_links WHERE collaborator_id=$1 AND account_id=$2 AND account_email=$3',[id,principal.id,principal.email]);
+    if (!link.rowCount) { await client.query('ROLLBACK'); return null; }
+    const result = await client.query(`INSERT INTO redaction_rh.disputes (id,collaborator_id,requester_account_id,requester_email,idempotency_key,category,message) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (requester_account_id,idempotency_key) DO NOTHING RETURNING ${disputeCols}`, [randomUUID(),id,principal.id,principal.email,input.key,input.category,input.message]);
+    if (!result.rowCount) {
+      const previous = await client.query(`SELECT ${disputeCols} FROM redaction_rh.disputes WHERE collaborator_id=$1 AND requester_account_id=$2 AND requester_email=$3 AND idempotency_key=$4 AND category=$5 AND message=$6`,[id,principal.id,principal.email,input.key,input.category,input.message]);
+      if (!previous.rowCount) { await client.query('ROLLBACK'); return null; }
+      await client.query('COMMIT'); return previous.rows[0];
+    }
+    await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,dispute_id) VALUES ($1,$2,$3,$4)',[principal.email,'dispute_create',id,result.rows[0].id]);
+    await queueManagementEvent(client, 'contestation', result.rows[0].id);
+    await client.query('COMMIT'); return result.rows[0];
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+export async function cancelMyDispute(principal: import('./principal').RhPrincipal, id: string, version: number): Promise<boolean> {
+  const client = await db().connect();
+  try {
+    await client.query('BEGIN');
+    const person = await client.query(`SELECT c.id FROM redaction_rh.collaborators c JOIN redaction_rh.account_links l ON l.collaborator_id=c.id WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived FOR UPDATE OF c`, [principal.id,principal.email]);
+    if (!person.rowCount) { await client.query('ROLLBACK'); return false; }
+    const collaboratorId = person.rows[0].id;
+    const linked = await client.query('SELECT 1 FROM redaction_rh.account_links WHERE collaborator_id=$1 AND account_id=$2 AND account_email=$3',[collaboratorId,principal.id,principal.email]);
+    if (!linked.rowCount) { await client.query('ROLLBACK'); return false; }
+    const result = await client.query(`UPDATE redaction_rh.disputes SET status='cancelled',version=version+1 WHERE id=$1 AND collaborator_id=$2 AND requester_account_id=$3 AND requester_email=$4 AND version=$5 AND status='open' RETURNING id`, [id,collaboratorId,principal.id,principal.email,version]);
+    if (!result.rowCount) { await client.query('ROLLBACK'); return false; }
+    await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,dispute_id) VALUES ($1,$2,$3,$4)',[principal.email,'dispute_cancel',collaboratorId,id]);
+    await client.query('COMMIT'); return true;
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+export async function answerDispute(id: string, version: number, response: string, actor: string): Promise<boolean> {
+  const client = await db().connect();
+  try {
+    await client.query('BEGIN');
+    const record = await client.query('SELECT collaborator_id,requester_account_id,requester_email FROM redaction_rh.disputes WHERE id=$1',[id]);
+    if (!record.rowCount) { await client.query('ROLLBACK'); return false; }
+    const collaboratorId = record.rows[0].collaborator_id;
+    const person = await client.query('SELECT id FROM redaction_rh.collaborators WHERE id=$1 AND NOT archived FOR UPDATE',[collaboratorId]);
+    if (!person.rowCount) { await client.query('ROLLBACK'); return false; }
+    const link = await client.query('SELECT account_id,account_email FROM redaction_rh.account_links WHERE collaborator_id=$1',[collaboratorId]);
+    if (!link.rowCount || link.rows[0].account_id !== record.rows[0].requester_account_id || link.rows[0].account_email !== record.rows[0].requester_email || !mayReviewWithdrawal(actor,record.rows[0].requester_email,link.rows[0]?.account_email ?? null)) { await client.query('ROLLBACK'); return false; }
+    const result = await client.query(`UPDATE redaction_rh.disputes SET status='answered',response=$1,resolved_at=now(),version=version+1 WHERE id=$2 AND collaborator_id=$3 AND version=$4 AND status='open' RETURNING id`, [response,id,collaboratorId,version]);
+    if (!result.rowCount) { await client.query('ROLLBACK'); return false; }
+    await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,dispute_id) VALUES ($1,$2,$3,$4)',[actor,'dispute_answer',collaboratorId,id]);
+    await client.query('COMMIT'); return true;
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
