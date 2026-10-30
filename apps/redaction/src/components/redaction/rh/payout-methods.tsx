@@ -30,6 +30,7 @@ export function PayoutMethods() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -70,6 +71,7 @@ export function PayoutMethods() {
       setAccountName('');
       setAccountNumber('');
       setMessage('Moyen de retrait ajouté.');
+      setFormOpen(false);
       await load();
       window.dispatchEvent(new Event('rh-payouts-changed'));
     } catch (e) {
@@ -193,7 +195,11 @@ export function PayoutMethods() {
         </div>
       </section>
 
-      <form onSubmit={add} className="space-y-3 rounded-2xl border border-border bg-card p-5">
+      <section className="space-y-3">
+        <button type="button" aria-expanded={formOpen} onClick={() => setFormOpen((open) => !open)} className="w-full rounded-xl border border-dashed border-primary/40 bg-card px-4 py-3 text-left text-sm font-semibold text-primary hover:bg-primary/[0.04]">
+          {formOpen ? '− Fermer' : '+ Ajouter un moyen'}
+        </button>
+        {formOpen && <form onSubmit={add} className="space-y-3 rounded-2xl border border-border bg-card p-5">
         <h3 className="text-sm font-bold">Ajouter un moyen</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
@@ -270,7 +276,8 @@ export function PayoutMethods() {
         >
           <PlusCircle className="h-4 w-4" /> Ajouter
         </button>
-      </form>
+        </form>}
+      </section>
     </div>
   );
 }

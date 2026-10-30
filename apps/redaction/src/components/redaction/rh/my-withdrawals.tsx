@@ -62,6 +62,7 @@ export function MyWithdrawals({
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<WithdrawalMethod>('mobile_money');
   const [loading, setLoading] = useState(true);
+  const [requestOpen, setRequestOpen] = useState(false);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
@@ -238,17 +239,15 @@ export function MyWithdrawals({
         )}
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          <a
-            href="#nouvelle-demande"
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-opacity ${
-              available === null
-                ? 'cursor-not-allowed bg-white/20 text-white/60'
-                : 'bg-white text-[#191923] hover:opacity-90'
-            }`}
-            aria-disabled={available === null}
+          <button
+            type="button"
+            onClick={() => setRequestOpen((open) => !open)}
+            disabled={available === null}
+            aria-expanded={requestOpen}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 ${available === null ? 'bg-white/20 text-white/60' : 'bg-white text-[#191923] hover:opacity-90'}`}
           >
-            <PlusCircle className="h-3.5 w-3.5" /> Nouvelle demande
-          </a>
+            <PlusCircle className="h-3.5 w-3.5" /> {requestOpen ? 'Fermer' : 'Nouvelle demande'}
+          </button>
           <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
             <WalletCards className="h-3.5 w-3.5" /> Aucun transfert automatique
           </span>
@@ -355,7 +354,7 @@ export function MyWithdrawals({
         </div>
       </section>
 
-      <form
+      {requestOpen && <form
         id="nouvelle-demande"
         onSubmit={submit}
         className="scroll-mt-24 space-y-3 rounded-2xl border border-border bg-card p-5"
@@ -446,7 +445,7 @@ export function MyWithdrawals({
         >
           {busy ? 'Envoi…' : 'Envoyer la demande'}
         </button>
-      </form>
+      </form>}
     </div>
   );
 }

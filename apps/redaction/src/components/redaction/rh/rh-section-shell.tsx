@@ -137,7 +137,7 @@ export function RhSectionShell({
 
   return (
     <div className="space-y-5 pb-14">
-      <header className="relative overflow-hidden rounded-[1.75rem] bg-[#191923] px-5 py-6 text-white shadow-sm sm:px-8 sm:py-7">
+      <header className={`relative overflow-hidden rounded-[1.75rem] bg-[#191923] px-5 py-6 text-white shadow-sm sm:px-8 sm:py-7 ${(pathname === '/mon-rh/retraits' || pathname === '/mon-rh/remunerations') ? 'hidden lg:block' : ''}`}>
         <div aria-hidden className="pointer-events-none absolute -right-10 -top-24 h-64 w-64 rounded-full border border-white/[0.06] bg-white/[0.03]" />
         <div aria-hidden className="pointer-events-none absolute -right-20 top-10 h-44 w-44 rounded-full border border-white/[0.05]" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
@@ -166,20 +166,20 @@ export function RhSectionShell({
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <nav
           aria-label={mode === 'admin' ? 'Sections RH' : 'Sections de mon espace RH'}
-          className="lg:sticky lg:top-4 lg:w-56 lg:shrink-0"
+          className={`lg:sticky lg:top-4 lg:w-56 lg:shrink-0 ${(pathname === '/mon-rh/retraits' || pathname === '/mon-rh/remunerations') ? 'order-2 lg:order-none' : ''}`}
         >
           <p className="mb-3 hidden px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground lg:block">
             {mode === 'admin' ? 'Navigation RH' : 'Mon espace'}
           </p>
           <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-2 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
-            {items.map(({ href, label, icon: NavIcon, exact }) => {
+            {items.map(({ href, label, icon: NavIcon, exact }, index) => {
               const active = isActive(pathname, href, exact);
               return (
                 <Link
                   key={href}
                   href={href}
                   aria-current={active ? 'page' : undefined}
-                  className={`inline-flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold transition-colors lg:w-full ${
+                  className={`inline-flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold transition-colors lg:w-full ${mode === 'employee' && index >= 4 && href !== '/mon-rh/plus' ? 'max-lg:hidden' : ''} ${
                     active
                       ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
                       : 'border border-border bg-card text-muted-foreground hover:border-primary/30 hover:bg-muted hover:text-foreground'
@@ -193,7 +193,7 @@ export function RhSectionShell({
           </div>
         </nav>
 
-        <div className="min-w-0 flex-1 space-y-5">{children}</div>
+        <div className={`min-w-0 flex-1 space-y-5 ${(pathname === '/mon-rh/retraits' || pathname === '/mon-rh/remunerations') ? 'order-1 lg:order-none' : ''}`}>{children}</div>
       </div>
     </div>
   );
