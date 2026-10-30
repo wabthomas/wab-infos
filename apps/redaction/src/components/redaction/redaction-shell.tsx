@@ -27,6 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { ManagementBell, useManagementNotifications } from '@/components/redaction/rh/management-bell';
+import { MyRhTopbarActions } from '@/components/redaction/rh/my-rh-topbar';
 import { RedactionPushBanner } from '@/components/redaction/redaction-push-setup';
 import {
   RedactionNotificationsBell,
@@ -536,7 +537,7 @@ function DesktopTopbar({
     ? { title: 'Espace RH', eyebrow: 'Ressources humaines' }
     : getDesktopPageTitle(pathname);
   return (
-    <header className="hidden h-16 shrink-0 items-center gap-4 border-b border-border bg-card/80 px-6 backdrop-blur supports-[backdrop-filter]:bg-card/70 lg:flex">
+    <header className="redaction-desktop-topbar hidden h-16 shrink-0 items-center gap-4 border-b border-border bg-card/80 px-6 backdrop-blur supports-[backdrop-filter]:bg-card/70 lg:flex">
       {!rhOnly && <button
         type="button"
         onClick={onToggleSidebar}
@@ -675,7 +676,7 @@ export function RedactionShell({
       {!rhOnly && sidebar}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
+        <header className="redaction-mobile-header z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
           <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
@@ -683,7 +684,7 @@ export function RedactionShell({
               </p>
               <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
             </div>
-            <div className="flex items-center gap-1"><ManagementBell state={managementNotifications} />{!rhOnly && <RedactionNotificationsBell summary={summary} />}</div>
+            <div className="flex items-center gap-1">{inMyRh ? <MyRhTopbarActions /> : <><ManagementBell state={managementNotifications} />{!rhOnly && <RedactionNotificationsBell summary={summary} />}</>}</div>
           </div>
         </header>
 
@@ -753,7 +754,7 @@ export function RedactionShell({
           onActions={handleAiActions}
         />
 
-        <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:hidden">
+        <nav className="redaction-mobile-nav fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:hidden">
           <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
             {mobileNav.map((item) => (
               <MobileNavItem

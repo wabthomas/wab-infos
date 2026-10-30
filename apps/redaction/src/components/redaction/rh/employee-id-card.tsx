@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState, type ChangeEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { COUNTRIES, LANGUAGES, RDC_PROVINCES } from '@/lib/redaction/rh/geo';
 import { Printer, UserRoundPen } from 'lucide-react';
 
 type Person = { firstName: string; lastName: string; jobTitle: string; team: string; contractStatus: string; startDate: string | null };
 export function EmployeeIdCard({ person }: { person: Person }) {
+  const searchParams = useSearchParams();
   const [details, setDetails] = useState({ birthDate: '', startDate: '', phone: '', email: '', address: '', country: COUNTRIES[0], province: 'Kinshasa', city: 'Kinshasa', emergencyContact: '', specialty: '', languages: '' });
   const [photo, setPhoto] = useState('');
   const [seal, setSeal] = useState('');
@@ -15,6 +17,9 @@ export function EmployeeIdCard({ person }: { person: Person }) {
   const [profile, setProfile] = useState<Record<string, string | null>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  useEffect(() => {
+    if (searchParams.get('edit') === '1') setEditing(true);
+  }, [searchParams]);
   useEffect(() => {
     fetchRedaction('/api/redaction/rh/mon-espace/fiche', { cache: 'no-store' }).then(async (response) => {
       if (!response.ok) throw new Error();
@@ -64,7 +69,7 @@ export function EmployeeIdCard({ person }: { person: Person }) {
       <button type="button" disabled={saving} onClick={() => void saveDetails()} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:col-span-2">{saving ? 'Enregistrement…' : 'Enregistrer mes informations'}</button>
       <p className="text-xs text-muted-foreground sm:col-span-2">Les informations personnelles et la photo sont enregistrées dans le dossier RH. Les données administratives restent modifiables par l’administration uniquement.</p>
     </section>}
-    <article className="mx-auto max-w-3xl rounded-2xl border border-border bg-white p-5 text-[#191923] shadow-sm sm:p-8 print:rounded-none print:border-0 print:shadow-none">
+    <article className="mx-auto max-w-3xl rounded-2xl border border-border bg-white p-5 text-[#191923] shadow-sm sm:p-8 print:break-inside-avoid print:rounded-none print:border-0 print:shadow-none">
       <header className="flex items-center justify-between gap-3 border-b-4 border-[#191923] pb-4 sm:gap-6 sm:pb-5">
         <div className="min-w-0"><img src="/logo.png" alt="Wab-infos" className="mb-2 h-9 w-auto object-contain object-left" /><h1 className="text-lg font-bold leading-tight sm:text-2xl">Fiche d’identification</h1><p className="mt-1 text-[10px] text-zinc-500 sm:text-xs">Document interne · ressources humaines</p></div>
         <div className="h-20 w-16 shrink-0 overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 sm:h-24 sm:w-20">{photo ? <img src={photo} alt="Photo du collaborateur" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-2xl font-bold text-zinc-400">{person.firstName[0]}{person.lastName[0]}</div>}</div>

@@ -655,3 +655,71 @@ html.native-capacitor #redaction-main-scroll {
     inset: -4px;
   }
 }
+
+/* Keep RH documents printable inside the editor's fixed, scrollable app shell. */
+@page {
+  margin: 12mm;
+}
+
+@media print {
+  html,
+  body {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    background-image: none !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  .redaction-shell-root {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .redaction-sidebar,
+  .redaction-mobile-header,
+  .redaction-desktop-topbar,
+  .redaction-mobile-nav,
+  .redaction-push-banner {
+    display: none !important;
+  }
+
+  .redaction-shell-root > div,
+  .redaction-main-scroll {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
+  }
+
+  .redaction-main-scroll > div {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .redaction-shell-root nav,
+  .redaction-shell-root button,
+  .redaction-shell-root [role='dialog'] {
+    display: none !important;
+  }
+
+  .redaction-shell-root main,
+  .redaction-shell-root main * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
