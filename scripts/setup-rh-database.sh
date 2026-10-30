@@ -46,6 +46,9 @@ MIGRATIONS=(
   rh-absences
   rh-account-links
   rh-declarations
+  # Onglet « Accès et sécurité » : même avec les rôles RH désactivés, l'écran
+  # lit role_grants. Sans cette table : « Impossible de charger les droits ».
+  rh-roles
   # Onglet « Rapports » visible par défaut pour les admins RH : sans cette
   # migration, les exports échouent.
   rh-rapports
