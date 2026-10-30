@@ -71,7 +71,11 @@ function Send-File {
 
 function Restart-RemotePassenger {
   param([string]$SshHost, [string]$RemoteBase, [string]$AppRelativePath)
-  Invoke-Remote -SshHost $SshHost -Command "mkdir -p $RemoteBase/$AppRelativePath/tmp && touch $RemoteBase/$AppRelativePath/tmp/restart.txt && echo restart Passenger: $AppRelativePath"
+  # Turbopack peut externaliser pg sous un nom hashé (pg-<hash>) absent de node_modules.
+  # On recrée l'alias attendu à partir du paquet pg installé avant de redémarrer.
+  $appDir = "$RemoteBase/$AppRelativePath"
+  $shim = 'cd ' + $appDir + ' && if [ -d node_modules/pg ]; then for name in $(grep -rhoE ''pg-[a-f0-9]{8,}'' .next/server 2>/dev/null | sort -u); do [ -e "node_modules/$name" ] || cp -r node_modules/pg "node_modules/$name"; done; fi'
+  Invoke-Remote -SshHost $SshHost -Command "$shim && mkdir -p $appDir/tmp && touch $appDir/tmp/restart.txt && echo restart Passenger: $AppRelativePath"
 }
 
 $envVars = Read-DeployEnv
