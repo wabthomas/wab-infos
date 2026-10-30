@@ -4,13 +4,18 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ArrowDownUp,
   BarChart3,
+  CalendarDays,
   ChevronDown,
+  ClipboardList,
   FileText,
   Home,
+  LayoutDashboard,
   LogOut,
   Mail,
   MessageSquare,
+  MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
   PenLine,
@@ -68,6 +73,24 @@ const MOBILE_NAV: NavItem[] = [
   { href: '/comments', label: 'Commentaires', icon: MessageSquare, badge: 'comments' },
   { href: '/stats', label: 'Stats', icon: BarChart3 },
   { href: '/profil', label: 'Profil', icon: User },
+];
+
+/** Barre mobile contextuelle : gestion RH. */
+const RH_MOBILE_ADMIN: NavItem[] = [
+  { href: '/rh', label: 'RH', icon: LayoutDashboard, exact: true },
+  { href: '/rh/equipe', label: 'Équipe', icon: Users },
+  { href: '/rh/conges', label: 'Congés', icon: CalendarDays },
+  { href: '/rh/retraits', label: 'Retraits', icon: ArrowDownUp },
+  { href: '/rh/plus', label: 'Plus', icon: MoreHorizontal },
+];
+
+/** Barre mobile contextuelle : espace RH personnel. */
+const RH_MOBILE_MY: NavItem[] = [
+  { href: '/mon-rh', label: 'Mon RH', icon: LayoutDashboard, exact: true },
+  { href: '/mon-rh/conges', label: 'Congés', icon: CalendarDays },
+  { href: '/mon-rh/prestations', label: 'Prestations', icon: ClipboardList },
+  { href: '/mon-rh/retraits', label: 'Retraits', icon: ArrowDownUp },
+  { href: '/mon-rh/plus', label: 'Plus', icon: MoreHorizontal },
 ];
 
 function isWritingPage(pathname: string): boolean {
@@ -570,6 +593,10 @@ export function RedactionShell({
   );
   const draftCount = summary.draftCount;
   const effectivePending = summary.pendingComments || pendingComments;
+  // Barre mobile contextuelle : le module RH remplace les onglets éditoriaux.
+  const inRh = pathname === '/rh' || pathname.startsWith('/rh/');
+  const inMyRh = pathname === '/mon-rh' || pathname.startsWith('/mon-rh/');
+  const mobileNav: NavItem[] = inRh ? RH_MOBILE_ADMIN : inMyRh ? RH_MOBILE_MY : MOBILE_NAV;
 
   const toggleSidebar = useCallback(() => {
     setCollapsed((value) => {
@@ -718,7 +745,7 @@ export function RedactionShell({
 
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:hidden">
           <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
-            {MOBILE_NAV.map((item) => (
+            {mobileNav.map((item) => (
               <MobileNavItem
                 key={item.href}
                 href={item.href}
@@ -734,7 +761,7 @@ export function RedactionShell({
                 }
               />
             ))}
-            {isSuperAdmin ? (
+            {isSuperAdmin && !inRh && !inMyRh ? (
               <MobileNavItem
                 href="/newsletter"
                 label="E-mails"
