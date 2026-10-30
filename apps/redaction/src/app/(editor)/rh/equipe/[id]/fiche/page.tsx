@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { EmployeeIdCard } from '@/components/redaction/rh/employee-id-card';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
@@ -14,5 +15,5 @@ export default async function AdminEmployeeFichePage({ params }: { params: Promi
   const { id } = await params;
   const person = (await listCollaborators()).find((collaborator) => collaborator.id === id);
   if (!person) notFound();
-  return <EmployeeIdCard person={person} adminPersonId={id} />;
+  return <Suspense fallback={null}><EmployeeIdCard person={person} adminPersonId={id} /></Suspense>;
 }
