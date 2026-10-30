@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import { RedactionAuthError, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 import {
@@ -8,7 +9,7 @@ import { normalizeSiteSettings } from '@wab-infos/shared';
 
 export async function GET() {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     if (!user) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
     }
@@ -24,7 +25,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const body = (await request.json()) as { settings?: unknown };
     const settings = normalizeSiteSettings(body.settings);
     const saved = await updateEditorSiteSettings(user, settings);

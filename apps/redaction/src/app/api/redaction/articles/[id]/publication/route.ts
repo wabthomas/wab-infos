@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   isLiveRedactionArticle,
@@ -13,7 +14,7 @@ interface RouteContext {
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const { id } = await context.params;
     const body = (await request.json()) as { publish?: boolean };
     if (typeof body.publish !== 'boolean') {

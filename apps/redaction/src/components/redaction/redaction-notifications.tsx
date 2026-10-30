@@ -28,10 +28,14 @@ const EMPTY: NotificationSummary = {
   items: [],
 };
 
-export function useRedactionNotifications(pollMs = 60_000) {
+export function useRedactionNotifications(pollMs = 60_000, enabled = true) {
   const [summary, setSummary] = useState<NotificationSummary>(EMPTY);
 
   useEffect(() => {
+    if (!enabled) {
+      setSummary(EMPTY);
+      return;
+    }
     let cancelled = false;
 
     const load = () => {
@@ -61,7 +65,7 @@ export function useRedactionNotifications(pollMs = 60_000) {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [pollMs]);
+  }, [pollMs, enabled]);
 
   return summary;
 }

@@ -14,7 +14,7 @@ const fields = [
 ] as const;
 const endpoint = '/api/redaction/rh/collaborateurs';
 
-export function Collaborators({ allowAccountLinks = true }: { allowAccountLinks?: boolean }) {
+export function Collaborators({ allowAccountLinks = true, canManage = true }: { allowAccountLinks?: boolean; canManage?: boolean }) {
   const [rows, setRows] = useState<Collaborator[]>([]);
   const [query, setQuery] = useState('');
   const [form, setForm] = useState<CollaboratorInput>(empty);
@@ -81,19 +81,19 @@ export function Collaborators({ allowAccountLinks = true }: { allowAccountLinks?
               <div className="flex items-start gap-3"><span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/[0.08] text-xs font-bold uppercase text-primary">{row.firstName.slice(0, 1)}{row.lastName.slice(0, 1)}</span><div className="min-w-0"><p className="font-semibold">{row.firstName} {row.lastName} {row.archived && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">Archivé</span>}</p>
               <p className="mt-0.5 text-sm text-muted-foreground">{row.jobTitle} · {row.team} · {row.contractStatus}</p>
               {row.startDate && <p className="mt-1 text-xs text-muted-foreground">Arrivée : {row.startDate}</p>}</div></div>
-              {!row.archived && <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-sm">
+              {canManage && !row.archived && <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-sm">
                 <button type="button" disabled={busy} className="font-semibold text-primary hover:underline" onClick={() => { setEditing(row); setFormOpen(true); setForm({ firstName: row.firstName, lastName: row.lastName, jobTitle: row.jobTitle, team: row.team, contractStatus: row.contractStatus, startDate: row.startDate }); setError(''); }}>Modifier</button>
                 {allowAccountLinks && <button type="button" disabled={busy} className="text-primary hover:underline" onClick={() => setLinkPerson(linkPerson === row.id ? null : row.id)}>Compte</button>}
                 <button type="button" disabled={busy} className="text-red-700 hover:underline dark:text-red-300" onClick={() => { if (window.confirm(`Archiver le dossier de ${row.firstName} ${row.lastName} ? Le compte de connexion ne sera pas modifié.`)) void send('PATCH', { action: 'archive', id: row.id, version: row.version }); }}>Archiver</button>
               </div>}
               {allowAccountLinks && !row.archived && linkPerson === row.id && <AccountLink person={row} onChanged={() => { setLinkPerson(null); void load(); window.dispatchEvent(new Event('rh-collaborators-changed')); }} />}
-              {!row.archived && <IdentityAdmin personId={row.id} personName={`${row.firstName} ${row.lastName}`} />}
+              {canManage && !row.archived && <IdentityAdmin personId={row.id} personName={`${row.firstName} ${row.lastName}`} />}
             </article>
           ))}
           {rows.length === 500 && <p className="text-xs text-muted-foreground">Les 500 premiers dossiers sont affichés ; la recherche porte uniquement sur ces dossiers.</p>}
         </div>
       )}
-      <div className="border-t border-border pt-4">
+      {canManage && <><div className="border-t border-border pt-4">
         <button type="button" aria-expanded={formOpen} onClick={() => { setFormOpen((open) => !open); setEditing(null); setForm(empty); setError(''); }} className="w-full rounded-xl border border-dashed border-primary/40 px-4 py-3 text-left text-sm font-semibold text-primary hover:bg-primary/[0.04]">
           {formOpen ? '− Fermer le formulaire' : '+ Ajouter un collaborateur'}
         </button>
@@ -130,7 +130,7 @@ export function Collaborators({ allowAccountLinks = true }: { allowAccountLinks?
           <button type="submit" disabled={busy || loading} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? 'Enregistrement…' : 'Enregistrer'}</button>
           {editing && <button type="button" onClick={() => { setEditing(null); setForm(empty); setFormOpen(false); }} className="text-sm underline">Annuler</button>}
         </div>
-      </form>}
+      </form>}</>}
     </section>
   );
 }

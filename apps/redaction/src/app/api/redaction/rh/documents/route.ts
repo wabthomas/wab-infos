@@ -4,13 +4,14 @@ import { documentFileType, isDocumentCategory, validateDocumentTitle } from '@/l
 import { readDocumentForm } from '@/lib/redaction/rh/document-http';
 import { listDocuments, createDocument, archiveDocument } from '@/lib/redaction/rh/database';
 import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-function enabled() { return process.env.REDACTION_RH_DOCUMENTS_ENABLED === 'true'; }
+async function enabled() { return (await getRhFlags()).documentsEnabled; }
 export async function GET(request: Request) {
   try {
     await requireRhPermission('access_manage');
-    if (!enabled()) return json({ error: 'Documents RH désactivés.' }, 503);
+    if (!(await enabled())) return json({ error: 'Documents RH désactivés.' }, 503);
     const person = new URL(request.url).searchParams.get('collaboratorId');
     if (!isUuid(person)) return json({ error: 'Collaborateur invalide.' }, 400);
     return json({ documents: await listDocuments(person) });
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireRhPermission('access_manage');
-    if (!enabled()) return json({ error: 'Documents RH désactivés.' }, 503);
+    if (!(await enabled())) return json({ error: 'Documents RH désactivés.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let form: FormData; try { form = await readDocumentForm(request); } catch { return json({ error: 'Fichier invalide ou trop volumineux.' }, 400); }
     const collaboratorId = form.get('collaboratorId'); const title = validateDocumentTitle(form.get('title'));
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const user = await requireRhPermission('access_manage');
-    if (!enabled()) return json({ error: 'Documents RH désactivés.' }, 503);
+    if (!(await enabled())) return json({ error: 'Documents RH désactivés.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Requête invalide.' }, 400);

@@ -20,7 +20,7 @@ export default async function MyRhPage() {
   const person = await getMyCollaborator(principal).catch(() => null);
   if (!person) redirect('/profil');
 
-  const flags = getRhFlags();
+  const flags = await getRhFlags();
   const [absences, withdrawalView, notifications, disputes, documents, currencyPreferences] = await Promise.all([
     listMyAbsences(principal).catch(() => []),
     flags.withdrawalsEnabled ? myWithdrawalView(principal).catch(() => null) : Promise.resolve(null),

@@ -1,3 +1,4 @@
+import { requireEditorialPageUser } from '@/lib/redaction/editorial-access';
 import Image from 'next/image';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
 import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
@@ -12,7 +13,7 @@ import { ProfilePushSettings } from '@/components/redaction/profile-push-setting
 import { ThemeSettings } from '@/components/redaction/theme-settings';
 
 export default async function RedactionProfilePage() {
-  const user = await requireRedactionUser();
+  const user = await requireEditorialPageUser();
   const [{ author, isSuperAdmin }, stats] = await Promise.all([
     getEditorProfile(user),
     getEditorStats(user),

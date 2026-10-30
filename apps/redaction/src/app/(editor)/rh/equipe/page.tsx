@@ -9,6 +9,6 @@ export default async function RhTeamPage() {
   } catch {
     redirect('/');
   }
-  if (!capabilities.hrManage) redirect('/rh');
-  return <Collaborators allowAccountLinks={capabilities.accessManage} />;
+  if (!capabilities.teamRead) redirect('/rh');
+  return <Collaborators allowAccountLinks={capabilities.accessManage} canManage={capabilities.hrManage} />;
 }

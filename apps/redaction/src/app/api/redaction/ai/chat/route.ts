@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   runEditorChatTurn,
@@ -12,7 +13,7 @@ export const maxDuration = 120;
 
 export async function POST(request: Request) {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
     const body = (await request.json()) as {
       message?: string;
       history?: EditorChatHistoryMessage[];

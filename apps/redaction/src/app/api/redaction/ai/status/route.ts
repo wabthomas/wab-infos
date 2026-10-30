@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import { getAiSettingsAdminView } from '@/lib/ai/stored-settings';
 import { peekAiQuota } from '@/lib/ai/quotas';
@@ -9,7 +10,7 @@ import {
 
 export async function GET() {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     if (!isRedactionSuperAdmin(user)) {
       return NextResponse.json({ error: 'Réservé aux administrateurs' }, { status: 403 });
     }

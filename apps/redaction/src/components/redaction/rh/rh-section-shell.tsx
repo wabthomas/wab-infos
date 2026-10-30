@@ -24,6 +24,10 @@ import type { RhCapabilities } from '@/lib/redaction/rh/permissions';
 
 type Icon = ComponentType<{ className?: string }>;
 type RhFlags = {
+  rhEnabled: boolean;
+  rolesEnabled: boolean;
+  serviceCardsEnabled: boolean;
+  chatEnabled: boolean;
   financeEnabled: boolean;
   withdrawalsEnabled: boolean;
   documentsEnabled: boolean;
@@ -52,6 +56,8 @@ const MY_TITLES: Record<string, { eyebrow: string; title: string; text: string }
   '/mon-rh/prestations': { eyebrow: 'SUIVI QUOTIDIEN', title: 'Mes prestations', text: 'Déclarez et suivez vos journées de travail.' },
   '/mon-rh/presence': { eyebrow: 'TEMPS DE TRAVAIL', title: 'Ma présence', text: 'Signez votre arrivée et votre sortie.' },
   '/mon-rh/fiche': { eyebrow: 'IDENTIFICATION', title: 'Ma fiche', text: 'Fiche d’identification électronique imprimable.' },
+  '/mon-rh/carte-service': { eyebrow: 'IDENTIFICATION', title: 'Ma carte de service', text: 'Carte professionnelle sécurisée, recto-verso.' },
+  '/mon-rh/chat': { eyebrow: 'ÉQUIPE', title: 'Chat RH', text: 'Échanges de groupe et conversations privées.' },
   '/mon-rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Mes rémunérations', text: 'Montants validés par l’administration.' },
   '/mon-rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Mes retraits', text: 'Solde disponible, demandes et paiements enregistrés.' },
   '/mon-rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Mes documents', text: 'Contrats, attestations et documents partagés.' },
@@ -68,25 +74,26 @@ export function RhSectionShell({
   mode,
   capabilities,
   flags,
+  rhOnly = false,
   children,
 }: {
   mode: 'admin' | 'employee';
   capabilities?: RhCapabilities;
   flags: RhFlags;
+  rhOnly?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
 
   const adminItems: Item[] = [
     { href: '/rh', label: 'Vue d’ensemble', icon: LayoutDashboard, exact: true },
-    ...(capabilities?.hrManage
+    ...(capabilities?.teamRead && flags.rhEnabled
       ? ([
           { href: '/rh/equipe', label: 'Collaborateurs', icon: UsersRound },
-          { href: '/rh/prestations', label: 'Prestations', icon: ClipboardList },
-          { href: '/rh/conges', label: 'Congés', icon: CalendarDays },
+          ...(capabilities.hrManage ? [{ href: '/rh/prestations', label: 'Prestations', icon: ClipboardList }, { href: '/rh/conges', label: 'Congés', icon: CalendarDays }] : []),
         ] satisfies Item[])
       : []),
-    ...(capabilities?.financeManage
+    ...(capabilities?.financeRead && flags.financeEnabled
       ? ([
           { href: '/rh/remunerations', label: 'Rémunérations', icon: WalletCards },
           { href: '/rh/retraits', label: 'Retraits', icon: ArrowDownUp },
@@ -94,12 +101,12 @@ export function RhSectionShell({
       : []),
     ...(capabilities?.accessManage
       ? ([
-          { href: '/rh/documents', label: 'Documents', icon: FileLock2 },
-          { href: '/rh/contestations', label: 'Contestations', icon: MessageSquare },
+          ...(flags.documentsEnabled ? [{ href: '/rh/documents', label: 'Documents', icon: FileLock2 }] : []),
+          ...(flags.disputesEnabled ? [{ href: '/rh/contestations', label: 'Contestations', icon: MessageSquare }] : []),
           { href: '/rh/acces', label: 'Accès', icon: ShieldCheck },
         ] satisfies Item[])
       : []),
-    ...(capabilities?.hrManage
+    ...(capabilities?.hrManage && flags.rhEnabled
       ? ([{ href: '/rh/rapports', label: 'Rapports', icon: FileSpreadsheet }] satisfies Item[])
       : []),
     { href: '/rh/plus', label: 'Plus', icon: LayoutGrid },
@@ -142,13 +149,13 @@ export function RhSectionShell({
         <div aria-hidden className="pointer-events-none absolute -right-20 top-10 h-44 w-44 rounded-full border border-white/[0.05]" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
-            <Link
-              href={mode === 'admin' ? '/' : '/profil'}
+            {(mode === 'employee' || !rhOnly) && <Link
+              href={mode === 'admin' ? '/' : '/mon-rh'}
               className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-400 transition-colors hover:text-white"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              {mode === 'admin' ? 'Retour à la rédaction' : 'Retour au profil'}
-            </Link>
+              {mode === 'admin' ? 'Retour à la rédaction' : 'Mon espace RH'}
+            </Link>}
             <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-rose-300">{info.eyebrow}</p>
             <h1 className="mt-1.5 font-display text-2xl font-bold tracking-tight sm:text-3xl">
               {info.title}

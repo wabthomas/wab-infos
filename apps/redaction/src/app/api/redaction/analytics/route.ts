@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import { getAuthorAnalytics } from '@/lib/redaction/admin-analytics';
 import {
@@ -15,7 +16,7 @@ function parseRange(value: string | null): AdminStatsRange {
 
 export async function GET(request: Request) {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const { author } = await getEditorProfile(user);
     const { searchParams } = new URL(request.url);
     const days = parseRange(searchParams.get('days'));

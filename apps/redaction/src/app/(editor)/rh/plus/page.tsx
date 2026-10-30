@@ -13,6 +13,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 
 export default async function RhMorePage() {
   let capabilities;
@@ -22,15 +23,16 @@ export default async function RhMorePage() {
     redirect('/');
   }
 
+  const flags = await getRhFlags();
   const links = [
-    { href: '/rh/equipe', label: 'Collaborateurs', text: 'Dossiers et comptes liés', icon: UsersRound, show: capabilities.hrManage },
-    { href: '/rh/prestations', label: 'Prestations', text: 'Déclarations et journées', icon: ClipboardList, show: capabilities.hrManage },
-    { href: '/rh/conges', label: 'Congés', text: 'Demandes et validations', icon: CalendarDays, show: capabilities.hrManage },
-    { href: '/rh/remunerations', label: 'Rémunérations', text: 'Montants mensuels', icon: WalletCards, show: capabilities.financeManage },
-    { href: '/rh/retraits', label: 'Retraits', text: 'Soldes et paiements', icon: ArrowDownUp, show: capabilities.financeManage },
-    { href: '/rh/documents', label: 'Documents', text: 'Contrats et attestations', icon: FileLock2, show: capabilities.accessManage },
-    { href: '/rh/contestations', label: 'Contestations', text: 'Recours des collaborateurs', icon: MessageSquare, show: capabilities.accessManage },
-    { href: '/rh/rapports', label: 'Rapports', text: 'Exports journalisés', icon: FileSpreadsheet, show: capabilities.hrManage },
+    { href: '/rh/equipe', label: 'Collaborateurs', text: 'Dossiers et comptes liés', icon: UsersRound, show: capabilities.hrManage && flags.rhEnabled },
+    { href: '/rh/prestations', label: 'Prestations', text: 'Déclarations et journées', icon: ClipboardList, show: capabilities.hrManage && flags.rhEnabled },
+    { href: '/rh/conges', label: 'Congés', text: 'Demandes et validations', icon: CalendarDays, show: capabilities.hrManage && flags.rhEnabled },
+    { href: '/rh/remunerations', label: 'Rémunérations', text: 'Montants mensuels', icon: WalletCards, show: capabilities.financeRead && flags.financeEnabled },
+    { href: '/rh/retraits', label: 'Retraits', text: 'Soldes et paiements', icon: ArrowDownUp, show: capabilities.financeRead && flags.financeEnabled },
+    { href: '/rh/documents', label: 'Documents', text: 'Contrats et attestations', icon: FileLock2, show: capabilities.accessManage && flags.documentsEnabled },
+    { href: '/rh/contestations', label: 'Contestations', text: 'Recours des collaborateurs', icon: MessageSquare, show: capabilities.accessManage && flags.disputesEnabled },
+    { href: '/rh/rapports', label: 'Rapports', text: 'Exports journalisés', icon: FileSpreadsheet, show: capabilities.hrManage && flags.rhEnabled },
     { href: '/rh/acces', label: 'Accès & sécurité', text: 'Rôles et protections', icon: ShieldCheck, show: capabilities.accessManage },
   ].filter((link) => link.show);
 

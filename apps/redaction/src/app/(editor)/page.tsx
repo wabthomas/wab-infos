@@ -1,3 +1,4 @@
+import { requireEditorialPageUser } from '@/lib/redaction/editorial-access';
 import {
   countPendingComments,
   getEditorProfile,
@@ -9,7 +10,7 @@ import { getEditorSiteSettings } from '@/lib/redaction/site-settings';
 import { RedactionDashboardHome } from '@/components/redaction/redaction-dashboard-home';
 
 export default async function RedactionDashboardPage() {
-  const user = await requireRedactionUser();
+  const user = await requireEditorialPageUser();
   const { author, canDeleteAnyArticle, isSuperAdmin } = await getEditorProfile(user);
 
   const [stats, { articles: latestPublished }, { articles: recentDrafts }, siteSettings, pendingComments] =

@@ -3,11 +3,13 @@ import { kinshasaToday } from '@/lib/redaction/rh/activities';
 import { validateOpeningBalance } from '@/lib/redaction/rh/opening-balances';
 import { createOpeningBalance } from '@/lib/redaction/rh/database';
 import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 export const dynamic = 'force-dynamic';
+async function enabled(){const flags=await getRhFlags();return flags.financeEnabled&&flags.withdrawalsEnabled;}
 export async function POST(request: Request) {
   try {
     const user = await requireRhPermission('access_manage');
-    if (process.env.REDACTION_RH_FINANCE_ENABLED !== 'true' || process.env.REDACTION_RH_WITHDRAWALS_ENABLED !== 'true') return json({ error: 'Retraits désactivés.' }, 503);
+    if (!(await enabled())) return json({ error: 'Retraits désactivés.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     const input = validateOpeningBalance(body, kinshasaToday().slice(0, 7));

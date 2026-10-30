@@ -20,9 +20,13 @@ export default async function RhPage() {
   } catch {
     redirect('/');
   }
-  if (!capabilities.hrManage && !capabilities.financeManage && !capabilities.accessManage) redirect('/');
+  if (!capabilities.hrManage && !capabilities.financeManage && !capabilities.accessManage) {
+    if (capabilities.financeRead) redirect('/rh/remunerations');
+    if (capabilities.teamRead) redirect('/rh/equipe');
+    redirect('/');
+  }
 
-  const flags = getRhFlags();
+  const flags = await getRhFlags();
   const collaborators = (await listCollaborators().catch(() => [])).filter((person) => !person.archived);
 
   const [absencesByPerson, submissionsByPerson, withdrawalViews, openDisputes] = await Promise.all([

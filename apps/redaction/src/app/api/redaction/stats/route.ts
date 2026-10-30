@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   getEditorStats,
@@ -7,7 +8,7 @@ import {
 
 export async function GET() {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const stats = await getEditorStats(user);
     return NextResponse.json({ stats });
   } catch (err) {

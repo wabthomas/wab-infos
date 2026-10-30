@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import { fetchSiteCompetition } from '@/lib/seo/site-seo-client';
 import { RedactionAuthError, requireRedactionUser } from '@/lib/redaction/strapi-editor';
@@ -5,7 +6,7 @@ import { RedactionAuthError, requireRedactionUser } from '@/lib/redaction/strapi
 /** Veille concurrence (RSS actualite.cd, Radio Okapi, 7sur7…) pour la rédaction. */
 export async function GET(request: Request) {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
     const url = new URL(request.url);
     const hours = Number(url.searchParams.get('hours'));
     const refresh = url.searchParams.get('refresh') === '1';

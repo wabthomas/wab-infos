@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import { normalizeSeoBrief } from '@wab-infos/shared';
 import { completeJson } from '@/lib/ai/complete-json';
@@ -29,7 +30,7 @@ Règles de fond :
 
 export async function POST(request: Request) {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
 
     const body = (await request.json()) as {
       topic?: string;

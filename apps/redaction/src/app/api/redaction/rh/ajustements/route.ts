@@ -3,12 +3,13 @@ import { isUuid } from '@/lib/redaction/rh/activities';
 import { validateAdjustment } from '@/lib/redaction/rh/adjustments';
 import { listAdjustments, createAdjustment, decideAdjustment } from '@/lib/redaction/rh/database';
 import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 export const dynamic = 'force-dynamic';
-function enabled() { return process.env.REDACTION_RH_FINANCE_ENABLED === 'true' && process.env.REDACTION_RH_WITHDRAWALS_ENABLED === 'true'; }
+async function enabled() { const flags=await getRhFlags(); return flags.financeEnabled && flags.withdrawalsEnabled; }
 export async function GET(request: Request) {
   try {
-    await requireRhPermission('finance_manage');
-    if (!enabled()) return json({ error: 'Ajustements désactivés.' }, 503);
+    await requireRhPermission('finance_read');
+    if (!(await enabled())) return json({ error: 'Ajustements désactivés.' }, 503);
     const person = new URL(request.url).searchParams.get('collaboratorId');
     if (!isUuid(person)) return json({ error: 'Collaborateur invalide.' }, 400);
     return json({ adjustments: await listAdjustments(person) });
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireRhPermission('finance_manage');
-    if (!enabled()) return json({ error: 'Ajustements désactivés.' }, 503);
+    if (!(await enabled())) return json({ error: 'Ajustements désactivés.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     const input = validateAdjustment(body);
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const user = await requireRhPermission('finance_manage');
-    if (!enabled()) return json({ error: 'Ajustements désactivés.' }, 503);
+    if (!(await enabled())) return json({ error: 'Ajustements désactivés.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Requête invalide.' }, 400);

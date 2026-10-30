@@ -1,4 +1,21 @@
 /** Fonctions proposées dans le formulaire (reste un texte libre). */
+export const RH_ONLY_JOB_TITLES = [
+  'Réalisateur',
+  'Assistant réalisateur',
+  'Cadreur',
+  'Monteur',
+  'Ingénieur du son',
+  'Présentateur',
+  'Animateur',
+  'Photographe',
+  'Technicien',
+] as const;
+
+export function isRhOnlyJobTitle(value: string): boolean {
+  const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr').trim().replace(/\s+/g, ' ');
+  return RH_ONLY_JOB_TITLES.some((title) => normalize(title) === normalize(value));
+}
+
 export const RH_JOB_TITLE_SUGGESTIONS = [
   'Journaliste',
   'Journaliste reporter',

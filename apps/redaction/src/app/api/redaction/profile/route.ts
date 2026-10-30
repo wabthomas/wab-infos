@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   getEditorProfile,
@@ -9,7 +10,7 @@ import type { EditorAuthorProfilePayload } from '@/lib/redaction/types';
 
 export async function GET() {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const profile = await getEditorProfile(user);
     return NextResponse.json({
       user: profile.user,
@@ -26,7 +27,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const body = (await request.json()) as EditorAuthorProfilePayload;
     const author = await updateEditorAuthorProfile(user, body);
     return NextResponse.json({ author });

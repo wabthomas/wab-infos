@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { ArrowRight, FileCheck2, KeyRound, ShieldCheck, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { RoleManager } from '@/components/redaction/rh/role-manager';
+import { FeatureSettings } from '@/components/redaction/rh/feature-settings';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
 
 export default async function RhAccessPage() {
@@ -15,6 +16,7 @@ export default async function RhAccessPage() {
 
   return (
     <div className="space-y-5">
+      <FeatureSettings />
       <RoleManager />
 
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">

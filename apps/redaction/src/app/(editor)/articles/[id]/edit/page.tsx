@@ -1,3 +1,4 @@
+import { requireEditorialPageUser } from '@/lib/redaction/editorial-access';
 import { notFound } from 'next/navigation';
 import { getEditorArticle, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 import { EditArticleClient } from '@/components/redaction/edit-article-client';
@@ -7,7 +8,7 @@ interface PageProps {
 }
 
 export default async function RedactionEditArticlePage({ params }: PageProps) {
-  const user = await requireRedactionUser();
+  const user = await requireEditorialPageUser();
   const { id } = await params;
   const article = await getEditorArticle(user, id);
 

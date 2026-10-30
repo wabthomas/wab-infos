@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   applyDraftSaveHeader,
@@ -19,7 +20,7 @@ interface RouteContext {
 
 export async function GET(_request: Request, context: RouteContext) {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const { id } = await context.params;
     const article = await getEditorArticle(user, id);
     if (!article) {
@@ -36,7 +37,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PUT(request: Request, context: RouteContext) {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const { id } = await context.params;
     const raw = applyDraftSaveHeader(
       (await request.json()) as Partial<ArticleEditorPayload>,
@@ -59,7 +60,7 @@ export async function PUT(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const { id } = await context.params;
     await deleteEditorArticle(user, id);
     return NextResponse.json({ ok: true });

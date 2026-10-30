@@ -1,9 +1,10 @@
+import { requireEditorialPageUser } from '@/lib/redaction/editorial-access';
 import { redirect } from 'next/navigation';
 import { NewsletterDesk } from '@/components/redaction/newsletter-desk';
 import { isRedactionSuperAdmin, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 
 export default async function RedactionNewsletterPage() {
-  const user = await requireRedactionUser();
+  const user = await requireEditorialPageUser();
   if (!isRedactionSuperAdmin(user)) {
     redirect('/');
   }

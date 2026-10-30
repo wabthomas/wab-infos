@@ -12,7 +12,7 @@ export default async function MyRhLayout({ children }: { children: React.ReactNo
     redirect('/profil');
   }
   return (
-    <RhSectionShell mode="employee" flags={getRhFlags()}>
+    <RhSectionShell mode="employee" flags={await getRhFlags()}>
       {children}
     </RhSectionShell>
   );

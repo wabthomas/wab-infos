@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   listEditorArticles,
@@ -102,7 +103,7 @@ async function submitSeoNotify(payload: {
  */
 export async function POST(request: Request) {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const body = (await request.json()) as {
       mode?: 'article' | 'recent';
       category?: string;

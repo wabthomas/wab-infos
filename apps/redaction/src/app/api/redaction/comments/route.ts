@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   listEditorComments,
@@ -8,7 +9,7 @@ import {
 
 export async function GET(request: Request) {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as
       | 'pending'
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
     const body = (await request.json()) as {
       documentId?: string;
       status?: 'approved' | 'rejected';

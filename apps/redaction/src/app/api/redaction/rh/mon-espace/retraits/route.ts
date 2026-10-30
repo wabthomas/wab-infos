@@ -3,12 +3,13 @@ import { myWithdrawalView, createMyWithdrawal, cancelMyWithdrawal } from '@/lib/
 import { isUuid } from '@/lib/redaction/rh/activities';
 import { validateWithdrawal } from '@/lib/redaction/rh/withdrawals';
 import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 export const dynamic = 'force-dynamic';
-function enabled() { return process.env.REDACTION_RH_FINANCE_ENABLED === 'true' && process.env.REDACTION_RH_WITHDRAWALS_ENABLED === 'true'; }
+async function enabled() { const flags=await getRhFlags(); return flags.financeEnabled && flags.withdrawalsEnabled; }
 export async function GET() {
   try {
     const principal = await requireRhPrincipal();
-    if (!enabled()) return json({ error: 'Retraits désactivés.' }, 503);
+    if (!(await enabled())) return json({ error: 'Retraits désactivés.' }, 503);
     const result = await myWithdrawalView(principal);
     if (!result) return json({ error: 'Aucun dossier RH actif lié à ce compte.' }, 403);
     return json(result);
@@ -17,7 +18,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const principal = await requireRhPrincipal();
-    if (!enabled()) return json({ error: 'Retraits désactivés.' }, 503);
+    if (!(await enabled())) return json({ error: 'Retraits désactivés.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     const input = validateWithdrawal(body);
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const principal = await requireRhPrincipal();
-    if (!enabled()) return json({ error: 'Retraits désactivés.' }, 503);
+    if (!(await enabled())) return json({ error: 'Retraits désactivés.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Requête invalide.' }, 400);

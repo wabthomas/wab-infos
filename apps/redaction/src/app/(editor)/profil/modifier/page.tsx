@@ -1,10 +1,11 @@
+import { requireEditorialPageUser } from '@/lib/redaction/editorial-access';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { getEditorProfile, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 import { ProfileEditForm } from '@/components/redaction/profile-edit-form';
 
 export default async function RedactionEditProfilePage() {
-  const user = await requireRedactionUser();
+  const user = await requireEditorialPageUser();
   const { author } = await getEditorProfile(user);
 
   return (
