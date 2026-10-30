@@ -56,7 +56,7 @@ async function shareOrDownloadPdf(blob: Blob, filename: string) {
 
 export function EmployeeIdCard({ person }: { person: Person }) {
   const searchParams = useSearchParams();
-  const [details, setDetails] = useState({ birthDate: '', startDate: '', phone: '', email: '', address: '', country: COUNTRIES[0], province: 'Kinshasa', city: 'Kinshasa', emergencyContact: '', specialty: '', languages: '' });
+  const [details, setDetails] = useState<Record<'birthDate'|'startDate'|'phone'|'email'|'address'|'country'|'province'|'city'|'emergencyContact'|'specialty'|'languages', string>>({ birthDate: '', startDate: '', phone: '', email: '', address: '', country: COUNTRIES[0], province: 'Kinshasa', city: 'Kinshasa', emergencyContact: '', specialty: '', languages: '' });
   const [photo, setPhoto] = useState('');
   const [seal, setSeal] = useState('');
   const [signature, setSignature] = useState('');
