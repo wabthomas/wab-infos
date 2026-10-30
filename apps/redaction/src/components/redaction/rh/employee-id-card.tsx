@@ -11,6 +11,7 @@ import { Download, Printer, UserRoundPen, X } from 'lucide-react';
 type Person = { firstName: string; lastName: string; jobTitle: string; team: string; contractStatus: string; startDate: string | null };
 type Field = { label: string; value: string | null | undefined };
 type FieldGroup = { title: string; fields: Field[] };
+type PersonalDetails = { birthDate: string; startDate: string; phone: string; email: string; address: string; country: string; province: string; city: string; emergencyContact: string; specialty: string; languages: string };
 
 function dataUrlAsJpeg(source: string): Promise<string | null> {
   return new Promise((resolve) => {
@@ -54,9 +55,9 @@ async function shareOrDownloadPdf(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-export function EmployeeIdCard({ person }: { person: Person }) {
+export function EmployeeIdCard({ person, adminPersonId }: { person: Person; adminPersonId?: string }) {
   const searchParams = useSearchParams();
-  const [details, setDetails] = useState<Record<'birthDate'|'startDate'|'phone'|'email'|'address'|'country'|'province'|'city'|'emergencyContact'|'specialty'|'languages', string>>({ birthDate: '', startDate: '', phone: '', email: '', address: '', country: COUNTRIES[0], province: 'Kinshasa', city: 'Kinshasa', emergencyContact: '', specialty: '', languages: '' });
+  const [details, setDetails] = useState<PersonalDetails>({ birthDate: '', startDate: '', phone: '', email: '', address: '', country: COUNTRIES[0], province: 'Kinshasa', city: 'Kinshasa', emergencyContact: '', specialty: '', languages: '' });
   const [photo, setPhoto] = useState('');
   const [seal, setSeal] = useState('');
   const [signature, setSignature] = useState('');
@@ -69,10 +70,11 @@ export function EmployeeIdCard({ person }: { person: Person }) {
   const [downloading, setDownloading] = useState(false);
   const [message, setMessage] = useState('');
   useEffect(() => {
-    if (searchParams.get('edit') === '1') setEditing(true);
-  }, [searchParams]);
+    if (!adminPersonId && searchParams.get('edit') === '1') setEditing(true);
+  }, [searchParams, adminPersonId]);
   useEffect(() => {
-    fetchRedaction('/api/redaction/rh/mon-espace/fiche', { cache: 'no-store' }).then(async (response) => {
+    const profileEndpoint = adminPersonId ? `/api/redaction/rh/fiche/${adminPersonId}` : '/api/redaction/rh/mon-espace/fiche';
+    fetchRedaction(profileEndpoint, { cache: 'no-store' }).then(async (response) => {
       if (!response.ok) throw new Error();
       const data = await response.json();
       const value = data.profile ?? {};
@@ -88,10 +90,10 @@ export function EmployeeIdCard({ person }: { person: Person }) {
         : value.city ?? '';
       setDetails((current) => ({ ...current, birthDate: value.birthDate ?? '', startDate: value.startDate ?? '', phone: value.phone ?? '', email: value.workEmail ?? '', address: value.address ?? '', country, province, city, emergencyContact: value.emergencyContact ?? '', specialty: value.specialty ?? '', languages: value.languages ?? '' }));
     }).catch(() => setMessage('Les informations complémentaires ne sont pas disponibles.'));
-    fetchRedaction('/api/redaction/rh/sceau', { cache: 'no-store' }).then(async (response) => { if (response.ok) { const data = await response.json(); setSeal(data.seal ?? ''); } }).catch(() => {});
+    fetchRedaction('/api/redaction/rh/organisation/assets/rh-seal', { cache: 'no-store' }).then(async (response) => { if (response.ok) { const data = await response.json(); setSeal(data.asset ?? ''); } }).catch(() => {});
     fetchRedaction('/api/redaction/rh/organisation', { cache: 'no-store' }).then(async (response) => { if (response.ok) { const data = await response.json(); setCompany({ ...DEFAULT_ORGANIZATION_SETTINGS, ...data.settings }); } }).catch(() => {});
     for (const key of ['company-logo', 'document-header', 'document-footer']) fetchRedaction(`/api/redaction/rh/organisation/assets/${key}`, { cache: 'no-store' }).then(async (response) => { if (response.ok) { const data = await response.json(); setCompanyAssets((current) => ({ ...current, [key]: data.asset ?? null })); } }).catch(() => {});
-  }, []);
+  }, [adminPersonId]);
 
   useEffect(() => {
     let active = true;
@@ -228,12 +230,12 @@ export function EmployeeIdCard({ person }: { person: Person }) {
 
   return <div className="mx-auto max-w-3xl space-y-4 p-2 sm:p-4 print:max-w-none print:p-0">
     <div className="flex flex-wrap justify-end gap-2 print:hidden">
-      <button type="button" onClick={() => setEditing((open) => !open)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><UserRoundPen className="h-4 w-4" />{editing ? 'Fermer le formulaire' : 'Compléter ma fiche'}</button>
+      {!adminPersonId && <button type="button" onClick={() => setEditing((open) => !open)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><UserRoundPen className="h-4 w-4" />{editing ? 'Fermer le formulaire' : 'Compléter ma fiche'}</button>}
       <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><Printer className="h-4 w-4" /> Imprimer</button>
       <button type="button" disabled={downloading} onClick={() => void downloadPdf()} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Download className="h-4 w-4" />{downloading ? 'Préparation…' : 'Télécharger PDF'}</button>
     </div>
     {message && !editing && <p role="status" className="rounded-xl border border-primary/15 bg-primary/[0.06] px-4 py-2.5 text-sm text-primary print:hidden">{message}</p>}
-    {editing && <div className="fixed inset-0 z-[85] flex items-end bg-black/55 print:hidden sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setEditing(false); }}>
+    {editing && !adminPersonId && <div className="fixed inset-0 z-[85] flex items-end bg-black/55 print:hidden sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setEditing(false); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="employee-profile-form-title" className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl border border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6">
         <header className="sticky top-0 z-10 -mx-4 -mt-4 mb-4 flex items-center justify-between border-b border-border bg-card/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mt-6 sm:px-6">
           <div><p className="text-[10px] font-bold uppercase tracking-widest text-primary">Mon espace RH</p><h2 id="employee-profile-form-title" className="mt-0.5 font-display text-lg font-bold">Compléter ma fiche</h2></div>

@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowDownUp, CheckCircle2, Clock3, Loader2, WalletCards } from 'lucide-react';
+import { ArrowDownUp, CheckCircle2, Clock3, Loader2, ReceiptText, WalletCards, X } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
 import { validateOpeningBalance } from '@/lib/redaction/rh/opening-balances';
 import { validateWithdrawalDecision, type Balance, type Withdrawal } from '@/lib/redaction/rh/withdrawals';
 import type { Collaborator } from '@/lib/redaction/rh/collaborator';
+import { PaymentReceipt } from './payment-receipt';
 
 const labels = {
   pending: 'En attente',
@@ -70,6 +71,7 @@ export function WithdrawalReview({
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
+  const [receiptWithdrawal, setReceiptWithdrawal] = useState<Withdrawal | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
@@ -487,6 +489,7 @@ export function WithdrawalReview({
                       </span>
                     </div>
                     {item.decisionNote && <p className="text-[11px] text-muted-foreground">Motif : {item.decisionNote}</p>}
+                    {item.status === 'paid' && selected && <button type="button" onClick={() => setReceiptWithdrawal(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/[0.05]"><ReceiptText className="h-3.5 w-3.5" />Voir / imprimer le reçu PDF</button>}
                     {!readOnly && (item.status === 'pending' || item.status === 'approved') && (
                       <>
                         <label className="block text-xs">
@@ -563,6 +566,12 @@ export function WithdrawalReview({
           </section>
         </>
       )}
+      {receiptWithdrawal && selected && <div className="payment-receipt-modal fixed inset-0 z-[90] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setReceiptWithdrawal(null); }}>
+        <section role="dialog" aria-modal="true" aria-label="Reçu du paiement" className="payment-receipt-modal-panel relative max-h-[94dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-background p-3 shadow-2xl sm:rounded-2xl sm:p-5">
+          <button type="button" onClick={() => setReceiptWithdrawal(null)} aria-label="Fermer le reçu" className="print:hidden absolute right-3 top-3 z-[95] rounded-full border border-border bg-card p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
+          <PaymentReceipt person={selected} withdrawal={receiptWithdrawal} />
+        </section>
+      </div>}
     </div>
   );
 }

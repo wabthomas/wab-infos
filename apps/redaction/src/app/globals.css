@@ -722,4 +722,38 @@ html.native-capacitor #redaction-main-scroll {
     animation: none !important;
     transition: none !important;
   }
+
+  html[data-rh-print-target='payment-receipt'] body * {
+    visibility: hidden !important;
+  }
+
+  html[data-rh-print-target='payment-receipt'] .payment-receipt-document,
+  html[data-rh-print-target='payment-receipt'] .payment-receipt-document * {
+    visibility: visible !important;
+  }
+
+  html[data-rh-print-target='payment-receipt'] .payment-receipt-modal,
+  html[data-rh-print-target='payment-receipt'] .payment-receipt-modal-panel {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html[data-rh-print-target='payment-receipt'] .payment-receipt-document {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 }
