@@ -38,7 +38,7 @@ export function PaymentReceipt({
         </button>
       </div>
 
-      <article className="rounded-2xl border border-border bg-white p-8 text-[#191923] shadow-sm print:rounded-none print:border-0 print:shadow-none">
+      <article className="rounded-2xl border border-border bg-white p-8 text-[#191923] shadow-sm print:break-inside-avoid print:rounded-none print:border-0 print:shadow-none">
         <header className="flex flex-col gap-3 border-b-2 border-[#191923] pb-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-rose-600">Wab-infos</p>
