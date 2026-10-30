@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Building2, Check, FileText, ImagePlus, Save, Trash2, Upload } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import {
@@ -19,6 +19,7 @@ type AssetState = { data: string | null; busy: boolean; error: string };
 export function OrganizationSettings() {
   const [settings, setSettings] = useState<OrganizationProfile>(DEFAULT_ORGANIZATION_SETTINGS);
   const [assets, setAssets] = useState<Record<string, AssetState>>({});
+  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -69,11 +70,12 @@ export function OrganizationSettings() {
   }
 
   async function upload(key: OrganizationAssetKey, event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (!file) return;
     if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 2_000_000) {
       setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: 'Choisissez une image JPG, PNG ou WebP de 2 Mo maximum.' } }));
-      event.target.value = '';
+      input.value = '';
       return;
     }
     setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: true, error: '' } }));
@@ -85,7 +87,7 @@ export function OrganizationSettings() {
       await loadAsset(key); setNotice('Élément visuel enregistré.');
     } catch (cause) {
       setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: cause instanceof Error ? cause.message : 'Téléversement impossible.' } }));
-    } finally { event.target.value = ''; }
+    } finally { input.value = ''; }
   }
 
   async function removeAsset(key: OrganizationAssetKey) {
@@ -139,7 +141,8 @@ export function OrganizationSettings() {
             </div>
             {state.error && <p role="alert" className="mt-2 text-xs text-red-700">{state.error}</p>}
             <div className="mt-3 flex items-center gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground has-[:disabled]:opacity-50"><Upload className="h-3.5 w-3.5" />{state.busy ? 'Traitement…' : 'Téléverser'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={state.busy} onChange={(event) => void upload(asset.key, event)} className="sr-only" /></label>
+              <button type="button" disabled={state.busy} onClick={() => fileInputs.current[asset.key]?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"><Upload className="h-3.5 w-3.5" />{state.busy ? 'Traitement…' : 'Téléverser'}</button>
+              <input ref={(node) => { fileInputs.current[asset.key] = node; }} type="file" accept="image/jpeg,image/png,image/webp" disabled={state.busy} onChange={(event) => void upload(asset.key, event)} className="hidden" />
               {state.data && <button type="button" disabled={state.busy} onClick={() => void removeAsset(asset.key)} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-red-600 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" />Retirer</button>}
             </div>
           </article>;
