@@ -158,30 +158,38 @@ export function RhSectionShell({
         </div>
       </header>
 
-      <nav aria-label={mode === 'admin' ? 'Sections RH' : 'Sections de mon espace RH'} className="-mx-1 overflow-x-auto pb-1">
-        <div className="flex min-w-max gap-1.5 px-1">
-          {items.map(({ href, label, icon: NavIcon, exact }) => {
-            const active = isActive(pathname, href, exact);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? 'page' : undefined}
-                className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold transition-colors ${
-                  active
-                    ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
-                    : 'border border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground'
-                }`}
-              >
-                <NavIcon className="h-4 w-4" />
-                {label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <nav
+          aria-label={mode === 'admin' ? 'Sections RH' : 'Sections de mon espace RH'}
+          className="lg:sticky lg:top-4 lg:w-56 lg:shrink-0"
+        >
+          <p className="mb-3 hidden px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground lg:block">
+            {mode === 'admin' ? 'Navigation RH' : 'Mon espace'}
+          </p>
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-2 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
+            {items.map(({ href, label, icon: NavIcon, exact }) => {
+              const active = isActive(pathname, href, exact);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`inline-flex shrink-0 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold transition-colors lg:w-full ${
+                    active
+                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                      : 'border border-border bg-card text-muted-foreground hover:border-primary/30 hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  <NavIcon className="h-4 w-4 shrink-0" />
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
 
-      <div className="space-y-5">{children}</div>
+        <div className="min-w-0 flex-1 space-y-5">{children}</div>
+      </div>
     </div>
   );
 }
