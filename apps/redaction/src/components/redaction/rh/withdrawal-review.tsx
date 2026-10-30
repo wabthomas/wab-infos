@@ -298,7 +298,7 @@ export function WithdrawalReview({
               </div>
               <div className="flex flex-col items-end gap-3">
                 <div className="flex rounded-full border border-white/10 bg-white/[0.06] p-1">
-                  {(['CDF', 'USD'] as const).map((code) => (
+                  {(['USD', 'CDF'] as const).map((code) => (
                     <button
                       key={code}
                       type="button"

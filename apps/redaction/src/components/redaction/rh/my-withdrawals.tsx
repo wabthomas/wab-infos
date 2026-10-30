@@ -176,11 +176,11 @@ export function MyWithdrawals({
             <p className="mt-1 text-3xl font-bold tabular-nums sm:text-4xl">
               {loading ? <Loader2 className="h-7 w-7 animate-spin text-zinc-400" /> : available ?? 'Non établi'}
             </p>
-            <p className="mt-1 text-xs text-zinc-400">{currency} · montants validés, réservés et payés déduits</p>
+            <WalletCards className="sr-only" />
           </div>
           <div className="flex flex-col items-end gap-3">
             <div className="flex rounded-full border border-white/10 bg-white/[0.06] p-1">
-              {(['CDF', 'USD'] as const).map((code) => (
+              {(['USD', 'CDF'] as const).map((code) => (
                 <button
                   key={code}
                   type="button"
@@ -232,11 +232,7 @@ export function MyWithdrawals({
               <dd className="mt-0.5 font-semibold">{formatMinorUnits(BigInt(balance.paid), currency)}</dd>
             </div>
           </dl>
-        ) : (
-          <p className="mt-4 rounded-xl bg-amber-400/10 p-3 text-xs leading-5 text-amber-200">
-            Votre solde initial doit être établi par l’administrateur avant toute demande de retrait.
-          </p>
-        )}
+        ) : null}
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <button
