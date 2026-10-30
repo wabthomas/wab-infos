@@ -51,6 +51,7 @@ const MY_TITLES: Record<string, { eyebrow: string; title: string; text: string }
   '/mon-rh/conges': { eyebrow: 'TEMPS & DISPONIBILITÉ', title: 'Mes congés', text: 'Vos demandes d’absence et leur suivi.' },
   '/mon-rh/prestations': { eyebrow: 'SUIVI QUOTIDIEN', title: 'Mes prestations', text: 'Déclarez et suivez vos journées de travail.' },
   '/mon-rh/presence': { eyebrow: 'TEMPS DE TRAVAIL', title: 'Ma présence', text: 'Signez votre arrivée et votre sortie.' },
+  '/mon-rh/fiche': { eyebrow: 'IDENTIFICATION', title: 'Ma fiche', text: 'Fiche d’identification électronique imprimable.' },
   '/mon-rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Mes rémunérations', text: 'Montants validés par l’administration.' },
   '/mon-rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Mes retraits', text: 'Solde disponible, demandes et paiements enregistrés.' },
   '/mon-rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Mes documents', text: 'Contrats, attestations et documents partagés.' },
@@ -109,6 +110,7 @@ export function RhSectionShell({
     { href: '/mon-rh/conges', label: 'Congés', icon: CalendarDays },
     { href: '/mon-rh/prestations', label: 'Prestations', icon: ClipboardList },
     { href: '/mon-rh/presence', label: 'Présence', icon: UserCheck },
+    { href: '/mon-rh/fiche', label: 'Ma fiche', icon: FileSpreadsheet },
     ...(flags.financeEnabled
       ? ([
           { href: '/mon-rh/remunerations', label: 'Rémunérations', icon: WalletCards },
