@@ -23,6 +23,9 @@ interface ArticleListItemProps {
   variant?: 'default' | 'comfortable';
   /** Liste dashboard mobile : sans carte, métadonnées sur 2 lignes */
   layout?: 'default' | 'compact';
+  selectable?: boolean;
+  selected?: boolean;
+  onSelectedChange?: (documentId: string, selected: boolean) => void;
   onDeleted?: (documentId: string) => void;
   onPublicationChange?: (documentId: string, article: RedactionArticle) => void;
 }
@@ -35,6 +38,9 @@ export function ArticleListItem({
   canManagePublication = false,
   variant = 'default',
   layout = 'default',
+  selectable = false,
+  selected = false,
+  onSelectedChange,
   onDeleted,
   onPublicationChange,
 }: ArticleListItemProps) {
@@ -250,9 +256,21 @@ export function ArticleListItem({
         compact
           ? 'border-0 bg-transparent p-0 lg:rounded-xl lg:border lg:border-border lg:bg-card lg:p-4 lg:hover:border-primary/20'
           : 'rounded-xl border border-border bg-card p-3 lg:hover:border-primary/20',
-        comfortable && !compact && 'lg:gap-4 lg:p-4'
+        comfortable && !compact && 'lg:gap-4 lg:p-4',
+        selected && 'border-primary/40 bg-primary/[0.03] lg:border-primary/40'
       )}
     >
+      {selectable ? (
+        <label className="flex shrink-0 items-start pt-1">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={(event) => onSelectedChange?.(article.documentId, event.target.checked)}
+            className="h-4 w-4 rounded border-border text-primary accent-primary"
+            aria-label={`Sélectionner ${article.title || 'Sans titre'}`}
+          />
+        </label>
+      ) : null}
       <Link
         href={editHref}
         className={cn(

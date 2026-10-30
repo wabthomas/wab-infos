@@ -19,6 +19,8 @@ const EXCLUDE = [
   '.next/types',
   '.next/trace',
   '.next/trace-build',
+  // Copies Turbopack locales — inutiles en prod Passenger et gonflent le tar.
+  '.next/node_modules',
 ];
 
 function removeStalePacks() {

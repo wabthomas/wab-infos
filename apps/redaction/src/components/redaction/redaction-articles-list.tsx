@@ -1,9 +1,9 @@
 'use client';
 
 import { fetchRedaction } from '@/lib/redaction/public-path';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowUpDown, Search, X } from 'lucide-react';
+import { ArrowUpDown, Loader2, Search, Sparkles, Trash2, X } from 'lucide-react';
 import type {
   ArticleListSort,
   RedactionArticle,
@@ -11,7 +11,10 @@ import type {
   RedactionCategory,
 } from '@/lib/redaction/types';
 import { ArticleListItem } from '@/components/redaction/article-list-item';
+import { readApiJsonResponse } from '@/lib/redaction/api-response';
+import { isLiveRedactionArticle } from '@/lib/redaction/status-label';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/toast';
 
 type Filter = 'all' | 'published' | 'draft' | 'scheduled' | 'imported';
 
@@ -78,8 +81,12 @@ export function RedactionArticlesList({
   const [profileReady, setProfileReady] = useState(
     initialIsSuperAdmin !== undefined && initialCanDeleteAny !== undefined
   );
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState<'reformulate' | 'delete' | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useToast();
+  const selectionEnabled = filter === 'draft' || filter === 'imported';
 
   useEffect(() => {
     setFilter(parseFilter(searchParams.get('filter')));
@@ -208,8 +215,20 @@ export function RedactionArticlesList({
   useEffect(() => {
     if (!profileReady) return;
     setPage(1);
+    setSelectedIds([]);
     void loadPage(1, false);
   }, [filter, authorFilter, categoryFilter, searchQuery, sort, loadPage, profileReady]);
+
+  useEffect(() => {
+    if (selectionEnabled) return;
+    setSelectedIds([]);
+  }, [selectionEnabled]);
+
+  useEffect(() => {
+    setSelectedIds((current) =>
+      current.filter((id) => articles.some((article) => article.documentId === id))
+    );
+  }, [articles]);
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -232,6 +251,128 @@ export function RedactionArticlesList({
 
   function handlePublicationChange(documentId: string, article: RedactionArticle) {
     setArticles((list) => list.map((item) => (item.documentId === documentId ? article : item)));
+  }
+
+  const selectedArticles = useMemo(
+    () => articles.filter((article) => selectedIds.includes(article.documentId)),
+    [articles, selectedIds]
+  );
+  const reformulableSelected = useMemo(
+    () =>
+      selectedArticles.filter(
+        (article) =>
+          isSuperAdmin &&
+          Boolean(article.isImported) &&
+          !isLiveRedactionArticle(article) &&
+          !article.aiProcessedAt
+      ),
+    [selectedArticles, isSuperAdmin]
+  );
+  const deletableSelected = useMemo(
+    () =>
+      selectedArticles.filter((article) => {
+        const isDraft = article.status === 'draft' && !article.publishedAt;
+        return canDeleteAny || isDraft;
+      }),
+    [selectedArticles, canDeleteAny]
+  );
+  const allVisibleSelected =
+    selectionEnabled &&
+    articles.length > 0 &&
+    articles.every((article) => selectedIds.includes(article.documentId));
+
+  function toggleSelected(documentId: string, selected: boolean) {
+    setSelectedIds((current) => {
+      if (selected) {
+        return current.includes(documentId) ? current : [...current, documentId];
+      }
+      return current.filter((id) => id !== documentId);
+    });
+  }
+
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedIds([]);
+      return;
+    }
+    setSelectedIds(articles.map((article) => article.documentId));
+  }
+
+  async function bulkDelete() {
+    if (!deletableSelected.length || bulkBusy) return;
+    const confirmed = window.confirm(
+      `Supprimer ${deletableSelected.length} brouillon${
+        deletableSelected.length > 1 ? 's' : ''
+      } ? Cette action est irréversible.`
+    );
+    if (!confirmed) return;
+
+    setBulkBusy('delete');
+    let ok = 0;
+    let failed = 0;
+    for (const article of deletableSelected) {
+      try {
+        const res = await fetchRedaction(`/api/redaction/articles/${article.documentId}`, {
+          method: 'DELETE',
+        });
+        const data = await readApiJsonResponse<{ error?: string }>(res);
+        if (!res.ok) throw new Error(data.error ?? 'Suppression impossible');
+        ok += 1;
+        setArticles((list) => list.filter((row) => row.documentId !== article.documentId));
+        setTotal((value) => Math.max(0, value - 1));
+        setSelectedIds((ids) => ids.filter((id) => id !== article.documentId));
+      } catch {
+        failed += 1;
+      }
+    }
+    setBulkBusy(null);
+    if (ok) toast.success(`${ok} brouillon${ok > 1 ? 's' : ''} supprimé${ok > 1 ? 's' : ''}`);
+    if (failed) toast.error(`${failed} suppression${failed > 1 ? 's' : ''} impossible${failed > 1 ? 's' : ''}`);
+  }
+
+  async function bulkReformulate() {
+    if (!reformulableSelected.length || bulkBusy) return;
+    const confirmed = window.confirm(
+      `Reformuler ${reformulableSelected.length} article${
+        reformulableSelected.length > 1 ? 's' : ''
+      } importé${reformulableSelected.length > 1 ? 's' : ''} avec l’IA ?`
+    );
+    if (!confirmed) return;
+
+    setBulkBusy('reformulate');
+    let ok = 0;
+    let failed = 0;
+    for (const article of reformulableSelected) {
+      try {
+        const res = await fetchRedaction('/api/redaction/ai/reformulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ documentId: article.documentId }),
+        });
+        const data = await readApiJsonResponse<{
+          published?: boolean;
+          seoScore?: number;
+          title?: string;
+          error?: string;
+        }>(res);
+        if (!res.ok) throw new Error(data.error ?? 'Reformulation impossible');
+        ok += 1;
+        handlePublicationChange(article.documentId, {
+          ...article,
+          title: data.title || article.title,
+          status: data.published ? 'published' : 'draft',
+          aiAssisted: true,
+          seoScore: data.seoScore,
+          aiProcessedAt: new Date().toISOString(),
+        });
+        setSelectedIds((ids) => ids.filter((id) => id !== article.documentId));
+      } catch {
+        failed += 1;
+      }
+    }
+    setBulkBusy(null);
+    if (ok) toast.success(`${ok} article${ok > 1 ? 's' : ''} reformulé${ok > 1 ? 's' : ''}`);
+    if (failed) toast.error(`${failed} reformulation${failed > 1 ? 's' : ''} impossible${failed > 1 ? 's' : ''}`);
   }
 
   return (
@@ -382,6 +523,25 @@ export function RedactionArticlesList({
         })}
       </div>
 
+      {selectionEnabled && articles.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-muted/40 px-3 py-2.5">
+          <label className="inline-flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={toggleSelectAllVisible}
+              className="h-4 w-4 rounded border-border text-primary accent-primary"
+            />
+            Tout sélectionner
+          </label>
+          <span className="text-xs text-muted-foreground">
+            {selectedIds.length
+              ? `${selectedIds.length} sélectionné${selectedIds.length > 1 ? 's' : ''}`
+              : 'Cochez les brouillons à traiter'}
+          </span>
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="py-8 text-center text-sm text-muted-foreground">Chargement…</p>
       ) : articles.length === 0 ? (
@@ -389,7 +549,7 @@ export function RedactionArticlesList({
           {searchQuery ? `Aucun article pour « ${searchQuery} »` : 'Aucun article'}
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className={cn('space-y-2', selectedIds.length > 0 && 'pb-20')}>
           {articles.map((article) => (
             <li key={article.documentId}>
               <ArticleListItem
@@ -398,9 +558,13 @@ export function RedactionArticlesList({
                 showAuthor={isSuperAdmin}
                 showViews={showViews}
                 canManagePublication={isSuperAdmin}
+                selectable={selectionEnabled}
+                selected={selectedIds.includes(article.documentId)}
+                onSelectedChange={toggleSelected}
                 onDeleted={(id) => {
                   setArticles((list) => list.filter((a) => a.documentId !== id));
                   setTotal((value) => Math.max(0, value - 1));
+                  setSelectedIds((ids) => ids.filter((row) => row !== id));
                 }}
                 onPublicationChange={handlePublicationChange}
               />
@@ -414,6 +578,56 @@ export function RedactionArticlesList({
       ) : null}
 
       {page < pageCount ? <div ref={loadMoreRef} className="h-4" aria-hidden /> : null}
+
+      {selectionEnabled && selectedIds.length > 0 ? (
+        <div className="fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur lg:bottom-0 lg:left-[var(--redaction-sidebar-w,0px)]">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2">
+            <p className="mr-auto text-sm font-semibold">
+              {selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}
+            </p>
+            {isSuperAdmin ? (
+              <button
+                type="button"
+                disabled={!reformulableSelected.length || Boolean(bulkBusy)}
+                onClick={() => void bulkReformulate()}
+                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-violet-700 px-3.5 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                {bulkBusy === 'reformulate' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Reformuler
+                {reformulableSelected.length
+                  ? ` (${reformulableSelected.length})`
+                  : ''}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={!deletableSelected.length || Boolean(bulkBusy)}
+              onClick={() => void bulkDelete()}
+              className="inline-flex h-10 items-center gap-1.5 rounded-full bg-red-600 px-3.5 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              {bulkBusy === 'delete' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Supprimer
+              {deletableSelected.length ? ` (${deletableSelected.length})` : ''}
+            </button>
+            <button
+              type="button"
+              disabled={Boolean(bulkBusy)}
+              onClick={() => setSelectedIds([])}
+              className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-muted-foreground hover:bg-muted"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
