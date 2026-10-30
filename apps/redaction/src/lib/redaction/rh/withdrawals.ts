@@ -3,15 +3,16 @@ import { parseMonthlyAmount, type RhCurrency } from './money';
 export type WithdrawalMethod = 'mobile_money' | 'virement' | 'especes' | 'autre';
 export type WithdrawalStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'paid';
 export type Balance = { currency: RhCurrency; opening: string | null; throughMonth: string | null; validated: string; adjustmentCredits: string; adjustmentDebits: string; reserved: string; paid: string; available: string | null };
-export interface Withdrawal { id: string; currency: RhCurrency; amountMinor: string; method: WithdrawalMethod; status: WithdrawalStatus; decisionNote: string; paymentDate: string | null; paymentReference: string | null; version: number }
-export interface WithdrawalInput { key: string; currency: RhCurrency; amountMinor: string; method: WithdrawalMethod }
+export interface Withdrawal { id: string; currency: RhCurrency; amountMinor: string; method: WithdrawalMethod; status: WithdrawalStatus; decisionNote: string; paymentDate: string | null; paymentReference: string | null; payoutMethodId: string | null; payoutLabel: string | null; version: number }
+export interface WithdrawalInput { key: string; currency: RhCurrency; amountMinor: string; method: WithdrawalMethod; payoutMethodId?: string }
 export function validateWithdrawal(value: unknown): WithdrawalInput | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const v = value as Record<string, unknown>;
   if (!isUuid(v.key) || (v.currency !== 'CDF' && v.currency !== 'USD') || typeof v.amount !== 'string' || !['mobile_money','virement','especes','autre'].includes(String(v.method))) return null;
+  if (v.payoutMethodId !== undefined && v.payoutMethodId !== null && !isUuid(v.payoutMethodId)) return null;
   const amount = parseMonthlyAmount(v.amount);
   if (amount === null || amount <= BigInt(0)) return null;
-  return { key: v.key, currency: v.currency, amountMinor: amount.toString(), method: v.method as WithdrawalMethod };
+  return { key: v.key, currency: v.currency, amountMinor: amount.toString(), method: v.method as WithdrawalMethod, ...(typeof v.payoutMethodId === 'string' ? { payoutMethodId: v.payoutMethodId } : {}) };
 }
 export type WithdrawalDecision = { action: 'approve' | 'reject' | 'pay'; note: string; paymentDate: string | null; paymentReference: string | null };
 export function validateWithdrawalDecision(value: unknown, today: string): WithdrawalDecision | null {

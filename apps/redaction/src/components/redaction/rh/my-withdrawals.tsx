@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { ArrowDownUp, CheckCircle2, Clock3, Loader2, PlusCircle, WalletCards } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
@@ -10,6 +11,7 @@ import {
   type Withdrawal,
   type WithdrawalMethod,
 } from '@/lib/redaction/rh/withdrawals';
+import type { PayoutMethod } from '@/lib/redaction/rh/payouts';
 
 const endpoint = '/api/redaction/rh/mon-espace/retraits';
 const statuses = {
@@ -26,7 +28,7 @@ const statusTones: Record<string, string> = {
   rejected: 'bg-rose-500/10 text-rose-700 dark:text-rose-400',
   cancelled: 'bg-muted text-muted-foreground',
 };
-const methods = {
+const methodsList = {
   mobile_money: 'Mobile Money',
   virement: 'Virement',
   especes: 'Espèces',
@@ -46,6 +48,8 @@ export function MyWithdrawals({
 } = {}) {
   const [balances, setBalances] = useState<Balance[]>([]);
   const [items, setItems] = useState<Withdrawal[]>([]);
+  const [methods, setMethods] = useState<PayoutMethod[]>([]);
+  const [payoutMethodId, setPayoutMethodId] = useState('');
   const [currency, setCurrency] = useState<RhCurrency>(initialCurrency ?? 'CDF');
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<WithdrawalMethod>('mobile_money');
@@ -82,6 +86,11 @@ export function MyWithdrawals({
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
+    fetchRedaction('/api/redaction/rh/mon-espace/moyens', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        if (response.ok) setMethods((await response.json()).methods ?? []);
+      })
+      .catch(() => undefined);
     return () => controller.abort();
   }, [enabled, reload]);
 
@@ -113,7 +122,7 @@ export function MyWithdrawals({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     key.current ??= crypto.randomUUID();
-    const payload = { key: key.current, currency, amount, method };
+    const payload = { key: key.current, currency, amount, method, ...(payoutMethodId ? { payoutMethodId } : {}) };
     if (!validateWithdrawal(payload)) {
       setError('Vérifiez le montant et la devise.');
       return;
@@ -260,7 +269,8 @@ export function MyWithdrawals({
                       Retrait {withdrawalRef(item)} · {formatMinorUnits(BigInt(item.amountMinor), item.currency)}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {methods[item.method]}
+                      {methodsList[item.method]}
+                      {item.payoutLabel ? ` · ${item.payoutLabel}` : ''}
                       {item.paymentDate ? ` · payé le ${item.paymentDate}` : ''}
                       {item.paymentReference ? ` · référence : ${item.paymentReference}` : ''}
                     </p>
@@ -290,6 +300,14 @@ export function MyWithdrawals({
                     Annuler ma demande
                   </button>
                 )}
+                {item.status === 'paid' && (
+                  <Link
+                    href={`/mon-rh/recu/${item.id}`}
+                    className="mt-2 inline-flex text-xs font-semibold text-primary underline"
+                  >
+                    Télécharger le reçu
+                  </Link>
+                )}
               </article>
             ))
           )}
@@ -311,7 +329,7 @@ export function MyWithdrawals({
             Money ici.
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             Montant
             <input
@@ -334,6 +352,7 @@ export function MyWithdrawals({
               value={currency}
               onChange={(event) => {
                 setCurrency(event.target.value as RhCurrency);
+                setPayoutMethodId('');
                 key.current = null;
               }}
               className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
@@ -353,11 +372,32 @@ export function MyWithdrawals({
               }}
               className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
             >
-              {Object.entries(methods).map(([value, label]) => (
+              {Object.entries(methodsList).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Destination (moyen enregistré)
+            <select
+              disabled={busy}
+              value={payoutMethodId}
+              onChange={(event) => {
+                setPayoutMethodId(event.target.value);
+                key.current = null;
+              }}
+              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
+            >
+              <option value="">Non précisée</option>
+              {methods
+                .filter((entry) => entry.active && entry.currency === currency)
+                .map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.provider} · {entry.accountName} · {entry.accountNumber.slice(-4).padStart(4, '•')}
+                  </option>
+                ))}
             </select>
           </label>
         </div>

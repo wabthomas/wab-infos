@@ -5,9 +5,11 @@ import type { Collaborator, CollaboratorInput } from './collaborator';
 import { nextAbsenceStatus, type AbsenceStatus } from './absences';
 import { mayReviewWithdrawal } from './withdrawals';
 import { availableAfterAdjustment } from './adjustments';
+import { maskAccount, providerLabel, type PayoutMethod, type PayoutMethodInput } from './payouts';
+import type { Attendance } from './attendance';
 
 let pool: Pool | undefined;
-function db(): Pool {
+export function db(): Pool {
   const connectionString = process.env.REDACTION_RH_DATABASE_URL;
   if (!connectionString) throw new Error('RH database not configured');
   return (pool ??= new Pool({ connectionString, max: 4, connectionTimeoutMillis: 5000 }));
@@ -341,7 +343,7 @@ export async function decideRemuneration(id: string, version: number, decision: 
   finally { client.release(); }
 }
 
-const withdrawalCols = `id,currency,amount_minor::text AS "amountMinor",method,status,decision_note AS "decisionNote",to_char(payment_date,'YYYY-MM-DD') AS "paymentDate",payment_reference AS "paymentReference",version`;
+const withdrawalCols = `id,currency,amount_minor::text AS "amountMinor",method,status,decision_note AS "decisionNote",to_char(payment_date,'YYYY-MM-DD') AS "paymentDate",payment_reference AS "paymentReference",payout_method_id AS "payoutMethodId",payout_label AS "payoutLabel",version`;
 const balanceSql = `WITH currencies(currency) AS (VALUES ('CDF'),('USD'))
 SELECT currencies.currency, o.amount_minor::text AS opening, to_char(o.through_month,'YYYY-MM') AS "throughMonth",
   COALESCE((SELECT SUM(r.amount_minor) FROM redaction_rh.remunerations r WHERE r.collaborator_id=$1 AND r.currency=currencies.currency AND r.status='validated' AND r.period>o.through_month),0)::text AS validated,
@@ -388,17 +390,25 @@ export async function createMyWithdrawal(principal: import('./principal').RhPrin
     const collaboratorId = person.rows[0].id;
     const linked = await client.query('SELECT 1 FROM redaction_rh.account_links WHERE collaborator_id=$1 AND account_id=$2 AND account_email=$3', [collaboratorId, principal.id, principal.email]);
     if (!linked.rowCount) { await client.query('ROLLBACK'); return null; }
+    let payoutMethodId: string | null = null;
+    let payoutLabel: string | null = null;
+    if (input.payoutMethodId) {
+      const payout = await client.query('SELECT kind,provider,account_number,currency FROM redaction_rh.payout_methods WHERE id=$1 AND collaborator_id=$2 AND active', [input.payoutMethodId, collaboratorId]);
+      if (!payout.rowCount || payout.rows[0].currency !== input.currency) { await client.query('ROLLBACK'); return null; }
+      payoutMethodId = input.payoutMethodId;
+      payoutLabel = `${providerLabel(payout.rows[0].kind, payout.rows[0].provider)} · ${maskAccount(payout.rows[0].account_number)}`;
+    }
     const previous = await client.query(`SELECT ${withdrawalCols},collaborator_id FROM redaction_rh.withdrawals WHERE idempotency_key=$1`, [input.key]);
     if (previous.rowCount) {
       const row = previous.rows[0];
-      if (row.collaborator_id !== collaboratorId || row.currency !== input.currency || row.amountMinor !== input.amountMinor || row.method !== input.method) { await client.query('ROLLBACK'); return null; }
+      if (row.collaborator_id !== collaboratorId || row.currency !== input.currency || row.amountMinor !== input.amountMinor || row.method !== input.method || row.payoutMethodId !== (input.payoutMethodId ?? null)) { await client.query('ROLLBACK'); return null; }
       delete row.collaborator_id;
       await client.query('COMMIT'); return row;
     }
     const balances = await client.query(balanceSql, [collaboratorId]);
     const balance = balances.rows.map(addAvailable).find((x) => x.currency === input.currency);
     if (!balance || balance.available === null || BigInt(balance.available) < BigInt(input.amountMinor)) { await client.query('ROLLBACK'); return null; }
-    const result = await client.query(`INSERT INTO redaction_rh.withdrawals (id,collaborator_id,idempotency_key,requester_email,currency,amount_minor,method) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (idempotency_key) DO NOTHING RETURNING ${withdrawalCols}`, [randomUUID(), collaboratorId, input.key, principal.email, input.currency, input.amountMinor, input.method]);
+    const result = await client.query(`INSERT INTO redaction_rh.withdrawals (id,collaborator_id,idempotency_key,requester_email,currency,amount_minor,method,payout_method_id,payout_label) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (idempotency_key) DO NOTHING RETURNING ${withdrawalCols}`, [randomUUID(), collaboratorId, input.key, principal.email, input.currency, input.amountMinor, input.method, payoutMethodId, payoutLabel]);
     if (!result.rowCount) { await client.query('ROLLBACK'); return null; }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,withdrawal_id) VALUES ($1,$2,$3,$4)', [principal.email, 'withdrawal_create', collaboratorId, result.rows[0].id]);
     await queueManagementEvent(client, 'retrait', result.rows[0].id);

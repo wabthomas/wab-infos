@@ -16,6 +16,7 @@ import {
   LockKeyhole,
   MessageSquare,
   ShieldCheck,
+  UserCheck,
   UsersRound,
   WalletCards,
 } from 'lucide-react';
@@ -49,6 +50,7 @@ const MY_TITLES: Record<string, { eyebrow: string; title: string; text: string }
   '/mon-rh': { eyebrow: 'MON ESPACE', title: 'Mon espace RH', text: 'Vos soldes, demandes, documents et notifications en un coup d’œil.' },
   '/mon-rh/conges': { eyebrow: 'TEMPS & DISPONIBILITÉ', title: 'Mes congés', text: 'Vos demandes d’absence et leur suivi.' },
   '/mon-rh/prestations': { eyebrow: 'SUIVI QUOTIDIEN', title: 'Mes prestations', text: 'Déclarez et suivez vos journées de travail.' },
+  '/mon-rh/presence': { eyebrow: 'TEMPS DE TRAVAIL', title: 'Ma présence', text: 'Signez votre arrivée et votre sortie.' },
   '/mon-rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Mes rémunérations', text: 'Montants validés par l’administration.' },
   '/mon-rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Mes retraits', text: 'Solde disponible, demandes et paiements enregistrés.' },
   '/mon-rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Mes documents', text: 'Contrats, attestations et documents partagés.' },
@@ -106,6 +108,7 @@ export function RhSectionShell({
     { href: '/mon-rh', label: 'Vue d’ensemble', icon: LayoutDashboard, exact: true },
     { href: '/mon-rh/conges', label: 'Congés', icon: CalendarDays },
     { href: '/mon-rh/prestations', label: 'Prestations', icon: ClipboardList },
+    { href: '/mon-rh/presence', label: 'Présence', icon: UserCheck },
     ...(flags.financeEnabled
       ? ([
           { href: '/mon-rh/remunerations', label: 'Rémunérations', icon: WalletCards },
