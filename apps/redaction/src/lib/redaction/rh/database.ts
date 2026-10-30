@@ -14,9 +14,10 @@ export function db(): Pool {
   if (!connectionString) throw new Error('RH database not configured');
   return (pool ??= new Pool({ connectionString, max: 4, connectionTimeoutMillis: 5000 }));
 }
+async function runtimeFlag(key:string, fallback:boolean):Promise<boolean>{try{const result=await db().query('SELECT enabled FROM redaction_rh.feature_settings WHERE feature_key=$1',[key]);return result.rowCount?result.rows[0].enabled:fallback;}catch{return fallback;}}
 /** Un événement et sa notification sont enregistrés ensemble, sans données sensibles. */
 async function queueRhNotification(client: PoolClient, collaboratorId: string, type: import('./notifications').RhNotificationType, sourceId: string, sourceVersion: number): Promise<void> {
-  if (process.env.REDACTION_RH_NOTIFICATIONS_ENABLED !== 'true') return;
+  if (!(await runtimeFlag('notificationsEnabled', process.env.REDACTION_RH_NOTIFICATIONS_ENABLED === 'true'))) return;
   await client.query(`INSERT INTO redaction_rh.notifications (id,collaborator_id,account_id,account_email,event_type,source_id,source_version)
     SELECT $1,l.collaborator_id,l.account_id,l.account_email,$3,$4,$5 FROM redaction_rh.account_links l
     WHERE l.collaborator_id=$2 ON CONFLICT (collaborator_id,event_type,source_id,source_version) DO NOTHING`, [randomUUID(), collaboratorId, type, sourceId, sourceVersion]);
@@ -32,7 +33,7 @@ async function queueManagementEvent(client: PoolClient, type: import('./manageme
  * Strapi/FCM est avalée pour ne pas remettre en cause la décision déjà validée.
  */
 async function pushRhDecision(email: string | null | undefined, type: import('./notifications').RhNotificationType): Promise<void> {
-  if (!email || process.env.REDACTION_RH_NOTIFICATIONS_ENABLED !== 'true') return;
+  if (!email || !(await runtimeFlag('notificationsEnabled', process.env.REDACTION_RH_NOTIFICATIONS_ENABLED === 'true'))) return;
   try {
     const [{ rhNotificationPush }, { notifyCollaboratorByEmail }] = await Promise.all([
       import('./notifications'),

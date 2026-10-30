@@ -8,7 +8,7 @@ export default async function MyPayPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const flags = getRhFlags();
+  const flags = await getRhFlags();
   if (!flags.financeEnabled) redirect('/mon-rh');
   const params = await searchParams;
   const requested = typeof params.currency === 'string' ? params.currency.toUpperCase() : '';

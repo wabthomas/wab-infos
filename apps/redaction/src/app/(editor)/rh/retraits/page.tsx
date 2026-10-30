@@ -16,8 +16,8 @@ export default async function RhWithdrawalsPage({
   } catch {
     redirect('/');
   }
-  if (!capabilities.financeManage) redirect('/rh');
-  const flags = getRhFlags();
+  if (!capabilities.financeRead) redirect('/rh');
+  const flags = await getRhFlags();
   const params = await searchParams;
   const collaboratorId = typeof params.collaboratorId === 'string' ? params.collaboratorId : undefined;
   const requestedCurrency = typeof params.currency === 'string' ? params.currency.toUpperCase() : '';
@@ -28,6 +28,7 @@ export default async function RhWithdrawalsPage({
       enabled={flags.withdrawalsEnabled}
       today={kinshasaToday()}
       allowOpening={capabilities.accessManage}
+      readOnly={!capabilities.financeManage}
       initialCollaboratorId={collaboratorId}
       initialCurrency={currency}
     />

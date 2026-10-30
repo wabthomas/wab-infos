@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   listEditorCategories,
@@ -7,7 +8,7 @@ import {
 
 export async function GET() {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
     const categories = await listEditorCategories();
     return NextResponse.json({ categories });
   } catch (err) {

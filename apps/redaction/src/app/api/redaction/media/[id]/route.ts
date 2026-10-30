@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   deleteEditorMedia,
@@ -12,7 +13,7 @@ interface RouteContext {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
     const { id } = await context.params;
     const mediaId = Number(id);
     if (!Number.isFinite(mediaId)) {
@@ -32,7 +33,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
     const { id } = await context.params;
     const mediaId = Number(id);
     if (!Number.isFinite(mediaId)) {

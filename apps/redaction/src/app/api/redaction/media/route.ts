@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   listEditorMedia,
@@ -7,7 +8,7 @@ import {
 
 export async function GET(request: Request) {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
     const pageSize = Math.min(48, Math.max(6, Number(searchParams.get('pageSize') ?? '8') || 8));

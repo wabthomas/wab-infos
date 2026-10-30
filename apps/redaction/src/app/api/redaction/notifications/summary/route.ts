@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import {
   countPendingComments,
@@ -9,7 +10,7 @@ import {
 
 export async function GET() {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     const [stats, pendingComments, importedDraftCount] = await Promise.all([
       getEditorStats(user),
       countPendingComments(),

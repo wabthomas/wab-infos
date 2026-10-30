@@ -157,6 +157,7 @@ interface RedactionShellProps {
   initialPendingComments?: number;
   initialSidebarCollapsed?: boolean;
   managementNotificationsEnabled?: boolean;
+  rhOnly?: boolean;
 }
 
 function Avatar({ name, src, size = 36 }: { name?: string; src?: string; size?: number }) {
@@ -393,10 +394,12 @@ function ProfileMenu({
   authorName,
   avatarUrl,
   isSuperAdmin,
+  rhOnly = false,
 }: {
   authorName?: string;
   avatarUrl?: string;
   isSuperAdmin: boolean;
+  rhOnly?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -434,7 +437,7 @@ function ProfileMenu({
     }
   }
 
-  const roleLabel = isSuperAdmin ? 'Administrateur' : 'Rédacteur';
+  const roleLabel = rhOnly ? 'Collaborateur RH' : isSuperAdmin ? 'Administrateur' : 'Rédacteur';
 
   return (
     <div ref={rootRef} className="relative">
@@ -472,7 +475,7 @@ function ProfileMenu({
               <p className="text-xs text-muted-foreground">{roleLabel}</p>
             </div>
           </div>
-          <div className="p-1.5">
+          {!rhOnly && <div className="p-1.5">
             <Link
               href="/profil"
               role="menuitem"
@@ -489,7 +492,7 @@ function ProfileMenu({
               <UserPen className="h-4 w-4 text-muted-foreground" />
               Modifier le profil
             </Link>
-          </div>
+          </div>}
           <div className="border-t border-border p-1.5">
             <button
               type="button"
@@ -517,6 +520,7 @@ function DesktopTopbar({
   isSuperAdmin,
   collapsed,
   onToggleSidebar,
+  rhOnly = false,
 }: {
   pathname: string;
   summary: ReturnType<typeof useRedactionNotifications>;
@@ -526,11 +530,14 @@ function DesktopTopbar({
   isSuperAdmin: boolean;
   collapsed: boolean;
   onToggleSidebar: () => void;
+  rhOnly?: boolean;
 }) {
-  const { title, eyebrow } = getDesktopPageTitle(pathname);
+  const { title, eyebrow } = rhOnly
+    ? { title: 'Espace RH', eyebrow: 'Ressources humaines' }
+    : getDesktopPageTitle(pathname);
   return (
     <header className="hidden h-16 shrink-0 items-center gap-4 border-b border-border bg-card/80 px-6 backdrop-blur supports-[backdrop-filter]:bg-card/70 lg:flex">
-      <button
+      {!rhOnly && <button
         type="button"
         onClick={onToggleSidebar}
         className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -538,24 +545,25 @@ function DesktopTopbar({
         title={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
       >
         {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-      </button>
+      </button>}
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">{eyebrow}</p>
         <h1 className="truncate font-display text-lg font-bold leading-tight">{title}</h1>
       </div>
 
       <div className="flex items-center gap-2">
-        <ManagementBell state={managementNotifications} /><RedactionNotificationsBell summary={summary} />
+        <ManagementBell state={managementNotifications} />
+        {!rhOnly && <RedactionNotificationsBell summary={summary} />}
         <ThemeToggle className="h-10 w-10 rounded-full border-transparent bg-transparent shadow-none hover:border-border" />
-        <Link
+        {!rhOnly && <Link
           href="/nouveau"
           className="ml-1 inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-primary-foreground shadow-md shadow-primary/20 transition hover:brightness-105 active:scale-[0.98]"
         >
           <PenLine className="h-4 w-4" />
           Nouvel article
-        </Link>
-        <span className="mx-1 h-6 w-px bg-border" aria-hidden />
-        <ProfileMenu authorName={authorName} avatarUrl={avatarUrl} isSuperAdmin={isSuperAdmin} />
+        </Link>}
+        {!rhOnly && <span className="mx-1 h-6 w-px bg-border" aria-hidden />}
+        <ProfileMenu authorName={authorName} avatarUrl={avatarUrl} isSuperAdmin={isSuperAdmin} rhOnly={rhOnly} />
       </div>
     </header>
   );
@@ -569,12 +577,13 @@ export function RedactionShell({
   initialPendingComments = 0,
   initialSidebarCollapsed = false,
   managementNotificationsEnabled = false,
+  rhOnly = false,
 }: RedactionShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const toast = useToast();
   const writing = isWritingPage(pathname);
-  const summary = useRedactionNotifications();
+  const summary = useRedactionNotifications(60_000, !rhOnly);
   const managementNotifications = useManagementNotifications(managementNotificationsEnabled);
   const [pendingComments, setPendingComments] = useState(initialPendingComments);
   const [collapsed, setCollapsed] = useState(initialSidebarCollapsed);
@@ -663,18 +672,18 @@ export function RedactionShell({
       className="redaction-shell-root flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-background"
       style={rootStyle}
     >
-      {sidebar}
+      {!rhOnly && sidebar}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
           <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
-                Rédaction
+                {rhOnly ? 'Espace RH' : 'Rédaction'}
               </p>
               <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
             </div>
-            <div className="flex items-center"><ManagementBell state={managementNotifications} /><RedactionNotificationsBell summary={summary} /></div>
+            <div className="flex items-center gap-1"><ManagementBell state={managementNotifications} />{!rhOnly && <RedactionNotificationsBell summary={summary} />}</div>
           </div>
         </header>
 
@@ -687,6 +696,7 @@ export function RedactionShell({
           isSuperAdmin={isSuperAdmin}
           collapsed={collapsed}
           onToggleSidebar={toggleSidebar}
+          rhOnly={rhOnly}
         />
 
         <main
@@ -699,7 +709,7 @@ export function RedactionShell({
               pathname === '/parametres' ? 'lg:max-w-[1440px]' : 'lg:max-w-6xl'
             )}
           >
-            <RedactionPushBanner />
+            {!rhOnly && <RedactionPushBanner />}
             {children}
           </div>
         </main>
@@ -714,15 +724,15 @@ export function RedactionShell({
           </Link>
         ) : null}
 
-        <Link
+        {!rhOnly && <Link
           href="/nouveau"
           className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 lg:hidden"
           aria-label="Écrire un article"
         >
           <PenLine className="h-6 w-6" />
-        </Link>
+        </Link>}
 
-        {!aiOpen ? (
+        {!rhOnly && !aiOpen ? (
           <>
             {/* Mobile : au-dessus du bouton « Rédiger » (h-14 + 0.75rem d'écart). */}
             <AiFab

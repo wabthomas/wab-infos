@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import { addNewsletterSubscribers, listNewsletterSubscribers } from '@/lib/redaction/newsletter-admin';
 import {
@@ -7,7 +8,7 @@ import {
 } from '@/lib/redaction/strapi-editor';
 
 async function requireAdmin() {
-  const user = await requireRedactionUser();
+  const user = await requireEditorialUser();
   if (!isRedactionSuperAdmin(user)) {
     return NextResponse.json({ error: 'Réservé aux administrateurs' }, { status: 403 });
   }

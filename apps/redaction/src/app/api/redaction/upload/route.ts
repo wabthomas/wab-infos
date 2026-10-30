@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import { assertUploadableImage, optimizeUploadImage } from '@/lib/redaction/optimize-upload-image';
 import { DuplicateMediaError } from '@/lib/redaction/duplicate-media-error';
@@ -25,7 +26,7 @@ function formDataFile(raw: FormDataEntryValue | null): File | null {
 
 export async function POST(request: Request) {
   try {
-    const user = await requireRedactionUser();
+    const user = await requireEditorialUser();
     let form: FormData;
     try {
       form = await request.formData();
@@ -72,7 +73,8 @@ export async function POST(request: Request) {
       message === 'Format d’image non reconnu' ||
       message.startsWith('Image trop volumineuse') ||
       message.startsWith('Cette image n’est pas lisible') ||
-      message.startsWith('Impossible de préparer cette image');
+      message.startsWith('Impossible de préparer cette image') ||
+      message.startsWith('Conversion d’image indisponible');
     return NextResponse.json({ error: message }, { status: clientError ? 400 : 500 });
   }
 }

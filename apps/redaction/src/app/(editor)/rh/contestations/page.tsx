@@ -11,5 +11,5 @@ export default async function RhDisputesPage() {
     redirect('/');
   }
   if (!capabilities.accessManage) redirect('/rh');
-  return <DisputeReview enabled={getRhFlags().disputesEnabled} />;
+  return <DisputeReview enabled={(await getRhFlags()).disputesEnabled} />;
 }

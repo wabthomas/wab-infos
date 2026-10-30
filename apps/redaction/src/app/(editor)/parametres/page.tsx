@@ -1,9 +1,10 @@
+import { requireEditorialPageUser } from '@/lib/redaction/editorial-access';
 import { redirect } from 'next/navigation';
 import { SiteSettingsForm } from '@/components/redaction/site-settings-form';
 import { getEditorProfile, isRedactionSuperAdmin, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 
 export default async function RedactionSettingsPage() {
-  const user = await requireRedactionUser();
+  const user = await requireEditorialPageUser();
   if (!isRedactionSuperAdmin(user)) {
     redirect('/');
   }

@@ -1,10 +1,11 @@
+import { requireEditorialPageUser } from '@/lib/redaction/editorial-access';
 import { Suspense } from 'react';
 import { RedactionArticlesList } from '@/components/redaction/redaction-articles-list';
 import { getEditorProfile, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 import { getEditorSiteSettings } from '@/lib/redaction/site-settings';
 
 export default async function RedactionArticlesPage() {
-  const user = await requireRedactionUser();
+  const user = await requireEditorialPageUser();
   const [{ isSuperAdmin, canDeleteAnyArticle }, siteSettings] = await Promise.all([
     getEditorProfile(user),
     getEditorSiteSettings(),

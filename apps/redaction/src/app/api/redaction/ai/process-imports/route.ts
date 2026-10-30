@@ -1,3 +1,4 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import { processImportedDraftsWithAi } from '@/lib/ai/process-imports';
 import {
@@ -14,7 +15,7 @@ function authorizedBySecret(request: Request): boolean {
 export async function POST(request: Request) {
   try {
     if (!authorizedBySecret(request)) {
-      const user = await requireRedactionUser();
+      const user = await requireEditorialUser();
       if (!isRedactionSuperAdmin(user)) {
         return NextResponse.json({ error: 'Réservé aux administrateurs' }, { status: 403 });
       }

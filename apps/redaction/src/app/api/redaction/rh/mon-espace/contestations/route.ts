@@ -3,11 +3,12 @@ import { isUuid } from '@/lib/redaction/rh/activities';
 import { validateDispute } from '@/lib/redaction/rh/disputes';
 import { getMyCollaborator, listMyDisputes, createMyDispute, cancelMyDispute } from '@/lib/redaction/rh/database';
 import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const principal = await requireRhPrincipal();
-    if (process.env.REDACTION_RH_DISPUTES_ENABLED !== 'true') return json({error:'Contestations désactivées.'},503);
+    if (!(await getRhFlags()).disputesEnabled) return json({error:'Contestations désactivées.'},503);
     if (!await getMyCollaborator(principal)) return json({error:'Dossier indisponible.'},403);
     return json({disputes:await listMyDisputes(principal)});
   } catch (error) { return handleError(error); }
@@ -15,7 +16,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const principal = await requireRhPrincipal();
-    if (process.env.REDACTION_RH_DISPUTES_ENABLED !== 'true') return json({error:'Contestations désactivées.'},503);
+    if (!(await getRhFlags()).disputesEnabled) return json({error:'Contestations désactivées.'},503);
     if (!validOrigin(request)) return json({error:'Origine non autorisée.'},403);
     let body: unknown; try { body=await readBody(request); } catch { return json({error:'Requête invalide.'},400); }
     const input=validateDispute(body); if (!input) return json({error:'Vérifiez le sujet et le message.'},400);
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const principal = await requireRhPrincipal();
-    if (process.env.REDACTION_RH_DISPUTES_ENABLED !== 'true') return json({error:'Contestations désactivées.'},503);
+    if (!(await getRhFlags()).disputesEnabled) return json({error:'Contestations désactivées.'},503);
     if (!validOrigin(request)) return json({error:'Origine non autorisée.'},403);
     let body: unknown; try { body=await readBody(request); } catch { return json({error:'Requête invalide.'},400); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json({error:'Requête invalide.'},400);

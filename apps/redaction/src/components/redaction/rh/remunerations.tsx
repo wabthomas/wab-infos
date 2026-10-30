@@ -25,12 +25,14 @@ function withdrawalRef(withdrawal: Withdrawal): string {
 export function Remunerations({
   enabled,
   withdrawalsEnabled,
+  readOnly = false,
   initialMonth,
   initialPersonId,
   initialCurrency,
 }: {
   enabled: boolean;
   withdrawalsEnabled: boolean;
+  readOnly?: boolean;
   initialMonth: string;
   initialPersonId?: string;
   initialCurrency?: RhCurrency;
@@ -351,7 +353,7 @@ export function Remunerations({
                         </p>
                         <p className="text-[11px] text-muted-foreground">{labels[row.status]}</p>
                       </div>
-                      {row.status === 'draft' ? (
+                      {row.status === 'draft' && !readOnly ? (
                         <div className="flex items-center gap-3 text-xs">
                           <button
                             type="button"
@@ -397,7 +399,7 @@ export function Remunerations({
               </div>
             </section>
 
-            <form onSubmit={submit} className="space-y-3 rounded-2xl border border-border bg-card p-5">
+            {!readOnly && <form onSubmit={submit} className="space-y-3 rounded-2xl border border-border bg-card p-5">
               <div>
                 <h3 className="text-sm font-bold">Ajouter un montant à vérifier</h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">
@@ -447,7 +449,7 @@ export function Remunerations({
               >
                 {busy ? 'Enregistrement…' : 'Créer le brouillon'}
               </button>
-            </form>
+            </form>}
           </div>
         </>
       )}

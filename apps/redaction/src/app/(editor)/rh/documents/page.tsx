@@ -11,5 +11,5 @@ export default async function RhDocumentsPage() {
     redirect('/');
   }
   if (!capabilities.accessManage) redirect('/rh');
-  return <Documents enabled={getRhFlags().documentsEnabled} />;
+  return <Documents enabled={(await getRhFlags()).documentsEnabled} />;
 }

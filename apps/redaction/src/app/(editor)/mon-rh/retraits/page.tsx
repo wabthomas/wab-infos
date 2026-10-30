@@ -10,7 +10,7 @@ export default async function MyWithdrawalsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const flags = getRhFlags();
+  const flags = await getRhFlags();
   if (!flags.withdrawalsEnabled) redirect('/mon-rh');
   const params = await searchParams;
   const requested = typeof params.currency === 'string' ? params.currency.toUpperCase() : '';

@@ -1,10 +1,11 @@
+import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
 import { researchArticleProposal } from '@/lib/ai/research-draft';
 import { RedactionAuthError, requireRedactionUser } from '@/lib/redaction/strapi-editor';
 
 export async function POST(request: Request) {
   try {
-    await requireRedactionUser();
+    await requireEditorialUser();
     const body = (await request.json()) as {
       topic?: string;
       url?: string;

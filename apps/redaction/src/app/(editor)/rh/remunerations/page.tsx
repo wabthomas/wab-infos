@@ -17,8 +17,8 @@ export default async function RhPayPage({
   } catch {
     redirect('/');
   }
-  if (!capabilities.financeManage) redirect('/rh');
-  const flags = getRhFlags();
+  if (!capabilities.financeRead) redirect('/rh');
+  const flags = await getRhFlags();
   const today = kinshasaToday();
   const params = await searchParams;
   const collaboratorId = typeof params.collaboratorId === 'string' ? params.collaboratorId : undefined;
@@ -30,11 +30,12 @@ export default async function RhPayPage({
       <Remunerations
         enabled={flags.financeEnabled}
         withdrawalsEnabled={flags.withdrawalsEnabled}
+        readOnly={!capabilities.financeManage}
         initialMonth={today.slice(0, 7)}
         initialPersonId={collaboratorId}
         initialCurrency={currency}
       />
-      <RhCalendar initialMonth={today.slice(0, 7)} />
+      {capabilities.hrManage && <RhCalendar initialMonth={today.slice(0, 7)} />}
     </div>
   );
 }

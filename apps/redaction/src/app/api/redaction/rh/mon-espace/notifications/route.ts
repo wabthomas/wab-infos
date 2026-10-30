@@ -2,12 +2,13 @@ import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
 import { getMyCollaborator, listMyNotifications, markMyNotificationRead } from '@/lib/redaction/rh/database';
 import { isUuid } from '@/lib/redaction/rh/activities';
 import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 export const dynamic = 'force-dynamic';
-function enabled() { return process.env.REDACTION_RH_NOTIFICATIONS_ENABLED === 'true'; }
+async function enabled() { return (await getRhFlags()).notificationsEnabled; }
 export async function GET() {
   try {
     const principal = await requireRhPrincipal();
-    if (!enabled()) return json({ error: 'Notifications désactivées.' }, 503);
+    if (!(await enabled())) return json({ error: 'Notifications désactivées.' }, 503);
     if (!(await getMyCollaborator(principal))) return json({ error: 'Aucun dossier RH actif lié à ce compte.' }, 403);
     return json({ notifications: await listMyNotifications(principal) });
   } catch (error) { return handleError(error); }
@@ -15,7 +16,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const principal = await requireRhPrincipal();
-    if (!enabled()) return json({ error: 'Notifications désactivées.' }, 503);
+    if (!(await enabled())) return json({ error: 'Notifications désactivées.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Requête invalide.' }, 400);

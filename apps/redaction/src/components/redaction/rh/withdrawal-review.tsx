@@ -40,12 +40,14 @@ export function WithdrawalReview({
   enabled,
   today,
   allowOpening,
+  readOnly = false,
   initialCollaboratorId,
   initialCurrency,
 }: {
   enabled: boolean;
   today: string;
   allowOpening: boolean;
+  readOnly?: boolean;
   initialCollaboratorId?: string;
   initialCurrency?: RhCurrency;
 }) {
@@ -487,7 +489,7 @@ export function WithdrawalReview({
                       </span>
                     </div>
                     {item.decisionNote && <p className="text-[11px] text-muted-foreground">Motif : {item.decisionNote}</p>}
-                    {(item.status === 'pending' || item.status === 'approved') && (
+                    {!readOnly && (item.status === 'pending' || item.status === 'approved') && (
                       <>
                         <label className="block text-xs">
                           Motif (obligatoire pour un refus)

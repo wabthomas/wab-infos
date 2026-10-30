@@ -3,12 +3,12 @@ import { isUuid } from '@/lib/redaction/rh/activities';
 import { validateRemuneration } from '@/lib/redaction/rh/remunerations';
 import { listRemunerations, createRemuneration, decideRemuneration } from '@/lib/redaction/rh/database';
 import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 export const dynamic = 'force-dynamic';
-function enabled() { return process.env.REDACTION_RH_FINANCE_ENABLED === 'true'; }
 export async function GET(request: Request) {
   try {
-    await requireRhPermission('finance_manage');
-    if (!enabled()) return json({ error: 'Suivi des rémunérations désactivé.' }, 503);
+await requireRhPermission('finance_read');
+    if (!(await getRhFlags()).financeEnabled) return json({ error: 'Suivi des rémunérations désactivé.' }, 503);
     const id = new URL(request.url).searchParams.get('collaboratorId');
     if (!isUuid(id)) return json({ error: 'Collaborateur invalide.' }, 400);
     return json({ remunerations: await listRemunerations(id) });
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await requireRhPermission('finance_manage');
-    if (!enabled()) return json({ error: 'Suivi des rémunérations désactivé.' }, 503);
+    if (!(await getRhFlags()).financeEnabled) return json({ error: 'Suivi des rémunérations désactivé.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     const input = validateRemuneration(body);
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const user = await requireRhPermission('finance_manage');
-    if (!enabled()) return json({ error: 'Suivi des rémunérations désactivé.' }, 503);
+    if (!(await getRhFlags()).financeEnabled) return json({ error: 'Suivi des rémunérations désactivé.' }, 503);
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Requête invalide.' }, 400);
