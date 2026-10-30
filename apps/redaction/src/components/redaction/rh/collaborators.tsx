@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Search, UsersRound } from 'lucide-react';
 import { AccountLink } from './account-link';
 import { fetchRedaction } from '@/lib/redaction/public-path';
-import { validateCollaborator, type Collaborator, type CollaboratorInput } from '@/lib/redaction/rh/collaborator';
+import { RH_JOB_TITLE_SUGGESTIONS, validateCollaborator, type Collaborator, type CollaboratorInput } from '@/lib/redaction/rh/collaborator';
 
 const empty: CollaboratorInput = { firstName: '', lastName: '', jobTitle: '', team: '', contractStatus: '', startDate: '' };
 const fields = [
@@ -95,6 +95,24 @@ export function Collaborators({ allowAccountLinks = true }: { allowAccountLinks?
         <div className="grid gap-3 sm:grid-cols-2">
           {fields.map(([key, label, max]) => <label key={key} className="block text-sm font-medium">{label}
             <input required maxLength={max} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" />
+            {key === 'jobTitle' ? (
+              <span className="mt-2 flex flex-wrap gap-1.5">
+                {RH_JOB_TITLE_SUGGESTIONS.map((title) => (
+                  <button
+                    key={title}
+                    type="button"
+                    onClick={() => setForm((current) => ({ ...current, jobTitle: title }))}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                      form.jobTitle === title
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {title}
+                  </button>
+                ))}
+              </span>
+            ) : null}
           </label>)}
           <label className="block text-sm font-medium">Date d’arrivée (facultatif)
             <input type="date" min="1900-01-01" value={form.startDate || ''} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" />

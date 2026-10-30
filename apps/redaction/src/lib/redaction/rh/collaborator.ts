@@ -1,3 +1,23 @@
+/** Fonctions proposées dans le formulaire (reste un texte libre). */
+export const RH_JOB_TITLE_SUGGESTIONS = [
+  'Journaliste',
+  'Journaliste reporter',
+  'Rédacteur en chef',
+  'Rédacteur',
+  'Secrétaire de rédaction',
+  'Réalisateur',
+  'Assistant réalisateur',
+  'Cadreur',
+  'Monteur',
+  'Ingénieur du son',
+  'Présentateur',
+  'Animateur',
+  'Photographe',
+  'Technicien',
+  'Community manager',
+  'Administrateur',
+] as const;
+
 export interface CollaboratorInput {
   firstName: string;
   lastName: string;
