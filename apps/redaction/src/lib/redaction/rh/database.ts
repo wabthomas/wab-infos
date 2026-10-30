@@ -26,6 +26,25 @@ async function queueManagementEvent(client: PoolClient, type: import('./manageme
   if (process.env.REDACTION_RH_MANAGEMENT_NOTIFICATIONS_ENABLED !== 'true') return;
   await client.query('INSERT INTO redaction_rh.management_events (id,event_type,source_id) VALUES ($1,$2,$3) ON CONFLICT (event_type,source_id) DO NOTHING', [randomUUID(),type,sourceId]);
 }
+/**
+ * Push facultatif après commit d’une décision RH : jamais de montant ni de motif.
+ * Le push est subordonné au même drapeau que la notification in-app ; toute panne
+ * Strapi/FCM est avalée pour ne pas remettre en cause la décision déjà validée.
+ */
+async function pushRhDecision(email: string | null | undefined, type: import('./notifications').RhNotificationType): Promise<void> {
+  if (!email || process.env.REDACTION_RH_NOTIFICATIONS_ENABLED !== 'true') return;
+  try {
+    const [{ rhNotificationPush }, { notifyCollaboratorByEmail }] = await Promise.all([
+      import('./notifications'),
+      import('../web-push'),
+    ]);
+    const { sent, failed } = await notifyCollaboratorByEmail(email, rhNotificationPush(type));
+    if (failed > 0) console.warn(`[rh] push ${type}: ${failed} échec(s)`);
+    if (sent === 0 && failed === 0) console.warn(`[rh] push ${type}: aucun abonnement FCM actif`);
+  } catch (error) {
+    console.warn(`[rh] push ${type}: ${error instanceof Error ? error.message : 'erreur inconnue'}`);
+  }
+}
 export async function listManagementEvents(actor: {id:number;email:string}, types: readonly import('./management-notifications').ManagementEventType[]): Promise<import('./management-notifications').ManagementEvent[]> {
   if (!types.length) return [];
   const result = await db().query(`SELECT e.id,e.event_type AS type,e.created_at AS "createdAt",r.read_at AS "readAt" FROM redaction_rh.management_events e LEFT JOIN redaction_rh.management_event_reads r ON r.event_id=e.id AND r.actor_id=$1 AND r.actor_email=$2 WHERE e.event_type=ANY($3::varchar[]) ORDER BY e.created_at DESC,e.id DESC LIMIT 30`,[actor.id,actor.email.toLowerCase(),types]);
@@ -150,7 +169,9 @@ export async function decideAbsence(id: string, version: number, decision: impor
     if (!result.rows[0]) { await client.query('ROLLBACK'); return null; }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,absence_id) VALUES ($1,$2,$3,$4)', [actor, `absence_${decision}`, result.rows[0].collaboratorId, id]);
     await queueRhNotification(client, result.rows[0].collaboratorId, 'absence', id, result.rows[0].version);
+    const link = await client.query('SELECT account_email FROM redaction_rh.account_links WHERE collaborator_id=$1', [result.rows[0].collaboratorId]);
     await client.query('COMMIT');
+    await pushRhDecision(link.rows[0]?.account_email ?? null, 'absence');
     return result.rows[0];
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
@@ -451,7 +472,9 @@ export async function decideWithdrawal(id: string, version: number, decision: im
     if (!result.rowCount) { await client.query('ROLLBACK'); return false; }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,withdrawal_id) VALUES ($1,$2,$3,$4)', [actor, `withdrawal_${decision.action}`, personId, id]);
     await queueRhNotification(client, personId, 'retrait', id, version + 1);
-    await client.query('COMMIT'); return true;
+    await client.query('COMMIT');
+    await pushRhDecision(link.rows[0]?.account_email ?? null, 'retrait');
+    return true;
   } catch (error) { await client.query('ROLLBACK'); if ((error as { code?: string }).code === '23505') return false; throw error; }
   finally { client.release(); }
 }

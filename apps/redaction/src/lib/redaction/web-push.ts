@@ -176,6 +176,32 @@ export async function notifyEditorsByEmail(
   return { sent, failed };
 }
 
+/**
+ * Push ciblé d’un collaborateur identifié par l’email de son compte Strapi.
+ * Best-effort : une panne Strapi/FCM ne doit jamais faire échouer une décision RH.
+ * Limite connue : seuls les emails ayant enregistré un token FCM dans la collection
+ * `editor-push-subscriptions` reçoivent le push ; sans token, la notification in-app
+ * enregistrée en base reste la seule trace.
+ */
+export async function notifyCollaboratorByEmail(
+  email: string,
+  payload: { title: string; body: string; url: string }
+): Promise<{ sent: number; failed: number }> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return { sent: 0, failed: 0 };
+
+  try {
+    return await notifyEditorsByEmail([normalized], payload);
+  } catch (error) {
+    // Aucun détail sensible dans le journal.
+    console.warn(
+      '[web-push] push collaborateur ignorée',
+      error instanceof Error ? error.message : 'erreur inconnue'
+    );
+    return { sent: 0, failed: 0 };
+  }
+}
+
 export async function notifyAllEditors(payload: {
   title: string;
   body: string;

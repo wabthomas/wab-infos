@@ -39,6 +39,6 @@ export function MyNotifications() {
       {!item.readAt && <button type="button" disabled={!!busyId} onClick={() => void markRead(item.id)} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-50"><Check className="h-3.5 w-3.5" /> Marquer comme lue</button>}
     </article>)}
     {items.length === 100 && <p className="text-xs text-muted-foreground">Les 100 notifications les plus récentes sont affichées.</p>}
-    <p className="text-xs text-muted-foreground">Ouvrez la section correspondante pour consulter les détails. Aucun message n’est envoyé sur l’écran verrouillé.</p>
+    <p className="text-xs text-muted-foreground">Ouvrez la section correspondante pour consulter les détails. Les alertes push ne contiennent jamais de montant ni de motif.</p>
   </section>;
 }

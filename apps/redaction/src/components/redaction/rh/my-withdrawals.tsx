@@ -35,6 +35,14 @@ const methodsList = {
   autre: 'Autre',
 } as const;
 
+type WithdrawalFilter = 'all' | 'pending' | 'settled' | 'cancelled';
+const historyFilters: ReadonlyArray<{ value: WithdrawalFilter; label: string; statuses: readonly string[] }> = [
+  { value: 'all', label: 'Toutes', statuses: [] },
+  { value: 'pending', label: 'En attente', statuses: ['pending'] },
+  { value: 'settled', label: 'Validées-payées', statuses: ['approved', 'paid'] },
+  { value: 'cancelled', label: 'Annulées-refusées', statuses: ['rejected', 'cancelled'] },
+];
+
 function withdrawalRef(withdrawal: Withdrawal): string {
   return withdrawal.paymentReference?.trim() || `#${withdrawal.id.slice(0, 8).toUpperCase()}`;
 }
@@ -59,6 +67,7 @@ export function MyWithdrawals({
   const [reload, setReload] = useState(0);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [filter, setFilter] = useState<WithdrawalFilter>('all');
   const key = useRef<string | null>(null);
 
   useEffect(() => {
@@ -145,6 +154,16 @@ export function MyWithdrawals({
   const pendingCount = items.filter((item) => item.status === 'pending').length;
   const approvedCount = items.filter((item) => item.status === 'approved').length;
   const paidCount = items.filter((item) => item.status === 'paid').length;
+  const closedCount = items.filter((item) => item.status === 'rejected' || item.status === 'cancelled').length;
+  const filterCounts: Record<WithdrawalFilter, number> = {
+    all: items.length,
+    pending: pendingCount,
+    settled: approvedCount + paidCount,
+    cancelled: closedCount,
+  };
+  const activeFilter = historyFilters.find((entry) => entry.value === filter) ?? historyFilters[0];
+  const visibleItems =
+    filter === 'all' ? items : items.filter((item) => activeFilter.statuses.includes(item.status));
 
   return (
     <div className="space-y-4">
@@ -255,13 +274,32 @@ export function MyWithdrawals({
             {items.length}
           </span>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer l’historique des retraits">
+          {historyFilters.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setFilter(value)}
+              aria-pressed={filter === value}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                filter === value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border bg-card text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {label} ({filterCounts[value]})
+            </button>
+          ))}
+        </div>
         <div className="mt-3 space-y-2">
           {loading ? (
             <p className="text-sm text-muted-foreground">Chargement…</p>
           ) : failed ? null : items.length === 0 ? (
             <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">Aucune demande de retrait.</p>
+          ) : visibleItems.length === 0 ? (
+            <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">Aucune demande dans ce filtre.</p>
           ) : (
-            items.map((item) => (
+            visibleItems.map((item) => (
               <article key={item.id} className="rounded-xl border border-border p-3.5 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>

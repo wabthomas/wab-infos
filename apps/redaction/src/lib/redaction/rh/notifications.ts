@@ -9,3 +9,13 @@ export function rhNotificationMessage(type: RhNotificationType): string {
     case 'retrait': return 'Une information RH a été mise à jour.';
   }
 }
+/** Contenu d’une alerte push : jamais de montant, de motif ni de détail financier. */
+export function rhNotificationPush(type: RhNotificationType): { title: string; body: string; url: string } {
+  const titles: Record<RhNotificationType, string> = {
+    absence: 'Demande d’absence traitée',
+    prestation: 'Déclaration traitée',
+    remuneration: 'Rémunération mise à jour',
+    retrait: 'Demande de retrait mise à jour',
+  };
+  return { title: titles[type], body: rhNotificationMessage(type), url: '/mon-rh/notifications' };
+}
