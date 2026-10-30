@@ -70,21 +70,21 @@ export function MyRhDashboard({
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Absences</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums">{absencesPending}</p>
-          <p className="text-[11px] text-muted-foreground">demande(s) en attente</p>
+      <section className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="rounded-xl border border-border bg-card p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Absences</p>
+          <p className="mt-1 text-xl font-bold tabular-nums sm:mt-2 sm:text-2xl">{absencesPending}</p>
+          <p className="text-[9px] leading-tight text-muted-foreground sm:text-[11px]">en attente</p>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Contestations</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums">{disputesOpen}</p>
-          <p className="text-[11px] text-muted-foreground">en cours de traitement</p>
+        <div className="rounded-xl border border-border bg-card p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Contestations</p>
+          <p className="mt-1 text-xl font-bold tabular-nums sm:mt-2 sm:text-2xl">{disputesOpen}</p>
+          <p className="text-[9px] leading-tight text-muted-foreground sm:text-[11px]">en cours</p>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Documents</p>
-          <p className="mt-2 text-2xl font-bold tabular-nums">{documentsCount}</p>
-          <p className="text-[11px] text-muted-foreground">document(s) partagé(s)</p>
+        <div className="rounded-xl border border-border bg-card p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Documents</p>
+          <p className="mt-1 text-xl font-bold tabular-nums sm:mt-2 sm:text-2xl">{documentsCount}</p>
+          <p className="text-[9px] leading-tight text-muted-foreground sm:text-[11px]">partagé(s)</p>
         </div>
       </section>
 
@@ -211,12 +211,12 @@ export function MyRhDashboard({
 
       <section>
         <h2 className="text-sm font-bold">Accès rapides</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-3 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
           {quickLinks.map(({ href, label, text, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+              className="group rounded-xl border border-border bg-card p-3 shadow-sm transition-all hover:border-primary/30 sm:rounded-2xl sm:p-4 sm:hover:-translate-y-0.5 sm:hover:shadow-md"
             >
               <div className="flex items-center justify-between">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/[0.07] text-primary">

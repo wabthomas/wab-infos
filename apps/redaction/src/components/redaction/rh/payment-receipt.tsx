@@ -39,7 +39,7 @@ export function PaymentReceipt({
       </div>
 
       <article className="rounded-2xl border border-border bg-white p-8 text-[#191923] shadow-sm print:rounded-none print:border-0 print:shadow-none">
-        <header className="flex items-start justify-between gap-6 border-b-2 border-[#191923] pb-5">
+        <header className="flex flex-col gap-3 border-b-2 border-[#191923] pb-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-rose-600">Wab-infos</p>
             <h1 className="mt-1 text-2xl font-bold">Reçu de paiement</h1>
@@ -52,7 +52,7 @@ export function PaymentReceipt({
           </div>
         </header>
 
-        <dl className="mt-6 grid grid-cols-2 gap-5 text-sm">
+        <dl className="mt-6 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 sm:gap-5">
           <div>
             <dt className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Bénéficiaire</dt>
             <dd className="mt-1 font-semibold">

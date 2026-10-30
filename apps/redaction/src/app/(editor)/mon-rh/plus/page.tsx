@@ -1,11 +1,15 @@
 import Link from 'next/link';
-import { ArrowRight, Bell, CalendarDays, ClipboardList, FileLock2, MessageSquare, User } from 'lucide-react';
+import { ArrowRight, Bell, CalendarDays, ClipboardList, FileLock2, FileSpreadsheet, MessageSquare, User, UserCheck, WalletCards, ArrowDownUp } from 'lucide-react';
 import { getRhFlags } from '@/lib/redaction/rh/flags';
 
 export default function MyRhMorePage() {
   const flags = getRhFlags();
   const links = [
     { href: '/mon-rh/conges', label: 'Mes congés', text: 'Demander une absence', icon: CalendarDays, show: true },
+    { href: '/mon-rh/presence', label: 'Ma présence', text: 'Signer arrivée et sortie', icon: UserCheck, show: true },
+    { href: '/mon-rh/fiche', label: 'Ma fiche', text: 'Fiche d’identification', icon: FileSpreadsheet, show: true },
+    { href: '/mon-rh/remunerations', label: 'Mes rémunérations', text: 'Montants validés', icon: WalletCards, show: flags.financeEnabled },
+    { href: '/mon-rh/retraits', label: 'Mes retraits', text: 'Soldes et demandes', icon: ArrowDownUp, show: flags.financeEnabled && flags.withdrawalsEnabled },
     { href: '/mon-rh/prestations', label: 'Mes prestations', text: 'Déclarer une journée', icon: ClipboardList, show: true },
     { href: '/mon-rh/documents', label: 'Mes documents', text: 'Contrats et attestations', icon: FileLock2, show: flags.documentsEnabled },
     { href: '/mon-rh/contestations', label: 'Mes contestations', text: 'Signaler un désaccord', icon: MessageSquare, show: flags.disputesEnabled },
