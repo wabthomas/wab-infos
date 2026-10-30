@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Search, UsersRound } from 'lucide-react';
 import { AccountLink } from './account-link';
+import { IdentityAdmin } from './identity-admin';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { RH_JOB_TITLE_SUGGESTIONS, validateCollaborator, type Collaborator, type CollaboratorInput } from '@/lib/redaction/rh/collaborator';
 
@@ -86,6 +87,7 @@ export function Collaborators({ allowAccountLinks = true }: { allowAccountLinks?
                 <button type="button" disabled={busy} className="text-red-700 hover:underline dark:text-red-300" onClick={() => { if (window.confirm(`Archiver le dossier de ${row.firstName} ${row.lastName} ? Le compte de connexion ne sera pas modifié.`)) void send('PATCH', { action: 'archive', id: row.id, version: row.version }); }}>Archiver</button>
               </div>}
               {allowAccountLinks && !row.archived && linkPerson === row.id && <AccountLink person={row} onChanged={() => { setLinkPerson(null); void load(); window.dispatchEvent(new Event('rh-collaborators-changed')); }} />}
+              {!row.archived && <IdentityAdmin personId={row.id} personName={`${row.firstName} ${row.lastName}`} />}
             </article>
           ))}
           {rows.length === 500 && <p className="text-xs text-muted-foreground">Les 500 premiers dossiers sont affichés ; la recherche porte uniquement sur ces dossiers.</p>}

@@ -70,6 +70,24 @@ export function MyRhDashboard({
 
   return (
     <div className="space-y-5">
+      {flags.notificationsEnabled && notificationsUnread > 0 ? (
+        <Link
+          href="/mon-rh/notifications"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/[0.05] p-4 transition-colors hover:border-primary/50"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Bell className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-bold">{notificationsUnread} notification(s) non lue(s)</p>
+              <p className="text-xs text-muted-foreground">Consultez les événements RH qui vous concernent.</p>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-primary" />
+        </Link>
+      ) : null}
+
       <section className="grid grid-cols-3 gap-2 sm:gap-3">
         <div className="rounded-xl border border-border bg-card p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
           <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[11px]">Absences</p>
@@ -191,23 +209,7 @@ export function MyRhDashboard({
         </section>
       ) : null}
 
-      {flags.notificationsEnabled && notificationsUnread > 0 ? (
-        <Link
-          href="/mon-rh/notifications"
-          className="flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary/[0.05] p-4 transition-colors hover:border-primary/50"
-        >
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Bell className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-bold">{notificationsUnread} notification(s) non lue(s)</p>
-              <p className="text-xs text-muted-foreground">Consultez les événements RH qui vous concernent.</p>
-            </div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-primary" />
-        </Link>
-      ) : null}
+
 
       <section>
         <h2 className="text-sm font-bold">Accès rapides</h2>

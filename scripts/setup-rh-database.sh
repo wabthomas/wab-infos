@@ -52,6 +52,7 @@ MIGRATIONS=(
   # Onglet « Rapports » visible par défaut pour les admins RH : sans cette
   # migration, les exports échouent.
   rh-rapports
+  rh-fiches
 )
 
 for migration in "${MIGRATIONS[@]}"; do
