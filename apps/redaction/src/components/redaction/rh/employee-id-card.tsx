@@ -4,6 +4,7 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { COUNTRIES, LANGUAGES, RDC_PROVINCES } from '@/lib/redaction/rh/geo';
+import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { Printer, UserRoundPen } from 'lucide-react';
 
 type Person = { firstName: string; lastName: string; jobTitle: string; team: string; contractStatus: string; startDate: string | null };
@@ -15,6 +16,8 @@ export function EmployeeIdCard({ person }: { person: Person }) {
   const [signature, setSignature] = useState('');
   const [editing, setEditing] = useState(false);
   const [profile, setProfile] = useState<Record<string, string | null>>({});
+  const [company, setCompany] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
+  const [companyAssets, setCompanyAssets] = useState<Record<string, string | null>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   useEffect(() => {
@@ -31,6 +34,8 @@ export function EmployeeIdCard({ person }: { person: Person }) {
       setDetails((current) => ({ ...current, birthDate: value.birthDate ?? '', startDate: value.startDate ?? '', phone: value.phone ?? '', email: value.workEmail ?? '', address: value.address ?? '', country: value.country ?? COUNTRIES[0], province: value.province ?? 'Kinshasa', city: value.city ?? 'Kinshasa', emergencyContact: value.emergencyContact ?? '', specialty: value.specialty ?? '', languages: value.languages ?? '' }));
     }).catch(() => setMessage('Les informations complémentaires ne sont pas disponibles.'));
     fetchRedaction('/api/redaction/rh/sceau', { cache: 'no-store' }).then(async (response) => { if (response.ok) { const data = await response.json(); setSeal(data.seal ?? ''); } }).catch(() => {});
+    fetchRedaction('/api/redaction/rh/organisation', { cache: 'no-store' }).then(async (response) => { if (response.ok) { const data = await response.json(); setCompany({ ...DEFAULT_ORGANIZATION_SETTINGS, ...data.settings }); } }).catch(() => {});
+    for (const key of ['company-logo', 'document-header', 'document-footer']) fetchRedaction(`/api/redaction/rh/organisation/assets/${key}`, { cache: 'no-store' }).then(async (response) => { if (response.ok) { const data = await response.json(); setCompanyAssets((current) => ({ ...current, [key]: data.asset ?? null })); } }).catch(() => {});
   }, []);
   async function saveDetails() {
     setSaving(true); setMessage('');
@@ -74,7 +79,7 @@ export function EmployeeIdCard({ person }: { person: Person }) {
     </section>}
     <article className="mx-auto max-w-3xl rounded-2xl border border-border bg-white p-5 text-[#191923] shadow-sm sm:p-8 print:break-inside-avoid print:rounded-none print:border-0 print:shadow-none">
       <header className="flex items-center justify-between gap-3 border-b-4 border-[#191923] pb-4 sm:gap-6 sm:pb-5">
-        <div className="min-w-0"><img src="/logo.png" alt="Wab-infos" className="mb-2 h-9 w-auto object-contain object-left" /><h1 className="text-lg font-bold leading-tight sm:text-2xl">Fiche d’identification</h1><p className="mt-1 text-[10px] text-zinc-500 sm:text-xs">Document interne · ressources humaines</p></div>
+        <div className="min-w-0">{companyAssets['document-header'] ? <img src={companyAssets['document-header']!} alt="Entête" className="mb-2 max-h-10 max-w-full object-contain object-left" /> : <img src={companyAssets['company-logo'] || '/logo.png'} alt={company.companyName || 'Wab-infos'} className="mb-2 h-9 max-w-36 object-contain object-left" />}<p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{company.companyName || 'Wab-infos'}</p><h1 className="mt-0.5 text-lg font-bold leading-tight sm:text-2xl">Fiche d’identification</h1><p className="mt-1 text-[10px] text-zinc-500 sm:text-xs">{company.documentHeader || 'Document interne · ressources humaines'}</p><p className="mt-1 text-[9px] text-zinc-400">{[company.companyAddress, company.companyPhone, company.companyEmail].filter(Boolean).join(' · ')}</p></div>
         <div className="h-20 w-16 shrink-0 overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 sm:h-24 sm:w-20">{photo ? <img src={photo} alt="Photo du collaborateur" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-2xl font-bold text-zinc-400">{person.firstName[0]}{person.lastName[0]}</div>}</div>
       </header>
       <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 sm:gap-y-4">
@@ -88,7 +93,7 @@ export function EmployeeIdCard({ person }: { person: Person }) {
         </div>
         <p className="uppercase tracking-wider">Validation RH</p>
       </div>
-      <p className="mt-6 border-t border-zinc-200 pt-3 text-[10px] leading-4 text-zinc-400">Fiche d’identification personnelle. Les dates et coordonnées communiquées sont enregistrées dans votre dossier ; les champs administratifs restent sous la responsabilité de l’administration RH.</p>
+      <footer className="mt-6 border-t border-zinc-200 pt-3 text-[10px] leading-4 text-zinc-400">{companyAssets['document-footer'] && <img src={companyAssets['document-footer']!} alt="Pied de page" className="mb-2 max-h-10 max-w-full object-contain object-left" />}<p>{company.documentFooter || 'Fiche d’identification personnelle. Les dates et coordonnées communiquées sont enregistrées dans votre dossier ; les champs administratifs restent sous la responsabilité de l’administration RH.'}</p><p className="mt-1">{company.companyPhone} {company.companyEmail && `· ${company.companyEmail}`}</p></footer>
     </article>
   </div>;
 }

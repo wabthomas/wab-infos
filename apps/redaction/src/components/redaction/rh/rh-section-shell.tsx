@@ -15,7 +15,7 @@ import {
   LayoutGrid,
   LockKeyhole,
   MessageSquare,
-  ShieldCheck,
+  Settings,
   UserCheck,
   UsersRound,
   WalletCards,
@@ -46,7 +46,7 @@ const ADMIN_TITLES: Record<string, { eyebrow: string; title: string; text: strin
   '/rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Documents', text: 'Contrats et attestations conservés de façon privée.' },
   '/rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Contestations', text: 'Réponses aux désaccords exprimés par les collaborateurs.' },
   '/rh/rapports': { eyebrow: 'SUIVI RH', title: 'Rapports', text: 'Exports filtrés et journalisés pour le suivi de l’équipe.' },
-  '/rh/acces': { eyebrow: 'ADMINISTRATION', title: 'Accès et sécurité', text: 'Rôles RH, liaisons de comptes et protections des données.' },
+  '/rh/parametres': { eyebrow: 'ADMINISTRATION', title: 'Paramètres RH', text: 'Identité de l’entreprise, documents, fonctionnalités et accès.' },
   '/rh/plus': { eyebrow: 'TOUS LES ESPACES', title: 'Plus', text: 'Accès direct aux autres sections du module RH.' },
 };
 
@@ -103,7 +103,7 @@ export function RhSectionShell({
       ? ([
           ...(flags.documentsEnabled ? [{ href: '/rh/documents', label: 'Documents', icon: FileLock2 }] : []),
           ...(flags.disputesEnabled ? [{ href: '/rh/contestations', label: 'Contestations', icon: MessageSquare }] : []),
-          { href: '/rh/acces', label: 'Accès', icon: ShieldCheck },
+          { href: '/rh/parametres', label: 'Paramètres', icon: Settings },
         ] satisfies Item[])
       : []),
     ...(capabilities?.hrManage && flags.rhEnabled

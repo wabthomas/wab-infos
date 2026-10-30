@@ -7,7 +7,7 @@ import {
   FileLock2,
   FileSpreadsheet,
   MessageSquare,
-  ShieldCheck,
+  Settings,
   TrendingUp,
   UsersRound,
   WalletCards,
@@ -108,7 +108,7 @@ export function RhDashboard({
       ? { href: '/rh/rapports', label: 'Rapports', text: 'Exports journalisés', icon: FileSpreadsheet }
       : null,
     capabilities.accessManage
-      ? { href: '/rh/acces', label: 'Accès & sécurité', text: 'Rôles et liaisons', icon: ShieldCheck }
+      ? { href: '/rh/parametres', label: 'Paramètres', text: 'Entreprise et réglages RH', icon: Settings }
       : null,
   ].filter((item): item is NonNullable<typeof item> => Boolean(item));
 

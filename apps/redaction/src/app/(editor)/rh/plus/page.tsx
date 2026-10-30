@@ -8,7 +8,7 @@ import {
   FileLock2,
   FileSpreadsheet,
   MessageSquare,
-  ShieldCheck,
+  Settings,
   UsersRound,
   WalletCards,
 } from 'lucide-react';
@@ -33,7 +33,7 @@ export default async function RhMorePage() {
     { href: '/rh/documents', label: 'Documents', text: 'Contrats et attestations', icon: FileLock2, show: capabilities.accessManage && flags.documentsEnabled },
     { href: '/rh/contestations', label: 'Contestations', text: 'Recours des collaborateurs', icon: MessageSquare, show: capabilities.accessManage && flags.disputesEnabled },
     { href: '/rh/rapports', label: 'Rapports', text: 'Exports journalisés', icon: FileSpreadsheet, show: capabilities.hrManage && flags.rhEnabled },
-    { href: '/rh/acces', label: 'Accès & sécurité', text: 'Rôles et protections', icon: ShieldCheck, show: capabilities.accessManage },
+    { href: '/rh/parametres', label: 'Paramètres', text: 'Entreprise, documents et accès', icon: Settings, show: capabilities.accessManage },
   ].filter((link) => link.show);
 
   return (
