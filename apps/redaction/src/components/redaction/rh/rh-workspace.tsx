@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, type ComponentType } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { ArrowDownUp, ArrowRight, CalendarDays, CheckCircle2, CircleHelp, ClipboardList, Clock3, FileCheck2, FileLock2, FileSpreadsheet, KeyRound, LayoutGrid, LockKeyhole, ShieldCheck, Sparkles, UsersRound, WalletCards } from 'lucide-react';
 import type { RhCapabilities } from '@/lib/redaction/rh/permissions';
+import { DisputeReview } from './disputes';
 import { Adjustments } from './adjustments';
 import { Documents } from './documents';
 import { Reports } from './reports';
@@ -52,10 +53,18 @@ function QuickCard({ icon: Icon, label, description, onClick, tag }: { icon: Ico
   </button>;
 }
 
-export function RhWorkspace({ month, today, financeEnabled, withdrawalsEnabled, documentsEnabled, capabilities }: { month: string; today: string; financeEnabled: boolean; withdrawalsEnabled: boolean; documentsEnabled: boolean; capabilities: RhCapabilities }) {
+export function RhWorkspace({ month, today, financeEnabled, withdrawalsEnabled, documentsEnabled, disputesEnabled, capabilities }: { disputesEnabled: boolean; month: string; today: string; financeEnabled: boolean; withdrawalsEnabled: boolean; documentsEnabled: boolean; capabilities: RhCapabilities }) {
   const [section, setSection] = useState<Section>('overview');
-  const info = sectionInfo[section];
   const canSee = (id: Section) => id === 'overview' || (['team', 'activity', 'leave', 'reports'].includes(id) && capabilities.hrManage) || (['pay', 'withdrawals'].includes(id) && capabilities.financeManage) || (['access', 'documents'].includes(id) && capabilities.accessManage);
+  useEffect(() => {
+    const navigate = () => {
+      const id = window.location.hash.slice(1) as Section;
+      const allowed = id === 'overview' || (['team','activity','leave','reports'].includes(id) && capabilities.hrManage) || (['pay','withdrawals'].includes(id) && capabilities.financeManage) || (['access','documents'].includes(id) && capabilities.accessManage);
+      if (id in sectionInfo && allowed) setSection(id);
+    };
+    navigate(); window.addEventListener('hashchange',navigate); return () => window.removeEventListener('hashchange',navigate);
+  }, [capabilities.hrManage,capabilities.financeManage,capabilities.accessManage]);
+  const info = sectionInfo[section];
   return <div className="space-y-6 pb-8">
     <header className="relative overflow-hidden rounded-[1.5rem] bg-[#191923] px-6 py-7 text-white shadow-sm sm:px-8 sm:py-8">
       <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-28 h-72 w-72 rounded-full border border-white/[0.06] bg-white/[0.025]" />
@@ -65,7 +74,7 @@ export function RhWorkspace({ month, today, financeEnabled, withdrawalsEnabled, 
           <h1 className="mt-3 font-display text-3xl font-bold tracking-tight sm:text-4xl">Ressources humaines<span className="text-rose-400">.</span></h1>
           <p className="mt-2 max-w-lg text-sm leading-6 text-zinc-300">Un espace pour prendre soin de votre équipe et suivre son activité.</p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2 text-xs font-medium text-zinc-200"><LockKeyhole className="h-3.5 w-3.5 text-rose-300" /> Espace de gestion RH</span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2 text-xs font-medium text-zinc-200"><LockKeyhole className="h-3.5 w-3.5 text-rose-300" /> Espace de gestion RH · v1.0.2</span>
       </div>
     </header>
 
@@ -102,7 +111,7 @@ export function RhWorkspace({ month, today, financeEnabled, withdrawalsEnabled, 
         {section === 'documents' && capabilities.accessManage && <Documents enabled={documentsEnabled} />}
         {section === 'reports' && capabilities.hrManage && <Reports today={today} />}
         {section === 'access' && capabilities.accessManage && <div className="space-y-4">
-          <RoleManager />
+          <RoleManager /><DisputeReview enabled={disputesEnabled} />
           <div className="rounded-2xl border border-border bg-card p-5 sm:p-6"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/[0.07] text-primary"><KeyRound className="h-5 w-5" /></span><div><h3 className="font-semibold">Accès actuellement en place</h3><p className="mt-1 text-xs text-muted-foreground">Les contrôles sont appliqués côté serveur.</p></div></div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-muted/60 p-4"><p className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-primary" /> Administrateur</p><p className="mt-2 text-xs leading-5 text-muted-foreground">Les super-administrateurs gèrent les liaisons de comptes et les rôles, en plus des opérations RH.</p></div><div className="rounded-xl bg-muted/60 p-4"><p className="flex items-center gap-2 text-sm font-semibold"><UsersRound className="h-4 w-4 text-primary" /> Collaborateur lié</p><p className="mt-2 text-xs leading-5 text-muted-foreground">Un compte explicitement lié peut accéder à son propre espace RH, pas aux dossiers des autres.</p></div></div>
             <button type="button" onClick={() => setSection('team')} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline">Gérer les liaisons de compte <ArrowRight className="h-4 w-4" /></button>

@@ -29,7 +29,7 @@ test('PostgreSQL réel : transactions et coupure financière', { skip: !url && '
     // Sans migration d'ouverture, la paie seule continue de fonctionner.
     const draft = await rh.createRemuneration({ collaboratorId:id, currency:'CDF', month:'2026-01', amountMinor:'1000' }, 'admin@example.test');
     assert.ok(draft);
-    for (const name of ['retraits','roles','rapports','notifications','documents','soldes-initiaux','ajustements']) await migrate(name);
+    for (const name of ['retraits','roles','rapports','notifications','documents','soldes-initiaux','ajustements','contestations','notifications-gestion']) await migrate(name);
     assert.equal(await rh.createOpeningBalance({ collaboratorId:id, currency:'CDF', throughMonth:'2026-01', amountMinor:'10000' }, 'alice@example.test'), false);
     assert.equal(await rh.createOpeningBalance({ collaboratorId:id, currency:'CDF', throughMonth:'2026-01', amountMinor:'10000' }, 'admin@example.test'), true);
     // La coupure reste applicable si les retraits sont ensuite désactivés.
@@ -39,6 +39,26 @@ test('PostgreSQL réel : transactions et coupure financière', { skip: !url && '
     process.env.REDACTION_RH_WITHDRAWALS_ENABLED = 'true';
     const alice = { id:1,email:'alice@example.test' };
     const bob = { id:2,email:'bob@example.test' };
+    process.env.REDACTION_RH_MANAGEMENT_NOTIFICATIONS_ENABLED = 'true';
+    const disputeInput = {key:randomUUID(),category:'remuneration',message:'Vérifier le montant'};
+    const [d1,d2] = await Promise.all([rh.createMyDispute(alice,disputeInput),rh.createMyDispute(alice,disputeInput)]);
+    assert.equal(d1.id,d2.id);
+    assert.equal((await client.query("SELECT count(*)::int n FROM redaction_rh.management_events WHERE event_type='contestation' AND source_id=$1",[d1.id])).rows[0].n,1);
+    assert.equal(await rh.createMyDispute(alice,{...disputeInput,message:'Autre contenu'}),null);
+    assert.equal((await rh.listMyDisputes(alice)).length,1);
+    assert.ok((await rh.listOpenDisputes()).some(d=>d.id===d1.id));
+    assert.equal((await rh.listMyDisputes(bob)).length,0);
+    assert.equal(await rh.cancelMyDispute(bob,d1.id,1),false);
+    assert.equal(await rh.answerDispute(d1.id,1,'Réponse',alice.email),false);
+    assert.equal(await rh.answerDispute(d1.id,1,'Réponse','admin@example.test'),true);
+    assert.equal(await rh.cancelMyDispute(alice,d1.id,1),false);
+    assert.equal(await rh.answerDispute(d1.id,1,'Autre réponse','admin@example.test'),false);
+    assert.equal((await rh.listMyDisputes(alice))[0].response,'Réponse');
+    assert.ok(!(await rh.listOpenDisputes()).some(d=>d.id===d1.id));
+    const d3 = await rh.createMyDispute(alice,{key:randomUUID(),category:'autre',message:'Question'});
+    assert.equal(await rh.cancelMyDispute(alice,d3.id,1),true);
+    assert.equal(await rh.answerDispute(d3.id,1,'Réponse','admin@example.test'),false);
+
     assert.equal((await rh.myWithdrawalView(bob)).balances[0].available, null);
     const request = () => ({key:randomUUID(),currency:'CDF',amountMinor:'7000',method:'especes'});
     const [first,second] = await Promise.all([rh.createMyWithdrawal(alice,request()),rh.createMyWithdrawal(alice,request())]);
@@ -59,6 +79,26 @@ test('PostgreSQL réel : transactions et coupure financière', { skip: !url && '
     assert.equal((await rh.listMyAdjustments(bob)).length,0);
     assert.equal(await rh.cancelMyWithdrawal(alice,winner.id,winner.version),true);
     assert.equal((await rh.myWithdrawalView(alice)).balances[0].available,'8000');
+    assert.ok(await rh.createMySubmission(alice,{date:'2026-03-01',description:'Montage'}));
+    assert.ok(await rh.createAbsence({collaboratorId:id,startDate:'2026-04-01',endDate:'2026-04-02',category:'Congé'},alice.email,alice));
+    const admin={id:3,email:'admin@example.test'};
+    const types=['prestation','absence','retrait','contestation'];
+    const events=await rh.listManagementEvents(admin,types);
+    assert.ok(types.every(type=>events.some(e=>e.type===type)));
+    const notice=events.find(e=>e.type==='retrait');
+    assert.equal(await rh.markManagementEventRead(admin,notice.id,['prestation']),false);
+    assert.equal(await rh.markManagementEventRead(admin,notice.id,types),true);
+    assert.equal(await rh.markManagementEventRead(admin,notice.id,types),true);
+    assert.ok((await rh.listManagementEvents(admin,types)).find(e=>e.id===notice.id).readAt);
+    assert.equal((await rh.listManagementEvents(bob,['retrait'])).find(e=>e.id===notice.id).readAt,null);
+    assert.equal((await rh.listManagementEvents(bob,['prestation'])).some(e=>e.type==='retrait'),false);
+    // Si l'enregistrement de l'alerte échoue, la déclaration et son audit sont annulés.
+    await client.query(`CREATE FUNCTION redaction_rh.test_fail_event() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'event unavailable'; END $$`);
+    await client.query('CREATE TRIGGER test_fail_event BEFORE INSERT ON redaction_rh.management_events FOR EACH ROW EXECUTE FUNCTION redaction_rh.test_fail_event()');
+    await assert.rejects(rh.createMySubmission(alice,{date:'2026-03-02',description:'Tournage'}));
+    assert.equal((await client.query(`SELECT count(*)::int n FROM redaction_rh.activity_submissions WHERE collaborator_id=$1 AND activity_date='2026-03-02'`,[id])).rows[0].n,0);
+    await client.query('DROP TRIGGER test_fail_event ON redaction_rh.management_events');
+
     // Un échec d'audit annule toute la mutation, même après insertion de la demande.
     await client.query(`CREATE FUNCTION redaction_rh.test_fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='withdrawal_create' THEN RAISE EXCEPTION 'audit unavailable'; END IF; RETURN NEW; END $$`);
     await client.query('CREATE TRIGGER test_fail_audit BEFORE INSERT ON redaction_rh.audit_log FOR EACH ROW EXECUTE FUNCTION redaction_rh.test_fail_audit()');
@@ -67,6 +107,19 @@ test('PostgreSQL réel : transactions et coupure financière', { skip: !url && '
     assert.equal((await client.query('SELECT count(*)::int AS n FROM redaction_rh.withdrawals')).rows[0].n,before);
     assert.equal((await rh.myWithdrawalView(alice)).balances[0].available,'8000');
     await client.query('DROP TRIGGER test_fail_audit ON redaction_rh.audit_log');
+    const d4 = await rh.createMyDispute(alice,{key:randomUUID(),category:'prestation',message:'Revoir une date'});
+    assert.equal(await rh.changeAccountLink(id,1,null,'admin@example.test'),'ok');
+    assert.equal((await rh.listMyDisputes(alice)).length,0);
+    const other = {id:3,email:'other@example.test'};
+    assert.equal(await rh.changeAccountLink(id,2,other,'admin@example.test'),'ok');
+    assert.equal((await rh.listMyDisputes(other)).length,0);
+    assert.equal(await rh.cancelMyDispute(other,d4.id,1),false);
+    assert.equal(await rh.answerDispute(d4.id,1,'Réponse','admin@example.test'),false);
+    assert.equal(await rh.changeAccountLink(id,3,null,'admin@example.test'),'ok');
+    assert.equal(await rh.changeAccountLink(id,4,alice,'admin@example.test'),'ok');
+    assert.ok((await rh.listMyDisputes(alice)).some(d=>d.id===d4.id));
+    assert.equal(await rh.answerDispute(d4.id,1,'Réponse','admin@example.test'),true);
+
     await client.query(`INSERT INTO redaction_rh.role_grants (collaborator_id,account_id,account_email,role) SELECT collaborator_id,account_id,account_email,'finance_manager' FROM redaction_rh.account_links WHERE account_id=2`);
   } finally { await client.end(); }
 });
