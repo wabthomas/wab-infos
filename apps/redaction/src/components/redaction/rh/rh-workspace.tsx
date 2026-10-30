@@ -27,7 +27,7 @@ const navigation: { id: Section; label: string; icon: Icon }[] = [
   { id: 'withdrawals', label: 'Retraits', icon: ArrowDownUp },
   { id: 'documents', label: 'Documents', icon: FileLock2 },
   { id: 'reports', label: 'Rapports', icon: FileSpreadsheet },
-  { id: 'access', label: 'Accès & sécurité', icon: ShieldCheck },
+  { id: 'access', label: 'Paramètres', icon: ShieldCheck }
 ];
 const sectionInfo: Record<Section, { eyebrow: string; title: string; text: string }> = {
   overview: { eyebrow: 'ESPACE DE TRAVAIL', title: 'Vue d’ensemble', text: 'Tout ce dont vous avez besoin pour accompagner votre équipe, au même endroit.' },

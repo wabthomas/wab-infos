@@ -680,11 +680,19 @@ export function RedactionShell({
           <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
-                {rhOnly ? 'Espace RH' : 'Rédaction'}
+                {inRh || inMyRh ? 'Espace RH' : 'Rédaction'}
               </p>
               <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
             </div>
-            <div className="flex items-center gap-1">{inMyRh ? <MyRhTopbarActions /> : <><ManagementBell state={managementNotifications} />{!rhOnly && <RedactionNotificationsBell summary={summary} />}</>}</div>
+            <div className="flex items-center gap-1">
+              {inMyRh ? <MyRhTopbarActions /> : inRh ? <>
+                <ManagementBell state={managementNotifications} />
+                {rhOnly ? <MyRhTopbarActions /> : <ProfileMenu authorName={authorName} avatarUrl={avatarUrl} isSuperAdmin={isSuperAdmin} />}
+              </> : <>
+                <ManagementBell state={managementNotifications} />
+                {!rhOnly && <RedactionNotificationsBell summary={summary} />}
+              </>}
+            </div>
           </div>
         </header>
 

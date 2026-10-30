@@ -1,4 +1,4 @@
--- Compléments persistants des fiches RH (photo et champs personnels/professionnels).
+-- Compléments persistants des fiches RH et identité de l’entreprise.
 -- À appliquer après les migrations RH de base.
 BEGIN;
 CREATE TABLE IF NOT EXISTS redaction_rh.employee_profiles (
@@ -32,6 +32,12 @@ CREATE TABLE IF NOT EXISTS redaction_rh.organization_assets (
   asset_key varchar(40) PRIMARY KEY,
   file_bytes bytea NOT NULL,
   mime_type varchar(30) NOT NULL CHECK (mime_type IN ('image/png','image/jpeg','image/webp')),
+  updated_by varchar(320) NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS redaction_rh.organization_settings (
+  setting_key varchar(50) PRIMARY KEY,
+  setting_value varchar(2000) NOT NULL,
   updated_by varchar(320) NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
