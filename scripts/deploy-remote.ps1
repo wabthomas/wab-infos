@@ -74,7 +74,7 @@ function Restart-RemotePassenger {
   # Turbopack peut externaliser pg sous un nom hashé (pg-<hash>) absent de node_modules.
   # On recrée l'alias attendu à partir du paquet pg installé avant de redémarrer.
   $appDir = "$RemoteBase/$AppRelativePath"
-  $shim = 'cd ' + $appDir + ' && if [ -d node_modules/pg ]; then for name in $(grep -rhoE ''pg-[a-f0-9]{8,}'' .next/server 2>/dev/null | sort -u); do [ -e "node_modules/$name" ] || cp -r node_modules/pg "node_modules/$name"; done; fi'
+  $shim = 'cd ' + $appDir + ' && for pkg in pg firebase-admin; do if [ -d "node_modules/$pkg" ]; then for name in $(grep -rhoE "$pkg-[a-f0-9]{8,}" .next/server 2>/dev/null | sort -u); do [ -e "node_modules/$name" ] || cp -r "node_modules/$pkg" "node_modules/$name"; done; fi; done'
   Invoke-Remote -SshHost $SshHost -Command "$shim && mkdir -p $appDir/tmp && touch $appDir/tmp/restart.txt && echo restart Passenger: $AppRelativePath"
 }
 

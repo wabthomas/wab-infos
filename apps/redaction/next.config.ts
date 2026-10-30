@@ -12,7 +12,7 @@ const basePath = redactionBasePathFromPublicUrl(redactionPublicUrl);
 const nextConfig: NextConfig = {
   // Pas de output: 'standalone' — incompatible avec server.js (PlanetHoster / Passenger)
   ...(basePath ? { basePath } : {}),
-  serverExternalPackages: ['sharp', 'pg'],
+  serverExternalPackages: ['sharp', 'pg', 'firebase-admin'],
   images: {
     minimumCacheTTL: 60 * 60 * 24,
   },
