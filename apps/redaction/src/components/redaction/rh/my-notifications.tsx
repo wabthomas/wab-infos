@@ -35,7 +35,7 @@ export function MyNotifications() {
     {error && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
     {loading ? <p className="text-sm text-muted-foreground">Chargement…</p> : !error && items.length === 0 ? <p className="text-sm text-muted-foreground">Aucune notification pour le moment.</p> : null}
     {!loading && items.map((item) => <article key={item.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${item.readAt ? 'border-border' : 'border-primary/20 bg-primary/[0.04]'}`}>
-      <div className="min-w-0"><p className="text-sm font-semibold">{rhNotificationMessage(item.type)}</p><p className="mt-1 text-xs text-muted-foreground">{new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Kinshasa' }).format(new Date(item.createdAt))} · {item.readAt ? 'Lue' : 'Non lue'}</p></div>
+      <div className="min-w-0"><p className="text-sm font-semibold">{rhNotificationMessage(item.type)}</p><p className="mt-1 text-xs text-muted-foreground">{new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Lubumbashi' }).format(new Date(item.createdAt))} · {item.readAt ? 'Lue' : 'Non lue'}</p></div>
       {item.type === 'service_card' && <a href="/mon-rh/carte-service" className="text-xs font-semibold text-primary underline">Voir ma carte</a>}
       {!item.readAt && <button type="button" disabled={!!busyId} onClick={() => void markRead(item.id)} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-50"><Check className="h-3.5 w-3.5" /> Marquer comme lue</button>}
     </article>)}

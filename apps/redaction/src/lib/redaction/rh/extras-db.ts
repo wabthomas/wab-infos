@@ -181,8 +181,8 @@ export async function listMyAttendance(principal: RhPrincipal): Promise<Attendan
     if (!person) return [];
     const result = await client.query(
       `SELECT id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
-              to_char(check_in AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkIn",
-              to_char(check_out AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkOut",note
+              to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
+              to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note
        FROM redaction_rh.attendance WHERE collaborator_id=$1 ORDER BY work_date DESC LIMIT 60`,
       [person]
     );
@@ -204,12 +204,12 @@ export async function signMyAttendance(principal: RhPrincipal, action: Attendanc
     const column = action === 'in' ? 'check_in' : 'check_out';
     const result = await client.query(
       `INSERT INTO redaction_rh.attendance (id,collaborator_id,work_date,${column})
-       VALUES ($1,$2,(now() AT TIME ZONE 'Africa/Kinshasa')::date,now())
+       VALUES ($1,$2,(now() AT TIME ZONE 'Africa/Lubumbashi')::date,now())
        ON CONFLICT (collaborator_id,work_date) DO UPDATE SET ${column}=now()
        WHERE attendance.${column} IS NULL
        RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
-                 to_char(check_in AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkIn",
-                 to_char(check_out AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkOut",note`,
+                 to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
+                 to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note`,
       [randomUUID(), person]
     );
     if (!result.rowCount) {

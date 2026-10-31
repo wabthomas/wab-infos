@@ -23,7 +23,7 @@ export function isValidMonth(value: unknown): value is string {
 }
 
 export function kinshasaToday(now: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Kinshasa', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Lubumbashi', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
   return `${parts.find((p) => p.type === 'year')?.value}-${parts.find((p) => p.type === 'month')?.value}-${parts.find((p) => p.type === 'day')?.value}`;
 }
 
