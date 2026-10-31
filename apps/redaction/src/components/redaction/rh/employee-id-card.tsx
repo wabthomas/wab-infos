@@ -44,6 +44,12 @@ async function shareOrDownloadPdf(blob: Blob, filename: string) {
       // Si le navigateur refuse la feuille de partage, proposer le téléchargement standard.
     }
   }
+  const androidBridge = (window as unknown as { AndroidBridge?: { savePdf?: (data: string, name: string) => void } }).AndroidBridge;
+  if (androidBridge?.savePdf) {
+    const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] ?? ''); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob); });
+    androidBridge.savePdf(base64, filename);
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
