@@ -661,6 +661,11 @@ html.native-capacitor #redaction-main-scroll {
   margin: 12mm;
 }
 
+@page rh-single {
+  size: A4 portrait;
+  margin: 8mm;
+}
+
 @media print {
   html,
   body {
@@ -723,8 +728,31 @@ html.native-capacitor #redaction-main-scroll {
     transition: none !important;
   }
 
+  html[data-rh-print-target='employee-id-card'] body *,
   html[data-rh-print-target='payment-receipt'] body * {
     visibility: hidden !important;
+  }
+
+  html[data-rh-print-target='employee-id-card'] .employee-id-card,
+  html[data-rh-print-target='employee-id-card'] .employee-id-card *,
+  html[data-rh-print-target='payment-receipt'] .payment-receipt-document,
+  html[data-rh-print-target='payment-receipt'] .payment-receipt-document * {
+    visibility: visible !important;
+  }
+
+  html[data-rh-print-target='employee-id-card'] .employee-id-card {
+    page: rh-single !important;
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 125% !important;
+    max-width: none !important;
+    height: 350mm !important;
+    max-height: 350mm !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: scale(.8) !important;
+    transform-origin: top left !important;
   }
 
   html[data-rh-print-target='payment-receipt'] .payment-receipt-document,
@@ -734,6 +762,7 @@ html.native-capacitor #redaction-main-scroll {
 
   html[data-rh-print-target='payment-receipt'] .payment-receipt-modal,
   html[data-rh-print-target='payment-receipt'] .payment-receipt-modal-panel {
+    display: block !important;
     position: static !important;
     inset: auto !important;
     width: 100% !important;
@@ -749,11 +778,17 @@ html.native-capacitor #redaction-main-scroll {
   }
 
   html[data-rh-print-target='payment-receipt'] .payment-receipt-document {
+    page: rh-single !important;
     position: absolute !important;
     inset: 0 auto auto 0 !important;
-    width: 100% !important;
+    width: 125% !important;
     max-width: none !important;
+    height: 350mm !important;
+    max-height: 350mm !important;
+    overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
+    transform: scale(.8) !important;
+    transform-origin: top left !important;
   }
 }

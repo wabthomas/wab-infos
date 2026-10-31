@@ -3,6 +3,10 @@ package com.wabinfos.app;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.app.PrintDocumentAdapter;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
@@ -15,6 +19,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
+import android.util.Base64;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
@@ -61,6 +66,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -78,6 +84,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String REDACTION_SITE_URL = "https://app.wab-infos.com";
     private static final int PERMISSION_REQUEST_CODE = 4321;
     private static final int PUSH_PERMISSION_REQUEST_CODE = 4322;
+    private static final int SAVE_FILE_REQUEST_CODE = 4323;
+    private static final int MAX_NATIVE_FILE_BYTES = 25 * 1024 * 1024;
 
     private View rootLayout;
     private WebView webView;
@@ -92,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
     // Gestion de l'upload de fichiers depuis le WebView (<input type="file">)
     private ValueCallback<Uri[]> filePathCallback;
     private String cameraPhotoPath;
+    private byte[] pendingSaveFileBytes;
     private ActivityResultLauncher<Intent> fileChooserLauncher;
     private ActivityResultLauncher<Intent> googleSignInLauncher;
     private GoogleSignInClient googleSignInClient;
@@ -764,7 +773,7 @@ public class MainActivity extends AppCompatActivity {
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
             request.setMimeType(mimeType);
             String cookies = CookieManager.getInstance().getCookie(url);
-            request.addRequestHeader("cookie", cookies);
+            if (cookies != null && !cookies.isEmpty()) request.addRequestHeader("cookie", cookies);
             request.addRequestHeader("User-Agent", userAgent);
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             String fileName = URLUtil.guessFileName(url, contentDisposition, mimeType);
@@ -779,6 +788,72 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Toast.makeText(this, "Impossible de démarrer le téléchargement", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void promptSaveNativeFile(byte[] bytes, String fileName, String mimeType) {
+        if (bytes == null || bytes.length == 0 || bytes.length > MAX_NATIVE_FILE_BYTES) {
+            Toast.makeText(this, "Fichier vide ou trop volumineux (maximum 25 Mo).", Toast.LENGTH_LONG).show();
+            return;
+        }
+        pendingSaveFileBytes = bytes;
+        String safeName = fileName == null ? "document.pdf" : fileName
+                .replace('/', '_').replace('\\', '_').replace(':', '_')
+                .replace('*', '_').replace('?', '_').replace('"', '_')
+                .replace('<', '_').replace('>', '_').replace('|', '_');
+        if (safeName.trim().isEmpty()) safeName = "document.pdf";
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(mimeType == null || mimeType.isEmpty() ? "application/octet-stream" : mimeType);
+        intent.putExtra(Intent.EXTRA_TITLE, safeName);
+        try {
+            Toast.makeText(this, "Choisissez où enregistrer le fichier.", Toast.LENGTH_SHORT).show();
+            startActivityForResult(intent, SAVE_FILE_REQUEST_CODE);
+        } catch (Exception error) {
+            pendingSaveFileBytes = null;
+            Toast.makeText(this, "Le sélecteur de fichiers Android n’est pas disponible.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != SAVE_FILE_REQUEST_CODE) return;
+        byte[] bytes = pendingSaveFileBytes;
+        pendingSaveFileBytes = null;
+        Uri destination = data == null ? null : data.getData();
+        if (resultCode != Activity.RESULT_OK || destination == null || bytes == null) return;
+        try (OutputStream output = getContentResolver().openOutputStream(destination, "w")) {
+            if (output == null) throw new IOException("Ouverture du fichier impossible");
+            output.write(bytes);
+            output.flush();
+            Toast.makeText(this, "Fichier enregistré.", Toast.LENGTH_SHORT).show();
+        } catch (Exception error) {
+            Log.e("WabInfos", "Échec de l’enregistrement du fichier", error);
+            Toast.makeText(this, "Impossible d’enregistrer le fichier.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void printCurrentWebView() {
+        runOnUiThread(() -> {
+            if (webView == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+                Toast.makeText(this, "L’impression n’est pas disponible sur cet appareil.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            try {
+                PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                if (printManager == null) throw new IllegalStateException("Service d’impression indisponible");
+                PrintDocumentAdapter adapter = webView.createPrintDocumentAdapter("Wab-infos-RH");
+                PrintAttributes attributes = new PrintAttributes.Builder()
+                        .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                        .setResolution(new PrintAttributes.Resolution("wabinfos", "Wab-infos", 300, 300))
+                        .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                        .build();
+                printManager.print("Wab-infos-RH", adapter, attributes);
+            } catch (Exception error) {
+                Log.e("WabInfos", "Impossible d’ouvrir l’impression Android", error);
+                Toast.makeText(this, "Impossible d’ouvrir l’impression Android.", Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     /**
@@ -797,6 +872,11 @@ public class MainActivity extends AppCompatActivity {
                 "      window.AndroidBridge.share(title, text, url);" +
                 "      return Promise.resolve();" +
                 "    } catch (e) { return Promise.reject(e); }" +
+                "  };" +
+                "  var originalPrint = window.print ? window.print.bind(window) : null;" +
+                "  window.print = function(){" +
+                "    try { if (window.AndroidBridge.printPage) { window.AndroidBridge.printPage(); return; } } catch (e) {}" +
+                "    if (originalPrint) originalPrint();" +
                 "  };" +
                 "})();";
         view.evaluateJavascript(script, null);
@@ -1259,6 +1339,25 @@ public class MainActivity extends AppCompatActivity {
                 shareIntent.putExtra(Intent.EXTRA_TEXT, fullText.trim());
                 startActivity(Intent.createChooser(shareIntent, "Partager via"));
             });
+        }
+
+        @android.webkit.JavascriptInterface
+        public void saveFile(String base64, String fileName, String mimeType) {
+            if (base64 == null || base64.isEmpty() || base64.length() > (MAX_NATIVE_FILE_BYTES * 4L / 3L) + 16) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Fichier vide ou trop volumineux (maximum 25 Mo).", Toast.LENGTH_LONG).show());
+                return;
+            }
+            try {
+                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                runOnUiThread(() -> promptSaveNativeFile(bytes, fileName, mimeType));
+            } catch (IllegalArgumentException error) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Le fichier PDF est invalide.", Toast.LENGTH_LONG).show());
+            }
+        }
+
+        @android.webkit.JavascriptInterface
+        public void printPage() {
+            printCurrentWebView();
         }
 
         @android.webkit.JavascriptInterface

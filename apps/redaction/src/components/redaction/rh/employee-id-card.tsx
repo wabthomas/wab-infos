@@ -6,6 +6,7 @@ import { fetchRedaction } from '@/lib/redaction/public-path';
 import { COUNTRIES, LANGUAGES, RDC_PROVINCES } from '@/lib/redaction/rh/geo';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { createOrganizationQr } from '@/lib/redaction/rh/organization-qr';
+import { saveBlobToAndroid, printPageWithAndroidBridge } from '@wab-infos/shared';
 import { Download, Printer, UserRoundPen, X } from 'lucide-react';
 
 type Person = { firstName: string; lastName: string; jobTitle: string; team: string; contractStatus: string; startDate: string | null };
@@ -34,6 +35,7 @@ function dataUrlAsJpeg(source: string): Promise<string | null> {
 }
 
 async function shareOrDownloadPdf(blob: Blob, filename: string) {
+  if (await saveBlobToAndroid(blob, filename, 'application/pdf')) return;
   const file = new File([blob], filename, { type: 'application/pdf' });
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
     try {
@@ -156,6 +158,19 @@ export function EmployeeIdCard({ person, adminPersonId }: { person: Person; admi
     ] },
   ];
 
+  function printIdentityCard() {
+    const root = document.documentElement;
+    root.dataset.rhPrintTarget = 'employee-id-card';
+    const cleanup = () => { delete root.dataset.rhPrintTarget; };
+    window.addEventListener('afterprint', cleanup, { once: true });
+    if (printPageWithAndroidBridge()) {
+      window.setTimeout(cleanup, 60_000);
+      return;
+    }
+    window.print();
+    window.setTimeout(cleanup, 15_000);
+  }
+
   async function downloadPdf() {
     setDownloading(true); setMessage('');
     try {
@@ -179,30 +194,29 @@ export function EmployeeIdCard({ person, adminPersonId }: { person: Person; admi
       pdf.setTextColor(90); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8);
       pdf.text(company.companyName || 'Wab-infos', companyTextX, 32);
       const companyContacts = [company.companyAddress, company.companyPhone, company.companyEmail].filter(Boolean).join(' · ');
-      if (companyContacts) { pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.text(pdf.splitTextToSize(companyContacts, photoX - companyTextX - 5), companyTextX, 37); }
+      if (companyContacts) { pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6.5); pdf.text(pdf.splitTextToSize(companyContacts, photoX - companyTextX - 5).slice(0, 2), companyTextX, 37); }
       pdf.setTextColor(25, 25, 35); pdf.setFontSize(17); pdf.text('FICHE D’IDENTIFICATION', margin, 48);
       pdf.setDrawColor(196, 30, 58); pdf.setLineWidth(1.2); pdf.line(margin, 52, pageWidth - margin, 52);
       let y = 58;
+      const rowPitch = 9.5;
       for (const group of groups) {
         const rows = Math.ceil(group.fields.length / 2);
-        const groupHeight = 9 + rows * 12 + 3;
-        if (y + groupHeight + 45 > 282) { pdf.addPage(); y = 18; }
-        pdf.setFillColor(245, 246, 248); pdf.roundedRect(margin, y, pageWidth - margin * 2, 7, 1.5, 1.5, 'F');
-        pdf.setTextColor(45, 49, 58); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8.5); pdf.text(group.title.toUpperCase(), margin + 3, y + 4.8);
-        y += 11;
+        pdf.setFillColor(245, 246, 248); pdf.roundedRect(margin, y, pageWidth - margin * 2, 6.5, 1.5, 1.5, 'F');
+        pdf.setTextColor(45, 49, 58); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.text(group.title.toUpperCase(), margin + 3, y + 4.5);
+        y += 8;
         group.fields.forEach((field, index) => {
           const column = index % 2;
           const x = margin + column * ((pageWidth - margin * 2) / 2);
           const row = Math.floor(index / 2);
-          const fieldY = y + row * 12;
-          pdf.setTextColor(120); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.text(field.label.toUpperCase(), x + 1, fieldY);
-          pdf.setTextColor(35, 39, 48); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9);
+          const fieldY = y + row * rowPitch;
+          pdf.setTextColor(120); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(6); pdf.text(field.label.toUpperCase(), x + 1, fieldY);
+          pdf.setTextColor(35, 39, 48); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.2);
           const valueLines = pdf.splitTextToSize(field.value || '—', (pageWidth - margin * 2) / 2 - 8) as string[];
-          pdf.text(valueLines.slice(0, 2), x + 1, fieldY + 4.5);
+          pdf.text(valueLines.slice(0, 2), x + 1, fieldY + 3.6);
         });
-        y += rows * 12 + 4;
+        y += rows * rowPitch + 2;
       }
-      const stampY = Math.min(Math.max(y + 3, 224), 232);
+      const stampY = Math.min(Math.max(y + 3, 194), 205);
       if (sealImage) pdf.addImage(sealImage, 'JPEG', pageWidth / 2 - 17, stampY, 34, 34, undefined, 'FAST');
       else { pdf.setDrawColor(185, 190, 200); pdf.setLineDashPattern([1, 1], 0); pdf.circle(pageWidth / 2, stampY + 17, 15); pdf.setLineDashPattern([], 0); }
       if (qrImage) {
@@ -219,7 +233,7 @@ export function EmployeeIdCard({ person, adminPersonId }: { person: Person; admi
       pdf.text('Validation RH', pageWidth - margin, stampY + 39, { align: 'right' });
       if (footerImage) pdf.addImage(footerImage, 'JPEG', margin, 270, 35, 10, undefined, 'FAST');
       const footerText = company.documentFooter || 'Document interne · Ressources humaines';
-      pdf.setTextColor(130); pdf.setFontSize(6.5); pdf.text(pdf.splitTextToSize(footerText, pageWidth - margin * 2), margin, 286);
+      pdf.setTextColor(130); pdf.setFontSize(6.5); pdf.text(pdf.splitTextToSize(footerText, pageWidth - margin * 2).slice(0, 2), margin, 286);
       const filename = `fiche-identification-${person.lastName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`;
       await shareOrDownloadPdf(pdf.output('blob'), filename);
       setMessage('Le PDF est prêt. Vérifiez vos téléchargements ou choisissez « Enregistrer dans Fichiers ».');
@@ -231,7 +245,7 @@ export function EmployeeIdCard({ person, adminPersonId }: { person: Person; admi
   return <div className="mx-auto max-w-3xl space-y-4 p-2 sm:p-4 print:max-w-none print:p-0">
     <div className="flex flex-wrap justify-end gap-2 print:hidden">
       {!adminPersonId && <button type="button" onClick={() => setEditing((open) => !open)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><UserRoundPen className="h-4 w-4" />{editing ? 'Fermer le formulaire' : 'Compléter ma fiche'}</button>}
-      <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><Printer className="h-4 w-4" /> Imprimer</button>
+      <button type="button" onClick={printIdentityCard} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><Printer className="h-4 w-4" /> Imprimer</button>
       <button type="button" disabled={downloading} onClick={() => void downloadPdf()} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Download className="h-4 w-4" />{downloading ? 'Préparation…' : 'Télécharger PDF'}</button>
     </div>
     {message && !editing && <p role="status" className="rounded-xl border border-primary/15 bg-primary/[0.06] px-4 py-2.5 text-sm text-primary print:hidden">{message}</p>}

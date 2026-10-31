@@ -5,6 +5,7 @@ import { CheckCircle2, Clock3, Download, Printer, ReceiptText, ShieldCheck } fro
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { formatMinorUnits } from '@/lib/redaction/rh/money';
+import { saveBlobToAndroid, printPageWithAndroidBridge } from '@wab-infos/shared';
 import type { Withdrawal } from '@/lib/redaction/rh/withdrawals';
 
 const statusLabels: Record<string, string> = {
@@ -32,6 +33,7 @@ function imageAsJpeg(source: string | null | undefined): Promise<string | null> 
 }
 
 async function deliverPdf(blob: Blob, filename: string) {
+  if (await saveBlobToAndroid(blob, filename, 'application/pdf')) return;
   const file = new File([blob], filename, { type: 'application/pdf' });
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
     try { await navigator.share({ files: [file], title: 'Reçu RH' }); return; }
@@ -77,6 +79,10 @@ export function PaymentReceipt({
     root.dataset.rhPrintTarget = 'payment-receipt';
     const cleanup = () => { delete root.dataset.rhPrintTarget; };
     window.addEventListener('afterprint', cleanup, { once: true });
+    if (printPageWithAndroidBridge()) {
+      window.setTimeout(cleanup, 60_000);
+      return;
+    }
     window.print();
     window.setTimeout(cleanup, 15_000);
   }
@@ -94,14 +100,14 @@ export function PaymentReceipt({
       if (logo) pdf.addImage(logo, 'JPEG', margin, 10, 25, 20, undefined, 'FAST');
       pdf.setTextColor(255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.text(company.companyName || 'Wab-infos', margin + (logo ? 31 : 0), 16);
       pdf.setFontSize(18); pdf.text(paid ? 'REÇU DE PAIEMENT' : 'RÉCAPITULATIF DE RETRAIT', margin + (logo ? 31 : 0), 27);
-      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.text([company.companyAddress, company.companyPhone, company.companyEmail, company.companyWebsite].filter(Boolean).join(' · '), margin, 38, { maxWidth: width - margin * 2 });
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.text(pdf.splitTextToSize([company.companyAddress, company.companyPhone, company.companyEmail, company.companyWebsite].filter(Boolean).join(' · '), width - margin * 2).slice(0, 2), margin, 38);
       pdf.setTextColor(70); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.text(`STATUT : ${statusLabels[withdrawal.status] ?? withdrawal.status}`, margin, 56);
       pdf.setFillColor(245, 246, 248); pdf.roundedRect(margin, 63, width - margin * 2, 30, 3, 3, 'F');
       pdf.setTextColor(100); pdf.setFontSize(8); pdf.text(paid ? 'MONTANT VERSÉ' : 'MONTANT DEMANDÉ', margin + 5, 72);
       pdf.setTextColor(23, 25, 35); pdf.setFontSize(24); pdf.text(formatMinorUnits(BigInt(withdrawal.amountMinor), withdrawal.currency), margin + 5, 85);
       pdf.setFontSize(9); pdf.text(`Référence : ${reference}`, width - margin - 5, 80, { align: 'right', maxWidth: 75 });
       let y = 108;
-      const line = (label: string, value: string, x: number, at: number, maxWidth: number) => { pdf.setTextColor(110); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.text(label.toUpperCase(), x, at); pdf.setTextColor(35, 39, 48); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.text(pdf.splitTextToSize(value || '—', maxWidth), x, at + 6); };
+      const line = (label: string, value: string, x: number, at: number, maxWidth: number) => { pdf.setTextColor(110); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.text(label.toUpperCase(), x, at); pdf.setTextColor(35, 39, 48); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.text(pdf.splitTextToSize(value || '—', maxWidth).slice(0, 2), x, at + 6); };
       line('Bénéficiaire', `${person.firstName} ${person.lastName}`, margin, y, 78);
       line('Fonction / équipe', `${person.jobTitle} · ${person.team}`, width / 2 + 3, y, 75); y += 24;
       line('Mode de paiement', methodLabels[withdrawal.method] ?? withdrawal.method, margin, y, 78);
@@ -115,8 +121,9 @@ export function PaymentReceipt({
       pdf.text(company.directorName || 'Direction générale', width / 2, y + 33, { align: 'center' });
       pdf.text(company.directorTitle, width / 2, y + 37, { align: 'center' });
       const footer = company.documentFooter || (paid ? 'Ce reçu atteste du paiement enregistré dans le système. Il ne remplace pas un relevé bancaire ou Mobile Money.' : 'Ce document récapitule une demande de retrait et ne constitue pas une preuve de paiement.');
-      pdf.setTextColor(125); pdf.setFontSize(7); pdf.text(pdf.splitTextToSize(footer, width - margin * 2), margin, 270);
-      pdf.text(`ID fiscal : ${company.companyTaxId || '—'} · RCCM : ${company.companyRegistration || '—'} · Réf. ${reference}`, margin, 286, { maxWidth: width - margin * 2 });
+      pdf.setTextColor(125); pdf.setFontSize(7); pdf.text(pdf.splitTextToSize(footer, width - margin * 2).slice(0, 2), margin, 270);
+      const identifiers = `ID fiscal : ${company.companyTaxId || '—'} · RCCM : ${company.companyRegistration || '—'} · Réf. ${reference}`;
+      pdf.text(pdf.splitTextToSize(identifiers, width - margin * 2).slice(0, 1), margin, 286);
       const safeName = `${person.lastName}-${person.firstName}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-');
       await deliverPdf(pdf.output('blob'), `recu-rh-${safeName}-${withdrawal.id.slice(0, 8)}.pdf`);
       setPdfMessage('PDF prêt à être enregistré ou partagé.');
