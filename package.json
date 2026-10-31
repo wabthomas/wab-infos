@@ -79,5 +79,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "html2canvas-pro": "^2.6.0"
   }
 }
