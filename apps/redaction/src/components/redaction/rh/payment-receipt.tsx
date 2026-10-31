@@ -84,6 +84,16 @@ export function PaymentReceipt({
   async function downloadPdf() {
     setDownloading(true); setPdfMessage('');
     try {
+      const target = document.querySelector('.payment-receipt-document article') as HTMLElement | null;
+      if (target) {
+        try {
+          const { captureElementAsPdf } = await import('@/lib/redaction/rh/pdf-capture');
+          const captured = await captureElementAsPdf(target);
+          await deliverPdf(captured, 'recu-rh-' + withdrawal.id.slice(0, 8) + '.pdf');
+          setPdfMessage('PDF prêt.');
+          return;
+        } catch { /* repli sur le rendu jsPDF */ }
+      }
       const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
       const width = pdf.internal.pageSize.getWidth(); const margin = 16;

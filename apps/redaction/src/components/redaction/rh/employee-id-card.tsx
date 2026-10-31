@@ -165,6 +165,16 @@ export function EmployeeIdCard({ person, adminPersonId }: { person: Person; admi
   async function downloadPdf() {
     setDownloading(true); setMessage('');
     try {
+      const target = document.querySelector('.employee-id-card') as HTMLElement | null;
+      if (target) {
+        try {
+          const { captureElementAsPdf } = await import('@/lib/redaction/rh/pdf-capture');
+          const captured = await captureElementAsPdf(target);
+          await shareOrDownloadPdf(captured, 'fiche-identification-' + person.lastName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.pdf');
+          setMessage('Le PDF est prêt.');
+          return;
+        } catch { /* repli sur le rendu jsPDF */ }
+      }
       const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
       const pageWidth = pdf.internal.pageSize.getWidth();
