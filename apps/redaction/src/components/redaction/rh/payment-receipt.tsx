@@ -88,7 +88,7 @@ export function PaymentReceipt({
       if (target) {
         try {
           const { captureElementAsPdf } = await import('@/lib/redaction/rh/pdf-capture');
-          const captured = await captureElementAsPdf(target);
+          const captured = await captureElementAsPdf(target, { fitPage: true });
           await deliverPdf(captured, 'recu-rh-' + withdrawal.id.slice(0, 8) + '.pdf');
           setPdfMessage('PDF prêt.');
           return;

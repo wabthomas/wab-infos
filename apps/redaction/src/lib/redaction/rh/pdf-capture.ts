@@ -1,5 +1,5 @@
-﻿/** Capture le document RH affiché pour produire un PDF identique à l’aperçu. */
-export async function captureElementAsPdf(element: HTMLElement): Promise<Blob> {
+/** Capture le document RH affiché pour produire un PDF identique à l’aperçu. */
+export async function captureElementAsPdf(element: HTMLElement, options?: { fitPage?: boolean }): Promise<Blob> {
   const html2canvas = (await import('html2canvas-pro')).default;
   const { jsPDF } = await import('jspdf');
   const canvas = await html2canvas(element, {
