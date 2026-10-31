@@ -1,6 +1,7 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
-import { requireRedactionUser, isRedactionSuperAdmin, RedactionAuthError, type RedactionUser } from '@/lib/redaction/strapi-editor';
+import { requireRedactionUser, isRedactionSuperAdmin, RedactionAuthError } from '@/lib/redaction/strapi-editor';
+import type { RedactionUser } from '@/lib/redaction/types';
 import { db } from '@/lib/redaction/rh/database';
 import { isRhOnlyJobTitle } from '@/lib/redaction/rh/collaborator';
 

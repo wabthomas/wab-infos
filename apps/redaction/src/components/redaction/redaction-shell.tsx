@@ -685,7 +685,11 @@ export function RedactionShell({
               <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
             </div>
             <div className="flex items-center gap-1">
-              {inMyRh ? <MyRhTopbarActions /> : inRh ? <>
+              {inMyRh ? <>
+                <ThemeToggle className="h-10 w-10 rounded-full border-transparent bg-transparent shadow-none hover:border-border" />
+                <MyRhTopbarActions />
+              </> : inRh ? <>
+                <ThemeToggle className="h-10 w-10 rounded-full border-transparent bg-transparent shadow-none hover:border-border" />
                 <ManagementBell state={managementNotifications} />
                 {rhOnly ? <MyRhTopbarActions /> : <ProfileMenu authorName={authorName} avatarUrl={avatarUrl} isSuperAdmin={isSuperAdmin} />}
               </> : <>

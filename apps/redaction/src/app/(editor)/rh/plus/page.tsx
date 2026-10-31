@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Settings,
   UsersRound,
+  UserCheck,
   WalletCards,
 } from 'lucide-react';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
@@ -27,6 +28,7 @@ export default async function RhMorePage() {
   const links = [
     { href: '/rh/equipe', label: 'Collaborateurs', text: 'Dossiers et comptes liés', icon: UsersRound, show: capabilities.hrManage && flags.rhEnabled },
     { href: '/rh/prestations', label: 'Prestations', text: 'Déclarations et journées', icon: ClipboardList, show: capabilities.hrManage && flags.rhEnabled },
+    { href: '/rh/presence', label: 'Présence', text: 'Pointages signés par l’équipe', icon: UserCheck, show: capabilities.hrManage && flags.rhEnabled },
     { href: '/rh/conges', label: 'Congés', text: 'Demandes et validations', icon: CalendarDays, show: capabilities.hrManage && flags.rhEnabled },
     { href: '/rh/remunerations', label: 'Rémunérations', text: 'Montants mensuels', icon: WalletCards, show: capabilities.financeRead && flags.financeEnabled },
     { href: '/rh/retraits', label: 'Retraits', text: 'Soldes et paiements', icon: ArrowDownUp, show: capabilities.financeRead && flags.financeEnabled },

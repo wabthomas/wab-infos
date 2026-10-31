@@ -45,16 +45,23 @@ MIGRATIONS=(
   rh-prestations
   rh-absences
   rh-account-links
-  rh-notifications
   rh-declarations
+  rh-remunerations
+  rh-retraits
+  # Présence s'appuie sur les liens de compte et sur la table des retraits.
+  rh-payouts-attendance
   # Onglet « Accès et sécurité » : même avec les rôles RH désactivés, l'écran
   # lit role_grants. Sans cette table : « Impossible de charger les droits ».
   rh-roles
   rh-role-views
   rh-settings
+  rh-notifications
   # Onglet « Rapports » visible par défaut pour les admins RH : sans cette
   # migration, les exports échouent.
   rh-rapports
+  rh-rapport-presence
+  rh-attendance-corrections
+  rh-attendance-retention
   rh-fiches
   rh-service-cards
   rh-chat

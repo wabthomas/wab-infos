@@ -4,7 +4,7 @@ import { fetchRedaction } from '@/lib/redaction/public-path';
 import { validateSubmission, type Submission, type SubmissionStatus } from '@/lib/redaction/rh/submissions';
 
 const labels: Record<SubmissionStatus, string> = { pending: 'En attente', approved: 'Validée', rejected: 'Refusée', cancelled: 'Annulée' };
-const statusStyles: Record<SubmissionStatus, string> = { pending: 'bg-amber-500/10 text-amber-800', approved: 'bg-emerald-500/10 text-emerald-800', rejected: 'bg-rose-500/10 text-rose-800', cancelled: 'bg-muted text-muted-foreground' };
+const statusStyles: Record<SubmissionStatus, string> = { pending: 'bg-amber-500/10 text-amber-800 dark:text-amber-300', approved: 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300', rejected: 'bg-rose-500/10 text-rose-800 dark:text-rose-300', cancelled: 'bg-muted text-muted-foreground' };
 const endpoint = '/api/redaction/rh/mon-espace/prestations';
 export function MySubmissions({ today }: { today: string }) {
   const [items, setItems] = useState<Submission[]>([]);

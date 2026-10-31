@@ -7,7 +7,7 @@ import { validateSubmissionDecision, type Submission, type SubmissionStatus } fr
 const labels: Record<SubmissionStatus, string> = { pending: 'En attente', approved: 'Validée', rejected: 'Refusée', cancelled: 'Annulée' };
 export function SubmissionReview() {
   const [people, setPeople] = useState<Collaborator[]>([]); const [personId, setPersonId] = useState('');
-  const [items, setItems] = useState<Submission[]>([]); const [notes, setNotes] = useState<Record<string, string>>({});
+  const [items, setItems] = useState<Submission[]>([]); const [notes, setNotes] = useState<Record<string, string>>({}); const [reviewing, setReviewing] = useState<Submission | null>(null);
   const [error, setError] = useState(''); const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
   useEffect(() => {
@@ -39,7 +39,7 @@ export function SubmissionReview() {
     try {
       const r = await fetchRedaction('/api/redaction/rh/declarations', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, version: item.version, ...payload }) });
       const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Décision impossible.');
-      setMessage('Décision enregistrée.'); setReload((n) => n + 1); window.dispatchEvent(new Event('rh-submissions-changed'));
+      setMessage('Décision enregistrée.'); setReviewing(null); setReload((n) => n + 1); window.dispatchEvent(new Event('rh-submissions-changed'));
     } catch (e) { setError(e instanceof Error ? e.message : 'Décision impossible.'); }
     finally { setBusy(false); }
   }
@@ -51,14 +51,26 @@ export function SubmissionReview() {
     {personId && (loading ? <p className="text-sm">Chargement…</p> : failed ? null : <div className="space-y-2">
       {items.length === 0 && <p className="text-sm text-muted-foreground">Aucune déclaration.</p>}
       {items.map((item) => <article key={item.id} className="rounded-lg border border-border p-3 text-sm">
-        <p className="font-semibold">{item.date} · {labels[item.status]}</p><p className="mt-1 text-muted-foreground">{item.description}</p>
-        {item.decisionNote && <p className="mt-1">Motif : {item.decisionNote}</p>}
-        {item.status === 'pending' && <div className="mt-3 space-y-2">
-          <label className="block">Motif (obligatoire en cas de refus)<input maxLength={500} value={notes[item.id] ?? ''} onChange={(e) => setNotes({ ...notes, [item.id]: e.target.value })} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
-          <div className="flex gap-4"><button type="button" disabled={busy} onClick={() => void decide(item, 'approve')} className="font-semibold text-primary underline">Valider</button><button type="button" disabled={busy} onClick={() => void decide(item, 'reject')} className="text-red-700 underline dark:text-red-300">Refuser</button></div>
-        </div>}
+        <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{item.date}</p><span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${item.status === 'approved' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : item.status === 'rejected' ? 'bg-red-500/10 text-red-700 dark:text-red-300' : item.status === 'pending' ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300' : 'bg-muted text-muted-foreground'}`}>{labels[item.status]}</span></div>
+        <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{item.description}</p>
+        {item.decisionNote && <p className="mt-2 text-sm">Motif : {item.decisionNote}</p>}
+        {item.status === 'pending' && <>
+          <div className="mt-3 hidden space-y-2 sm:block">
+            <label className="block">Motif (obligatoire en cas de refus)<input maxLength={500} value={notes[item.id] ?? ''} onChange={(e) => setNotes({ ...notes, [item.id]: e.target.value })} className="mt-1 block min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2" /></label>
+            <div className="flex gap-3"><button type="button" disabled={busy} onClick={() => void decide(item, 'approve')} className="min-h-11 rounded-xl bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-50">Valider</button><button type="button" disabled={busy} onClick={() => void decide(item, 'reject')} className="min-h-11 rounded-xl border border-red-500/30 px-4 font-semibold text-red-700 dark:text-red-300 disabled:opacity-50">Refuser</button></div>
+          </div>
+          <button type="button" disabled={busy} onClick={() => setReviewing(item)} className="mt-3 min-h-11 w-full rounded-xl border border-primary/25 bg-primary/[0.06] px-4 font-semibold text-primary sm:hidden">Examiner la déclaration</button>
+        </> }
       </article>)}
       {items.length === 500 && <p className="text-xs text-muted-foreground">Les 500 déclarations les plus récentes sont affichées.</p>}
     </div>)}
+    {reviewing && <div className="fixed inset-0 z-[90] bg-black/55 sm:hidden" onClick={() => { if (!busy) setReviewing(null); }}>
+      <section role="dialog" aria-modal="true" aria-label="Examiner la déclaration" onClick={(event) => event.stopPropagation()} className="absolute inset-x-0 bottom-0 max-h-[90dvh] space-y-4 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl">
+        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-primary">À examiner</p><h3 className="mt-1 font-display text-lg font-bold">Déclaration du {reviewing.date}</h3></div><button type="button" disabled={busy} aria-label="Fermer" onClick={() => setReviewing(null)} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg">×</button></div>
+        <p className="whitespace-pre-wrap rounded-xl bg-muted/60 p-3 text-sm leading-6">{reviewing.description}</p>
+        <label className="block text-sm font-semibold">Motif (obligatoire en cas de refus)<input maxLength={500} value={notes[reviewing.id] ?? ''} onChange={(event) => setNotes({ ...notes, [reviewing.id]: event.target.value })} className="mt-1.5 block min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2.5 font-normal" /></label>
+        <div className="grid grid-cols-2 gap-3"><button type="button" disabled={busy} onClick={() => void decide(reviewing, 'approve')} className="min-h-12 rounded-xl bg-primary px-3 font-semibold text-primary-foreground disabled:opacity-50">Valider</button><button type="button" disabled={busy} onClick={() => void decide(reviewing, 'reject')} className="min-h-12 rounded-xl border border-red-500/30 px-3 font-semibold text-red-700 dark:text-red-300 disabled:opacity-50">Refuser</button></div>
+      </section>
+    </div>}
   </section>;
 }
