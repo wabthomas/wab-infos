@@ -90,7 +90,7 @@ export function PaymentReceipt({
           const { captureElementAsPdf } = await import('@/lib/redaction/rh/pdf-capture');
           const captured = await captureElementAsPdf(target);
           await deliverPdf(captured, 'recu-rh-' + withdrawal.id.slice(0, 8) + '.pdf');
-          setPdfMessage('PDF prêt.');
+          setPdfMessage('PDF prÃªt.');
           return;
         } catch { /* repli sur le rendu jsPDF */ }
       }
