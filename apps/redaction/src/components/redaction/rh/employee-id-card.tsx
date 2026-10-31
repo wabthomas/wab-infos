@@ -169,7 +169,7 @@ export function EmployeeIdCard({ person, adminPersonId }: { person: Person; admi
       if (target) {
         try {
           const { captureElementAsPdf } = await import('@/lib/redaction/rh/pdf-capture');
-          const captured = await captureElementAsPdf(target);
+          const captured = await captureElementAsPdf(target, { fitPage: true });
           await shareOrDownloadPdf(captured, 'fiche-identification-' + person.lastName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.pdf');
           setMessage('Le PDF est prêt.');
           return;
