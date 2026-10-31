@@ -33,7 +33,7 @@ function imageAsJpeg(source: string | null | undefined): Promise<string | null> 
 
 async function deliverPdf(blob: Blob, filename: string) {
   const file = new File([blob], filename, { type: 'application/pdf' });
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+  if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && navigator.share && navigator.canShare?.({ files: [file] })) {
     try { await navigator.share({ files: [file], title: 'Reçu RH' }); return; }
     catch (error) { if (error instanceof DOMException && error.name === 'AbortError') return; }
   }

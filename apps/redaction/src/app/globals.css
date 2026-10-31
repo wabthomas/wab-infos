@@ -713,7 +713,7 @@ html.native-capacitor #redaction-main-scroll {
 
   .redaction-shell-root nav,
   .redaction-shell-root button,
-  .redaction-shell-root [role='dialog'] {
+  .redaction-shell-root [role='dialog']:not(.payment-receipt-modal-panel) {
     display: none !important;
   }
 

@@ -35,7 +35,7 @@ function dataUrlAsJpeg(source: string): Promise<string | null> {
 
 async function shareOrDownloadPdf(blob: Blob, filename: string) {
   const file = new File([blob], filename, { type: 'application/pdf' });
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+  if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && navigator.share && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: 'Fiche d’identification' });
       return;
