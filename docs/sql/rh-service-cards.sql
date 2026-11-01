@@ -13,5 +13,5 @@ CREATE TABLE IF NOT EXISTS redaction_rh.service_cards (
 );
 CREATE INDEX IF NOT EXISTS service_cards_employee_idx ON redaction_rh.service_cards(collaborator_id,issued_at DESC);
 ALTER TABLE redaction_rh.notifications DROP CONSTRAINT IF EXISTS notifications_event_type_check;
-ALTER TABLE redaction_rh.notifications ADD CONSTRAINT notifications_event_type_check CHECK(event_type IN ('absence','prestation','remuneration','retrait','service_card'));
+ALTER TABLE redaction_rh.notifications ADD CONSTRAINT notifications_event_type_check CHECK(event_type IN ('absence','prestation','remuneration','retrait','service_card','attendance_correction'));
 COMMIT;

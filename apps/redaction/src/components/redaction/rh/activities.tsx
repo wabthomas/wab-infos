@@ -11,6 +11,11 @@ const labels: Record<ActivityStatus, string> = {
   absence_signalee: 'Absence signalée — à examiner',
   absence_justifiee: 'Absence justifiée (validation admin)',
 };
+const statusTones: Record<ActivityStatus, string> = {
+  effectuee: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  absence_signalee: 'bg-amber-500/10 text-amber-800 dark:text-amber-300',
+  absence_justifiee: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
+};
 
 export function Activities({ initialMonth, today }: { initialMonth: string; today: string }) {
   const [people, setPeople] = useState<Collaborator[]>([]);
@@ -25,6 +30,7 @@ export function Activities({ initialMonth, today }: { initialMonth: string; toda
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const [editing, setEditing] = useState<Activity | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [date, setDate] = useState('');
   const [status, setStatus] = useState<ActivityStatus>('effectuee');
   const [description, setDescription] = useState('');
@@ -53,7 +59,7 @@ export function Activities({ initialMonth, today }: { initialMonth: string; toda
   }, []);
 
   useEffect(() => {
-    setActivities([]); setAbsences([]); setLoadFailed(false); setEditing(null); setDate(''); setDescription(''); setStatus('effectuee');
+    setActivities([]); setAbsences([]); setLoadFailed(false); setEditing(null); setFormOpen(false); setDate(''); setDescription(''); setStatus('effectuee');
     if (!personId || !isValidMonth(month)) { setLoading(false); return; }
     const controller = new AbortController();
     setLoading(true); setError('');
@@ -88,12 +94,24 @@ export function Activities({ initialMonth, today }: { initialMonth: string; toda
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Enregistrement impossible.');
-      setMessage('Prestation enregistrée.'); setReload((n) => n + 1);
+      setMessage('Prestation enregistrée.'); setReload((n) => n + 1); setFormOpen(false); setEditing(null); setDate(''); setDescription(''); setStatus('effectuee');
     } catch (err) { setError(err instanceof Error ? err.message : 'Enregistrement impossible.'); }
     finally { setBusy(false); }
   }
 
-  return <section className="space-y-4 rounded-xl border border-border bg-card p-5">
+  const renderActivityForm = (sheet: boolean) => <form onSubmit={submit} className={`space-y-3 ${sheet ? '' : 'border-t border-border pt-4'}`}>
+    {sheet && <div className="flex items-center justify-between gap-3"><h3 className="font-display text-lg font-bold">{editing ? 'Modifier le relevé' : 'Enregistrer un relevé'}</h3><button disabled={busy} type="button" aria-label="Fermer" onClick={() => setFormOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg">×</button></div>}
+    {!sheet && <h3 className="font-semibold">{editing ? 'Modifier le relevé' : 'Enregistrer un relevé journalier'}</h3>}
+    <p className="text-xs leading-5 text-muted-foreground">Un relevé par jour : réunissez les activités du jour dans la description. N’y saisissez pas de données médicales ou sensibles.</p>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="text-sm font-medium">Date<input type="date" required disabled={busy || !!editing} min={`${month}-01`} max={today} value={date} onChange={(event) => setDate(event.target.value)} className="mt-1.5 block min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2.5" /></label>
+      <label className="text-sm font-medium">Statut<select disabled={busy} value={status} onChange={(event) => setStatus(event.target.value as ActivityStatus)} className="mt-1.5 block min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2.5">{Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+    </div>
+    <label className="block text-sm font-medium">Description {status === 'effectuee' ? '(obligatoire)' : '(facultative)'}<input disabled={busy} value={description} maxLength={500} required={status === 'effectuee'} onChange={(event) => setDescription(event.target.value)} className="mt-1.5 block min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2.5" /></label>
+    <div className="flex gap-3 pt-1"><button disabled={busy} type="submit" className="min-h-11 flex-1 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? 'Enregistrement…' : 'Enregistrer'}</button>{editing && <button disabled={busy} type="button" onClick={() => { setEditing(null); setFormOpen(false); setDate(''); setDescription(''); setStatus('effectuee'); }} className="min-h-11 rounded-xl border border-border px-4 text-sm font-semibold">Annuler</button>}</div>
+  </form>;
+
+  return <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
     <div>
       <h2 className="font-display text-lg font-bold">Prestations et journées à vérifier</h2>
       <p className="mt-1 text-sm text-muted-foreground">Saisie par l’administrateur uniquement. Aucune retenue n’est calculée ni appliquée.</p>
@@ -124,32 +142,16 @@ export function Activities({ initialMonth, today }: { initialMonth: string; toda
           <h3 className="font-semibold">Relevés enregistrés</h3>
           {activities.length === 0 && <p className="text-sm text-muted-foreground">Aucun relevé pour ce mois.</p>}
           {activities.map((item) => <article key={item.id} className="rounded-lg border border-border p-3 text-sm">
-            <p className="font-semibold">{item.date} — {labels[item.status]}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-semibold">{item.date}</p><span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusTones[item.status]}`}>{labels[item.status]}</span></div>
             {item.description && <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{item.description}</p>}
-            <button disabled={busy} type="button" className="mt-2 font-semibold text-primary hover:underline" onClick={() => { setEditing(item); setDate(item.date); setStatus(item.status); setDescription(item.description); setError(''); setMessage(''); }}>Modifier</button>
+            <button disabled={busy} type="button" className="mt-2 font-semibold text-primary hover:underline" onClick={() => { setEditing(item); setDate(item.date); setStatus(item.status); setDescription(item.description); setError(''); setMessage(''); setFormOpen(true); }}>Modifier</button>
           </article>)}
         </div>
-        <form onSubmit={submit} className="space-y-3 border-t border-border pt-4">
-          <h3 className="font-semibold">{editing ? 'Modifier le relevé' : 'Enregistrer un relevé journalier'}</h3>
-          <p className="text-xs text-muted-foreground">Un relevé par jour : réunissez les activités du jour dans la description. N’y saisissez pas de données médicales ou sensibles.</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm font-medium">Date
-              <input type="date" required disabled={!!editing} min={`${month}-01`} max={today} value={date} onChange={(event) => setDate(event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" />
-            </label>
-            <label className="text-sm font-medium">Statut
-              <select value={status} onChange={(event) => setStatus(event.target.value as ActivityStatus)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2">
-                {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </label>
-          </div>
-          <label className="block text-sm font-medium">Description {status === 'effectuee' ? '(obligatoire)' : '(facultative)'}
-            <input value={description} maxLength={500} required={status === 'effectuee'} onChange={(event) => setDescription(event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" />
-          </label>
-          <div className="flex gap-3">
-            <button disabled={busy} type="submit" className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? 'Enregistrement…' : 'Enregistrer'}</button>
-            {editing && <button type="button" onClick={() => { setEditing(null); setDate(''); setDescription(''); setStatus('effectuee'); }} className="text-sm underline">Annuler</button>}
-          </div>
-        </form>
+        <button type="button" disabled={busy} onClick={() => { setEditing(null); setDate(''); setDescription(''); setStatus('effectuee'); setError(''); setFormOpen(true); }} className="min-h-11 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground sm:hidden">Enregistrer un relevé journalier</button>
+        <div className="hidden sm:block">{renderActivityForm(false)}</div>
+        {formOpen && <div className="fixed inset-0 z-[90] bg-black/55 sm:hidden" onClick={() => { if (!busy) setFormOpen(false); }}>
+          <div role="dialog" aria-modal="true" aria-label={editing ? 'Modifier un relevé' : 'Enregistrer un relevé'} onClick={(event) => event.stopPropagation()} className="absolute inset-x-0 bottom-0 max-h-[90dvh] overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl">{renderActivityForm(true)}</div>
+        </div>}
       </>}
     </>}
   </section>;

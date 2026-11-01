@@ -40,6 +40,7 @@ const ADMIN_TITLES: Record<string, { eyebrow: string; title: string; text: strin
   '/rh': { eyebrow: 'ESPACE DE TRAVAIL', title: 'Ressources humaines', text: 'Pilotez l’équipe, les prestations et les paiements depuis un seul espace.' },
   '/rh/equipe': { eyebrow: 'ÉQUIPE', title: 'Collaborateurs', text: 'Dossiers professionnels, comptes liés et fonctions de chacun.' },
   '/rh/prestations': { eyebrow: 'SUIVI QUOTIDIEN', title: 'Prestations', text: 'Déclarations de la rédaction et journées à vérifier.' },
+  '/rh/presence': { eyebrow: 'TEMPS DE TRAVAIL', title: 'Présence', text: 'Consultez les pointages signés par les collaborateurs.' },
   '/rh/conges': { eyebrow: 'TEMPS & DISPONIBILITÉ', title: 'Congés et absences', text: 'Demandes de l’équipe, validations et refus motivés.' },
   '/rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Rémunérations', text: 'Montants mensuels, validation et référence journalière.' },
   '/rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Retraits', text: 'Soldes, demandes et paiements réellement effectués.' },
@@ -90,7 +91,7 @@ export function RhSectionShell({
     ...(capabilities?.teamRead && flags.rhEnabled
       ? ([
           { href: '/rh/equipe', label: 'Collaborateurs', icon: UsersRound },
-          ...(capabilities.hrManage ? [{ href: '/rh/prestations', label: 'Prestations', icon: ClipboardList }, { href: '/rh/conges', label: 'Congés', icon: CalendarDays }] : []),
+          ...(capabilities.hrManage ? [{ href: '/rh/prestations', label: 'Prestations', icon: ClipboardList }, { href: '/rh/presence', label: 'Présence', icon: UserCheck }, { href: '/rh/conges', label: 'Congés', icon: CalendarDays }] : []),
         ] satisfies Item[])
       : []),
     ...(capabilities?.financeRead && flags.financeEnabled

@@ -6,7 +6,7 @@ import { saveBlobToAndroid } from '@wab-infos/shared';
 import { parseReportFilter, type ReportType } from '@/lib/redaction/rh/reports';
 
 type ReportFormat = 'csv' | 'pdf';
-const reportLabels: Record<ReportType, string> = { collaborateurs: 'Collaborateurs', absences: 'Congés et absences', prestations: 'Prestations enregistrées' };
+const reportLabels: Record<ReportType, string> = { collaborateurs: 'Collaborateurs', absences: 'Congés et absences', prestations: 'Prestations enregistrées', presence: 'Pointages de présence' };
 
 async function saveReportPdf(blob: Blob, filename: string) {
   if (await saveBlobToAndroid(blob, filename, 'application/pdf')) return;
@@ -96,7 +96,7 @@ export function Reports({ today }: { today: string }) {
     {error && <p role="alert" className="rounded-xl bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}{message && <p role="status" className="text-sm text-primary">{message}</p>}
     <form onSubmit={submit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><label className="block text-sm font-medium">Rapport
-        <select value={type} onChange={(e) => setType(e.target.value as ReportType)} disabled={busy} className="mt-1.5 block w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"><option value="collaborateurs">Collaborateurs</option><option value="absences">Congés et absences</option><option value="prestations">Prestations enregistrées</option></select>
+        <select value={type} onChange={(e) => setType(e.target.value as ReportType)} disabled={busy} className="mt-1.5 block w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"><option value="collaborateurs">Collaborateurs</option><option value="absences">Congés et absences</option><option value="prestations">Prestations enregistrées</option><option value="presence">Pointages de présence</option></select>
       </label><label className="block text-sm font-medium">Équipe <span className="font-normal text-muted-foreground">(facultatif, nom exact)</span>
         <input value={team} maxLength={150} onChange={(e) => setTeam(e.target.value)} disabled={busy} placeholder="Ex. Production audiovisuelle" className="mt-1.5 block w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
       </label><label className="block text-sm font-medium">Format

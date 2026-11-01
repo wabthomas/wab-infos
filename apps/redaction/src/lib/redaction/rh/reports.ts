@@ -1,11 +1,11 @@
 import { isValidDate } from './activities';
-export type ReportType = 'collaborateurs' | 'absences' | 'prestations';
+export type ReportType = 'collaborateurs' | 'absences' | 'prestations' | 'presence';
 export interface ReportFilter { type: ReportType; start: string | null; end: string | null; team: string | null }
 export const REPORT_LIMIT = 5000;
 
 export function parseReportFilter(params: URLSearchParams): ReportFilter | null {
   const type = params.get('type');
-  if (type !== 'collaborateurs' && type !== 'absences' && type !== 'prestations') return null;
+  if (type !== 'collaborateurs' && type !== 'absences' && type !== 'prestations' && type !== 'presence') return null;
   const team = (params.get('team') ?? '').trim();
   if (team.length > 150 || /[\u0000-\u001f\u007f]/.test(team)) return null;
   if (type === 'collaborateurs') return { type, start: null, end: null, team: team || null };
