@@ -60,7 +60,7 @@ const columns = `id, first_name AS "firstName", last_name AS "lastName", job_tit
   contract_status AS "contractStatus", to_char(start_date, 'YYYY-MM-DD') AS "startDate", archived, version`;
 
 export async function listCollaborators(): Promise<Collaborator[]> {
-  const result = await db().query(`SELECT ${columns} FROM redaction_rh.collaborators ORDER BY archived, last_name, first_name, id LIMIT 500`);
+  const result = await db().query(`SELECT ${columns}, EXISTS(SELECT 1 FROM redaction_rh.employee_profiles p WHERE p.collaborator_id=c.id AND p.photo_bytes IS NOT NULL) AS "hasPhoto" FROM redaction_rh.collaborators c ORDER BY c.archived, c.last_name, c.first_name, c.id LIMIT 500`);
   return result.rows;
 }
 

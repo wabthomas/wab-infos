@@ -47,6 +47,7 @@ export interface CollaboratorInput {
 export interface Collaborator extends CollaboratorInput {
   id: string;
   archived: boolean;
+  hasPhoto?: boolean;
   version: number;
 }
 

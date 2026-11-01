@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Search, UsersRound } from 'lucide-react';
 import { AccountLink } from './account-link';
 import { IdentityAdmin } from './identity-admin';
-import { fetchRedaction } from '@/lib/redaction/public-path';
+import { fetchRedaction, redactionPublicPath } from '@/lib/redaction/public-path';
 import { RH_JOB_TITLE_SUGGESTIONS, validateCollaborator, type Collaborator, type CollaboratorInput } from '@/lib/redaction/rh/collaborator';
 
 const empty: CollaboratorInput = { firstName: '', lastName: '', jobTitle: '', team: '', contractStatus: '', startDate: '' };
@@ -79,7 +79,7 @@ export function Collaborators({ allowAccountLinks = true, canManage = true }: { 
           {rows.length > 0 && filteredRows.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">Aucun collaborateur ne correspond à cette recherche.</p>}
           {filteredRows.map((row) => (
             <article key={row.id} className="rounded-xl border border-border p-4 transition-colors hover:border-primary/20">
-              <div className="flex items-start gap-3"><span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/[0.08] text-xs font-bold uppercase text-primary">{row.firstName.slice(0, 1)}{row.lastName.slice(0, 1)}</span><div className="min-w-0"><p className="font-semibold">{row.firstName} {row.lastName} {row.archived && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">Archivé</span>}</p>
+              <div className="flex items-start gap-3">{row.hasPhoto ? <img src={redactionPublicPath(`/api/redaction/rh/collaborateurs/${row.id}/photo`)} alt="" className="h-10 w-10 shrink-0 rounded-xl object-cover" /> : <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/[0.08] text-xs font-bold uppercase text-primary">{row.firstName.slice(0, 1)}{row.lastName.slice(0, 1)}</span>}<div className="min-w-0"><p className="font-semibold">{row.firstName} {row.lastName} {row.archived && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">Archivé</span>}</p>
               <p className="mt-0.5 text-sm text-muted-foreground">{row.jobTitle} · {row.team} · {row.contractStatus}</p>
               {row.startDate && <p className="mt-1 text-xs text-muted-foreground">Arrivée : {row.startDate}</p>}</div></div>
               {canManage && !row.archived && <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-sm">
