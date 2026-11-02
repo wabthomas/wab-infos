@@ -21,6 +21,7 @@ import {
   PenLine,
   Settings,
   User,
+  UserCheck,
   UserPen,
   Users,
 } from 'lucide-react';
@@ -65,7 +66,7 @@ const NAV_MAIN: NavItem[] = [
 const NAV_ADMIN: NavItem[] = [
   { href: '/rh', label: 'Ressources humaines', icon: Users },
   { href: '/newsletter', label: 'Newsletter', icon: Mail },
-  { href: '/parametres', label: 'Paramètres', icon: Settings },
+  { href: '/parametres', label: 'ParamÃ¨tres', icon: Settings },
 ];
 
 const MOBILE_NAV: NavItem[] = [
@@ -79,8 +80,8 @@ const MOBILE_NAV: NavItem[] = [
 /** Barre mobile contextuelle : gestion RH. */
 const RH_MOBILE_ADMIN: NavItem[] = [
   { href: '/rh', label: 'RH', icon: LayoutDashboard, exact: true },
-  { href: '/rh/equipe', label: 'Équipe', icon: Users },
-  { href: '/rh/conges', label: 'Congés', icon: CalendarDays },
+  { href: '/rh/equipe', label: 'Ã‰quipe', icon: Users },
+  { href: '/rh/presence', label: 'Présence', icon: UserCheck },
   { href: '/rh/retraits', label: 'Paiement', icon: ArrowDownUp },
   { href: '/rh/plus', label: 'Plus', icon: MoreHorizontal },
 ];
@@ -88,7 +89,7 @@ const RH_MOBILE_ADMIN: NavItem[] = [
 /** Barre mobile contextuelle : espace RH personnel. */
 const RH_MOBILE_MY: NavItem[] = [
   { href: '/mon-rh', label: 'Mon RH', icon: LayoutDashboard, exact: true },
-  { href: '/mon-rh/conges', label: 'Congés', icon: CalendarDays },
+  { href: '/mon-rh/presence', label: 'Présence', icon: UserCheck },
   { href: '/mon-rh/prestations', label: 'Prestations', icon: ClipboardList },
   { href: '/mon-rh/retraits', label: 'Paiement', icon: ArrowDownUp },
   { href: '/mon-rh/plus', label: 'Plus', icon: MoreHorizontal },
@@ -104,19 +105,19 @@ function isNavActive(pathname: string, href: string, exact?: boolean): boolean {
 }
 
 function getDesktopPageTitle(pathname: string): { title: string; eyebrow: string } {
-  if (pathname === '/') return { title: 'Tableau de bord', eyebrow: 'Vue d’ensemble' };
+  if (pathname === '/') return { title: 'Tableau de bord', eyebrow: 'Vue dâ€™ensemble' };
   if (pathname === '/articles' || pathname.startsWith('/articles/'))
     return { title: 'Articles', eyebrow: 'Contenus' };
-  if (pathname === '/comments') return { title: 'Commentaires', eyebrow: 'Modération' };
+  if (pathname === '/comments') return { title: 'Commentaires', eyebrow: 'ModÃ©ration' };
   if (pathname === '/stats') return { title: 'Statistiques', eyebrow: 'Audience' };
   if (pathname === '/profil/modifier') return { title: 'Modifier le profil', eyebrow: 'Mon compte' };
   if (pathname === '/profil' || pathname.startsWith('/profil/'))
     return { title: 'Profil', eyebrow: 'Mon compte' };
-  if (pathname === '/parametres') return { title: 'Paramètres du site', eyebrow: 'Administration' };
+  if (pathname === '/parametres') return { title: 'ParamÃ¨tres du site', eyebrow: 'Administration' };
   if (pathname === '/rh' || pathname.startsWith('/rh/')) return { title: 'Ressources humaines', eyebrow: 'Administration' };
   if (pathname === '/newsletter') return { title: 'Newsletter', eyebrow: 'Administration' };
-  if (pathname === '/nouveau') return { title: 'Nouvel article', eyebrow: 'Rédaction' };
-  return { title: 'Rédaction', eyebrow: 'Wab-infos' };
+  if (pathname === '/nouveau') return { title: 'Nouvel article', eyebrow: 'RÃ©daction' };
+  return { title: 'RÃ©daction', eyebrow: 'Wab-infos' };
 }
 
 function formatBadge(count: number, max = 99): string {
@@ -143,7 +144,7 @@ function AiFab({ onOpen, className }: { onOpen: () => void; className?: string }
         className
       )}
       aria-label="Ouvrir Wab Ai"
-      title="Wab Ai — assistant de rédaction"
+      title="Wab Ai â€” assistant de rÃ©daction"
     >
       <WabAiAvatar size="md" className="pointer-events-none" />
     </button>
@@ -318,7 +319,7 @@ function RedactionSidebar({
         {!collapsed ? (
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Wab-infos</p>
-            <p className="font-display text-base font-bold leading-tight">Rédaction</p>
+            <p className="font-display text-base font-bold leading-tight">RÃ©daction</p>
           </div>
         ) : null}
       </div>
@@ -328,7 +329,7 @@ function RedactionSidebar({
           'flex flex-1 flex-col gap-1 p-3',
           collapsed ? 'overflow-visible' : 'overflow-y-auto'
         )}
-        aria-label="Navigation rédaction"
+        aria-label="Navigation rÃ©daction"
       >
         {!collapsed ? (
           <p className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/80">
@@ -374,15 +375,15 @@ function RedactionSidebar({
             'flex h-10 w-full items-center rounded-xl text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
             collapsed ? 'justify-center' : 'gap-3 px-3'
           )}
-          aria-label={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
-          title={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
+          aria-label={collapsed ? 'DÃ©plier le menu' : 'RÃ©duire le menu'}
+          title={collapsed ? 'DÃ©plier le menu' : 'RÃ©duire le menu'}
         >
           {collapsed ? (
             <PanelLeftOpen className="h-5 w-5" />
           ) : (
             <>
               <PanelLeftClose className="h-5 w-5" />
-              <span>Réduire</span>
+              <span>RÃ©duire</span>
             </>
           )}
         </button>
@@ -438,7 +439,7 @@ function ProfileMenu({
     }
   }
 
-  const roleLabel = rhOnly ? 'Collaborateur RH' : isSuperAdmin ? 'Administrateur' : 'Rédacteur';
+  const roleLabel = rhOnly ? 'Collaborateur RH' : isSuperAdmin ? 'Administrateur' : 'RÃ©dacteur';
 
   return (
     <div ref={rootRef} className="relative">
@@ -455,7 +456,7 @@ function ProfileMenu({
         <Avatar name={authorName} src={avatarUrl} size={34} />
         <span className="hidden min-w-0 text-left xl:block">
           <span className="block max-w-[10rem] truncate text-sm font-semibold leading-tight">
-            {authorName ?? 'Éditeur'}
+            {authorName ?? 'Ã‰diteur'}
           </span>
           <span className="block text-[11px] leading-tight text-muted-foreground">{roleLabel}</span>
         </span>
@@ -472,7 +473,7 @@ function ProfileMenu({
           <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
             <Avatar name={authorName} src={avatarUrl} size={40} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{authorName ?? 'Éditeur'}</p>
+              <p className="truncate text-sm font-semibold">{authorName ?? 'Ã‰diteur'}</p>
               <p className="text-xs text-muted-foreground">{roleLabel}</p>
             </div>
           </div>
@@ -503,7 +504,7 @@ function ProfileMenu({
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-600/10 disabled:opacity-60 dark:text-red-400"
             >
               <LogOut className="h-4 w-4" />
-              {loggingOut ? 'Déconnexion…' : 'Déconnexion'}
+              {loggingOut ? 'DÃ©connexionâ€¦' : 'DÃ©connexion'}
             </button>
           </div>
         </div>
@@ -542,8 +543,8 @@ function DesktopTopbar({
         type="button"
         onClick={onToggleSidebar}
         className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        aria-label={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
-        title={collapsed ? 'Déplier le menu' : 'Réduire le menu'}
+        aria-label={collapsed ? 'DÃ©plier le menu' : 'RÃ©duire le menu'}
+        title={collapsed ? 'DÃ©plier le menu' : 'RÃ©duire le menu'}
       >
         {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
       </button>}
@@ -590,20 +591,20 @@ export function RedactionShell({
   const [collapsed, setCollapsed] = useState(initialSidebarCollapsed);
   const [aiOpen, setAiOpen] = useState(false);
 
-  /** Hors éditeur : une proposition d'article s'ouvre dans un nouveau brouillon. */
+  /** Hors Ã©diteur : une proposition d'article s'ouvre dans un nouveau brouillon. */
   const handleAiActions = useCallback(
     (actions: AiChatAction[]) => {
       if (!actions.length) return;
       storePendingAiActions(actions);
       setAiOpen(false);
-      toast.success('Wab Ai', 'Ouverture de la proposition dans l’éditeur…');
+      toast.success('Wab Ai', 'Ouverture de la proposition dans lâ€™Ã©diteurâ€¦');
       router.push('/nouveau');
     },
     [router, toast]
   );
   const draftCount = summary.draftCount;
   const effectivePending = summary.pendingComments || pendingComments;
-  // Barre mobile contextuelle : le module RH remplace les onglets éditoriaux.
+  // Barre mobile contextuelle : le module RH remplace les onglets Ã©ditoriaux.
   const inRh = pathname === '/rh' || pathname.startsWith('/rh/');
   const inMyRh = pathname === '/mon-rh' || pathname.startsWith('/mon-rh/');
   const mobileNav: NavItem[] = inRh ? RH_MOBILE_ADMIN : inMyRh ? RH_MOBILE_MY : MOBILE_NAV;
@@ -680,7 +681,7 @@ export function RedactionShell({
           <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
-                {inRh || inMyRh ? 'Espace RH' : 'Rédaction'}
+                {inRh || inMyRh ? 'Espace RH' : 'RÃ©daction'}
               </p>
               <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
             </div>
@@ -731,7 +732,7 @@ export function RedactionShell({
           <Link
             href="/parametres"
             className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-4 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg lg:hidden"
-            aria-label="Paramètres du site"
+            aria-label="ParamÃ¨tres du site"
           >
             <Settings className="h-5 w-5" />
           </Link>
@@ -740,14 +741,14 @@ export function RedactionShell({
         {!rhOnly && <Link
           href="/nouveau"
           className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 lg:hidden"
-          aria-label="Écrire un article"
+          aria-label="Ã‰crire un article"
         >
           <PenLine className="h-6 w-6" />
         </Link>}
 
         {!rhOnly && !aiOpen ? (
           <>
-            {/* Mobile : au-dessus du bouton « Rédiger » (h-14 + 0.75rem d'écart). */}
+            {/* Mobile : au-dessus du bouton Â« RÃ©diger Â» (h-14 + 0.75rem d'Ã©cart). */}
             <AiFab
               onOpen={() => setAiOpen(true)}
               className="bottom-[calc(9rem+env(safe-area-inset-bottom))] right-5 h-12 w-12 lg:hidden"
