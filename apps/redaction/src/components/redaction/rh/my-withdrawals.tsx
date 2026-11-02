@@ -228,7 +228,7 @@ export function MyWithdrawals({
             <div className="rounded-xl bg-white/[0.06] p-3">
               <dt className="text-zinc-400">Solde initial</dt>
               <dd className="mt-0.5 font-semibold">
-                {balance.opening === null ? 'â€”' : formatMinorUnits(BigInt(balance.opening), currency)}
+                {balance.opening === null ? '”' : formatMinorUnits(BigInt(balance.opening), currency)}
               </dd>
             </div>
             <div className="rounded-xl bg-white/[0.06] p-3">
@@ -274,14 +274,14 @@ export function MyWithdrawals({
           <div>
             <h2 className="font-display text-lg font-bold">Mes demandes de retrait</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Chaque demande porte un numÃ©ro de suivi. Le paiement est enregistrÃ© par lâ€™administration.
+              Chaque demande porte un numÃ©ro de suivi. Le paiement est enregistrÃ© par l’administration.
             </p>
           </div>
           <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
             {items.length}
           </span>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer lâ€™historique des retraits">
+        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer l’historique des retraits">
           {historyFilters.map(({ value, label }) => (
             <button
               key={value}
@@ -300,7 +300,7 @@ export function MyWithdrawals({
         </div>
         <div className="mt-3 space-y-2">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Chargementâ€¦</p>
+            <p className="text-sm text-muted-foreground">ChargementÃ¢â‚¬Â¦</p>
           ) : failed ? null : items.length === 0 ? (
             <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">Aucune demande de retrait.</p>
           ) : visibleItems.length === 0 ? (
@@ -363,11 +363,11 @@ export function MyWithdrawals({
       </section>
 
       <MyPaymentHistory refresh={reload} />
-      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien nâ€™apparaÃ®t pas ? DÃ©clarez-le pour vÃ©rification</Link>
+      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien n’apparaÃ®t pas ? DÃ©clarez-le pour vÃ©rification</Link>
 
-      {requestOpen && (<div className="fixed inset-x-0 z-[90] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4" style={keyboardViewport ? { top: keyboardViewport.top, height: keyboardViewport.height, bottom: 'auto' } : undefined} role="dialog" aria-modal="true" aria-labelledby="withdraw-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}><form id="nouvelle-demande" onSubmit={submit} onFocusCapture={(event) => { const target = event.target as HTMLElement; window.setTimeout(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200); }} className="relative max-h-full w-full max-w-xl space-y-3 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6"><button type="button" onClick={() => setRequestOpen(false)} disabled={busy} aria-label="Fermer le formulaire" className="absolute right-4 top-4 rounded-full border border-border bg-card p-2 text-muted-foreground disabled:opacity-50">âœ•</button><h2 id="withdraw-form-title" className="font-display text-lg font-bold">Retirer de l argent</h2>
+      {requestOpen && (<div className="fixed inset-0 z-[90] flex items-end justify-center overflow-y-auto bg-black/55 p-0 sm:items-center sm:p-4" style={keyboardViewport ? { top: keyboardViewport.top, height: keyboardViewport.height, bottom: 'auto' } : undefined} role="dialog" aria-modal="true" aria-labelledby="withdraw-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}><form id="nouvelle-demande" onSubmit={submit} onFocusCapture={(event) => { const target = event.target as HTMLElement; window.setTimeout(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200); }} className="relative max-h-full w-full max-w-xl space-y-3 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6"><button type="button" onClick={() => setRequestOpen(false)} disabled={busy} aria-label="Fermer le formulaire" className="absolute right-4 top-4 rounded-full border border-border bg-card p-2 text-muted-foreground disabled:opacity-50">Ã¢Å“•</button><h2 id="withdraw-form-title" className="font-display text-lg font-bold">Retirer de l argent</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Un solde initial doit Ãªtre Ã©tabli par lâ€™administrateur. Ne saisissez pas vos coordonnÃ©es bancaires ou Mobile
+            Un solde initial doit Ãªtre Ã©tabli par l’administrateur. Ne saisissez pas vos coordonnÃ©es bancaires ou Mobile
             Money ici.
           </p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -436,7 +436,7 @@ export function MyWithdrawals({
                 .filter((entry) => entry.active && entry.currency === currency)
                 .map((entry) => (
                   <option key={entry.id} value={entry.id}>
-                    {entry.provider} Â· {entry.accountName} Â· {entry.accountNumber.slice(-4).padStart(4, 'â€¢')}
+                    {entry.provider} Â· {entry.accountName} Â· {entry.accountNumber.slice(-4).padStart(4, 'Ã¢â‚¬Â¢')}
                   </option>
                 ))}
             </select>
@@ -447,7 +447,7 @@ export function MyWithdrawals({
           disabled={busy || available === null}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {busy ? 'Envoiâ€¦' : 'Envoyer la demande'}
+          {busy ? 'EnvoiÃ¢â‚¬Â¦' : 'Envoyer la demande'}
         </button>
       </form></div>)}
     </div>
