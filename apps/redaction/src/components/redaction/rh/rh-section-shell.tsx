@@ -11,6 +11,7 @@ import {
   ClipboardList,
   FileLock2,
   FileSpreadsheet,
+  History,
   LayoutDashboard,
   LayoutGrid,
   LockKeyhole,
@@ -108,7 +109,7 @@ export function RhSectionShell({
         ] satisfies Item[])
       : []),
     ...(capabilities?.hrManage && flags.rhEnabled
-      ? ([{ href: '/rh/rapports', label: 'Rapports', icon: FileSpreadsheet }] satisfies Item[])
+      ? ([{ href: '/rh/rapports', label: 'Rapports', icon: FileSpreadsheet }, { href: '/rh/audit', label: 'Journal', icon: History }] satisfies Item[])
       : []),
     { href: '/rh/plus', label: 'Plus', icon: LayoutGrid },
   ];
@@ -136,6 +137,7 @@ export function RhSectionShell({
     ...(flags.notificationsEnabled
       ? ([{ href: '/mon-rh/notifications', label: 'Notifications', icon: Bell }] satisfies Item[])
       : []),
+    { href: '/mon-rh/parametres', label: 'Paramètres', icon: Settings },
     { href: '/mon-rh/plus', label: 'Plus', icon: LayoutGrid },
   ];
 

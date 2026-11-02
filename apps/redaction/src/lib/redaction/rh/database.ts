@@ -752,3 +752,18 @@ export async function answerDispute(id: string, version: number, response: strin
     await client.query('COMMIT'); return true;
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
+
+export async function listAuditLog(limit = 200): Promise<Array<{ id: string; actorEmail: string; action: string; createdAt: string; collaboratorId: string | null; collaborator: string | null }>> {
+  const safeLimit = Math.min(Math.max(limit, 1), 500);
+  const result = await db().query(
+    `SELECT a.id, a.actor_email AS "actorEmail", a.action,
+            to_char(a.created_at AT TIME ZONE 'Africa/Lubumbashi','YYYY-MM-DD HH24:MI') AS "createdAt",
+            a.collaborator_id AS "collaboratorId",
+            CASE WHEN c.id IS NULL THEN NULL ELSE c.first_name || ' ' || c.last_name END AS collaborator
+     FROM redaction_rh.audit_log a
+     LEFT JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id
+     ORDER BY a.created_at DESC, a.id LIMIT $1`,
+    [safeLimit]
+  );
+  return result.rows;
+}
