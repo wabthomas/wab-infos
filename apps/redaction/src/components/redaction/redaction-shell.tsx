@@ -718,7 +718,7 @@ export function RedactionShell({
               pathname === '/parametres' ? 'lg:max-w-[1440px]' : 'lg:max-w-6xl'
             )}
           >
-            {!rhOnly && <RedactionPushBanner />}
+            <RedactionPushBanner rhOnly={rhOnly} />
             {children}
           </div>
         </main>

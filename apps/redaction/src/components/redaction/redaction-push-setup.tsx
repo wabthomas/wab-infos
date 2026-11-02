@@ -58,7 +58,7 @@ export function RedactionPushSetup() {
   return null;
 }
 
-export function RedactionPushBanner() {
+export function RedactionPushBanner({ rhOnly = false }: { rhOnly?: boolean }) {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -116,10 +116,9 @@ export function RedactionPushBanner() {
       <div className="flex items-start gap-3">
         <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Notifications rédaction</p>
+          <p className="text-sm font-semibold">{rhOnly ? 'Notifications RH' : 'Notifications rédaction'}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Commentaires en attente et rappels matin, midi et soir si vous n’avez pas encore écrit
-            aujourd’hui.
+            {rhOnly ? 'Recevez les nouveautés RH sur votre téléphone lorsque vous autorisez les notifications.' : 'Commentaires en attente et rappels matin, midi et soir si vous n’avez pas encore écrit aujourd’hui.'}
           </p>
           {error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
           <button

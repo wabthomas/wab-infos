@@ -1,3 +1,4 @@
+import { RecordSheets } from '@/components/redaction/rh/record-sheets';
 import { redirect } from 'next/navigation';
 import { MyAdjustments } from '@/components/redaction/rh/adjustments';
 import { MyWithdrawals } from '@/components/redaction/rh/my-withdrawals';
@@ -18,6 +19,7 @@ export default async function MyWithdrawalsPage({
   return (
     <div className="space-y-5">
       <MyWithdrawals enabled={flags.withdrawalsEnabled} initialCurrency={currency} />
+      <RecordSheets type="paiements" />
       <PayoutMethods />
       <MyAdjustments />
     </div>

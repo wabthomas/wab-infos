@@ -22,7 +22,7 @@ export function MyRhTopbarActions() {
       if (!response.ok) return;
       const data = await response.json() as { notifications?: RhNotification[] };
       setUnread((data.notifications ?? []).filter((item) => !item.readAt).length);
-    } catch { /* Le lien reste utilisable si le compteur est indisponible. */ }
+    } catch {}
   }, []);
 
   useEffect(() => {

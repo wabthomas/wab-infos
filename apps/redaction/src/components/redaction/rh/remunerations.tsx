@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
@@ -45,8 +46,8 @@ export function Remunerations({
   const [month, setMonth] = useState(initialMonth);
   const [currency, setCurrency] = useState<RhCurrency>(initialCurrency ?? 'USD');
   const [amount, setAmount] = useState('');
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error');
+  const [message, setMessage] = useRhNotice('success');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);

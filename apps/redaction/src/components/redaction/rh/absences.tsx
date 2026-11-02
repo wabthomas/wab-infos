@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
@@ -15,8 +16,8 @@ export function Absences() {
   const [endDate, setEndDate] = useState('');
   const [category, setCategory] = useState('');
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error');
+  const [message, setMessage] = useRhNotice('success');
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);

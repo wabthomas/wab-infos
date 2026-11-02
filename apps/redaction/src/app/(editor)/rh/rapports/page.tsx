@@ -1,7 +1,9 @@
+import { RecordSheets } from '@/components/redaction/rh/record-sheets';
 import { redirect } from 'next/navigation';
 import { Reports } from '@/components/redaction/rh/reports';
 import { kinshasaToday } from '@/lib/redaction/rh/activities';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 
 export default async function RhReportsPage() {
   let capabilities;
@@ -11,5 +13,6 @@ export default async function RhReportsPage() {
     redirect('/');
   }
   if (!capabilities.hrManage) redirect('/rh');
-  return <Reports today={kinshasaToday()} />;
+  const flags = await getRhFlags();
+  return <div className="space-y-5"><Reports today={kinshasaToday()} /><RecordSheets admin allowPayments={capabilities.financeRead && flags.withdrawalsEnabled} /></div>;
 }

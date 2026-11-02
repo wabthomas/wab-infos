@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 import { useEffect, useState } from 'react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import type { Collaborator } from '@/lib/redaction/rh/collaborator';
@@ -8,7 +9,7 @@ const labels: Record<SubmissionStatus, string> = { pending: 'En attente', approv
 export function SubmissionReview() {
   const [people, setPeople] = useState<Collaborator[]>([]); const [personId, setPersonId] = useState('');
   const [items, setItems] = useState<Submission[]>([]); const [notes, setNotes] = useState<Record<string, string>>({});
-  const [error, setError] = useState(''); const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error'); const [message, setMessage] = useRhNotice('success');
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
   useEffect(() => {
     const refresh = () => setReload((n) => n + 1);

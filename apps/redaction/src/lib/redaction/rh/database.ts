@@ -1,3 +1,5 @@
+import { paymentHistorySql } from './payment-history-sql';
+import type { HistoryQuery } from './personal-history';
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
@@ -133,7 +135,7 @@ export async function listAbsences(collaboratorId: string, month?: string): Prom
 }
 
 /** Sérialise les créations pour un collaborateur avant la détection de chevauchement. */
-export async function createAbsence(input: import('./absences').AbsenceInput, actor: string, principal?: import('./principal').RhPrincipal): Promise<import('./absences').Absence | null> {
+export async function createAbsence(input: import('./absences').AbsenceInput, actor: string, principal?: import('./principal').RhPrincipal, offline?: { id: string; recordedAt: Date }): Promise<import('./absences').Absence | null> {
   const client = await db().connect();
   try {
     await client.query('BEGIN');
@@ -143,9 +145,13 @@ export async function createAbsence(input: import('./absences').AbsenceInput, ac
       const linked = await client.query('SELECT 1 FROM redaction_rh.account_links WHERE collaborator_id=$1 AND account_id=$2 AND account_email=$3', [input.collaboratorId, principal.id, principal.email]);
       if (!linked.rowCount) { await client.query('ROLLBACK'); return null; }
     }
+    if (offline && principal) {
+      const retry = await client.query(`SELECT ${absenceColumns} FROM redaction_rh.absence_requests WHERE id=$1 AND collaborator_id=$2 AND start_date=$3 AND end_date=$4 AND category=$5 AND created_at=$6`, [offline.id, input.collaboratorId, input.startDate, input.endDate, input.category, offline.recordedAt.toISOString()]);
+      if (retry.rowCount) { await client.query('COMMIT'); return retry.rows[0]; }
+    }
     const overlap = await client.query(`SELECT 1 FROM redaction_rh.absence_requests WHERE collaborator_id=$1 AND status IN ('pending','approved') AND start_date <= $3 AND end_date >= $2 LIMIT 1`, [input.collaboratorId, input.startDate, input.endDate]);
     if (overlap.rowCount) { await client.query('ROLLBACK'); return null; }
-    const result = await client.query(`INSERT INTO redaction_rh.absence_requests (id,collaborator_id,start_date,end_date,category) VALUES ($1,$2,$3,$4,$5) RETURNING ${absenceColumns}`, [randomUUID(), input.collaboratorId, input.startDate, input.endDate, input.category]);
+    const result = await client.query(`INSERT INTO redaction_rh.absence_requests (id,collaborator_id,start_date,end_date,category,created_at) VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${absenceColumns}`, [offline?.id ?? randomUUID(), input.collaboratorId, input.startDate, input.endDate, input.category, offline?.recordedAt.toISOString() ?? new Date().toISOString()]);
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,absence_id) VALUES ($1,$2,$3,$4)', [actor, 'absence_create', input.collaboratorId, result.rows[0].id]);
     if (principal) await queueManagementEvent(client, 'absence', result.rows[0].id);
     await client.query('COMMIT');
@@ -241,12 +247,18 @@ export async function listSubmissions(collaboratorId: string): Promise<import('.
   const result = await db().query(`SELECT ${submissionColumns} FROM redaction_rh.activity_submissions WHERE collaborator_id=$1 ORDER BY created_at DESC, id LIMIT 500`, [collaboratorId]);
   return result.rows;
 }
-export async function listMySubmissions(principal: import('./principal').RhPrincipal): Promise<import('./submissions').Submission[]> {
-  const result = await db().query(`SELECT s.id, to_char(s.activity_date, 'YYYY-MM-DD') AS date, s.description, s.status, s.decision_note AS "decisionNote", s.version FROM redaction_rh.activity_submissions s JOIN redaction_rh.collaborators c ON c.id=s.collaborator_id JOIN redaction_rh.account_links l ON l.collaborator_id=c.id WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived ORDER BY s.created_at DESC, s.id LIMIT 500`, [principal.id, principal.email]);
-  return result.rows;
+export async function listMySubmissions(principal: import('./principal').RhPrincipal, query: HistoryQuery): Promise<{ submissions: import('./submissions').Submission[]; hasMore: boolean }> {
+  const result = await db().query(`SELECT s.id, to_char(s.activity_date, 'YYYY-MM-DD') AS date, s.description, s.status, s.decision_note AS "decisionNote", s.version
+    FROM redaction_rh.activity_submissions s JOIN redaction_rh.collaborators c ON c.id=s.collaborator_id JOIN redaction_rh.account_links l ON l.collaborator_id=c.id
+    WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived
+    AND ($3::date IS NULL OR s.activity_date >= $3::date)
+    AND ($4::date IS NULL OR s.activity_date < $4::date)
+    ORDER BY s.activity_date DESC, s.created_at DESC, s.id DESC LIMIT $5 OFFSET $6`,
+    [principal.id, principal.email, query.from, query.to, query.limit + 1, query.offset]);
+  return { submissions: result.rows.slice(0, query.limit), hasMore: result.rows.length > query.limit };
 }
 
-export async function createMySubmission(principal: import('./principal').RhPrincipal, input: import('./submissions').SubmissionInput): Promise<import('./submissions').Submission | null> {
+export async function createMySubmission(principal: import('./principal').RhPrincipal, input: import('./submissions').SubmissionInput, offline?: { id: string; recordedAt: Date }): Promise<import('./submissions').Submission | null> {
   const client = await db().connect();
   try {
     await client.query('BEGIN');
@@ -255,9 +267,13 @@ export async function createMySubmission(principal: import('./principal').RhPrin
     const id = person.rows[0].id;
     const linked = await client.query('SELECT 1 FROM redaction_rh.account_links WHERE collaborator_id=$1 AND account_id=$2 AND account_email=$3', [id, principal.id, principal.email]);
     if (!linked.rowCount) { await client.query('ROLLBACK'); return null; }
+    if (offline) {
+      const retry = await client.query(`SELECT ${submissionColumns} FROM redaction_rh.activity_submissions WHERE id=$1 AND collaborator_id=$2 AND activity_date=$3 AND description=$4 AND created_at=$5`, [offline.id, id, input.date, input.description, offline.recordedAt.toISOString()]);
+      if (retry.rowCount) { await client.query('COMMIT'); return retry.rows[0]; }
+    }
     const existing = await client.query('SELECT 1 FROM redaction_rh.daily_activities WHERE collaborator_id=$1 AND activity_date=$2', [id, input.date]);
     if (existing.rowCount) { await client.query('ROLLBACK'); return null; }
-    const created = await client.query(`INSERT INTO redaction_rh.activity_submissions (id, collaborator_id, activity_date, description) VALUES ($1,$2,$3,$4) ON CONFLICT (collaborator_id, activity_date) WHERE status='pending' DO NOTHING RETURNING ${submissionColumns}`, [randomUUID(), id, input.date, input.description]);
+    const created = await client.query(`INSERT INTO redaction_rh.activity_submissions (id, collaborator_id, activity_date, description, created_at) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (collaborator_id, activity_date) WHERE status='pending' DO NOTHING RETURNING ${submissionColumns}`, [offline?.id ?? randomUUID(), id, input.date, input.description, offline?.recordedAt.toISOString() ?? new Date().toISOString()]);
     if (!created.rowCount) { await client.query('ROLLBACK'); return null; }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,submission_id) VALUES ($1,$2,$3,$4)', [principal.email, 'submission_create', id, created.rows[0].id]);
     await queueManagementEvent(client, 'prestation', created.rows[0].id);
@@ -394,6 +410,12 @@ export async function myWithdrawalView(principal: import('./principal').RhPrinci
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 }
+export async function listMyPayments(principal: import('./principal').RhPrincipal, query: HistoryQuery): Promise<{ payments: import('./withdrawals').Withdrawal[]; hasMore: boolean }> {
+  const result = await db().query(paymentHistorySql(withdrawalCols),
+    [principal.id, principal.email, query.from, query.to, query.limit + 1, query.offset]);
+  return { payments: result.rows.slice(0, query.limit), hasMore: result.rows.length > query.limit };
+}
+
 export async function adminWithdrawalView(collaboratorId: string): Promise<{ balances: import('./withdrawals').Balance[]; withdrawals: import('./withdrawals').Withdrawal[] }> {
   const client = await db().connect();
   try {

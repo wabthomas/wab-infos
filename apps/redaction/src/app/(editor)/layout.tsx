@@ -1,5 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { RhOfflineSync } from '@/components/redaction/rh/offline-sync';
+import { offlineOwner } from '@/lib/redaction/rh/offline-queue';
 import { RedactionShell } from '@/components/redaction/redaction-shell';
 import { RedactionPushSetup } from '@/components/redaction/redaction-push-setup';
 import { SIDEBAR_COOKIE } from '@/lib/redaction/sidebar-pref';
@@ -18,6 +20,7 @@ export default async function RedactionEditorLayout({
 }) {
   let shellProps: {
     authorName: string;
+    owner: string;
     avatarUrl?: string;
     isSuperAdmin: boolean;
     pendingComments: number;
@@ -29,13 +32,14 @@ export default async function RedactionEditorLayout({
     const rhOnly = await isRhOnlyUser(user);
     if (rhOnly) {
       // Do not load editorial profile or editorial notifications for RH-only accounts.
-      shellProps = { authorName: 'Mon espace RH', isSuperAdmin: false, pendingComments: 0, rhOnly: true };
+      shellProps = { owner: offlineOwner(user.id, user.email), authorName: 'Mon espace RH', isSuperAdmin: false, pendingComments: 0, rhOnly: true };
     } else {
       const [{ author, isSuperAdmin }, pendingComments] = await Promise.all([
         getEditorProfile(user),
         countPendingComments(),
       ]);
       shellProps = {
+        owner: offlineOwner(user.id, user.email),
         authorName: author.name,
         avatarUrl: author.avatar?.url
           ? getStrapiMediaUrl(author.avatar.url) ?? author.avatar.url
@@ -55,6 +59,7 @@ export default async function RedactionEditorLayout({
   return (
     <>
       <RedactionPushSetup />
+      <RhOfflineSync owner={shellProps.owner} />
       <RedactionShell
         managementNotificationsEnabled={process.env.REDACTION_RH_MANAGEMENT_NOTIFICATIONS_ENABLED === 'true'}
         authorName={shellProps.authorName}

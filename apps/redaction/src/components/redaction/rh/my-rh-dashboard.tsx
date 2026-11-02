@@ -61,6 +61,7 @@ export function MyRhDashboard({
   const quickLinks = [
     { href: '/mon-rh/conges', label: 'Congés', text: 'Demander une absence', icon: CalendarDays, show: true },
     { href: '/mon-rh/prestations', label: 'Prestations', text: 'Déclarer une journée', icon: ClipboardList, show: true },
+    { href: '/mon-rh/paiements-anciens', label: 'Anciens paiements', text: 'Déclarer vos paiements passés', icon: WalletCards, show: true },
     { href: '/mon-rh/retraits', label: 'Retraits', text: 'Demander un paiement', icon: ArrowDownUp, show: flags.financeEnabled && flags.withdrawalsEnabled },
     { href: '/mon-rh/remunerations', label: 'Rémunérations', text: 'Montants validés', icon: WalletCards, show: flags.financeEnabled },
     { href: '/mon-rh/documents', label: 'Documents', text: 'Contrats et attestations', icon: FileLock2, show: flags.documentsEnabled },

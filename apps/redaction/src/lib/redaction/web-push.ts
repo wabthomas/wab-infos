@@ -176,6 +176,26 @@ export async function notifyEditorsByEmail(
   return { sent, failed };
 }
 
+export async function sendReleasePushToUser(
+  email: string,
+  payload: { title: string; body: string; url: string }
+): Promise<{ sent: number; failed: number }> {
+  if (!isFirebaseAdminConfigured() || !ensureFirebaseAdmin()) return { sent: 0, failed: 0 };
+  const subscriptions = await listPushSubscriptionsForUser(email);
+  let sent = 0;
+  let failed = 0;
+  for (const sub of subscriptions) {
+    try {
+      await sendFcmToToken(sub.fcmToken, payload);
+      sent++;
+    } catch (error) {
+      failed++;
+      if (isInvalidFcmTokenError(error)) await deletePushSubscription(sub.documentId).catch(() => undefined);
+    }
+  }
+  return { sent, failed };
+}
+
 /**
  * Push ciblé d’un collaborateur identifié par l’email de son compte Strapi.
  * Best-effort : une panne Strapi/FCM ne doit jamais faire échouer une décision RH.

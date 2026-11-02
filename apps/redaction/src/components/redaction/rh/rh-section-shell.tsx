@@ -42,6 +42,7 @@ const ADMIN_TITLES: Record<string, { eyebrow: string; title: string; text: strin
   '/rh/prestations': { eyebrow: 'SUIVI QUOTIDIEN', title: 'Prestations', text: 'Déclarations de la rédaction et journées à vérifier.' },
   '/rh/conges': { eyebrow: 'TEMPS & DISPONIBILITÉ', title: 'Congés et absences', text: 'Demandes de l’équipe, validations et refus motivés.' },
   '/rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Rémunérations', text: 'Montants mensuels, validation et référence journalière.' },
+  '/rh/paiements-anciens': { eyebrow: 'RECONSTITUTION', title: 'Paiements historiques', text: 'Contrôle des déclarations passées et rapprochement des paiements.' },
   '/rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Retraits', text: 'Soldes, demandes et paiements réellement effectués.' },
   '/rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Documents', text: 'Contrats et attestations conservés de façon privée.' },
   '/rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Contestations', text: 'Réponses aux désaccords exprimés par les collaborateurs.' },
@@ -59,6 +60,7 @@ const MY_TITLES: Record<string, { eyebrow: string; title: string; text: string }
   '/mon-rh/carte-service': { eyebrow: 'IDENTIFICATION', title: 'Ma carte de service', text: 'Carte professionnelle sécurisée, recto-verso.' },
   '/mon-rh/chat': { eyebrow: 'ÉQUIPE', title: 'Chat RH', text: 'Échanges de groupe et conversations privées.' },
   '/mon-rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Mes rémunérations', text: 'Montants validés par l’administration.' },
+  '/mon-rh/paiements-anciens': { eyebrow: 'RECONSTITUTION', title: 'Anciens paiements', text: 'Déclarez vos paiements passés pour rapprochement et vérification.' },
   '/mon-rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Mes retraits', text: 'Solde disponible, demandes et paiements enregistrés.' },
   '/mon-rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Mes documents', text: 'Contrats, attestations et documents partagés.' },
   '/mon-rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Mes contestations', text: 'Signalez un désaccord et suivez la réponse.' },
@@ -97,6 +99,7 @@ export function RhSectionShell({
       ? ([
           { href: '/rh/remunerations', label: 'Rémunérations', icon: WalletCards },
           { href: '/rh/retraits', label: 'Retraits', icon: ArrowDownUp },
+          { href: '/rh/paiements-anciens', label: 'Paiements historiques', icon: FileSpreadsheet },
         ] satisfies Item[])
       : []),
     ...(capabilities?.accessManage
@@ -117,6 +120,7 @@ export function RhSectionShell({
     { href: '/mon-rh/conges', label: 'Congés', icon: CalendarDays },
     { href: '/mon-rh/prestations', label: 'Prestations', icon: ClipboardList },
     { href: '/mon-rh/presence', label: 'Présence', icon: UserCheck },
+    { href: '/mon-rh/paiements-anciens', label: 'Anciens paiements', icon: WalletCards },
     { href: '/mon-rh/fiche', label: 'Ma fiche', icon: FileSpreadsheet },
     ...(flags.financeEnabled
       ? ([

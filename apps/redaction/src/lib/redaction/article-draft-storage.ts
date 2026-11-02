@@ -16,8 +16,6 @@ interface ArticleDraftSnapshot {
   isBreaking: boolean;
 }
 
-const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-
 interface StoredDraft {
   savedAt: number;
   values: Partial<ArticleDraftSnapshot>;
@@ -25,7 +23,9 @@ interface StoredDraft {
 }
 
 function storageKey(documentId?: string): string {
-  return documentId ? `redaction-draft-${documentId}` : 'redaction-draft-new';
+  const owner = typeof window !== 'undefined' ? localStorage.getItem('redaction-offline-owner') : null;
+  const suffix = documentId ? `redaction-draft-${documentId}` : 'redaction-draft-new';
+  return owner ? `${owner}:${suffix}` : suffix;
 }
 
 export function loadArticleDraft(documentId?: string): StoredDraft | null {
@@ -34,10 +34,7 @@ export function loadArticleDraft(documentId?: string): StoredDraft | null {
     const raw = localStorage.getItem(storageKey(documentId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredDraft;
-    if (!parsed.savedAt || Date.now() - parsed.savedAt > MAX_AGE_MS) {
-      localStorage.removeItem(storageKey(documentId));
-      return null;
-    }
+    if (!parsed.savedAt || !parsed.values || typeof parsed.values !== 'object') return null;
     return parsed;
   } catch {
     return null;

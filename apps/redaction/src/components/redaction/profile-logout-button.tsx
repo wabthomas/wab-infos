@@ -9,6 +9,7 @@ export function ProfileLogoutButton() {
 
   async function logout() {
     await fetchRedaction('/api/redaction/auth/logout', { method: 'POST' });
+    try { localStorage.removeItem('redaction-offline-owner'); } catch {}
     router.replace('/login');
     router.refresh();
   }

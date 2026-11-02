@@ -1,0 +1,34 @@
+[
+  {
+    "id": "rh-2026-11-rattrapage-paiements",
+    "title": "Paiements anciens et fiches RH PDF",
+    "body": "Vous pouvez désormais déclarer les paiements réellement reçus depuis votre arrivée. La gestion RH les vérifiera avant de les intégrer au bilan historique ; une déclaration ne modifie pas votre solde. Vos fiches Présence, Prestations et Paiements peuvent aussi être téléchargées ou imprimées en PDF.",
+    "highlights": [
+      "Indiquez la date, le montant, la devise et la provenance si vous la connaissez.",
+      "Retrouvez le statut de vérification de chaque déclaration dans votre espace.",
+      "Préparez des fiches PDF datées avec l’entête et le pied de page de votre entreprise."
+    ],
+    "url": "/mon-rh/paiements-anciens"
+  },
+  {
+    "id": "rh-2026-11-historique-paiements",
+    "title": "Votre historique de paiements est disponible",
+    "body": "Dans Mes retraits, retrouvez les paiements enregistrés par l’administration. Consultez les plus récents, puis explorez l’historique complet selon le mois ou l’année.",
+    "highlights": [
+      "Les six paiements de la semaine apparaissent en premier.",
+      "Voir plus donne accès à tous vos paiements et aux reçus associés."
+    ],
+    "url": "/mon-rh/retraits",
+    "requiresWithdrawals": true
+  },
+  {
+    "id": "rh-2026-11-presence-hors-ligne-historiques",
+    "title": "Nouveautés de votre espace RH",
+    "body": "Vous pouvez désormais pointer votre présence et déclarer vos prestations même sans connexion Internet. Vos opérations sont envoyées lorsque vous rouvrez l’application avec le même compte et une connexion.",
+    "highlights": [
+      "Votre présence et vos prestations restent enregistrées sur cet appareil en attendant leur envoi.",
+      "Consultez vos pointages et prestations par mois, par année ou sur toute la période."
+    ],
+    "url": "/mon-rh/presence"
+  }
+]

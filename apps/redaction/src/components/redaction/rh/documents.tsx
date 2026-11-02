@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Download, FileLock2, Upload } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
@@ -18,7 +19,7 @@ export function Documents({ enabled }: { enabled: boolean }) {
   const [people, setPeople] = useState<Collaborator[]>([]); const [person, setPerson] = useState('');
   const [docs, setDocs] = useState<DocumentMeta[]>([]); const [title, setTitle] = useState(''); const [category, setCategory] = useState<DocumentCategory>('contrat'); const [share, setShare] = useState(false); const [file, setFile] = useState<File | null>(null); const [fileKey, setFileKey] = useState(0);
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
-  const [error, setError] = useState(''); const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error'); const [message, setMessage] = useRhNotice('success');
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
@@ -71,7 +72,7 @@ export function Documents({ enabled }: { enabled: boolean }) {
   </section>;
 }
 export function MyDocuments() {
-  const [docs, setDocs] = useState<DocumentMeta[]>([]); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const [docs, setDocs] = useState<DocumentMeta[]>([]); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useRhNotice('error');
   useEffect(() => { const controller = new AbortController(); fetchRedaction('/api/redaction/rh/mon-espace/documents', { cache: 'no-store', signal: controller.signal }).then(async (r) => { if (!r.ok) throw new Error(); const data = await r.json(); setDocs(data.documents); }).catch(() => { if (!controller.signal.aborted) setError('Impossible de charger vos documents.'); }).finally(() => { if (!controller.signal.aborted) setLoading(false); }); return () => controller.abort(); }, []);
   async function download(doc: DocumentMeta) { setBusy(true); setError(''); try { await downloadDocument(`/api/redaction/rh/mon-espace/documents/${doc.id}`, doc.fileType); } catch (e) { setError(e instanceof Error ? e.message : 'Téléchargement impossible.'); } finally { setBusy(false); } }
   return <section className="space-y-3 rounded-xl border border-border bg-card p-5"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/[0.07] text-primary"><FileLock2 className="h-5 w-5" /></span><div><h2 className="font-semibold">Mes documents</h2><p className="text-xs text-muted-foreground">Documents partagés avec votre compte.</p></div></div>

@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 import { useEffect, useState, type FormEvent } from 'react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
@@ -11,7 +12,7 @@ export function Adjustments({ enabled }: { enabled: boolean }) {
   const [people, setPeople] = useState<Collaborator[]>([]); const [person, setPerson] = useState(''); const [items, setItems] = useState<Adjustment[]>([]);
   const [currency, setCurrency] = useState<RhCurrency>('CDF'); const [direction, setDirection] = useState<AdjustmentDirection>('credit'); const [amount, setAmount] = useState(''); const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
-  const [error, setError] = useState(''); const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error'); const [message, setMessage] = useRhNotice('success');
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
@@ -60,7 +61,7 @@ export function Adjustments({ enabled }: { enabled: boolean }) {
   </section>;
 }
 export function MyAdjustments() {
-  const [items, setItems] = useState<Adjustment[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  const [items, setItems] = useState<Adjustment[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useRhNotice('error');
   useEffect(() => { const controller = new AbortController(); fetchRedaction('/api/redaction/rh/mon-espace/ajustements', { cache: 'no-store', signal: controller.signal }).then(async (r) => { if (!r.ok) throw new Error(); const data = await r.json(); setItems(data.adjustments); }).catch(() => { if (!controller.signal.aborted) setError('Impossible de charger vos ajustements.'); }).finally(() => { if (!controller.signal.aborted) setLoading(false); }); return () => controller.abort(); }, []);
   return <section className="space-y-3 rounded-xl border border-border bg-card p-5"><h2 className="font-semibold">Mes ajustements validés</h2><p className="text-xs text-muted-foreground">Pour toute question ou contestation, contactez l’administrateur.</p>{error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}{loading ? <p className="text-sm">Chargement…</p> : !error && items.length === 0 ? <p className="text-sm text-muted-foreground">Aucun ajustement validé.</p> : null}{items.map((item) => <article key={item.id} className="rounded-xl border border-border p-3 text-sm"><p className="font-semibold">{item.direction === 'credit' ? 'Crédit' : 'Diminution'} · {formatMinorUnits(BigInt(item.amountMinor), item.currency)}</p><p className="mt-1 text-muted-foreground">Motif : {item.reason}</p></article>)}{items.length === 500 && <p className="text-xs text-muted-foreground">Les 500 derniers ajustements sont affichés.</p>}</section>;
 }

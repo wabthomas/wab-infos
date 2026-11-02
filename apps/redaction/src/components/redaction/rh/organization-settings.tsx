@@ -1,4 +1,6 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
+import { useToast } from '@/components/ui/toast';
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Building2, Check, FileText, ImagePlus, Save, Trash2, Upload } from 'lucide-react';
@@ -17,13 +19,14 @@ const textFields: OrganizationSettingKey[] = ['companyName','companyAddress','co
 type AssetState = { data: string | null; busy: boolean; error: string };
 
 export function OrganizationSettings() {
+  const toast = useToast();
   const [settings, setSettings] = useState<OrganizationProfile>(DEFAULT_ORGANIZATION_SETTINGS);
   const [assets, setAssets] = useState<Record<string, AssetState>>({});
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [error, setError] = useRhNotice('error');
+  const [notice, setNotice] = useRhNotice('success');
 
   async function loadAsset(key: string) {
     try {
@@ -75,6 +78,7 @@ export function OrganizationSettings() {
     if (!file) return;
     if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 2_000_000) {
       setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: 'Choisissez une image JPG, PNG ou WebP de 2 Mo maximum.' } }));
+      toast.error('Choisissez une image JPG, PNG ou WebP de 2 Mo maximum.');
       input.value = '';
       return;
     }
@@ -87,6 +91,7 @@ export function OrganizationSettings() {
       await loadAsset(key); setNotice('Élément visuel enregistré.');
     } catch (cause) {
       setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: cause instanceof Error ? cause.message : 'Téléversement impossible.' } }));
+      toast.error(cause instanceof Error ? cause.message : 'Téléversement impossible.');
     } finally { input.value = ''; }
   }
 
@@ -97,8 +102,10 @@ export function OrganizationSettings() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Suppression impossible.');
       setAssets((current) => ({ ...current, [key]: { data: null, busy: false, error: '' } }));
+      toast.success('Visuel retiré.');
     } catch (cause) {
       setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: cause instanceof Error ? cause.message : 'Suppression impossible.' } }));
+      toast.error(cause instanceof Error ? cause.message : 'Suppression impossible.');
     }
   }
 

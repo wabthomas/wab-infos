@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 import { useState, type FormEvent } from 'react';
 import { Download, FileSpreadsheet, LockKeyhole } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
@@ -24,7 +25,7 @@ export function Reports({ today }: { today: string }) {
   const [format, setFormat] = useState<ReportFormat>('csv');
   const [start, setStart] = useState(`${today.slice(0, 7)}-01`); const [end, setEnd] = useState(today);
   const [team, setTeam] = useState(''); const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(''); const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error'); const [message, setMessage] = useRhNotice('success');
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(''); setMessage('');
     const params = new URLSearchParams({ type, team, format: format === 'pdf' ? 'json' : 'csv' });
@@ -42,14 +43,32 @@ export function Reports({ today }: { today: string }) {
       } else {
         const data = await response.json() as { headers: string[]; rows: unknown[][] };
         const { jsPDF } = await import('jspdf');
+        const { loadRhBranding } = await import('@/lib/redaction/rh/record-sheet-pdf');
+        const brand = await loadRhBranding();
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
         const pageWidth = pdf.internal.pageSize.getWidth(); const pageHeight = pdf.internal.pageSize.getHeight();
         const margin = 12; const tableWidth = pageWidth - margin * 2; const columnWidth = tableWidth / Math.max(data.headers.length, 1);
-        const headerHeight = 11; let y = 34;
-        pdf.setTextColor(25, 25, 35); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(17); pdf.text(`Rapport RH · ${reportLabels[type]}`, margin, 17);
-        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(100);
+        const headerHeight = 11; let y = 52;
         const period = type === 'collaborateurs' ? 'Tous les dossiers' : `Période : ${start} au ${end}`;
-        pdf.text(`${period}${team.trim() ? ` · Équipe : ${team.trim()}` : ''} · Généré le ${new Date().toLocaleDateString('fr-FR')}`, margin, 24);
+        const drawLetterhead = () => {
+          pdf.setFillColor(23,29,43); pdf.rect(0,0,pageWidth,29,'F');
+          const image = brand.header;
+          if(image) {const scale=Math.min(48/image.width,19/image.height);pdf.addImage(image.data,'JPEG',margin,5,image.width*scale,image.height*scale,undefined,'FAST');}
+          const headingX=image?margin+53:margin;
+          pdf.setTextColor(255);pdf.setFont('helvetica','bold');pdf.setFontSize(11);
+          pdf.text(pdf.splitTextToSize(brand.settings.companyName||'Wab-infos',pageWidth-headingX-margin).slice(0,1),headingX,13);
+          pdf.setFont('helvetica','normal');pdf.setFontSize(8);
+          pdf.text(pdf.splitTextToSize(brand.settings.documentHeader||'Ressources humaines · document interne',pageWidth-headingX-margin).slice(0,1),headingX,20);
+          pdf.setTextColor(25,25,35);pdf.setFont('helvetica','bold');pdf.setFontSize(12);
+          pdf.text(`Rapport RH · ${reportLabels[type]}`,margin,36);
+          pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.setTextColor(100);
+          pdf.text(`${period}${team.trim() ? ` · Équipe : ${team.trim()}` : ''} · Généré le ${new Intl.DateTimeFormat('fr-FR',{timeZone:'Africa/Kinshasa',dateStyle:'short'}).format(new Date())}`,margin,43,{maxWidth:tableWidth});
+          pdf.setDrawColor(215);pdf.line(margin,pageHeight-15,pageWidth-margin,pageHeight-15);
+          if(brand.footer){const f=brand.footer;const ratio=Math.min(40/f.width,10/f.height);pdf.addImage(f.data,'JPEG',margin,pageHeight-13,f.width*ratio,f.height*ratio,undefined,'FAST');}
+          pdf.setFont('helvetica','normal');pdf.setTextColor(105);pdf.setFontSize(7);
+          pdf.text(pdf.splitTextToSize(brand.settings.documentFooter||'Document interne — émis par Wab-infos.',pageWidth-margin*2-(brand.footer?47:0)).slice(0,2),margin+(brand.footer?47:0),pageHeight-10);
+        };
+        drawLetterhead();
         const drawHeader = () => {
           pdf.setFillColor(34, 39, 51); pdf.rect(margin, y, tableWidth, headerHeight, 'F');
           data.headers.forEach((header, index) => {
@@ -63,7 +82,7 @@ export function Reports({ today }: { today: string }) {
         for (const row of data.rows) {
           const cells = data.headers.map((_, index) => pdf.splitTextToSize(String(row[index] ?? '—').replace(/\s+/g, ' '), Math.max(columnWidth - 4, 10)).slice(0, 3));
           const rowHeight = Math.max(8, ...cells.map((cell) => cell.length * 3.4 + 3));
-          if (y + rowHeight > pageHeight - 14) { pdf.addPage(); y = 15; drawHeader(); }
+          if (y + rowHeight > pageHeight - 18) { pdf.addPage(); y = 52; drawLetterhead(); drawHeader(); }
           row.forEach((_, index) => {
             const x = margin + index * columnWidth;
             pdf.setDrawColor(220); pdf.setFillColor(255, 255, 255); pdf.rect(x, y, columnWidth, rowHeight, 'FD');

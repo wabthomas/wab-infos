@@ -1,3 +1,4 @@
+import type { HistoryQuery } from './personal-history';
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { db } from './database';
@@ -174,25 +175,28 @@ export async function getAdminWithdrawalReceipt(id: string): Promise<Receipt | n
   }
 }
 
-export async function listMyAttendance(principal: RhPrincipal): Promise<Attendance[]> {
+export async function listMyAttendance(principal: RhPrincipal, query: HistoryQuery): Promise<{ attendance: Attendance[]; hasMore: boolean }> {
   const client = await db().connect();
   try {
     const person = await myPerson(client, principal);
-    if (!person) return [];
+    if (!person) return { attendance: [], hasMore: false };
     const result = await client.query(
       `SELECT id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
               to_char(check_in AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkIn",
               to_char(check_out AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkOut",note
-       FROM redaction_rh.attendance WHERE collaborator_id=$1 ORDER BY work_date DESC LIMIT 60`,
-      [person]
+       FROM redaction_rh.attendance WHERE collaborator_id=$1
+       AND ($2::date IS NULL OR work_date >= $2::date)
+       AND ($3::date IS NULL OR work_date < $3::date)
+       ORDER BY work_date DESC, id DESC LIMIT $4 OFFSET $5`,
+      [person, query.from, query.to, query.limit + 1, query.offset]
     );
-    return result.rows;
+    return { attendance: result.rows.slice(0, query.limit), hasMore: result.rows.length > query.limit };
   } finally {
     client.release();
   }
 }
 
-export async function signMyAttendance(principal: RhPrincipal, action: AttendanceAction): Promise<Attendance | null> {
+export async function signMyAttendance(principal: RhPrincipal, action: AttendanceAction, recordedAt?: Date): Promise<Attendance | null> {
   const client = await db().connect();
   try {
     await client.query('BEGIN');
@@ -202,16 +206,28 @@ export async function signMyAttendance(principal: RhPrincipal, action: Attendanc
       return null;
     }
     const column = action === 'in' ? 'check_in' : 'check_out';
+    const receivedColumn = action === 'in' ? 'check_in_received_at' : 'check_out_received_at';
+    const eventTime = recordedAt ?? new Date();
     const result = await client.query(
-      `INSERT INTO redaction_rh.attendance (id,collaborator_id,work_date,${column})
-       VALUES ($1,$2,(now() AT TIME ZONE 'Africa/Kinshasa')::date,now())
-       ON CONFLICT (collaborator_id,work_date) DO UPDATE SET ${column}=now()
+      action === 'out' ? `UPDATE redaction_rh.attendance SET check_out=$3,check_out_received_at=now() WHERE collaborator_id=$2 AND work_date=($3::timestamptz AT TIME ZONE 'Africa/Kinshasa')::date AND check_in IS NOT NULL AND check_in <= $3 AND check_out IS NULL RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",to_char(check_in AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkIn",to_char(check_out AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkOut",note` : `INSERT INTO redaction_rh.attendance (id,collaborator_id,work_date,${column},${receivedColumn})
+       SELECT $1,$2,($3::timestamptz AT TIME ZONE 'Africa/Kinshasa')::date,$3,now()
+       ON CONFLICT (collaborator_id,work_date) DO UPDATE SET ${column}=$3,${receivedColumn}=now()
        WHERE attendance.${column} IS NULL
        RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
                  to_char(check_in AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkIn",
                  to_char(check_out AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkOut",note`,
-      [randomUUID(), person]
+      [randomUUID(), person, eventTime.toISOString()]
     );
+    if (!result.rowCount && recordedAt) {
+      const previous = await client.query(
+        `SELECT id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
+          to_char(check_in AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkIn",
+          to_char(check_out AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS "checkOut",note
+         FROM redaction_rh.attendance WHERE collaborator_id=$1 AND work_date=($2::timestamptz AT TIME ZONE 'Africa/Kinshasa')::date AND ${column}=$2`,
+        [person, eventTime.toISOString()]
+      );
+      if (previous.rowCount) { await client.query('COMMIT'); return previous.rows[0]; }
+    }
     if (!result.rowCount) {
       await client.query('ROLLBACK');
       return null;

@@ -1,6 +1,8 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState, type FormEvent } from 'react';
+import { enqueue, pending, notifyQueue } from '@/lib/redaction/rh/offline-queue';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { validateAbsence, type Absence, type AbsenceStatus } from '@/lib/redaction/rh/absences';
 
@@ -11,7 +13,9 @@ const labels: Record<AbsenceStatus, string> = {
   cancelled: 'Annulée',
 };
 
-export function MyAbsences() {
+export function MyAbsences({ owner, collaboratorId }: { owner: string; collaboratorId: string }) {
+  const [queued, setQueued] = useState<Awaited<ReturnType<typeof pending>>>([]);
+  useEffect(() => { const refresh = () => { void pending(owner).then(setQueued).catch(() => setError('Stockage local indisponible.')); }; refresh(); window.addEventListener('rh-offline-queue', refresh); return () => window.removeEventListener('rh-offline-queue', refresh); }, [owner]);
   const [person, setPerson] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
   const [items, setItems] = useState<Absence[]>([]);
   const [start, setStart] = useState('');
@@ -20,8 +24,8 @@ export function MyAbsences() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error');
+  const [message, setMessage] = useRhNotice('success');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,34 +52,29 @@ export function MyAbsences() {
   }, [reload]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError('');
-    setMessage('');
-    if (!person || !validateAbsence({ collaboratorId: person.id, startDate: start, endDate: end, category })) {
-      setError('Vérifiez le type et les dates (durée maximale : 366 jours).');
-      return;
+    event.preventDefault(); setError(''); setMessage('');
+    if (!validateAbsence({ collaboratorId: person?.id ?? collaboratorId, startDate: start, endDate: end, category })) {
+      setError('Vérifiez le type et les dates (durée maximale : 366 jours).'); return;
     }
+    const op = { id: crypto.randomUUID(), owner, kind: 'absence' as const, recordedAt: new Date().toISOString(), startDate: start, endDate: end, category: category.trim() };
     setBusy(true);
     try {
+      if (!navigator.onLine) throw new TypeError('Offline');
       const response = await fetchRedaction('/api/redaction/rh/mon-espace', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startDate: start, endDate: end, category }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate: op.startDate, endDate: op.endDate, category: op.category, clientId: op.id, recordedAt: op.recordedAt }),
       });
+      if ([502, 503, 504].includes(response.status)) throw new TypeError('Server unavailable');
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Envoi impossible.');
-      setStart('');
-      setEnd('');
-      setCategory('');
-      setMessage('Demande envoyée à l’administrateur.');
-      setReload((n) => n + 1);
+      setStart(''); setEnd(''); setCategory(''); setMessage('Demande envoyée à l’administrateur.'); setReload((n) => n + 1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Envoi impossible.');
-    } finally {
-      setBusy(false);
-    }
+      if (e instanceof TypeError) {
+        try { await enqueue(op); notifyQueue(); setStart(''); setEnd(''); setCategory(''); setMessage('Demande conservée sur cet appareil, en attente d’envoi.'); }
+        catch { setError('Stockage local indisponible : demande non enregistrée.'); }
+      } else setError(e instanceof Error ? e.message : 'Envoi impossible.');
+    } finally { setBusy(false); }
   }
-
   async function cancel(item: Absence) {
     if (!window.confirm('Annuler cette demande en attente ?')) return;
     setBusy(true);
@@ -113,6 +112,7 @@ export function MyAbsences() {
         </div>
         {error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}
         {message && <p role="status" className="text-sm text-primary">{message}</p>}
+        {queued.filter((op) => op.kind === 'absence').map((op) => <p key={op.id} role="status" className="rounded-xl bg-amber-500/10 p-3 text-sm">{op.category} · du {op.startDate} au {op.endDate} — en attente d’envoi</p>)}
         {items.length === 0 ? (
           <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">Aucune demande enregistrée.</p>
         ) : (
