@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { requireRhPermission } from '@/lib/redaction/rh/authorization';
+import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
 import { db } from '@/lib/redaction/rh/database';
 import { handleError, json, readBody, validOrigin } from '@/lib/redaction/rh/api';
 
@@ -19,7 +20,8 @@ function transporter() {
 
 export async function POST(request: Request) {
   try {
-    await requireRhPermission('team_read');
+    let actor: { id: number; email: string } | null = null;
+    try { await requireRhPermission('team_read'); } catch { actor = await requireRhPrincipal(); }
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown;
     try { body = await readBody(request); } catch { return json({ error: 'Document trop volumineux ou requête invalide.' }, 400); }
