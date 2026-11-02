@@ -17,24 +17,25 @@ export function db(): Pool {
   return (pool ??= new Pool({ connectionString, max: 4, connectionTimeoutMillis: 5000 }));
 }
 async function runtimeFlag(key:string, fallback:boolean):Promise<boolean>{try{const result=await db().query('SELECT enabled FROM redaction_rh.feature_settings WHERE feature_key=$1',[key]);return result.rowCount?result.rows[0].enabled:fallback;}catch{return fallback;}}
-/** Un ÃƒÂ©vÃƒÂ©nement et sa notification sont enregistrÃƒÂ©s ensemble, sans donnÃƒÂ©es sensibles. */
+/** Un ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©nement et sa notification sont enregistrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©s ensemble, sans donnÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©es sensibles. */
 async function queueRhNotification(client: PoolClient, collaboratorId: string, type: import('./notifications').RhNotificationType, sourceId: string, sourceVersion: number): Promise<void> {
   if (!(await runtimeFlag('notificationsEnabled', process.env.REDACTION_RH_NOTIFICATIONS_ENABLED === 'true'))) return;
   await client.query(`INSERT INTO redaction_rh.notifications (id,collaborator_id,account_id,account_email,event_type,source_id,source_version)
     SELECT $1,l.collaborator_id,l.account_id,l.account_email,$3,$4,$5 FROM redaction_rh.account_links l
     WHERE l.collaborator_id=$2 ON CONFLICT (collaborator_id,event_type,source_id,source_version) DO NOTHING`, [randomUUID(), collaboratorId, type, sourceId, sourceVersion]);
+  void pushRhDecisionForCollaborator(collaboratorId, type);
 }
-/** Une alerte gÃƒÂ©nÃƒÂ©rique est crÃƒÂ©ÃƒÂ©e dans la mÃƒÂªme transaction que la demande. */
+/** Une alerte gÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rique est crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e dans la mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªme transaction que la demande. */
 
 
-/** Push best-effort au collaborateur lié, sans bloquer la transaction. */
+/** Push best-effort au collaborateur liÃƒÂ©, sans bloquer la transaction. */
 async function pushRhDecisionForCollaborator(collaboratorId: string, type: import('./notifications').RhNotificationType): Promise<void> {
   try {
     const result = await db().query('SELECT account_email FROM redaction_rh.account_links WHERE collaborator_id=$1', [collaboratorId]);
     await pushRhDecision(result.rows[0]?.account_email ?? null, type);
   } catch { /* best-effort */ }
 }
-/** Push best-effort aux gestionnaires RH (rh_manager / finance_manager) aprÃ¨s crÃ©ation d'une demande. */
+/** Push best-effort aux gestionnaires RH (rh_manager / finance_manager) aprÃƒÆ’Ã‚Â¨s crÃƒÆ’Ã‚Â©ation d'une demande. */
 async function pushRhManagers(type: import('./notifications').RhManagerEventType): Promise<void> {
   if (!(await runtimeFlag('notificationsEnabled', process.env.REDACTION_RH_NOTIFICATIONS_ENABLED === 'true'))) return;
   try {
@@ -52,9 +53,9 @@ async function queueManagementEvent(client: PoolClient, type: import('./manageme
   await client.query('INSERT INTO redaction_rh.management_events (id,event_type,source_id) VALUES ($1,$2,$3) ON CONFLICT (event_type,source_id) DO NOTHING', [randomUUID(),type,sourceId]);
 }
 /**
- * Push facultatif aprÃƒÂ¨s commit dÃ¢â‚¬â„¢une dÃƒÂ©cision RH : jamais de montant ni de motif.
- * Le push est subordonnÃƒÂ© au mÃƒÂªme drapeau que la notification in-app ; toute panne
- * Strapi/FCM est avalÃƒÂ©e pour ne pas remettre en cause la dÃƒÂ©cision dÃƒÂ©jÃƒÂ  validÃƒÂ©e.
+ * Push facultatif aprÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨s commit dÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢une dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cision RH : jamais de montant ni de motif.
+ * Le push est subordonnÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© au mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªme drapeau que la notification in-app ; toute panne
+ * Strapi/FCM est avalÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e pour ne pas remettre en cause la dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©cision dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©jÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  validÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e.
  */
 async function pushRhDecision(email: string | null | undefined, type: import('./notifications').RhNotificationType): Promise<void> {
   if (!email || !(await runtimeFlag('notificationsEnabled', process.env.REDACTION_RH_NOTIFICATIONS_ENABLED === 'true'))) return;
@@ -64,7 +65,7 @@ async function pushRhDecision(email: string | null | undefined, type: import('./
       import('../web-push'),
     ]);
     const { sent, failed } = await notifyCollaboratorByEmail(email, rhNotificationPush(type));
-    if (failed > 0) console.warn(`[rh] push ${type}: ${failed} ÃƒÂ©chec(s)`);
+    if (failed > 0) console.warn(`[rh] push ${type}: ${failed} ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©chec(s)`);
     if (sent === 0 && failed === 0) console.warn(`[rh] push ${type}: aucun abonnement FCM actif`);
   } catch (error) {
     console.warn(`[rh] push ${type}: ${error instanceof Error ? error.message : 'erreur inconnue'}`);
@@ -88,7 +89,7 @@ export async function listCollaborators(): Promise<Collaborator[]> {
   return result.rows;
 }
 
-/** L'ÃƒÂ©criture et son ÃƒÂ©vÃƒÂ©nement d'audit sont validÃƒÂ©s ensemble. */
+/** L'ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©criture et son ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©nement d'audit sont validÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©s ensemble. */
 export async function saveCollaborator(input: CollaboratorInput, actor: string, id?: string, version?: number): Promise<Collaborator | null> {
   const client = await db().connect();
   try {
@@ -126,7 +127,7 @@ export async function listActivities(collaboratorId: string, month: string): Pro
   return result.rows;
 }
 
-/** Un seul relevÃƒÂ© journalier. Verrouille le dossier pour sÃƒÂ©rialiser l'archivage. */
+/** Un seul relevÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© journalier. Verrouille le dossier pour sÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rialiser l'archivage. */
 export async function saveActivity(input: import('./activities').ActivityInput, actor: string, id?: string, version?: number): Promise<import('./activities').Activity | null> {
   const client = await db().connect();
   try {
@@ -156,7 +157,7 @@ export async function listAbsences(collaboratorId: string, month?: string): Prom
   return result.rows;
 }
 
-/** SÃƒÂ©rialise les crÃƒÂ©ations pour un collaborateur avant la dÃƒÂ©tection de chevauchement. */
+/** SÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rialise les crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ations pour un collaborateur avant la dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©tection de chevauchement. */
 export async function createAbsence(input: import('./absences').AbsenceInput, actor: string, principal?: import('./principal').RhPrincipal, offline?: { id: string; recordedAt: Date }): Promise<import('./absences').Absence | null> {
   const client = await db().connect();
   try {
@@ -186,7 +187,7 @@ export async function decideAbsence(id: string, version: number, decision: impor
   const client = await db().connect();
   try {
     await client.query('BEGIN');
-    // Le verrou du collaborateur est commun ÃƒÂ  la crÃƒÂ©ation et ÃƒÂ  l'archivage.
+    // Le verrou du collaborateur est commun ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  la crÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ation et ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  l'archivage.
     const selected = await client.query('SELECT collaborator_id, status FROM redaction_rh.absence_requests WHERE id=$1', [id]);
     if (!selected.rowCount) { await client.query('ROLLBACK'); return null; }
     const person = await client.query('SELECT id FROM redaction_rh.collaborators WHERE id=$1 AND NOT archived FOR UPDATE', [selected.rows[0].collaborator_id]);
@@ -211,7 +212,7 @@ export async function getAccountLink(collaboratorId: string): Promise<{ id: numb
   return result.rows[0] ?? null;
 }
 
-/** Le verrou du collaborateur protÃƒÂ¨ge le lien contre l'archivage concurrent. */
+/** Le verrou du collaborateur protÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨ge le lien contre l'archivage concurrent. */
 export async function changeAccountLink(collaboratorId: string, version: number, principal: import('./principal').RhPrincipal | null, actor: string): Promise<'ok' | 'conflict'> {
   const client = await db().connect();
   try {
@@ -238,20 +239,20 @@ export async function getMyCollaborator(principal: import('./principal').RhPrinc
   return result.rows[0] ?? null;
 }
 
-/** Une seule requÃƒÂªte rÃƒÂ©ÃƒÂ©value l'appartenance au dossier pour toute lecture. */
+/** Une seule requÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªte rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©value l'appartenance au dossier pour toute lecture. */
 export async function listMyAbsences(principal: import('./principal').RhPrincipal): Promise<import('./absences').Absence[]> {
   const result = await db().query(`SELECT a.id, a.collaborator_id AS "collaboratorId", to_char(a.start_date, 'YYYY-MM-DD') AS "startDate", to_char(a.end_date, 'YYYY-MM-DD') AS "endDate", a.category, a.status, a.decision_note AS "decisionNote", a.version FROM redaction_rh.absence_requests a JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id JOIN redaction_rh.account_links l ON l.collaborator_id=c.id WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived ORDER BY a.start_date DESC, a.id LIMIT 500`, [principal.id, principal.email]);
   return result.rows;
 }
 
-/** Annulation personnelle : uniquement ses demandes en attente, aprÃƒÂ¨s vÃƒÂ©rification sous verrou. */
+/** Annulation personnelle : uniquement ses demandes en attente, aprÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨s vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rification sous verrou. */
 export async function cancelMyAbsence(principal: import('./principal').RhPrincipal, id: string, version: number): Promise<boolean> {
   const client = await db().connect();
   try {
     await client.query('BEGIN');
     const person = await client.query(`SELECT c.id FROM redaction_rh.collaborators c JOIN redaction_rh.account_links l ON l.collaborator_id=c.id WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived FOR UPDATE OF c`, [principal.id, principal.email]);
     if (!person.rowCount) { await client.query('ROLLBACK'); return false; }
-    // Les changements de liaison verrouillent ÃƒÂ©galement le dossier ; vÃƒÂ©rifier aprÃƒÂ¨s acquisition du verrou.
+    // Les changements de liaison verrouillent ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©galement le dossier ; vÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rifier aprÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨s acquisition du verrou.
     const linked = await client.query('SELECT 1 FROM redaction_rh.account_links WHERE collaborator_id=$1 AND account_id=$2 AND account_email=$3', [person.rows[0].id, principal.id, principal.email]);
     if (!linked.rowCount) { await client.query('ROLLBACK'); return false; }
     const result = await client.query(`UPDATE redaction_rh.absence_requests SET status='cancelled', decision_note='', version=version+1, updated_at=now() WHERE id=$1 AND collaborator_id=$2 AND version=$3 AND status='pending' RETURNING id`, [id, person.rows[0].id, version]);
@@ -337,7 +338,7 @@ export async function decideSubmission(submissionId: string, version: number, de
     let activityId: string | null = null;
     if (decision === 'approve') {
       const created = await client.query(`INSERT INTO redaction_rh.daily_activities (id,collaborator_id,activity_date,status,description) VALUES ($1,$2,$3,'effectuee',$4) ON CONFLICT (collaborator_id,activity_date) DO NOTHING RETURNING id`, [randomUUID(), collaboratorId, submission.rows[0].activity_date, submission.rows[0].description]);
-      // Ne jamais ÃƒÂ©craser un relevÃƒÂ© saisi par l'admin.
+      // Ne jamais ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©craser un relevÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© saisi par l'admin.
       if (!created.rowCount) { await client.query('ROLLBACK'); return false; }
       activityId = created.rows[0].id;
     }
@@ -358,8 +359,8 @@ export async function listRemunerations(collaboratorId: string): Promise<import(
 export async function listMyRemunerations(principal: import('./principal').RhPrincipal): Promise<import('./remunerations').Remuneration[]> {
   return (await db().query(`SELECT r.id, to_char(r.period, 'YYYY-MM') AS month, r.currency, r.amount_minor::text AS "amountMinor", r.status, r.version, r.validated_at AS "validatedAt" FROM redaction_rh.remunerations r JOIN redaction_rh.collaborators c ON c.id=r.collaborator_id JOIN redaction_rh.account_links l ON l.collaborator_id=c.id WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived AND r.status='validated' ORDER BY r.period DESC, r.created_at DESC, r.id LIMIT 500`, [principal.id, principal.email])).rows;
 }
-/** Une coupure existante reste applicable mÃƒÂªme si les retraits sont dÃƒÂ©sactivÃƒÂ©s.
- * Avant l'installation de cette migration, les rÃƒÂ©munÃƒÂ©rations seules restent utilisables. */
+/** Une coupure existante reste applicable mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªme si les retraits sont dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©sactivÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©s.
+ * Avant l'installation de cette migration, les rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©munÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rations seules restent utilisables. */
 async function isCoveredByOpening(client: PoolClient, collaboratorId: string, currency: string, period: string | Date): Promise<boolean> {
   const exists = await client.query("SELECT to_regclass('redaction_rh.opening_balances') IS NOT NULL AS present");
   if (!exists.rows[0].present) {
@@ -462,7 +463,7 @@ export async function createMyWithdrawal(principal: import('./principal').RhPrin
       const payout = await client.query('SELECT kind,provider,account_number,currency FROM redaction_rh.payout_methods WHERE id=$1 AND collaborator_id=$2 AND active', [input.payoutMethodId, collaboratorId]);
       if (!payout.rowCount || payout.rows[0].currency !== input.currency) { await client.query('ROLLBACK'); return null; }
       payoutMethodId = input.payoutMethodId;
-      payoutLabel = `${providerLabel(payout.rows[0].kind, payout.rows[0].provider)} Ã‚Â· ${maskAccount(payout.rows[0].account_number)}`;
+      payoutLabel = `${providerLabel(payout.rows[0].kind, payout.rows[0].provider)} ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${maskAccount(payout.rows[0].account_number)}`;
     }
     const previous = await client.query(`SELECT ${withdrawalCols},collaborator_id FROM redaction_rh.withdrawals WHERE idempotency_key=$1`, [input.key]);
     if (previous.rowCount) {
@@ -508,7 +509,7 @@ export async function decideWithdrawal(id: string, version: number, decision: im
     const person = await client.query('SELECT id FROM redaction_rh.collaborators WHERE id=$1 AND NOT archived FOR UPDATE', [personId]);
     if (!person.rowCount) { await client.query('ROLLBACK'); return false; }
     const link = await client.query('SELECT account_email FROM redaction_rh.account_links WHERE collaborator_id=$1', [personId]);
-    // Sans lien actif on refuse aussi : impossible d'identifier le bÃƒÂ©nÃƒÂ©ficiaire actuel.
+    // Sans lien actif on refuse aussi : impossible d'identifier le bÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©nÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ficiaire actuel.
     if (!mayReviewWithdrawal(actor, record.rows[0].requester_email, link.rows[0]?.account_email ?? null)) { await client.query('ROLLBACK'); return false; }
     if (decision.action === 'pay' && ['mobile_money', 'virement'].includes(record.rows[0].method) && !decision.paymentReference) { await client.query('ROLLBACK'); return false; }
     const status = decision.action === 'approve' ? 'approved' : decision.action === 'reject' ? 'rejected' : 'paid';
@@ -550,7 +551,7 @@ export async function changeRhGrant(collaboratorId: string, role: import('./perm
   finally { client.release(); }
 }
 
-/** Export limitÃƒÂ© et audit atomiques : ÃƒÂ©chec de l'audit = aucun fichier. */
+/** Export limitÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© et audit atomiques : ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©chec de l'audit = aucun fichier. */
 export async function exportRhReport(filter: import('./reports').ReportFilter, actor: string): Promise<{ headers: string[]; rows: unknown[][] } | null> {
   const { REPORT_LIMIT } = await import('./reports');
   const client = await db().connect();
@@ -558,23 +559,23 @@ export async function exportRhReport(filter: import('./reports').ReportFilter, a
     await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
     let headers: string[]; let query: string; let values: unknown[];
     if (filter.type === 'collaborateurs') {
-      headers = ['PrÃƒÂ©nom', 'Nom', 'Fonction', 'Ãƒâ€°quipe', 'Statut de collaboration', 'Date dÃ¢â‚¬â„¢arrivÃƒÂ©e', 'Dossier archivÃƒÂ©'];
+      headers = ['PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©nom', 'Nom', 'Fonction', 'ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°quipe', 'Statut de collaboration', 'Date dÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢arrivÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e', 'Dossier archivÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©'];
       query = `SELECT c.first_name,c.last_name,c.job_title,c.team,c.contract_status,to_char(c.start_date,'YYYY-MM-DD') AS start_date,CASE WHEN c.archived THEN 'Oui' ELSE 'Non' END AS archived FROM redaction_rh.collaborators c WHERE ($1::text IS NULL OR c.team=$1) ORDER BY c.last_name,c.first_name,c.id LIMIT $2`;
       values = [filter.team, REPORT_LIMIT + 1];
     } else if (filter.type === 'absences') {
-      headers = ['PrÃƒÂ©nom', 'Nom', 'Ãƒâ€°quipe', 'Type', 'DÃƒÂ©but', 'Fin', 'Statut'];
-      query = `SELECT c.first_name,c.last_name,c.team,a.category,to_char(a.start_date,'YYYY-MM-DD') AS start_date,to_char(a.end_date,'YYYY-MM-DD') AS end_date,CASE a.status WHEN 'pending' THEN 'En attente' WHEN 'approved' THEN 'ApprouvÃƒÂ©e' WHEN 'rejected' THEN 'RefusÃƒÂ©e' WHEN 'cancelled' THEN 'AnnulÃƒÂ©e' END AS status FROM redaction_rh.absence_requests a JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id WHERE a.start_date <= $2::date AND a.end_date >= $1::date AND ($3::text IS NULL OR c.team=$3) ORDER BY a.start_date,c.last_name,c.first_name,a.id LIMIT $4`;
+      headers = ['PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©nom', 'Nom', 'ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°quipe', 'Type', 'DÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©but', 'Fin', 'Statut'];
+      query = `SELECT c.first_name,c.last_name,c.team,a.category,to_char(a.start_date,'YYYY-MM-DD') AS start_date,to_char(a.end_date,'YYYY-MM-DD') AS end_date,CASE a.status WHEN 'pending' THEN 'En attente' WHEN 'approved' THEN 'ApprouvÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e' WHEN 'rejected' THEN 'RefusÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e' WHEN 'cancelled' THEN 'AnnulÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e' END AS status FROM redaction_rh.absence_requests a JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id WHERE a.start_date <= $2::date AND a.end_date >= $1::date AND ($3::text IS NULL OR c.team=$3) ORDER BY a.start_date,c.last_name,c.first_name,a.id LIMIT $4`;
       values = [filter.start, filter.end, filter.team, REPORT_LIMIT + 1];
     } else if (filter.type === 'prestations') {
-      headers = ['PrÃƒÂ©nom', 'Nom', 'Ãƒâ€°quipe', 'Date', 'Statut'];
-      query = `SELECT c.first_name,c.last_name,c.team,to_char(a.activity_date,'YYYY-MM-DD') AS activity_date,CASE a.status WHEN 'effectuee' THEN 'Prestation effectuÃƒÂ©e' WHEN 'absence_signalee' THEN 'Absence signalÃƒÂ©e' WHEN 'absence_justifiee' THEN 'Absence justifiÃƒÂ©e' END AS status FROM redaction_rh.daily_activities a JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id WHERE a.activity_date BETWEEN $1::date AND $2::date AND ($3::text IS NULL OR c.team=$3) ORDER BY a.activity_date,c.last_name,c.first_name,a.id LIMIT $4`;
+      headers = ['PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©nom', 'Nom', 'ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°quipe', 'Date', 'Statut'];
+      query = `SELECT c.first_name,c.last_name,c.team,to_char(a.activity_date,'YYYY-MM-DD') AS activity_date,CASE a.status WHEN 'effectuee' THEN 'Prestation effectuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e' WHEN 'absence_signalee' THEN 'Absence signalÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e' WHEN 'absence_justifiee' THEN 'Absence justifiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e' END AS status FROM redaction_rh.daily_activities a JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id WHERE a.activity_date BETWEEN $1::date AND $2::date AND ($3::text IS NULL OR c.team=$3) ORDER BY a.activity_date,c.last_name,c.first_name,a.id LIMIT $4`;
       values = [filter.start, filter.end, filter.team, REPORT_LIMIT + 1];
     } else {
-      headers = ['PrÃƒÂ©nom', 'Nom', 'Ãƒâ€°quipe', 'Date', 'ArrivÃƒÂ©e (Kinshasa)', 'Sortie (Kinshasa)', 'RelevÃƒÂ© de prestation', 'DÃƒÂ©claration', 'Statut dÃ¢â‚¬â„¢absence'];
-      query = `SELECT c.first_name,c.last_name,c.team,to_char(a.work_date,'YYYY-MM-DD') AS work_date,to_char(a.check_in AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS check_in,to_char(a.check_out AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS check_out,COALESCE((SELECT d.status FROM redaction_rh.daily_activities d WHERE d.collaborator_id=a.collaborator_id AND d.activity_date=a.work_date LIMIT 1),'Aucun relevÃƒÂ©') AS activity_status,COALESCE((SELECT s.status FROM redaction_rh.activity_submissions s WHERE s.collaborator_id=a.collaborator_id AND s.activity_date=a.work_date ORDER BY s.created_at DESC,s.id DESC LIMIT 1),'Aucune dÃƒÂ©claration') AS submission_status,COALESCE((SELECT string_agg(DISTINCT r.status::text,', ' ORDER BY r.status::text) FROM redaction_rh.absence_requests r WHERE r.collaborator_id=a.collaborator_id AND r.start_date<=a.work_date AND r.end_date>=a.work_date),'Aucune demande') AS absence_status FROM redaction_rh.attendance a JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id WHERE a.work_date BETWEEN $1::date AND $2::date AND ($3::text IS NULL OR c.team=$3) ORDER BY a.work_date,c.last_name,c.first_name,a.id LIMIT $4`;
+      headers = ['PrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©nom', 'Nom', 'ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°quipe', 'Date', 'ArrivÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©e (Kinshasa)', 'Sortie (Kinshasa)', 'RelevÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â© de prestation', 'DÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©claration', 'Statut dÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢absence'];
+      query = `SELECT c.first_name,c.last_name,c.team,to_char(a.work_date,'YYYY-MM-DD') AS work_date,to_char(a.check_in AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS check_in,to_char(a.check_out AT TIME ZONE 'Africa/Kinshasa','HH24:MI') AS check_out,COALESCE((SELECT d.status FROM redaction_rh.daily_activities d WHERE d.collaborator_id=a.collaborator_id AND d.activity_date=a.work_date LIMIT 1),'Aucun relevÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©') AS activity_status,COALESCE((SELECT s.status FROM redaction_rh.activity_submissions s WHERE s.collaborator_id=a.collaborator_id AND s.activity_date=a.work_date ORDER BY s.created_at DESC,s.id DESC LIMIT 1),'Aucune dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©claration') AS submission_status,COALESCE((SELECT string_agg(DISTINCT r.status::text,', ' ORDER BY r.status::text) FROM redaction_rh.absence_requests r WHERE r.collaborator_id=a.collaborator_id AND r.start_date<=a.work_date AND r.end_date>=a.work_date),'Aucune demande') AS absence_status FROM redaction_rh.attendance a JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id WHERE a.work_date BETWEEN $1::date AND $2::date AND ($3::text IS NULL OR c.team=$3) ORDER BY a.work_date,c.last_name,c.first_name,a.id LIMIT $4`;
       values = [filter.start, filter.end, filter.team, REPORT_LIMIT + 1];
     }
-    // rowMode array ÃƒÂ©vite que l'ordre ou les alias des champs ne modifient les colonnes CSV.
+    // rowMode array ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©vite que l'ordre ou les alias des champs ne modifient les colonnes CSV.
     const result = await client.query({ text: query, values, rowMode: 'array' });
     if (result.rows.length > REPORT_LIMIT) { await client.query('ROLLBACK'); return null; }
     await client.query('INSERT INTO redaction_rh.report_audit (actor_email,report_type,row_count) VALUES ($1,$2,$3)', [actor, filter.type, result.rows.length]);
@@ -642,7 +643,7 @@ export async function archiveDocument(id: string, version: number, actor: string
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 }
-/** VÃƒÂ©rification du lien et journalisation dans la transaction de lecture du fichier. */
+/** VÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rification du lien et journalisation dans la transaction de lecture du fichier. */
 export async function downloadDocument(id: string, actor: string, principal: import('./principal').RhPrincipal | null): Promise<{ bytes: Buffer; fileType: import('./documents').DocumentFileType } | null> {
   const client = await db().connect();
   try {
@@ -662,7 +663,7 @@ export async function downloadDocument(id: string, actor: string, principal: imp
   finally { client.release(); }
 }
 
-/** Initialisation unique, irrÃƒÂ©versible dans l'application, sans demandes antÃƒÂ©rieures. */
+/** Initialisation unique, irrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©versible dans l'application, sans demandes antÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©rieures. */
 export async function createOpeningBalance(input: import('./opening-balances').OpeningBalanceInput, actor: string): Promise<boolean> {
   const client = await db().connect();
   try {
@@ -671,7 +672,7 @@ export async function createOpeningBalance(input: import('./opening-balances').O
     if (!person.rowCount) { await client.query('ROLLBACK'); return false; }
     const link = await client.query('SELECT account_email FROM redaction_rh.account_links WHERE collaborator_id=$1', [input.collaboratorId]);
     if (!mayReviewWithdrawal(actor, link.rows[0]?.account_email ?? '', link.rows[0]?.account_email ?? null)) { await client.query('ROLLBACK'); return false; }
-    // Aucune rÃƒÂ©initialisation automatique si des retraits existent dÃƒÂ©jÃƒÂ , mÃƒÂªme annulÃƒÂ©s.
+    // Aucune rÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©initialisation automatique si des retraits existent dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©jÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â , mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âªme annulÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©s.
     const existing = await client.query('SELECT 1 FROM redaction_rh.withdrawals WHERE collaborator_id=$1 AND currency=$2 LIMIT 1', [input.collaboratorId, input.currency]);
     if (existing.rowCount) { await client.query('ROLLBACK'); return false; }
     const id = randomUUID();
@@ -793,7 +794,9 @@ export async function answerDispute(id: string, version: number, response: strin
     const result = await client.query(`UPDATE redaction_rh.disputes SET status='answered',response=$1,resolved_at=now(),version=version+1 WHERE id=$2 AND collaborator_id=$3 AND version=$4 AND status='open' RETURNING id`, [response,id,collaboratorId,version]);
     if (!result.rowCount) { await client.query('ROLLBACK'); return false; }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,dispute_id) VALUES ($1,$2,$3,$4)',[actor,'dispute_answer',collaboratorId,id]);
-    await client.query('COMMIT'); return true;
+    await client.query('COMMIT');
+    void pushRhDecision(record.rows[0].requester_email ?? null, 'dispute');
+    return true;
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
