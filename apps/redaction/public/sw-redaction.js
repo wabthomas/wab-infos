@@ -1,8 +1,8 @@
-const OFFLINE_CACHE = 'redaction-offline-v2';
-const OFFLINE_URL = '/redaction-offline.html';
+const OFFLINE_CACHE = 'redaction-offline-v3';
+const OFFLINE_URL = new URL('redaction-offline.html', self.registration.scope).pathname;
+const OFFLINE_SCRIPT = new URL('redaction-offline.js', self.registration.scope).pathname;
 
-/** Fallback si le cache SW n'est pas encore prêt (garder aligné avec public/redaction-offline.html). */
-const OFFLINE_HTML = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0c0c0f"><title>Indisponible — Wab Rédaction</title><style>*, *::before, *::after { box-sizing: border-box; }html, body { height: 100%; margin: 0; }body {font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;display: flex;align-items: center;justify-content: center;padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem max(1.25rem, env(safe-area-inset-bottom));color: #f4f4f5;background: linear-gradient(145deg, #0c0c0f 0%, #1d3557 52%, #8b1538 100%);text-align: center;-webkit-font-smoothing: antialiased;}.card {width: min(100%, 22rem);padding: 2rem 1.5rem;border-radius: 1.25rem;background: rgba(255, 255, 255, 0.06);border: 1px solid rgba(255, 255, 255, 0.12);backdrop-filter: blur(12px);box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);}.logo {width: 4rem;height: 4rem;margin: 0 auto 1.25rem;border-radius: 1rem;box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);}.brand {font-size: 0.75rem;font-weight: 700;letter-spacing: 0.14em;text-transform: uppercase;color: rgba(255, 255, 255, 0.65);margin: 0 0 0.5rem;}h1 {font-size: 1.25rem;font-weight: 700;line-height: 1.3;margin: 0 0 0.75rem;}p {margin: 0;font-size: 0.95rem;line-height: 1.55;color: rgba(255, 255, 255, 0.78);}button {margin-top: 1.5rem;width: 100%;padding: 0.85rem 1rem;font-size: 0.95rem;font-weight: 600;border: none;border-radius: 0.75rem;background: #c41e3a;color: #fff;cursor: pointer;}button:active { transform: scale(0.98); }</style></head><body><div class="card"><img class="logo" src="/icons/icon-192.png" width="64" height="64" alt=""><p class="brand">Wab Rédaction</p><h1>Espace rédaction indisponible</h1><p>Le serveur ne répond pas pour le moment. Réessayez dans quelques instants.</p><button type="button" onclick="location.reload()">Réessayer</button></div></body></html>`;
+const OFFLINE_HTML = '<!doctype html><html lang="fr"><meta charset="utf-8"><title>Rédaction hors ligne</title><body><h1>Rédaction hors ligne</h1><p>La page locale est indisponible. Reconnectez-vous et réessayez.</p></body></html>';
 
 const SERVER_DOWN_STATUSES = new Set([502, 503, 504]);
 
@@ -16,7 +16,7 @@ function isRedactionAppClient(client) {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(OFFLINE_CACHE).then((cache) => cache.add(OFFLINE_URL))
+    caches.open(OFFLINE_CACHE).then((cache) => cache.addAll([OFFLINE_URL, OFFLINE_SCRIPT]))
   );
   self.skipWaiting();
 });
@@ -45,7 +45,8 @@ function offlineHtmlResponse(html) {
   });
 }
 
-function offlineNavigationResponse() {
+function offlineNavigationResponse(request) {
+  if (new URL(request.url).pathname !== OFFLINE_URL) return Response.redirect(new URL(OFFLINE_URL, self.location.origin).href, 302);
   return caches.match(OFFLINE_URL).then((cached) => {
     if (cached) return cached.text().then(offlineHtmlResponse);
     return offlineHtmlResponse(OFFLINE_HTML);
@@ -58,16 +59,16 @@ function shouldServeOfflinePage(request, response) {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    fetch(event.request)
+    (event.request.url === new URL(OFFLINE_SCRIPT, self.location.origin).href ? caches.match(OFFLINE_SCRIPT).then((cached) => cached || fetch(event.request)) : fetch(event.request))
       .then((response) => {
         if (shouldServeOfflinePage(event.request, response)) {
-          return offlineNavigationResponse();
+          return offlineNavigationResponse(event.request);
         }
         return response;
       })
       .catch(() => {
         if (event.request.mode === 'navigate') {
-          return offlineNavigationResponse();
+          return offlineNavigationResponse(event.request);
         }
         return Response.error();
       })

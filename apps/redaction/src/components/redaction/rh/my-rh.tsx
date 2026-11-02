@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowDownUp, Bell, CalendarDays, ClipboardList, FileLock2, LockKeyhole, WalletCards } from 'lucide-react';
 import { MyDisputes } from './disputes';
@@ -17,7 +18,7 @@ export function MyRh({ today, financeEnabled, withdrawalsEnabled, notificationsE
   const [items, setItems] = useState<Absence[]>([]);
   const [start, setStart] = useState(''); const [end, setEnd] = useState(''); const [category, setCategory] = useState('');
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
-  const [error, setError] = useState(''); const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error'); const [message, setMessage] = useRhNotice('success');
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError('');
     fetchRedaction('/api/redaction/rh/mon-espace', { cache: 'no-store', signal: controller.signal })

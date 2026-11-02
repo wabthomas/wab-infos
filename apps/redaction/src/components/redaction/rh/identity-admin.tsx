@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { fetchRedaction, redactionPublicPath } from '@/lib/redaction/public-path';
 import { MessageCircle } from 'lucide-react';

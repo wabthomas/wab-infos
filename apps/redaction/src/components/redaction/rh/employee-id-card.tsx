@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState, type ChangeEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -44,7 +45,6 @@ async function shareOrDownloadPdf(blob: Blob, filename: string) {
       return;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      // Si le navigateur refuse la feuille de partage, proposer le téléchargement standard.
     }
   }
   const androidBridge = (window as unknown as { AndroidBridge?: { savePdf?: (data: string, name: string) => void } }).AndroidBridge;
@@ -77,7 +77,7 @@ export function EmployeeIdCard({ person, adminPersonId, collaboratorId }: { pers
   const [companyQr, setCompanyQr] = useState('');
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useRhNotice('auto');
   useEffect(() => {
     if (!adminPersonId && searchParams.get('edit') === '1') setEditing(true);
   }, [searchParams, adminPersonId]);
@@ -196,7 +196,7 @@ export function EmployeeIdCard({ person, adminPersonId, collaboratorId }: { pers
           await shareOrDownloadPdf(captured, 'fiche-identification-' + person.lastName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.pdf');
           setMessage('Le PDF est prêt.');
           return;
-        } catch { /* repli sur le rendu jsPDF */ }
+        } catch {}
       }
       const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });

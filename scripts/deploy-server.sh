@@ -270,3 +270,12 @@ echo "   CMS:  vérifier https://cms.app.wab-infos.com/admin"
 if [ "$DEPLOY_ISSUES" -ne 0 ]; then
   exit 1
 fi
+
+if [ -n "${REDACTION_RH_RELEASE_SECRET:-}" ]; then
+  if [ "${USE_PM2:-}" = "1" ]; then
+    echo "→ Diffusion de la dernière nouveauté RH aux appareils abonnés"
+    node scripts/send-rh-release-push.mjs || echo "⚠️  Diffusion RH non terminée : relancer node scripts/send-rh-release-push.mjs après vérification."
+  else
+    echo "→ Après redémarrage N0C : node scripts/send-rh-release-push.mjs pour diffuser la nouveauté RH."
+  fi
+fi

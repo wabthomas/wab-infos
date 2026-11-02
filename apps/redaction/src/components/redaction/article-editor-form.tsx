@@ -361,7 +361,7 @@ export function ArticleEditorForm({
   }, [documentId]);
 
   useEffect(() => {
-    if (documentId || initial?.title?.trim() || initial?.content?.trim()) return;
+    if (documentId || initial?.title?.trim() || (initial?.content?.trim() && initial.content !== defaultEmptyContent.trim())) return;
     const stored = loadArticleDraft();
     if (!stored?.values) return;
 
@@ -387,7 +387,7 @@ export function ArticleEditorForm({
       setFeaturedAltDraft(stored.values.featuredImageAlt);
     }
     if (stored.scheduledAt) setScheduledAt(stored.scheduledAt);
-  }, [documentId, initial?.title, initial?.content]);
+  }, [documentId, initial?.title, initial?.content, defaultEmptyContent]);
 
   useEffect(() => {
     void touchRedactionSession();
@@ -709,6 +709,14 @@ export function ArticleEditorForm({
   const performAutosave = useCallback(async () => {
     await persistDraft();
   }, [persistDraft]);
+
+  // While the editor stays open, retry the local draft when connectivity returns.
+  // Never publish or unpublish automatically on reconnect.
+  useEffect(() => {
+    const onReconnect = () => { void performAutosave(); };
+    window.addEventListener('online', onReconnect);
+    return () => window.removeEventListener('online', onReconnect);
+  }, [performAutosave]);
 
   useEffect(() => {
     const snapshot = createSnapshot(values, scheduledAt);

@@ -1,4 +1,6 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
+import { useToast } from '@/components/ui/toast';
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, Check, RefreshCw } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
@@ -6,9 +8,10 @@ import { rhNotificationMessage, type RhNotification } from '@/lib/redaction/rh/n
 
 const endpoint = '/api/redaction/rh/mon-espace/notifications';
 export function MyNotifications() {
+  const toast = useToast();
   const [items, setItems] = useState<RhNotification[]>([]);
   const [loading, setLoading] = useState(true); const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useRhNotice('error');
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true); setError('');
     try {
@@ -24,7 +27,7 @@ export function MyNotifications() {
     try {
       const response = await fetchRedaction(endpoint, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
       if (!response.ok) throw new Error();
-      await load();
+      await load(); toast.success('Notification marquée comme lue.');
     } catch { setError('Impossible de marquer cette notification comme lue.'); }
     finally { setBusyId(null); }
   }

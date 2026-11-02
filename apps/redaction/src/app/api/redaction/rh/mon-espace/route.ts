@@ -1,3 +1,4 @@
+import { offlineRecordedAt } from '@/lib/redaction/rh/offline-time';
 import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
 import { getMyCollaborator, listMyAbsences, createAbsence, cancelMyAbsence } from '@/lib/redaction/rh/database';
 import { isUuid } from '@/lib/redaction/rh/activities';
@@ -25,7 +26,10 @@ export async function POST(request: Request) {
     // L'identifiant du dossier provient exclusivement du lien vérifié côté serveur.
     const input = validateAbsence({ ...(body as Record<string, unknown>), collaboratorId: person.id });
     if (!input) return json({ error: 'Vérifiez les dates et le type d’absence.' }, 400);
-    const absence = await createAbsence(input, principal.email, principal);
+    const data = body as Record<string, unknown>;
+    const recordedAt = data.recordedAt === undefined ? undefined : offlineRecordedAt(data.recordedAt);
+    if ((data.recordedAt !== undefined || data.clientId !== undefined) && (!recordedAt || typeof data.clientId !== 'string' || !isUuid(data.clientId))) return json({ error: 'Données hors ligne invalides.' }, 400);
+    const absence = await createAbsence(input, principal.email, principal, recordedAt ? { id: data.clientId as string, recordedAt } : undefined);
     if (!absence) return json({ error: 'Dates déjà demandées ou dossier indisponible. Actualisez la page.' }, 409);
     return json({ absence }, 201);
   } catch (error) { return handleError(error); }

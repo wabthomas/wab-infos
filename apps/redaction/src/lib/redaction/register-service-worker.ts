@@ -28,7 +28,10 @@ export async function registerRedactionServiceWorker(): Promise<ServiceWorkerReg
 
   try {
     const existing = await navigator.serviceWorker.getRegistration(scope);
-    if (existing) return existing;
+    if (existing?.active?.scriptURL.endsWith(swUrl)) {
+      void existing.update().catch(() => undefined);
+      return existing;
+    }
 
     return await navigator.serviceWorker.register(swUrl, {
       scope,

@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
 import { PlusCircle, ShieldCheck } from 'lucide-react';
@@ -26,8 +27,8 @@ export function PayoutMethods() {
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [currency, setCurrency] = useState<RhCurrency>('CDF');
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error');
+  const [message, setMessage] = useRhNotice('success');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);

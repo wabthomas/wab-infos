@@ -1,8 +1,10 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ArrowDownUp, CheckCircle2, Clock3, Loader2, PlusCircle, WalletCards } from 'lucide-react';
+import { MyPaymentHistory } from './my-payment-history';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
 import {
@@ -66,8 +68,8 @@ export function MyWithdrawals({
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error');
+  const [message, setMessage] = useRhNotice('success');
   const [filter, setFilter] = useState<WithdrawalFilter>('all');
   const key = useRef<string | null>(null);
 
@@ -349,6 +351,9 @@ export function MyWithdrawals({
           )}
         </div>
       </section>
+
+      <MyPaymentHistory refresh={reload} />
+      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien n’apparaît pas ? Déclarez-le pour vérification</Link>
 
       {requestOpen && <form
         id="nouvelle-demande"

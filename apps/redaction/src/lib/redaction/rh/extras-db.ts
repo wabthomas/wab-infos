@@ -1,8 +1,9 @@
+import type { HistoryQuery } from './personal-history';
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { db } from './database';
 import type { RhPrincipal } from './principal';
-import type { Attendance, AttendanceAction, AttendanceCorrection, AttendanceCorrectionInput, TeamAttendance } from './attendance';
+import type { Attendance, AttendanceAction } from './attendance';
 import type { PayoutMethod, PayoutMethodInput } from './payouts';
 import type { RhCurrency } from './money';
 import type { Withdrawal } from './withdrawals';
@@ -174,42 +175,28 @@ export async function getAdminWithdrawalReceipt(id: string): Promise<Receipt | n
   }
 }
 
-export async function listTeamAttendance(from: string, to: string, collaboratorId?: string | null): Promise<TeamAttendance[]> {
-  const result = await db().query(
-    `SELECT a.id,a.collaborator_id AS "collaboratorId",c.first_name AS "firstName",c.last_name AS "lastName",
-            c.job_title AS "jobTitle",c.team,to_char(a.work_date,'YYYY-MM-DD') AS "workDate",
-            to_char(a.check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
-            to_char(a.check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",a.note,
-            (SELECT d.status FROM redaction_rh.daily_activities d WHERE d.collaborator_id=a.collaborator_id AND d.activity_date=a.work_date LIMIT 1) AS "activityStatus",
-            (SELECT s.status FROM redaction_rh.activity_submissions s WHERE s.collaborator_id=a.collaborator_id AND s.activity_date=a.work_date ORDER BY s.created_at DESC,s.id DESC LIMIT 1) AS "submissionStatus",
-            COALESCE((SELECT array_agg(DISTINCT r.status::text ORDER BY r.status::text) FROM redaction_rh.absence_requests r WHERE r.collaborator_id=a.collaborator_id AND r.start_date<=a.work_date AND r.end_date>=a.work_date),ARRAY[]::text[]) AS "absenceStatuses"
-     FROM redaction_rh.attendance a JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id
-     WHERE a.work_date BETWEEN $1::date AND $2::date AND ($3::uuid IS NULL OR a.collaborator_id=$3)
-     ORDER BY a.work_date DESC,c.last_name,c.first_name,a.id DESC LIMIT 2000`,
-    [from, to, collaboratorId || null]
-  );
-  return result.rows;
-}
-
-export async function listMyAttendance(principal: RhPrincipal): Promise<Attendance[]> {
+export async function listMyAttendance(principal: RhPrincipal, query: HistoryQuery): Promise<{ attendance: Attendance[]; hasMore: boolean }> {
   const client = await db().connect();
   try {
     const person = await myPerson(client, principal);
-    if (!person) return [];
+    if (!person) return { attendance: [], hasMore: false };
     const result = await client.query(
       `SELECT id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
               to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
               to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note
-       FROM redaction_rh.attendance WHERE collaborator_id=$1 ORDER BY work_date DESC LIMIT 60`,
-      [person]
+       FROM redaction_rh.attendance WHERE collaborator_id=$1
+       AND ($2::date IS NULL OR work_date >= $2::date)
+       AND ($3::date IS NULL OR work_date < $3::date)
+       ORDER BY work_date DESC, id DESC LIMIT $4 OFFSET $5`,
+      [person, query.from, query.to, query.limit + 1, query.offset]
     );
-    return result.rows;
+    return { attendance: result.rows.slice(0, query.limit), hasMore: result.rows.length > query.limit };
   } finally {
     client.release();
   }
 }
 
-export async function signMyAttendance(principal: RhPrincipal, action: AttendanceAction): Promise<Attendance | null> {
+export async function signMyAttendance(principal: RhPrincipal, action: AttendanceAction, recordedAt?: Date): Promise<Attendance | null> {
   const client = await db().connect();
   try {
     await client.query('BEGIN');
@@ -218,26 +205,29 @@ export async function signMyAttendance(principal: RhPrincipal, action: Attendanc
       await client.query('ROLLBACK');
       return null;
     }
-    const result = action === 'in'
-      ? await client.query(
-          `INSERT INTO redaction_rh.attendance (id,collaborator_id,work_date,check_in)
-           VALUES ($1,$2,(now() AT TIME ZONE 'Africa/Lubumbashi')::date,now())
-           ON CONFLICT (collaborator_id,work_date) DO UPDATE SET check_in=now()
-           WHERE attendance.check_in IS NULL
-           RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
-                     to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
-                     to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note`,
-          [randomUUID(), person]
-        )
-      : await client.query(
-          `UPDATE redaction_rh.attendance SET check_out=now()
-           WHERE collaborator_id=$1 AND work_date=(now() AT TIME ZONE 'Africa/Lubumbashi')::date
-             AND check_in IS NOT NULL AND check_out IS NULL
-           RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
-                     to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
-                     to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note`,
-          [person]
-        );
+    const column = action === 'in' ? 'check_in' : 'check_out';
+    const receivedColumn = action === 'in' ? 'check_in_received_at' : 'check_out_received_at';
+    const eventTime = recordedAt ?? new Date();
+    const result = await client.query(
+      action === 'out' ? `UPDATE redaction_rh.attendance SET check_out=$3,check_out_received_at=now() WHERE collaborator_id=$2 AND work_date=($3::timestamptz AT TIME ZONE 'Africa/Lubumbashi')::date AND check_in IS NOT NULL AND check_in <= $3 AND check_out IS NULL RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note` : `INSERT INTO redaction_rh.attendance (id,collaborator_id,work_date,${column},${receivedColumn})
+       SELECT $1,$2,($3::timestamptz AT TIME ZONE 'Africa/Lubumbashi')::date,$3,now()
+       ON CONFLICT (collaborator_id,work_date) DO UPDATE SET ${column}=$3,${receivedColumn}=now()
+       WHERE attendance.${column} IS NULL
+       RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
+                 to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
+                 to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note`,
+      [randomUUID(), person, eventTime.toISOString()]
+    );
+    if (!result.rowCount && recordedAt) {
+      const previous = await client.query(
+        `SELECT id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
+          to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
+          to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note
+         FROM redaction_rh.attendance WHERE collaborator_id=$1 AND work_date=($2::timestamptz AT TIME ZONE 'Africa/Lubumbashi')::date AND ${column}=$2`,
+        [person, eventTime.toISOString()]
+      );
+      if (previous.rowCount) { await client.query('COMMIT'); return previous.rows[0]; }
+    }
     if (!result.rowCount) {
       await client.query('ROLLBACK');
       return null;
@@ -254,4 +244,26 @@ export async function signMyAttendance(principal: RhPrincipal, action: Attendanc
   } finally {
     client.release();
   }
+}
+
+export async function listTeamAttendance(from: string, to: string, collaboratorId?: string | null): Promise<import('./attendance').TeamAttendance[]> {
+  const params: unknown[] = [from, to];
+  let extra = '';
+  if (collaboratorId) { params.push(collaboratorId); extra = ' AND a.collaborator_id=$3'; }
+  const result = await db().query(
+    `SELECT a.id, a.collaborator_id AS "collaboratorId", c.first_name AS "firstName", c.last_name AS "lastName",
+            c.job_title AS "jobTitle", c.team,
+            to_char(a.work_date,'YYYY-MM-DD') AS "workDate",
+            to_char(a.check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
+            to_char(a.check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",
+            a.note,
+            (SELECT d.status FROM redaction_rh.daily_activities d WHERE d.collaborator_id=a.collaborator_id AND d.activity_date=a.work_date LIMIT 1) AS "activityStatus",
+            (SELECT s.status FROM redaction_rh.activity_submissions s WHERE s.collaborator_id=a.collaborator_id AND s.activity_date=a.work_date ORDER BY s.created_at DESC LIMIT 1) AS "submissionStatus",
+            COALESCE((SELECT array_agg(ar.status ORDER BY ar.start_date) FROM redaction_rh.absence_requests ar WHERE ar.collaborator_id=a.collaborator_id AND a.work_date BETWEEN ar.start_date AND ar.end_date), ARRAY[]::varchar[]) AS "absenceStatuses"
+     FROM redaction_rh.attendance a JOIN redaction_rh.collaborators c ON c.id=a.collaborator_id
+     WHERE a.work_date BETWEEN $1::date AND $2::date AND NOT c.archived${extra}
+     ORDER BY a.work_date DESC, c.last_name, c.first_name LIMIT 2000`,
+    params
+  );
+  return result.rows;
 }

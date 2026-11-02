@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -34,7 +35,7 @@ export function MyRemunerations({
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [currency, setCurrency] = useState<RhCurrency>(initialCurrency ?? 'USD');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useRhNotice('error');
 
   useEffect(() => {
     if (!enabled) {

@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Clock3, Download, Printer, ReceiptText, ShieldCheck } from 'lucide-react';
@@ -58,7 +59,7 @@ export function PaymentReceipt({
   const [company, setCompany] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
   const [assets, setAssets] = useState<Record<string, string | null>>({});
   const [downloading, setDownloading] = useState(false);
-  const [pdfMessage, setPdfMessage] = useState('');
+  const [pdfMessage, setPdfMessage] = useRhNotice('auto');
   const reference = withdrawal.paymentReference?.trim() || `RH-${withdrawal.id.slice(0, 8).toUpperCase()}`;
   const paid = withdrawal.status === 'paid';
 
@@ -108,7 +109,7 @@ export function PaymentReceipt({
           await deliverPdf(captured, 'recu-rh-' + withdrawal.id.slice(0, 8) + '.pdf');
           setPdfMessage('PDF prêt.');
           return;
-        } catch { /* repli sur le rendu jsPDF */ }
+        } catch {}
       }
       const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });

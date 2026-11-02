@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { validateDispute, disputeText, type Dispute, type DisputeCategory } from '@/lib/redaction/rh/disputes';
@@ -13,7 +14,7 @@ function List({ items, busy, onCancel, onAnswer }: { items: Dispute[]; busy: boo
 export function MyDisputes() {
   const [items,setItems] = useState<Dispute[]>([]); const [category,setCategory] = useState<DisputeCategory>('remuneration'); const [message,setMessage] = useState('');
   const key = useRef<string | null>(null); const [failed,setFailed] = useState(false);
-  const [loading,setLoading] = useState(true); const [busy,setBusy] = useState(false); const [error,setError] = useState(''); const [notice,setNotice] = useState(''); const [reload,setReload] = useState(0);
+  const [loading,setLoading] = useState(true); const [busy,setBusy] = useState(false); const [error,setError] = useRhNotice('error'); const [notice,setNotice] = useRhNotice('success'); const [reload,setReload] = useState(0);
   const endpoint='/api/redaction/rh/mon-espace/contestations';
   useEffect(() => { const controller=new AbortController(); setLoading(true); setFailed(false); setError(''); fetchRedaction(endpoint,{cache:'no-store',signal:controller.signal}).then(async r=>{if(!r.ok)throw new Error();setItems((await r.json()).disputes);}).catch(()=>{if(!controller.signal.aborted){setFailed(true);setError('Chargement impossible.');}}).finally(()=>{if(!controller.signal.aborted)setLoading(false);}); return ()=>controller.abort(); },[reload]);
   async function mutate(method:'POST'|'PATCH', body:unknown) { setBusy(true);setError('');setNotice('');try {const r=await fetchRedaction(endpoint,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(data.error || 'Opération impossible.');if(method==='POST'){setMessage('');key.current=null;}setNotice(method==='POST'?'Contestation envoyée.':'Contestation annulée.');setReload(n=>n+1);} catch(e){setError(e instanceof Error ? e.message : 'Opération impossible.');} finally{setBusy(false);} }
@@ -23,7 +24,7 @@ export function MyDisputes() {
 }
 export function DisputeReview({enabled}:{enabled:boolean}) {
   const [openItems,setOpenItems]=useState<{id:string;collaboratorId:string;firstName:string;lastName:string;category:DisputeCategory}[] | null>(null);
-  const [people,setPeople]=useState<Collaborator[]>([]);const [person,setPerson]=useState('');const [items,setItems]=useState<Dispute[]>([]);const [loading,setLoading]=useState(false);const [failed,setFailed]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');const [reload,setReload]=useState(0);
+  const [people,setPeople]=useState<Collaborator[]>([]);const [person,setPerson]=useState('');const [items,setItems]=useState<Dispute[]>([]);const [loading,setLoading]=useState(false);const [failed,setFailed]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useRhNotice('error');const [notice,setNotice]=useRhNotice('success');const [reload,setReload]=useState(0);
   useEffect(()=>{if(!enabled)return;const c=new AbortController();fetchRedaction('/api/redaction/rh/collaborateurs',{cache:'no-store',signal:c.signal}).then(async r=>{if(!r.ok)throw new Error();setPeople((await r.json()).collaborators.filter((p:Collaborator)=>!p.archived));}).catch(()=>{if(!c.signal.aborted)setError('Chargement des dossiers impossible.');});return()=>c.abort();},[enabled]);
   useEffect(()=>{if(!enabled)return;const c=new AbortController();setOpenItems(null);fetchRedaction('/api/redaction/rh/contestations?status=open',{cache:'no-store',signal:c.signal}).then(async r=>{if(!r.ok)throw new Error();setOpenItems((await r.json()).disputes);}).catch(()=>{if(!c.signal.aborted)setOpenItems(null);});return()=>c.abort();},[enabled,reload]);
   useEffect(()=>{setItems([]);setFailed(false);if(!person || !enabled){setLoading(false);return;}const c=new AbortController();setLoading(true);setError('');fetchRedaction(`/api/redaction/rh/contestations?${new URLSearchParams({collaboratorId:person})}`,{cache:'no-store',signal:c.signal}).then(async r=>{if(!r.ok)throw new Error();setItems((await r.json()).disputes);}).catch(()=>{if(!c.signal.aborted){setFailed(true);setError('Chargement des contestations impossible.');}}).finally(()=>{if(!c.signal.aborted)setLoading(false);});return()=>c.abort();},[person,enabled,reload]);

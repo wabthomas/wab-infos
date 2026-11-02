@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 import { useEffect, useState } from 'react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import type { Collaborator } from '@/lib/redaction/rh/collaborator';
@@ -12,7 +13,8 @@ export function AccountLink({ person, onChanged }: { person: Collaborator; onCha
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useRhNotice('error');
+  const [, setMessage] = useRhNotice('success');
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError(''); setLoadFailed(false);
@@ -40,7 +42,7 @@ export function AccountLink({ person, onChanged }: { person: Collaborator; onCha
       const r = await fetchRedaction(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, collaboratorId: person.id, version: person.version, accountId: String(candidate?.id ?? ''), expectedEmail: candidate?.email }) });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Modification impossible.');
-      setCandidate(null); onChanged();
+      setCandidate(null); setMessage(action === 'link' ? 'Compte lié au dossier RH.' : 'Liaison supprimée.'); onChanged();
     } catch (e) { setError(e instanceof Error ? e.message : 'Modification impossible.'); }
     finally { setBusy(false); }
   }

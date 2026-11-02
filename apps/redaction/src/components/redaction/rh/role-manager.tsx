@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 import { useEffect, useState } from 'react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import type { Collaborator } from '@/lib/redaction/rh/collaborator';
@@ -11,7 +12,7 @@ export function RoleManager() {
   const [person, setPerson] = useState(''); const [role, setRole] = useState<RhRole>('rh_manager');
   const [failed, setFailed] = useState(false);
   const [enabled, setEnabled] = useState(false); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false);
-  const [reload, setReload] = useState(0); const [error, setError] = useState(''); const [message, setMessage] = useState('');
+  const [reload, setReload] = useState(0); const [error, setError] = useRhNotice('error'); const [message, setMessage] = useRhNotice('success');
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError(''); setFailed(false);
     Promise.all([fetchRedaction('/api/redaction/rh/collaborateurs', { cache: 'no-store', signal: controller.signal }), fetchRedaction('/api/redaction/rh/droits', { cache: 'no-store', signal: controller.signal })])

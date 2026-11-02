@@ -1,12 +1,14 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useToast } from '@/components/ui/toast';
 import { BellRing, Check } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { managementEventLabel, type ManagementEvent, type ManagementEventType } from '@/lib/redaction/rh/management-notifications';
 const endpoint = '/api/redaction/rh/notifications-gestion';
 const links: Record<ManagementEventType,string> = {prestation:'/rh#activity',absence:'/rh#leave',retrait:'/rh#withdrawals',contestation:'/rh#access'};
 export function useManagementNotifications(enabled: boolean) {
+  const toast = useToast();
   const [items,setItems] = useState<ManagementEvent[]>([]); const [visible,setVisible] = useState(false); const [error,setError] = useState(false); const [busy,setBusy] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -14,7 +16,7 @@ export function useManagementNotifications(enabled: boolean) {
     catch {setError(true);setVisible(true);}
   },[enabled]);
   useEffect(()=>{if(!enabled)return;void load();const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void load();},30000);const onVisible=()=>{if(document.visibilityState==='visible')void load();};document.addEventListener('visibilitychange',onVisible);return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);};},[enabled,load]);
-  const markRead=useCallback(async(id:string)=>{setBusy(id);try{const r=await fetchRedaction(endpoint,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});if(!r.ok)throw new Error();await load();}catch{setError(true);}finally{setBusy(null);}},[load]);
+  const markRead=useCallback(async(id:string)=>{setBusy(id);try{const r=await fetchRedaction(endpoint,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});if(!r.ok)throw new Error();await load();toast.success('Notification marquée comme lue.');}catch{setError(true);toast.error('Impossible de marquer cette notification comme lue.');}finally{setBusy(null);}},[load,toast]);
   return {items,visible,error,busy,markRead,load};
 }
 export function ManagementBell({state}:{state:ReturnType<typeof useManagementNotifications>}) {

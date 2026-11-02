@@ -1,4 +1,5 @@
 'use client';
+import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
 import { ArrowDownUp, CheckCircle2, Clock3, Loader2, ReceiptText, WalletCards, X } from 'lucide-react';
@@ -65,8 +66,8 @@ export function WithdrawalReview({
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [dates, setDates] = useState<Record<string, string>>({});
   const [refs, setRefs] = useState<Record<string, string>>({});
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useRhNotice('error');
+  const [message, setMessage] = useRhNotice('success');
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
