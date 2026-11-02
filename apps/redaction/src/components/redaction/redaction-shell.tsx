@@ -81,7 +81,7 @@ const RH_MOBILE_ADMIN: NavItem[] = [
   { href: '/rh', label: 'RH', icon: LayoutDashboard, exact: true },
   { href: '/rh/equipe', label: 'Équipe', icon: Users },
   { href: '/rh/conges', label: 'Congés', icon: CalendarDays },
-  { href: '/rh/retraits', label: 'Retraits', icon: ArrowDownUp },
+  { href: '/rh/retraits', label: 'Paiement', icon: ArrowDownUp },
   { href: '/rh/plus', label: 'Plus', icon: MoreHorizontal },
 ];
 
@@ -90,7 +90,7 @@ const RH_MOBILE_MY: NavItem[] = [
   { href: '/mon-rh', label: 'Mon RH', icon: LayoutDashboard, exact: true },
   { href: '/mon-rh/conges', label: 'Congés', icon: CalendarDays },
   { href: '/mon-rh/prestations', label: 'Prestations', icon: ClipboardList },
-  { href: '/mon-rh/retraits', label: 'Retraits', icon: ArrowDownUp },
+  { href: '/mon-rh/retraits', label: 'Paiement', icon: ArrowDownUp },
   { href: '/mon-rh/plus', label: 'Plus', icon: MoreHorizontal },
 ];
 

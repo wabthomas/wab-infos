@@ -242,7 +242,7 @@ export function MyWithdrawals({
             aria-expanded={requestOpen}
             className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 ${available === null ? 'bg-white/20 text-white/60' : 'bg-white text-[#191923] hover:opacity-90'}`}
           >
-            <PlusCircle className="h-3.5 w-3.5" /> {requestOpen ? 'Fermer' : 'Nouvelle demande'}
+            <PlusCircle className="h-3.5 w-3.5" /> {requestOpen ? 'Fermer' : "Retirer de l'argent"}
           </button>
           <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
             <WalletCards className="h-3.5 w-3.5" /> Aucun transfert automatique
