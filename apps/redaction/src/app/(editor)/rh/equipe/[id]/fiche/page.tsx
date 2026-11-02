@@ -15,5 +15,5 @@ export default async function AdminEmployeeFichePage({ params }: { params: Promi
   const { id } = await params;
   const person = (await listCollaborators()).find((collaborator) => collaborator.id === id);
   if (!person) notFound();
-  return <Suspense fallback={null}><EmployeeIdCard person={person} adminPersonId={id} /></Suspense>;
+  return <Suspense fallback={null}><EmployeeIdCard person={person} adminPersonId={id} collaboratorId={id} /></Suspense>;
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Clock3, Download, Printer, ReceiptText, ShieldCheck } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { SendDocumentActions } from './send-document-actions';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { formatMinorUnits } from '@/lib/redaction/rh/money';
 import { saveBlobToAndroid, printPageWithAndroidBridge } from '@wab-infos/shared';
@@ -48,9 +49,11 @@ async function deliverPdf(blob: Blob, filename: string) {
 export function PaymentReceipt({
   person,
   withdrawal,
+  collaboratorId,
 }: {
   person: { firstName: string; lastName: string; jobTitle: string; team: string };
   withdrawal: Withdrawal;
+  collaboratorId?: string;
 }) {
   const [company, setCompany] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
   const [assets, setAssets] = useState<Record<string, string | null>>({});
@@ -85,6 +88,13 @@ export function PaymentReceipt({
     }
     window.print();
     window.setTimeout(cleanup, 15_000);
+  }
+
+  async function buildPdfBlob(): Promise<Blob> {
+    const target = document.querySelector('.payment-receipt-document article') as HTMLElement | null;
+    if (!target) throw new Error('Document introuvable.');
+    const { captureElementAsPdf } = await import('@/lib/redaction/rh/pdf-capture');
+    return captureElementAsPdf(target, { fitPage: true });
   }
 
   async function downloadPdf() {
@@ -146,6 +156,7 @@ export function PaymentReceipt({
       <button type="button" onClick={printReceipt} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold shadow-sm"><Printer className="h-4 w-4" /> Imprimer</button>
       <button type="button" disabled={downloading} onClick={() => void downloadPdf()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm disabled:opacity-50"><Download className="h-4 w-4" />{downloading ? 'Préparation…' : 'Télécharger PDF'}</button>
     </div>
+    {collaboratorId && <div className="print:hidden"><SendDocumentActions collaboratorId={collaboratorId} getPdf={buildPdfBlob} filename={`recu-rh-${withdrawal.id.slice(0, 8)}.pdf`} subject="Recu de paiement RH" /></div>}
     {pdfMessage && <p role="status" className="print:hidden text-right text-xs text-primary">{pdfMessage}</p>}
 
     <article className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white text-[#171923] shadow-xl shadow-slate-900/5 print:break-inside-avoid print:rounded-none print:border-0 print:shadow-none">

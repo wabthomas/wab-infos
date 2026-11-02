@@ -11,5 +11,5 @@ export default async function FichePage() {
   if (!person) redirect('/profil');
   const full = (await listCollaborators()).find((entry) => entry.id === person.id);
   if (!full) redirect('/mon-rh');
-  return <Suspense fallback={null}><EmployeeIdCard person={full} /></Suspense>;
+  return <Suspense fallback={null}><EmployeeIdCard person={full} collaboratorId={full.id} /></Suspense>;
 }

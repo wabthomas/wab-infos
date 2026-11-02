@@ -3,6 +3,7 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { SendDocumentActions } from './send-document-actions';
 import { COUNTRIES, LANGUAGES, RDC_PROVINCES } from '@/lib/redaction/rh/geo';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { createOrganizationQr } from '@/lib/redaction/rh/organization-qr';
@@ -63,7 +64,7 @@ async function shareOrDownloadPdf(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-export function EmployeeIdCard({ person, adminPersonId }: { person: Person; adminPersonId?: string }) {
+export function EmployeeIdCard({ person, adminPersonId, collaboratorId }: { person: Person; adminPersonId?: string; collaboratorId?: string }) {
   const searchParams = useSearchParams();
   const [details, setDetails] = useState<PersonalDetails>({ birthDate: '', startDate: '', phone: '', email: '', address: '', country: COUNTRIES[0], province: 'Kinshasa', city: 'Kinshasa', emergencyContact: '', specialty: '', languages: '' });
   const [photo, setPhoto] = useState('');
@@ -177,6 +178,13 @@ export function EmployeeIdCard({ person, adminPersonId }: { person: Person; admi
     window.setTimeout(cleanup, 15_000);
   }
 
+  async function buildPdfBlob(): Promise<Blob> {
+    const target = document.querySelector('.employee-id-card') as HTMLElement | null;
+    if (!target) throw new Error('Document introuvable.');
+    const { captureElementAsPdf } = await import('@/lib/redaction/rh/pdf-capture');
+    return captureElementAsPdf(target, { fitPage: true });
+  }
+
   async function downloadPdf() {
     setDownloading(true); setMessage('');
     try {
@@ -263,6 +271,7 @@ export function EmployeeIdCard({ person, adminPersonId }: { person: Person; admi
       {!adminPersonId && <button type="button" onClick={() => setEditing((open) => !open)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><UserRoundPen className="h-4 w-4" />{editing ? 'Fermer le formulaire' : 'Compléter ma fiche'}</button>}
       <button type="button" onClick={printIdentityCard} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><Printer className="h-4 w-4" /> Imprimer</button>
       <button type="button" disabled={downloading} onClick={() => void downloadPdf()} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Download className="h-4 w-4" />{downloading ? 'Préparation…' : 'Télécharger PDF'}</button>
+      {collaboratorId && <SendDocumentActions collaboratorId={collaboratorId} getPdf={buildPdfBlob} filename={`fiche-identification-${person.lastName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`} subject="Fiche d identification RH" />}
     </div>
     {message && !editing && <p role="status" className="rounded-xl border border-primary/15 bg-primary/[0.06] px-4 py-2.5 text-sm text-primary print:hidden">{message}</p>}
     {editing && !adminPersonId && <div className="fixed inset-0 z-[85] flex items-end bg-black/55 print:hidden sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setEditing(false); }}>
