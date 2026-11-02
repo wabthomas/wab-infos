@@ -18,10 +18,10 @@ import type { PayoutMethod } from '@/lib/redaction/rh/payouts';
 const endpoint = '/api/redaction/rh/mon-espace/retraits';
 const statuses = {
   pending: 'En attente',
-  approved: 'Approuvée',
-  rejected: 'Refusée',
-  cancelled: 'Annulée',
-  paid: 'Payée',
+  approved: 'ApprouvÃƒÂ©e',
+  rejected: 'RefusÃƒÂ©e',
+  cancelled: 'AnnulÃƒÂ©e',
+  paid: 'PayÃƒÂ©e',
 } as const;
 const statusTones: Record<string, string> = {
   pending: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
@@ -33,7 +33,7 @@ const statusTones: Record<string, string> = {
 const methodsList = {
   mobile_money: 'Mobile Money',
   virement: 'Virement',
-  especes: 'Espèces',
+  especes: 'EspÃƒÂ¨ces',
   autre: 'Autre',
 } as const;
 
@@ -41,8 +41,8 @@ type WithdrawalFilter = 'all' | 'pending' | 'settled' | 'cancelled';
 const historyFilters: ReadonlyArray<{ value: WithdrawalFilter; label: string; statuses: readonly string[] }> = [
   { value: 'all', label: 'Toutes', statuses: [] },
   { value: 'pending', label: 'En attente', statuses: ['pending'] },
-  { value: 'settled', label: 'Validées-payées', statuses: ['approved', 'paid'] },
-  { value: 'cancelled', label: 'Annulées-refusées', statuses: ['rejected', 'cancelled'] },
+  { value: 'settled', label: 'ValidÃƒÂ©es-payÃƒÂ©es', statuses: ['approved', 'paid'] },
+  { value: 'cancelled', label: 'AnnulÃƒÂ©es-refusÃƒÂ©es', statuses: ['rejected', 'cancelled'] },
 ];
 
 function withdrawalRef(withdrawal: Withdrawal): string {
@@ -117,15 +117,15 @@ export function MyWithdrawals({
         body: JSON.stringify(body),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Opération impossible.');
+      if (!response.ok) throw new Error(data.error || 'OpÃƒÂ©ration impossible.');
       if (methodName === 'POST') {
         key.current = null;
         setAmount('');
       }
-      setMessage(methodName === 'POST' ? 'Demande enregistrée.' : 'Demande annulée.');
+      setMessage(methodName === 'POST' ? 'Demande enregistrÃƒÂ©e.' : 'Demande annulÃƒÂ©e.');
       setReload((n) => n + 1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Opération impossible.');
+      setError(e instanceof Error ? e.message : 'OpÃƒÂ©ration impossible.');
     } finally {
       setBusy(false);
     }
@@ -136,7 +136,7 @@ export function MyWithdrawals({
     key.current ??= crypto.randomUUID();
     const payload = { key: key.current, currency, amount, method, ...(payoutMethodId ? { payoutMethodId } : {}) };
     if (!validateWithdrawal(payload)) {
-      setError('Vérifiez le montant et la devise.');
+      setError('VÃƒÂ©rifiez le montant et la devise.');
       return;
     }
     void send('POST', payload);
@@ -146,7 +146,7 @@ export function MyWithdrawals({
     return (
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="font-display text-lg font-bold">Mes soldes et retraits</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Les retraits sont désactivés.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Les retraits sont dÃƒÂ©sactivÃƒÂ©s.</p>
       </section>
     );
   }
@@ -176,7 +176,7 @@ export function MyWithdrawals({
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-300">Mon solde disponible</p>
             <p className="mt-1 text-3xl font-bold tabular-nums sm:text-4xl">
-              {loading ? <Loader2 className="h-7 w-7 animate-spin text-zinc-400" /> : available ?? 'Non établi'}
+              {loading ? <Loader2 className="h-7 w-7 animate-spin text-zinc-400" /> : available ?? 'Non ÃƒÂ©tabli'}
             </p>
             <WalletCards className="sr-only" />
           </div>
@@ -204,10 +204,10 @@ export function MyWithdrawals({
                 <Clock3 className="h-3 w-3" /> {pendingCount} en attente
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-sky-400/15 px-2.5 py-1 text-sky-200">
-                <ArrowDownUp className="h-3 w-3" /> {approvedCount} approuvée(s)
+                <ArrowDownUp className="h-3 w-3" /> {approvedCount} approuvÃƒÂ©e(s)
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/15 px-2.5 py-1 text-emerald-200">
-                <CheckCircle2 className="h-3 w-3" /> {paidCount} payée(s)
+                <CheckCircle2 className="h-3 w-3" /> {paidCount} payÃƒÂ©e(s)
               </span>
             </div>
           </div>
@@ -218,19 +218,19 @@ export function MyWithdrawals({
             <div className="rounded-xl bg-white/[0.06] p-3">
               <dt className="text-zinc-400">Solde initial</dt>
               <dd className="mt-0.5 font-semibold">
-                {balance.opening === null ? '—' : formatMinorUnits(BigInt(balance.opening), currency)}
+                {balance.opening === null ? 'Ã¢â‚¬â€' : formatMinorUnits(BigInt(balance.opening), currency)}
               </dd>
             </div>
             <div className="rounded-xl bg-white/[0.06] p-3">
-              <dt className="text-zinc-400">Rémunérations</dt>
+              <dt className="text-zinc-400">RÃƒÂ©munÃƒÂ©rations</dt>
               <dd className="mt-0.5 font-semibold">{formatMinorUnits(BigInt(balance.validated), currency)}</dd>
             </div>
             <div className="rounded-xl bg-white/[0.06] p-3">
-              <dt className="text-zinc-400">Réservé</dt>
+              <dt className="text-zinc-400">RÃƒÂ©servÃƒÂ©</dt>
               <dd className="mt-0.5 font-semibold">{formatMinorUnits(BigInt(balance.reserved), currency)}</dd>
             </div>
             <div className="rounded-xl bg-white/[0.06] p-3">
-              <dt className="text-zinc-400">Payé</dt>
+              <dt className="text-zinc-400">PayÃƒÂ©</dt>
               <dd className="mt-0.5 font-semibold">{formatMinorUnits(BigInt(balance.paid), currency)}</dd>
             </div>
           </dl>
@@ -264,14 +264,14 @@ export function MyWithdrawals({
           <div>
             <h2 className="font-display text-lg font-bold">Mes demandes de retrait</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Chaque demande porte un numéro de suivi. Le paiement est enregistré par l’administration.
+              Chaque demande porte un numÃƒÂ©ro de suivi. Le paiement est enregistrÃƒÂ© par lÃ¢â‚¬â„¢administration.
             </p>
           </div>
           <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
             {items.length}
           </span>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer l’historique des retraits">
+        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer lÃ¢â‚¬â„¢historique des retraits">
           {historyFilters.map(({ value, label }) => (
             <button
               key={value}
@@ -290,7 +290,7 @@ export function MyWithdrawals({
         </div>
         <div className="mt-3 space-y-2">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Chargement…</p>
+            <p className="text-sm text-muted-foreground">ChargementÃ¢â‚¬Â¦</p>
           ) : failed ? null : items.length === 0 ? (
             <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">Aucune demande de retrait.</p>
           ) : visibleItems.length === 0 ? (
@@ -301,13 +301,13 @@ export function MyWithdrawals({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="font-semibold">
-                      Retrait {withdrawalRef(item)} · {formatMinorUnits(BigInt(item.amountMinor), item.currency)}
+                      Retrait {withdrawalRef(item)} Ã‚Â· {formatMinorUnits(BigInt(item.amountMinor), item.currency)}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       {methodsList[item.method]}
-                      {item.payoutLabel ? ` · ${item.payoutLabel}` : ''}
-                      {item.paymentDate ? ` · payé le ${item.paymentDate}` : ''}
-                      {item.paymentReference ? ` · référence : ${item.paymentReference}` : ''}
+                      {item.payoutLabel ? ` Ã‚Â· ${item.payoutLabel}` : ''}
+                      {item.paymentDate ? ` Ã‚Â· payÃƒÂ© le ${item.paymentDate}` : ''}
+                      {item.paymentReference ? ` Ã‚Â· rÃƒÂ©fÃƒÂ©rence : ${item.paymentReference}` : ''}
                     </p>
                   </div>
                   <span
@@ -340,33 +340,26 @@ export function MyWithdrawals({
                     href={`/mon-rh/recu/${item.id}`}
                     className="mt-2 inline-flex text-xs font-semibold text-primary underline"
                   >
-                    Télécharger le reçu
+                    TÃƒÂ©lÃƒÂ©charger le reÃƒÂ§u
                   </Link>
                 )}
               </article>
             ))
           )}
           {items.length === 500 && (
-            <p className="text-xs text-muted-foreground">Les 500 demandes les plus récentes sont affichées.</p>
+            <p className="text-xs text-muted-foreground">Les 500 demandes les plus rÃƒÂ©centes sont affichÃƒÂ©es.</p>
           )}
         </div>
       </section>
 
       <MyPaymentHistory refresh={reload} />
-      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien n’apparaît pas ? Déclarez-le pour vérification</Link>
+      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien nÃ¢â‚¬â„¢apparaÃƒÂ®t pas ? DÃƒÂ©clarez-le pour vÃƒÂ©rification</Link>
 
-      {requestOpen && <form
-        id="nouvelle-demande"
-        onSubmit={submit}
-        className="scroll-mt-24 space-y-3 rounded-2xl border border-border bg-card p-5"
-      >
-        <div>
-          <h2 className="font-display text-lg font-bold">Demander un retrait</h2>
+      {requestOpen && (<div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="withdraw-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}><form id="nouvelle-demande" onSubmit={submit} className="relative max-h-[92dvh] w-full max-w-xl space-y-3 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6"><button type="button" onClick={() => setRequestOpen(false)} disabled={busy} aria-label="Fermer le formulaire" className="absolute right-4 top-4 rounded-full border border-border bg-card p-2 text-muted-foreground disabled:opacity-50">âœ•</button><h2 id="withdraw-form-title" className="font-display text-lg font-bold">Retirer de l argent</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Un solde initial doit être établi par l’administrateur. Ne saisissez pas vos coordonnées bancaires ou Mobile
+            Un solde initial doit ÃƒÂªtre ÃƒÂ©tabli par lÃ¢â‚¬â„¢administrateur. Ne saisissez pas vos coordonnÃƒÂ©es bancaires ou Mobile
             Money ici.
           </p>
-        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             Montant
@@ -418,7 +411,7 @@ export function MyWithdrawals({
             </select>
           </label>
           <label className="text-sm">
-            Destination (moyen enregistré)
+            Destination (moyen enregistrÃƒÂ©)
             <select
               disabled={busy}
               value={payoutMethodId}
@@ -428,12 +421,12 @@ export function MyWithdrawals({
               }}
               className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
             >
-              <option value="">Non précisée</option>
+              <option value="">Non prÃƒÂ©cisÃƒÂ©e</option>
               {methods
                 .filter((entry) => entry.active && entry.currency === currency)
                 .map((entry) => (
                   <option key={entry.id} value={entry.id}>
-                    {entry.provider} · {entry.accountName} · {entry.accountNumber.slice(-4).padStart(4, '•')}
+                    {entry.provider} Ã‚Â· {entry.accountName} Ã‚Â· {entry.accountNumber.slice(-4).padStart(4, 'Ã¢â‚¬Â¢')}
                   </option>
                 ))}
             </select>
@@ -444,9 +437,9 @@ export function MyWithdrawals({
           disabled={busy || available === null}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {busy ? 'Envoi…' : 'Envoyer la demande'}
+          {busy ? 'EnvoiÃ¢â‚¬Â¦' : 'Envoyer la demande'}
         </button>
-      </form>}
+      </form></div>)}
     </div>
   );
 }
