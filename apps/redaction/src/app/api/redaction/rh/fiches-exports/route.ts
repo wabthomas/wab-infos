@@ -32,10 +32,10 @@ export async function POST(request: Request) {
       if (person.rowCount !== 1) { await client.query('ROLLBACK'); return json({ error: 'Dossier indisponible.' }, 404); }
       const result = await client.query(sheetQueries[filter.type],[person.rows[0].id,filter.start,filter.end]);
       if (result.rows.length > 5000) { await client.query('ROLLBACK'); return json({ error: 'Plus de 5 000 lignes : réduisez la période.' }, 413); }
-      await client.query(`INSERT INTO redaction_rh.record_sheet_exports(actor_email,collaborator_id,sheet_type,from_date,through_date,row_count)
-        VALUES($1,$2,$3,$4,$5,$6)`,[actor.email,person.rows[0].id,filter.type,filter.start,filter.end,result.rows.length]);
+      const audit = await client.query(`INSERT INTO redaction_rh.record_sheet_exports(actor_email,collaborator_id,sheet_type,from_date,through_date,row_count)
+        VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[actor.email,person.rows[0].id,filter.type,filter.start,filter.end,result.rows.length]);
       await client.query('COMMIT');
-      return json({ person:person.rows[0],filter,rows:result.rows as SheetRow[] });
+      return json({ person:person.rows[0],filter,rows:result.rows as SheetRow[],exportId:audit.rows[0].id });
     } catch (error) { await client.query('ROLLBACK').catch(()=>undefined); throw error; }
     finally { client.release(); }
   } catch (error) { return handleError(error); }
