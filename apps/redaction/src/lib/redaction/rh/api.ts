@@ -18,7 +18,7 @@ export function validOrigin(request: Request): boolean {
   return isAllowedRhOrigin(request.headers.get('origin'), process.env.REDACTION_RH_ALLOWED_ORIGINS || '', request.url, process.env.NODE_ENV !== 'production');
 }
 
-export async function readBody(request: Request): Promise<unknown> {
+export async function readBody(request: Request, maxBytes = 8192): Promise<unknown> {
   if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) throw new Error('bad request');
   const reader = request.body?.getReader();
   if (!reader) throw new Error('bad request');
@@ -28,7 +28,7 @@ export async function readBody(request: Request): Promise<unknown> {
     const { value, done } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > 8192) { await reader.cancel(); throw new Error('body too large'); }
+    if (size > maxBytes) { await reader.cancel(); throw new Error('body too large'); }
     chunks.push(value);
   }
   const bytes = new Uint8Array(size);

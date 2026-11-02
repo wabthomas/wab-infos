@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     try { await requireRhPermission('team_read'); } catch { actor = await requireRhPrincipal(); }
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let body: unknown;
-    try { body = await readBody(request); } catch { return json({ error: 'Document trop volumineux ou requête invalide.' }, 400); }
+    try { body = await readBody(request, 8_000_000); } catch { return json({ error: 'Document trop volumineux ou requête invalide.' }, 400); }
     const v = body as Record<string, unknown>;
     const collaboratorId = typeof v.collaboratorId === 'string' ? v.collaboratorId : '';
     const pdfBase64 = typeof v.pdfBase64 === 'string' ? v.pdfBase64 : '';
