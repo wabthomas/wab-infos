@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { parseSheetFilter, sheetQueries } from '../apps/redaction/src/lib/redaction/rh/record-sheets.ts';
 import { paymentSheetTotals } from '../apps/redaction/src/lib/redaction/rh/record-sheet-totals.ts';
+import { insertRecordSheetPdfSql } from '../apps/redaction/src/lib/redaction/rh/record-sheet-link-sql.ts';
 
 test('fiches : période bornée, types et dossiers explicitement validés',()=>{
   assert.equal(parseSheetFilter({type:'presence',start:'2025-01-01',end:'2025-12-31'})?.type,'presence');
@@ -15,10 +16,11 @@ test('fiches : période bornée, types et dossiers explicitement validés',()=>{
 test('fiches : migrations et lignes détaillées, totaux sans doubles comptes', async()=>{
  const db=new PGlite();
  try {
-  for(const name of ['initial','prestations','absences','account-links','declarations','remunerations','retraits','payouts-attendance','paiements-historiques','fiches-exports'])
+  for(const name of ['initial','prestations','absences','account-links','declarations','remunerations','retraits','payouts-attendance','paiements-historiques','fiches-exports','fiches-browser'])
    await db.exec(await readFile(new URL(`../docs/sql/rh-${name}.sql`,import.meta.url),'utf8'));
   const id='aaaaaaaa-1111-4111-8111-111111111111';
   await db.query(`INSERT INTO redaction_rh.collaborators(id,first_name,last_name,job_title,team,contract_status,start_date) VALUES($1,'Anne','B','Journaliste','Rédaction','Actif','2024-01-01')`,[id]);
+  await db.query(`INSERT INTO redaction_rh.account_links(collaborator_id,account_id,account_email) VALUES($1,12,'anne@example.test')`,[id]);
   await db.query(`INSERT INTO redaction_rh.attendance(id,collaborator_id,work_date,check_in,check_out) VALUES('bbbbbbbb-1111-4111-8111-111111111111',$1,'2025-05-06','2025-05-06T07:00:00Z','2025-05-06T15:00:00Z')`,[id]);
   await db.query(`INSERT INTO redaction_rh.activity_submissions(id,collaborator_id,activity_date,description) VALUES('cccccccc-1111-4111-8111-111111111111',$1,'2025-05-06','Reportage')`,[id]);
   const params=[id,'2025-05-01','2025-05-31'];
@@ -39,5 +41,18 @@ test('fiches : migrations et lignes détaillées, totaux sans doubles comptes', 
   assert.equal(total.confirmed,BigInt(12500));assert.equal(total.pending,BigInt(3000));assert.equal(total.matched,1);
   await db.query(`INSERT INTO redaction_rh.record_sheet_exports(actor_email,collaborator_id,sheet_type,from_date,through_date,row_count) VALUES('anne@example.test',$1,'paiements','2025-05-01','2025-05-31',4)`,[id]);
   assert.equal((await db.query(`SELECT count(*)::int AS n FROM redaction_rh.record_sheet_exports`)).rows[0].n,1);
+  const exportId=(await db.query(`SELECT id FROM redaction_rh.record_sheet_exports`)).rows[0].id;
+  const pdf=Buffer.from('%PDF-1.4\n'+'x'.repeat(32)+'\n%%EOF');
+  const hash='a'.repeat(64);
+  const args=[hash,pdf,exportId,'anne@example.test','paiements',null,12];
+  assert.equal((await db.query(insertRecordSheetPdfSql,[hash,pdf,exportId,'wrong@example.test','paiements',null,12])).rows.length,0);
+  assert.equal((await db.query(insertRecordSheetPdfSql,[hash,pdf,exportId,'anne@example.test','presence',null,12])).rows.length,0);
+  assert.equal((await db.query(insertRecordSheetPdfSql,[hash,pdf,exportId,'anne@example.test','paiements',null,99])).rows.length,0);
+  assert.equal((await db.query(insertRecordSheetPdfSql,args)).rows.length,1);
+  assert.equal(Buffer.from((await db.query(`SELECT pdf_bytes FROM redaction_rh.record_sheet_pdf_links WHERE token_hash=$1 AND expires_at>now()`,[hash])).rows[0].pdf_bytes).equals(pdf),true);
+  assert.equal((await db.query(insertRecordSheetPdfSql,['b'.repeat(64),...args.slice(1)])).rows.length,0);
+  await db.query(`UPDATE redaction_rh.record_sheet_pdf_links SET expires_at=now()-interval '1 second' WHERE token_hash=$1`,[hash]);
+  assert.equal((await db.query(`SELECT pdf_bytes FROM redaction_rh.record_sheet_pdf_links WHERE token_hash=$1 AND expires_at>now()`,[hash])).rows.length,0);
+
  } finally {await db.close();}
 });
