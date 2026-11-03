@@ -18,7 +18,7 @@ export interface TeamAttendance extends Attendance {
 }
 
 export const ATTENDANCE_START_TIME = '07:00';
-export const ATTENDANCE_END_TIME = '15:00';
+export const ATTENDANCE_END_TIME = '18:00';
 
 export type ArrivalAssessment = 'on_time' | 'late' | 'excused' | 'not_recorded' | 'not_scheduled';
 

@@ -124,6 +124,7 @@ export function OrganizationSettings() {
               <input type={key === 'companyEmail' ? 'email' : key === 'companyWebsite' ? 'url' : 'text'} maxLength={key === 'companyAddress' ? 500 : 320} value={settings[key]} onChange={(event) => change(key, event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5" />
             </label>)}
           </div>
+          <label className="block text-sm font-medium">{ORGANIZATION_SETTING_LABELS.attendanceEndTime}<input type="time" value={settings.attendanceEndTime} onChange={(event) => change('attendanceEndTime', event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5" /></label>
           <div className="grid gap-3 sm:grid-cols-2">
             {textFields.slice(9).map((key) => <label key={key} className="block text-sm font-medium">{ORGANIZATION_SETTING_LABELS[key]}
               <textarea rows={3} maxLength={1200} value={settings[key]} onChange={(event) => change(key, event.target.value)} className="mt-1 block w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5" />

@@ -4,7 +4,7 @@ import { assessArrival, validateAttendanceCorrection, ATTENDANCE_START_TIME, ATT
 
 test('présence : horaires annoncés et repère de retard sans pénalité automatique', () => {
   assert.equal(ATTENDANCE_START_TIME, '07:00');
-  assert.equal(ATTENDANCE_END_TIME, '15:00');
+  assert.equal(ATTENDANCE_END_TIME, '18:00');
   assert.equal(assessArrival(null), 'not_recorded');
   assert.equal(assessArrival('06:59'), 'on_time');
   assert.equal(assessArrival('07:00'), 'on_time');

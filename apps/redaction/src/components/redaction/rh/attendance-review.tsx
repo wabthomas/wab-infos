@@ -36,6 +36,12 @@ function historyLabel(history: AttendanceCorrection['history']): string {
 }
 
 export function AttendanceReview({ initialMonth, today }: { initialMonth: string; today: string }) {
+  const [endTime, setEndTime] = useState(ATTENDANCE_END_TIME);
+  useEffect(() => {
+    fetchRedaction('/api/redaction/rh/organisation', { cache: 'no-store' })
+      .then(async (response) => { if (!response.ok) return; const data = await response.json(); if (data.settings?.attendanceEndTime) setEndTime(data.settings.attendanceEndTime); })
+      .catch(() => undefined);
+  }, []);
   const [month, setMonth] = useState(initialMonth);
   const [personId, setPersonId] = useState('');
   const [people, setPeople] = useState<Collaborator[]>([]);
@@ -141,7 +147,7 @@ export function AttendanceReview({ initialMonth, today }: { initialMonth: string
   return <section className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
     <div>
       <h2 className="font-display text-lg font-bold">Pointages de présence</h2>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">Horaire de référence du lundi au samedi, y compris les jours fériés : arrivée à {ATTENDANCE_START_TIME}, fin indicative à {ATTENDANCE_END_TIME} (heure de Kinshasa). Le dimanche est hors horaire régulier. Une arrivée après 07:00 est signalée comme tardive, sauf absence approuvée ; la sortie peut être signée dès la fin des prestations, sans attendre 15:00.</p>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">Horaire de référence du lundi au samedi, y compris les jours fériés : arrivée à {ATTENDANCE_START_TIME}, fin indicative à {endTime} (heure de Kinshasa). Le dimanche est hors horaire régulier. Une arrivée après 07:00 est signalée comme tardive, sauf absence approuvée ; la sortie peut être signée dès la fin des prestations, sans attendre {endTime}.</p>
     </div>
 
     <div className="grid gap-3 sm:grid-cols-2">

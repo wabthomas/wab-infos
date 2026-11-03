@@ -261,6 +261,9 @@ export function MyWithdrawals({
           <button type="button" onClick={() => setRequestOpen(true)} disabled={available === null} aria-expanded={requestOpen} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-[#191923] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
             <PlusCircle className="h-3.5 w-3.5" /> Retirer de l'argent
           </button>
+          <button type="button" onClick={() => window.dispatchEvent(new Event('rh-open-payouts'))} className="inline-flex items-center gap-1.5 rounded-xl border border-white/30 px-4 py-2 text-xs font-bold text-white hover:bg-white/10">
+            Moyens de paiement
+          </button>
         </div>
       </section>
 

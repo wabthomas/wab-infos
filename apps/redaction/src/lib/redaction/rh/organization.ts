@@ -10,6 +10,7 @@ export const ORGANIZATION_SETTING_LABELS = {
   directorTitle: 'Titre du signataire',
   documentHeader: 'Entête des documents',
   documentFooter: 'Pied de page des documents',
+  attendanceEndTime: 'Heure limite de signature de sortie (HH:MM)',
 } as const;
 
 export type OrganizationSettingKey = keyof typeof ORGANIZATION_SETTING_LABELS;
@@ -27,6 +28,7 @@ export const DEFAULT_ORGANIZATION_SETTINGS: OrganizationSettings = {
   directorTitle: 'Directeur général',
   documentHeader: '',
   documentFooter: 'Document interne — émis par Wab-infos.',
+  attendanceEndTime: '18:00',
 };
 
 export const ORGANIZATION_ASSETS = {
