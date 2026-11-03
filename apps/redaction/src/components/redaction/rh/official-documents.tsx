@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/toast';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { OFFICIAL_KINDS, type OfficialDocumentKind, type OfficialTemplate } from '@/lib/redaction/rh/official-documents';
+import { printPageWithAndroidBridge } from '@wab-infos/shared';
 import { downloadCanvas, downloadOfficialPdf, renderOfficialPage, OfficialPageOverflowError, type OfficialExport } from '@/lib/redaction/rh/official-export';
 
 const base = '/api/redaction/rh';
@@ -166,7 +167,7 @@ export function OfficialDocuments() {
       const url = canvas.toDataURL('image/jpeg', 0.9);
       await new Promise<void>((resolve, reject) => { const img = new Image(); img.onload = () => resolve(); img.onerror = () => reject(new Error('Aperçu indisponible.')); img.src = url; });
       flushSync(() => { setPreview(url); setOverflow(false); });
-      window.print();
+      if (!printPageWithAndroidBridge()) window.print();
     } catch (cause) {
       setError(cause instanceof OfficialPageOverflowError ? cause.message : 'Impression impossible sur cet appareil.');
       setOverflow(cause instanceof OfficialPageOverflowError);

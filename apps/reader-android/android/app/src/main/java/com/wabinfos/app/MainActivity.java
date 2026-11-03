@@ -8,6 +8,7 @@ import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.content.Context;
 import android.content.Intent;
+import android.Manifest;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -769,6 +770,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startNativeDownload(String url, String userAgent, String contentDisposition, String mimeType) {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P
+                && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 7311);
+            Toast.makeText(this, "Autorisez le stockage pour télécharger, puis réessayez.", Toast.LENGTH_LONG).show();
+            return;
+        }
         try {
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
             request.setMimeType(mimeType);
@@ -1353,6 +1360,11 @@ public class MainActivity extends AppCompatActivity {
             } catch (IllegalArgumentException error) {
                 runOnUiThread(() -> Toast.makeText(MainActivity.this, "Le fichier PDF est invalide.", Toast.LENGTH_LONG).show());
             }
+        }
+
+        @android.webkit.JavascriptInterface
+        public void savePdf(String base64, String fileName) {
+            saveFile(base64, fileName, "application/pdf");
         }
 
         @android.webkit.JavascriptInterface

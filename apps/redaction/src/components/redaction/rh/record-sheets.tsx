@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Download, ExternalLink, Printer, Copy } from 'lucide-react';
 import { useRhNotice } from './use-rh-notice';
+import { saveBlobToAndroid } from '@wab-infos/shared';
 import { fetchRedaction, redactionPublicPath } from '@/lib/redaction/public-path';
 import { kinshasaToday } from '@/lib/redaction/rh/activities';
 import { parseSheetFilter, type SheetType } from '@/lib/redaction/rh/record-sheets';
@@ -39,6 +40,7 @@ export function RecordSheets({ type: fixedType, admin = false, allowPayments = t
       if(!response.ok)throw new Error((data as unknown as {error?:string}).error||'Fiche indisponible.');
       const { buildRecordSheetPdf }=await import('@/lib/redaction/rh/record-sheet-pdf');
       const blob=await buildRecordSheetPdf(data);
+      if(action==='download' && await saveBlobToAndroid(blob, `fiche-rh-${type}-${start}-${end}.pdf`, 'application/pdf')){setMessage('Fiche enregistrée dans vos fichiers.');setBusy(false);return;}
       // Un blob: appartient à la WebView de l'APK et ne s'ouvre pas dans Chrome.
       // Une URL HTTPS courte, sans cookie, permet au navigateur externe de lire ce PDF.
       const query=new URLSearchParams({exportId:String(data.exportId),type,...(admin?{collaboratorId:person}:{})});
