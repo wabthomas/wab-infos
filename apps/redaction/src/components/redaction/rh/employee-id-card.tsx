@@ -27,6 +27,8 @@ function dataUrlAsJpeg(source: string): Promise<string | null> {
         canvas.height = image.naturalHeight;
         const context = canvas.getContext('2d');
         if (!context) return resolve(null);
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0);
         resolve(canvas.toDataURL('image/jpeg', 0.9));
       } catch { resolve(null); }
