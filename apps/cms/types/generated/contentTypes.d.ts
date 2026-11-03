@@ -517,6 +517,39 @@ export interface ApiAiSettingAiSetting extends Struct.SingleTypeSchema {
   };
 }
 
+export interface ApiArticleNewsletterLogArticleNewsletterLog
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'article_newsletter_logs';
+  info: {
+    displayName: "Journal d'envoi newsletter article";
+    pluralName: 'article-newsletter-logs';
+    singularName: 'article-newsletter-log';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    articleDocumentId: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    articleSlug: Schema.Attribute.String;
+    claimedAt: Schema.Attribute.DateTime;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::article-newsletter-log.article-newsletter-log'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
   collectionName: 'articles';
   info: {
@@ -1540,6 +1573,7 @@ declare module '@strapi/strapi' {
       'admin::user': AdminUser;
       'api::ad-placement.ad-placement': ApiAdPlacementAdPlacement;
       'api::ai-setting.ai-setting': ApiAiSettingAiSetting;
+      'api::article-newsletter-log.article-newsletter-log': ApiArticleNewsletterLogArticleNewsletterLog;
       'api::article.article': ApiArticleArticle;
       'api::author.author': ApiAuthorAuthor;
       'api::category.category': ApiCategoryCategory;
