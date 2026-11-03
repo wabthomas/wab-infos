@@ -71,10 +71,10 @@ function Send-File {
 
 function Restart-RemotePassenger {
   param([string]$SshHost, [string]$RemoteBase, [string]$AppRelativePath)
-  # Turbopack peut externaliser pg sous un nom hashé (pg-<hash>) absent de node_modules.
-  # On recrée l'alias attendu à partir du paquet pg installé avant de redémarrer.
+  # Turbopack peut externaliser pg sous un nom hashÃ© (pg-<hash>) absent de node_modules.
+  # On recrÃ©e l'alias attendu Ã  partir du paquet pg installÃ© avant de redÃ©marrer.
   $appDir = "$RemoteBase/$AppRelativePath"
-  $shim = 'cd ' + $appDir + ' && for pkg in pg firebase-admin; do if [ -d "node_modules/$pkg" ]; then for name in $(grep -rhoE "$pkg-[a-f0-9]{8,}" .next/server 2>/dev/null | sort -u); do [ -e "node_modules/$name" ] || cp -r "node_modules/$pkg" "node_modules/$name"; done; fi; done'
+  $shim = 'cd ' + $appDir + ' && for pkg in pg firebase-admin sharp; do if [ -d "node_modules/$pkg" ]; then for name in $(grep -rhoE "$pkg-[a-f0-9]{8,}" .next/server 2>/dev/null | sort -u); do [ -e "node_modules/$name" ] || cp -r "node_modules/$pkg" "node_modules/$name"; done; fi; done'
   Invoke-Remote -SshHost $SshHost -Command "$shim && mkdir -p $appDir/tmp && touch $appDir/tmp/restart.txt && echo restart Passenger: $AppRelativePath"
 }
 
@@ -123,9 +123,9 @@ try {
       }
       Send-File -SshHost $sshHost -LocalPath $tarPath -RemotePath "$remoteBase/web-next-build.tar.gz"
       # Remplacement atomique de .next : extraction dans un dossier temporaire,
-      # vérification du BUILD_ID, puis bascule. Évite l'empilement des anciens
-      # chunks (5,6 Go constatés) qui finissait par saturer le quota disque et
-      # bloquait l'écriture du cache ISR (accueil figé).
+      # vÃ©rification du BUILD_ID, puis bascule. Ã‰vite l'empilement des anciens
+      # chunks (5,6 Go constatÃ©s) qui finissait par saturer le quota disque et
+      # bloquait l'Ã©criture du cache ISR (accueil figÃ©).
       Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && rm -rf apps/web/.next.new && mkdir -p apps/web/.next.new && tar -xzf web-next-build.tar.gz -C apps/web/.next.new .next && test -f apps/web/.next.new/.next/BUILD_ID && rm -rf apps/web/.next && mv apps/web/.next.new/.next apps/web/.next && rm -rf apps/web/.next.new && tar -xzf web-next-build.tar.gz -C apps/web public && echo web unpack OK"
       Restart-RemotePassenger -SshHost $sshHost -RemoteBase $remoteBase -AppRelativePath 'apps/web'
       Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'scripts/restart-web-node.sh') -RemotePath "$remoteBase/scripts/restart-web-node.sh"
@@ -155,8 +155,8 @@ try {
       Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'apps/redaction/public/sw-redaction.js') -RemotePath "$remoteBase/apps/redaction/public/sw-redaction.js"
       Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'apps/redaction/public/fcm-background.js') -RemotePath "$remoteBase/apps/redaction/public/fcm-background.js"
       # Le serveur peut avoir un package.json plus ancien que le build : sans cette
-      # synchronisation, les nouvelles dépendances (ex. pg pour le module RH) ne
-      # sont pas installées et les routes répondent 500.
+      # synchronisation, les nouvelles dÃ©pendances (ex. pg pour le module RH) ne
+      # sont pas installÃ©es et les routes rÃ©pondent 500.
       Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'apps/redaction/package.json') -RemotePath "$remoteBase/apps/redaction/package.json"
       Send-File -SshHost $sshHost -LocalPath (Join-Path $RepoRoot 'package-lock.json') -RemotePath "$remoteBase/package-lock.json"
       Invoke-Remote -SshHost $sshHost -Command "cd $remoteBase && rm -rf apps/redaction/.next && tar -xzf redaction-next-build.tar.gz -C apps/redaction && test -f apps/redaction/.next/BUILD_ID && echo redaction unpack OK"
