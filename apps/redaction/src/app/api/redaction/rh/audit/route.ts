@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    await requireRhPermission('access_manage');
+    await requireRhPermission('hr_manage');
     const query = parseAuditPage(request.nextUrl.searchParams);
     if (!query) return json({ error: 'Page ou référence invalide.' }, 400);
     const client = await db().connect();

@@ -8,9 +8,9 @@ import { auditCountSql, auditPageSql } from '../apps/redaction/src/lib/redaction
 test('journal RH : lecture réservée au super-administrateur côté API et interface', async () => {
   const route = await readFile(new URL('../apps/redaction/src/app/api/redaction/rh/audit/route.ts', import.meta.url), 'utf8');
   const page = await readFile(new URL('../apps/redaction/src/app/(editor)/rh/rapports/page.tsx', import.meta.url), 'utf8');
-  assert.match(route, /requireRhPermission\('access_manage'\)/);
-  assert.ok(route.indexOf("requireRhPermission('access_manage')") < route.indexOf('db().connect()'));
-  assert.match(page, /capabilities\.accessManage && <AuditJournal/);
+  assert.match(route, /requireRhPermission\('hr_manage'\)/);
+  assert.ok(route.indexOf("requireRhPermission('hr_manage')") < route.indexOf('db().connect()'));
+  assert.match(page, /\(capabilities\.hrManage \|\| capabilities\.accessManage\) && <AuditJournal/);
 });
 
 test('journal RH : pages et références invalides rejetées avant requête SQL', () => {

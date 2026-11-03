@@ -15,5 +15,5 @@ export default async function RhReportsPage() {
   }
   if (!capabilities.hrManage) redirect('/rh');
   const flags = await getRhFlags();
-  return <div className="space-y-5"><Reports today={kinshasaToday()} /><RecordSheets admin allowPayments={capabilities.financeRead && flags.withdrawalsEnabled} />{capabilities.accessManage && <AuditJournal />}</div>;
+  return <div className="space-y-5"><Reports today={kinshasaToday()} /><RecordSheets admin allowPayments={capabilities.financeRead && flags.withdrawalsEnabled} />{(capabilities.hrManage || capabilities.accessManage) && <AuditJournal />}</div>;
 }

@@ -50,7 +50,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
     if (!(file instanceof File) || file.size < 16 || file.size > 2_000_000) return json({ error: 'Image invalide (2 Mo maximum).' }, 400);
     const bytes = Buffer.from(await file.arrayBuffer());
     const type = detectImage(bytes);
-    if (!type) return json({ error: 'Formats autorisés : JPG, PNG (transparence acceptée) ou WebP.' }, 415);
+    if (!type) return json({ error: 'Formats autorisés : JPG, PNG ou WebP.' }, 415);
     await db().query(
       `INSERT INTO redaction_rh.organization_assets(asset_key,file_bytes,mime_type,updated_by) VALUES($1,$2,$3,$4)
        ON CONFLICT(asset_key) DO UPDATE SET file_bytes=EXCLUDED.file_bytes,mime_type=EXCLUDED.mime_type,updated_by=EXCLUDED.updated_by,updated_at=now()`,
