@@ -3,8 +3,9 @@
 import { saveBlobToAndroid } from '@wab-infos/shared';
 import type { OfficialDocumentKind } from './official-documents';
 import type { OrganizationSettings } from './organization';
+import { createOrganizationQr } from './organization-qr';
 
-type Assets = Record<'company-logo' | 'document-header' | 'document-footer' | 'director-signature', string | null>;
+type Assets = Record<'company-logo' | 'document-header' | 'document-footer' | 'director-signature' | 'company-seal', string | null>;
 export type OfficialExport = {
   kind: OfficialDocumentKind; subject: string; body: string; recipient: string;
   date: string; signed: boolean; signatureMode: 'texte' | 'image';
@@ -146,15 +147,32 @@ export async function renderOfficialPage(doc: OfficialExport, scale = S): Promis
   if (!ctx) throw new Error('Canvas indisponible.');
   ctx.scale(scale, scale);
   const layout = planOfficialPage(ctx, doc);
-  const [logo, header, footer, signature] = await Promise.all([
+  const [logo, header, footer, signature, seal, qrData] = await Promise.all([
     load(doc.assets['company-logo']), load(doc.assets['document-header']),
     load(doc.assets['document-footer']), load(doc.assets['director-signature']),
+    load(doc.assets['company-seal'] || null),
+    createOrganizationQr(doc.settings).catch(() => null),
   ]);
+  const qr = qrData ? await load(qrData) : null;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pageWidth, pageHeight);
-  image(ctx, logo, left, 42, 96, 67);
+  image(ctx, logo, left, 42, 108, 78);
   image(ctx, header, 560, 28, 195, 80);
   image(ctx, footer, left, layout.footerImageY, 680, 42);
+  if (qr) {
+    const qrSize = 92;
+    const qrX = left;
+    const qrY = Math.max(layout.headerBottom + 8, layout.footerTop - qrSize - 10);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(qrX - 5, qrY - 5, qrSize + 10, qrSize + 10);
+    image(ctx, qr, qrX, qrY, qrSize, qrSize);
+  }
   if (layout.signatureY !== null) {
+    if (seal) {
+      ctx.save();
+      ctx.globalAlpha = 0.92;
+      image(ctx, seal, right - 136, layout.signatureY + 4, 120, 120);
+      ctx.restore();
+    }
     if (!signature) throw new Error('Image de signature indisponible.');
     image(ctx, signature, right - 170, layout.signatureY, 170, 70);
   }
