@@ -53,35 +53,35 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, width: number): strin
 /** Calcule toutes les positions AVANT de dessiner : aucun contenu ne peut être coupé. */
 export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExport): Layout {
   const lines: Line[] = [];
-  setFont(ctx, 11);
+  setFont(ctx, 13);
   const headerText = [doc.settings.documentHeader, doc.settings.companyAddress,
     [doc.settings.companyPhone, doc.settings.companyEmail].filter(Boolean).join(' · ')].filter(Boolean).join('\n');
   const headerX = doc.assets['company-logo'] ? 181 : left;
   const headerRight = doc.assets['document-header'] ? 545 : right;
-  setFont(ctx, 18, true);
+  setFont(ctx, 21, true);
   const nameLines = wrap(ctx, doc.settings.companyName || 'Entreprise', headerRight - headerX);
-  setFont(ctx, 11);
+  setFont(ctx, 13);
   const headerLines = headerText ? wrap(ctx, headerText, headerRight - headerX) : [];
-  const detailsY = 65 + 22 * nameLines.length;
-  const headerBottom = Math.max(145, detailsY + 14 * headerLines.length + 12);
-  if (headerBottom > 250) throw new OfficialPageOverflowError();
-  nameLines.forEach((text, i) => lines.push({ text, x: headerX, y: 65 + 22 * i, size: 18, bold: true }));
-  headerLines.forEach((text, i) => lines.push({ text, x: headerX, y: detailsY + 14 * i, size: 11 }));
+  const detailsY = 65 + 26 * nameLines.length;
+  const headerBottom = Math.max(150, detailsY + 18 * headerLines.length + 15);
+  if (headerBottom > 275) throw new OfficialPageOverflowError();
+  nameLines.forEach((text, i) => lines.push({ text, x: headerX, y: 65 + 26 * i, size: 21, bold: true }));
+  headerLines.forEach((text, i) => lines.push({ text, x: headerX, y: detailsY + 18 * i, size: 13 }));
 
-  setFont(ctx, 10);
+  setFont(ctx, 12);
   const footerLines = doc.settings.documentFooter ? wrap(ctx, doc.settings.documentFooter, right - left) : [];
   const lastFooterBaseline = pageHeight - 40;
-  const firstFooterBaseline = lastFooterBaseline - (footerLines.length - 1) * 13;
+  const firstFooterBaseline = lastFooterBaseline - (footerLines.length - 1) * 17;
   const footerImageY = (footerLines.length ? firstFooterBaseline : pageHeight - 40) - (doc.assets['document-footer'] ? 52 : 12);
   const footerTop = footerImageY - 12;
-  if (footerTop < pageHeight - 210) throw new OfficialPageOverflowError();
-  footerLines.forEach((text, i) => lines.push({ text, x: left, y: firstFooterBaseline + i * 13, size: 10 }));
-  lines.push({ text: 'Page 1 / 1', x: right, y: pageHeight - 16, size: 10, align: 'right' });
+  if (footerTop < pageHeight - 230) throw new OfficialPageOverflowError();
+  footerLines.forEach((text, i) => lines.push({ text, x: left, y: firstFooterBaseline + i * 17, size: 12 }));
+  lines.push({ text: 'Page 1 / 1', x: right, y: pageHeight - 16, size: 11, align: 'right' });
 
-  // Ajustement modéré de 14 à 11 px ; au-delà, l'utilisateur doit condenser son texte.
-  for (const size of [14, 13, 12, 11]) {
+  // Le corps reste à 12 points minimum (16 px). Si nécessaire, demander un texte plus court.
+  for (const size of [18, 17, 16]) {
     const content: Line[] = [];
-    let y = headerBottom + 33;
+    let y = headerBottom + 38;
     function add(text: string, fontSize: number, gap: number, options: { bold?: boolean; align?: CanvasTextAlign } = {}) {
       setFont(ctx, fontSize, options.bold);
       const wrapped = wrap(ctx, text, right - left);
@@ -92,27 +92,27 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
       }
       y += gap;
     }
-    add(doc.date, 12, 24, { align: 'right' });
-    if (doc.kind === 'lettre' && doc.recipient) add(`À l’attention de : ${doc.recipient}`, size, 19);
-    add(doc.kind === 'lettre' ? 'LETTRE ADMINISTRATIVE' : 'COMMUNIQUÉ OFFICIEL', 18, 17, { bold: true });
-    add(`Objet : ${doc.subject}`, 15, 23, { bold: true });
-    add(doc.body, size, 20);
+    add(doc.date, 14, 27, { align: 'right' });
+    if (doc.kind === 'lettre' && doc.recipient) add(`À l’attention de : ${doc.recipient}`, size, 23);
+    add(doc.kind === 'lettre' ? 'LETTRE ADMINISTRATIVE' : 'COMMUNIQUÉ OFFICIEL', 22, 20, { bold: true });
+    add(`Objet : ${doc.subject}`, 18, 26, { bold: true });
+    add(doc.body, size, 24);
     let signatureY: number | null = null;
     if (doc.signed) {
-      setFont(ctx, 12);
+      setFont(ctx, 14);
       const titles = wrap(ctx, doc.settings.directorTitle || 'Directeur général', 300);
-      titles.forEach(text => { content.push({ text, x: right, y, size: 12, align: 'right' }); y += 18; });
+      titles.forEach(text => { content.push({ text, x: right, y, size: 14, align: 'right' }); y += 21; });
       if (doc.signatureMode === 'image') { signatureY = y; y += 77; }
       else {
-        setFont(ctx, 20, false, true);
+        setFont(ctx, 22, false, true);
         for (const text of wrap(ctx, doc.settings.directorName, 300)) {
-          content.push({ text, x: right, y: y + 24, size: 20, italic: true, align: 'right' }); y += 27;
+          content.push({ text, x: right, y: y + 26, size: 22, italic: true, align: 'right' }); y += 30;
         }
         y += 14;
       }
-      setFont(ctx, 13, true);
+      setFont(ctx, 15, true);
       for (const text of wrap(ctx, doc.settings.directorName, 300)) {
-        content.push({ text, x: right, y, size: 13, bold: true, align: 'right' }); y += 18;
+        content.push({ text, x: right, y, size: 15, bold: true, align: 'right' }); y += 21;
       }
     }
     if (y <= footerTop - 18) {
