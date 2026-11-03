@@ -11,9 +11,9 @@ import { printPageWithAndroidBridge } from '@wab-infos/shared';
 import { downloadCanvas, downloadOfficialPdf, renderOfficialPage, OfficialPageOverflowError, type OfficialExport } from '@/lib/redaction/rh/official-export';
 
 const base = '/api/redaction/rh';
-const assetKeys = ['company-logo','document-header','document-footer','director-signature','company-seal'] as const;
+const assetKeys = ['company-logo','document-header','document-footer','director-signature','company-seal','rh-seal'] as const;
 type Assets = OfficialExport['assets'];
-const emptyAssets: Assets = { 'company-logo': null, 'document-header': null, 'document-footer': null, 'director-signature': null, 'company-seal': null };
+const emptyAssets: Assets = { 'company-logo': null, 'document-header': null, 'document-footer': null, 'director-signature': null, 'company-seal': null, 'rh-seal': null };
 
 export function OfficialDocuments() {
   const toast = useToast();

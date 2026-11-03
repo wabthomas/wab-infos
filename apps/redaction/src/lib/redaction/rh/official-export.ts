@@ -5,7 +5,7 @@ import type { OfficialDocumentKind } from './official-documents';
 import type { OrganizationSettings } from './organization';
 import { createOrganizationQr } from './organization-qr';
 
-type Assets = Record<'company-logo' | 'document-header' | 'document-footer' | 'director-signature' | 'company-seal', string | null>;
+type Assets = Record<'company-logo' | 'document-header' | 'document-footer' | 'director-signature' | 'company-seal' | 'rh-seal', string | null>;
 export type OfficialExport = {
   kind: OfficialDocumentKind; subject: string; body: string; recipient: string;
   date: string; signed: boolean; signatureMode: 'texte' | 'image';
@@ -150,7 +150,7 @@ export async function renderOfficialPage(doc: OfficialExport, scale = S): Promis
   const [logo, header, footer, signature, seal, qrData] = await Promise.all([
     load(doc.assets['company-logo']), load(doc.assets['document-header']),
     load(doc.assets['document-footer']), load(doc.assets['director-signature']),
-    load(doc.assets['company-seal'] || null),
+    load(doc.assets['company-seal'] || doc.assets['rh-seal'] || null),
     createOrganizationQr(doc.settings).catch(() => null),
   ]);
   const qr = qrData ? await load(qrData) : null;
