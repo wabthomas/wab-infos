@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useToast } from '@/components/ui/toast';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { OFFICIAL_KINDS, type OfficialDocumentKind, type OfficialTemplate } from '@/lib/redaction/rh/official-documents';
-import { downloadCanvas, downloadOfficialPdf, renderOfficialPages, type OfficialExport } from '@/lib/redaction/rh/official-export';
+import { downloadCanvas, downloadOfficialPdf, renderOfficialPage, OfficialPageOverflowError, type OfficialExport } from '@/lib/redaction/rh/official-export';
 
 const base = '/api/redaction/rh';
 const assetKeys = ['company-logo','document-header','document-footer','director-signature'] as const;
@@ -28,8 +29,8 @@ export function OfficialDocuments() {
   const [settings, setSettings] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
   const [assets, setAssets] = useState<Assets>(emptyAssets);
   const [busy, setBusy] = useState('');
-  const [pngPage, setPngPage] = useState(1);
-  const [pageCount, setPageCount] = useState(1);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [overflow, setOverflow] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export function OfficialDocuments() {
   }, []);
 
   function edit(field: 'subject' | 'body' | 'recipient' | 'date' | 'kind', value: string) {
-    setSigned(false); setPageCount(1); setPngPage(1); setError('');
+    setSigned(false); setError('');
     if (field === 'subject') setSubject(value);
     if (field === 'body') setBody(value);
     if (field === 'recipient') setRecipient(value);
@@ -63,7 +64,7 @@ export function OfficialDocuments() {
   }
   function choose(template: OfficialTemplate) {
     setSelected(template); setTitle(template.title); setKind(template.kind);
-    setSubject(template.subject); setBody(template.body); setSigned(false); setPageCount(1); setPngPage(1);
+    setSubject(template.subject); setBody(template.body); setSigned(false);
     setError('');
   }
   function reset() { setSelected(null); setTitle(''); setSubject(''); setBody(''); setSigned(false); setError(''); }
@@ -96,7 +97,7 @@ export function OfficialDocuments() {
     setBusy('ai'); setError(''); setSigned(false);
     try {
       const result = await request('rediger', 'POST', { kind, subject, templateBody: body, instructions });
-      setSubject(result.draft.subject); setBody(result.draft.body); setPageCount(1); setPngPage(1);
+      setSubject(result.draft.subject); setBody(result.draft.body);
       toast.success('Brouillon proposé : relisez avant de signer.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Erreur.'); toast.error('Rédaction IA impossible.'); }
     finally { setBusy(''); }
@@ -106,17 +107,45 @@ export function OfficialDocuments() {
     if (!subject.trim() || !body.trim()) { setError('Complétez l’objet et le corps avant l’export.'); return; }
     setBusy(type); setError('');
     try {
-      const pages = await renderOfficialPages(documentData());
-      setPageCount(pages.length);
+      const page = await renderOfficialPage(documentData());
+      setOverflow(false);
       const filename = `${kind}-${new Date().toISOString().slice(0, 10)}`;
-      if (type === 'pdf') await downloadOfficialPdf(pages, `${filename}.pdf`);
-      else {
-        const index = Math.min(Math.max(pngPage - 1, 0), pages.length - 1);
-        downloadCanvas(pages[index], `${filename}-page-${index + 1}-sur-${pages.length}-300dpi.png`);
-        if (pages.length > 1) toast.success(`${pages.length} pages : choisissez chaque page pour télécharger tous les PNG.`);
-      }
-    } catch { setError('Export impossible sur cet appareil.'); toast.error('Export impossible.'); }
+      if (type === 'pdf') await downloadOfficialPdf(page, `${filename}.pdf`);
+      else downloadCanvas(page, `${filename}-300dpi.png`);
+    } catch (cause) {
+      const message = cause instanceof OfficialPageOverflowError ? cause.message : 'Export impossible sur cet appareil.';
+      setError(message); setOverflow(cause instanceof OfficialPageOverflowError); toast.error(message);
+    }
     finally { setBusy(''); }
+  }
+  useEffect(() => {
+    let active = true;
+    setPreview(null);
+    const timer = window.setTimeout(() => {
+      void renderOfficialPage(documentData(), 1).then(canvas => {
+        if (!active) return;
+        setPreview(canvas.toDataURL('image/jpeg', 0.85)); setOverflow(false);
+      }).catch(cause => {
+        if (!active) return;
+        setPreview(null); setOverflow(cause instanceof OfficialPageOverflowError);
+      });
+    }, 350);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [kind, subject, body, recipient, date, signed, signatureMode, settings, assets]);
+
+  async function printDocument() {
+    if (!subject.trim() || !body.trim()) { setError('Complétez l’objet et le corps avant l’impression.'); return; }
+    setBusy('print'); setError('');
+    try {
+      const canvas = await renderOfficialPage(documentData(), 1.5);
+      const url = canvas.toDataURL('image/jpeg', 0.9);
+      await new Promise<void>((resolve, reject) => { const img = new Image(); img.onload = () => resolve(); img.onerror = () => reject(new Error('Aperçu indisponible.')); img.src = url; });
+      flushSync(() => { setPreview(url); setOverflow(false); });
+      window.print();
+    } catch (cause) {
+      setError(cause instanceof OfficialPageOverflowError ? cause.message : 'Impression impossible sur cet appareil.');
+      setOverflow(cause instanceof OfficialPageOverflowError);
+    } finally { setBusy(''); }
   }
   const canSign = Boolean(settings.directorName.trim() && (signatureMode === 'texte' || assets['director-signature']));
   const input = 'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary';
@@ -161,28 +190,16 @@ export function OfficialDocuments() {
         <label className="mt-3 flex items-center gap-2 font-medium"><input type="checkbox" checked={signed} disabled={!canSign || !subject.trim() || !body.trim()} onChange={event => setSigned(event.target.checked)} /> J’ai relu et j’autorise l’apposition de la signature</label>
       </div>
       {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
+      <p className="mt-3 text-sm text-muted-foreground">Une seule page A4 pour chaque lettre ou communiqué. La taille du texte s’adapte légèrement ; si cela ne suffit pas, raccourcissez le document avant l’export.</p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button className={button} disabled={!!busy} type="button" onClick={() => void exportFile('pdf')}>Télécharger PDF</button>
         <button className={button} disabled={!!busy} type="button" onClick={() => void exportFile('png')}>Télécharger PNG HD (300 dpi)</button>
-        {pageCount > 1 && <label className="text-sm">Page PNG <select className={input + ' ml-2 w-20'} value={pngPage} onChange={event => setPngPage(Number(event.target.value))}>{Array.from({ length: pageCount }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}</select> / {pageCount}</label>}
-        <button className={button} type="button" onClick={() => window.print()}>Imprimer</button>
+        <button className={button} disabled={!!busy} type="button" onClick={() => void printDocument()}>Imprimer</button>
       </div>
     </div>
 
-    <div className="official-print-page mx-auto max-w-[210mm] bg-white p-[14mm] text-[#242424] shadow-lg ring-1 ring-black/10 print:max-w-none print:p-0 print:shadow-none print:ring-0">
-      <header className="min-h-32 border-b-2 border-rose-800 pb-3">
-        <div className="flex gap-5">{assets['company-logo'] && <img src={assets['company-logo']} alt="" className="h-16 w-20 object-contain" />}
-          <div className="min-w-0 flex-1">{assets['document-header'] && <img src={assets['document-header']} alt="" className="mb-1 max-h-16 max-w-full object-contain" />}<h3 className="font-bold">{settings.companyName}</h3><p className="whitespace-pre-wrap text-xs">{[settings.documentHeader, settings.companyAddress, [settings.companyPhone, settings.companyEmail].filter(Boolean).join(' · ')].filter(Boolean).join('\n')}</p></div>
-        </div>
-      </header>
-      <p className="mt-8 text-right text-sm">{date}</p>
-      {kind === 'lettre' && recipient && <p className="mt-8 text-sm">À l’attention de : {recipient}</p>}
-      <h2 className="mt-9 text-xl font-bold uppercase">{OFFICIAL_KINDS[kind]}</h2>
-      <h3 className="mt-6 text-base font-bold">Objet : {subject || '…'}</h3>
-      <div className="mt-7 min-h-40 whitespace-pre-wrap break-words text-sm leading-7">{body || 'Votre texte apparaîtra ici.'}</div>
-      {signed && <div className="mt-10 text-right text-sm"><p>{settings.directorTitle}</p>{signatureMode === 'image' && assets['director-signature'] ? <img className="ml-auto max-h-20 max-w-44 object-contain" src={assets['director-signature']} alt="Signature visuelle du DG" /> : <p className="mt-4 font-serif text-xl italic">{settings.directorName}</p>}<p className="mt-3 font-bold">{settings.directorName}</p></div>}
-      <footer className="mt-14 border-t pt-3 text-xs text-gray-600">{assets['document-footer'] && <img src={assets['document-footer']} alt="" className="mb-2 max-h-12 max-w-full object-contain" />}<p className="whitespace-pre-wrap">{settings.documentFooter}</p></footer>
-    </div>
-    <style jsx global>{`@media print { @page { size: A4; margin: 15mm; } body * { visibility: hidden !important; } .official-print-page, .official-print-page * { visibility: visible !important; } .official-print-page { position: absolute; left: 0; top: 0; width: 100%; color: #242424; } .official-print-page header, .official-print-page footer { break-inside: avoid; } }`}</style>
+    {overflow && <p role="alert" className="no-print rounded-xl border border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">Le document ne tient pas sur une seule page A4 lisible. Raccourcissez le texte ou l’entête ; aucun contenu ne sera tronqué à l’export ou à l’impression.</p>}
+    {preview ? <img className="official-print-page mx-auto block h-auto w-full max-w-[210mm] bg-white shadow-lg ring-1 ring-black/10 print:shadow-none print:ring-0" src={preview} alt="Aperçu exact du document officiel sur une page A4" /> : <div className="no-print mx-auto flex aspect-[210/297] max-w-[210mm] items-center justify-center rounded-xl border bg-white p-6 text-center text-sm text-muted-foreground">{overflow ? 'Document trop long : réduisez son contenu pour afficher l’aperçu.' : 'Préparation de l’aperçu A4…'}</div>}
+    <style jsx global>{`@media print { @page { size: A4; margin: 0; } html, body { height: 297mm !important; overflow: hidden !important; } body * { visibility: hidden !important; } .official-print-page { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 210mm !important; height: 297mm !important; max-width: none !important; margin: 0 !important; } }`}</style>
   </div>;
 }

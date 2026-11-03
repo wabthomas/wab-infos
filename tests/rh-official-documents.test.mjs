@@ -32,3 +32,18 @@ test('migration modèles : versions, archive et événements persistants', async
     assert.deepEqual(events.rows.map(row => row.action), ['update']);
   } finally { await db.close(); }
 });
+
+test('composition A4 : une page entière ou une erreur, sans tronquer le corps et la signature', async () => {
+  const { planOfficialPage, OfficialPageOverflowError } = await import('../apps/redaction/src/lib/redaction/rh/official-export.ts');
+  const ctx = { font: '', measureText(text) { return { width: text.length * (this.font.includes('20px') ? 10 : this.font.includes('18px') ? 9 : 7) }; } };
+  const settings = { companyName: 'Wab-infos', documentHeader: 'Direction des ressources humaines', companyAddress: 'Kinshasa', companyPhone: '', companyEmail: '', documentFooter: 'Document officiel', directorTitle: 'Directeur général', directorName: 'Nom du signataire' };
+  const assets = { 'company-logo': null, 'document-header': null, 'document-footer': null, 'director-signature': null };
+  const doc = { kind: 'lettre', subject: 'Convocation', date: 'Kinshasa, le 3 novembre 2026', recipient: 'Madame X', body: 'Nous vous invitons à une réunion.\nVeuillez agréer nos salutations distinguées.', signed: true, signatureMode: 'texte', settings, assets };
+  const layout = planOfficialPage(ctx, doc);
+  assert.equal(layout.lines.filter(line => line.text.includes('salutations')).length, 1);
+  assert.equal(layout.lines.some(line => line.text === settings.directorName), true);
+  assert.equal(layout.signatureY, null);
+  assert.throws(() => planOfficialPage(ctx, { ...doc, body: 'Une phrase trop longue pour une page A4. '.repeat(95) }), OfficialPageOverflowError);
+  assert.ok(planOfficialPage(ctx, { ...doc, signatureMode: 'image' }).signatureY !== null);
+  assert.throws(() => planOfficialPage(ctx, { ...doc, settings: { ...settings, documentFooter: 'Information de bas de page '.repeat(90) } }), OfficialPageOverflowError);
+});
