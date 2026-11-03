@@ -36,6 +36,11 @@ export const ORGANIZATION_ASSETS = {
   rhSeal: { key: 'rh-seal', label: 'Sceau RH', hint: 'Sceau utilisé sur les fiches RH.' },
   documentHeader: { key: 'document-header', label: 'Visuel d’entête', hint: 'Optionnel ; l’entête texte reste disponible ci-dessus.' },
   documentFooter: { key: 'document-footer', label: 'Visuel de pied de page', hint: 'Optionnel ; le pied de page texte reste disponible ci-dessus.' },
+  airtelMoney: { key: 'payout-logo-airtel', label: 'Logo Airtel Money', hint: 'Icône affichée sur les moyens de retrait.' },
+  mpesaMoney: { key: 'payout-logo-mpesa', label: 'Logo M-Pesa', hint: 'Icône affichée sur les moyens de retrait.' },
+  orangeMoney: { key: 'payout-logo-orange', label: 'Logo Orange Money', hint: 'Icône affichée sur les moyens de retrait.' },
+  africellMoney: { key: 'payout-logo-africell', label: 'Logo Africell Money', hint: 'Icône affichée sur les moyens de retrait.' },
+  otherMoney: { key: 'payout-logo-autre', label: 'Logo Mobile Money (autre)', hint: 'Icône affichée sur les moyens de retrait.' },
 } as const;
 
 export type OrganizationAssetKey = typeof ORGANIZATION_ASSETS[keyof typeof ORGANIZATION_ASSETS]['key'];

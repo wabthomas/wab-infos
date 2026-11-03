@@ -61,7 +61,7 @@ async function shareOrDownloadPdf(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-export function EmployeeIdCard({ person, adminPersonId }: { person: Person; adminPersonId?: string }) {
+export function EmployeeIdCard({ person, adminPersonId, serviceCard }: { person: Person; adminPersonId?: string; serviceCard?: { issuedAt: string; active: boolean } | null }) {
   const searchParams = useSearchParams();
   const [details, setDetails] = useState<PersonalDetails>({ birthDate: '', startDate: '', phone: '', email: '', address: '', country: COUNTRIES[0], province: 'Kinshasa', city: 'Kinshasa', emergencyContact: '', specialty: '', languages: '' });
   const [photo, setPhoto] = useState('');
@@ -250,6 +250,7 @@ export function EmployeeIdCard({ person, adminPersonId }: { person: Person; admi
       <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"><Printer className="h-4 w-4" /> Imprimer</button>
       <button type="button" disabled={downloading} onClick={() => void downloadPdf()} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Download className="h-4 w-4" />{downloading ? 'Préparation…' : 'Télécharger PDF'}</button>
     </div>
+    {serviceCard && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">Carte de service déjà émise le {serviceCard.issuedAt}{serviceCard.active ? ' · active' : ' · expirée ou révoquée'}</p>}
     {message && !editing && <p role="status" className="rounded-xl border border-primary/15 bg-primary/[0.06] px-4 py-2.5 text-sm text-primary print:hidden">{message}</p>}
     {editing && !adminPersonId && <div className="fixed inset-0 z-[85] flex items-end bg-black/55 print:hidden sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setEditing(false); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="employee-profile-form-title" className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl border border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6">

@@ -1,4 +1,5 @@
 'use client';
+import { CalendarX } from 'lucide-react';
 import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState, type FormEvent } from 'react';
@@ -90,7 +91,7 @@ export function Absences() {
       <div className="space-y-2">
         {items.length === 0 && <p className="text-sm text-muted-foreground">Aucune demande enregistrée.</p>}
         {items.map((item) => <article key={item.id} className="rounded-lg border border-border p-3 text-sm">
-          <p className="font-semibold">{item.category} · {labels[item.status]}</p>
+          <p className="flex items-center gap-2 font-semibold"><CalendarX aria-hidden className="h-4 w-4 text-rose-600" />{item.category} · {labels[item.status]}</p>
           <p className="text-muted-foreground">Du {item.startDate} au {item.endDate}</p>
           {item.decisionNote && <p className="mt-1">Motif de la dernière décision : {item.decisionNote}</p>}
           {(item.status === 'pending' || item.status === 'approved') && <div className="mt-3 space-y-2">

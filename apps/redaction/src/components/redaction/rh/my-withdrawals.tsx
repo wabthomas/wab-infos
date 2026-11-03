@@ -7,6 +7,7 @@ import { ArrowDownUp, CheckCircle2, Clock3, Loader2, PlusCircle, WalletCards } f
 import { MyPaymentHistory } from './my-payment-history';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
+import { repairLegacyMojibake } from '@/lib/redaction/rh/repair-text';
 import {
   validateWithdrawal,
   type Balance,
@@ -121,6 +122,7 @@ export function MyWithdrawals({
       if (methodName === 'POST') {
         key.current = null;
         setAmount('');
+        setRequestOpen(false);
       }
       setMessage(methodName === 'POST' ? 'Demande enregistrée.' : 'Demande annulée.');
       setReload((n) => n + 1);
@@ -305,7 +307,7 @@ export function MyWithdrawals({
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       {methodsList[item.method]}
-                      {item.payoutLabel ? ` · ${item.payoutLabel}` : ''}
+                      {item.payoutLabel ? ` · ${repairLegacyMojibake(item.payoutLabel)}` : ''}
                       {item.paymentDate ? ` · payé le ${item.paymentDate}` : ''}
                       {item.paymentReference ? ` · référence : ${item.paymentReference}` : ''}
                     </p>
@@ -319,7 +321,7 @@ export function MyWithdrawals({
                   </span>
                 </div>
                 {item.decisionNote && (
-                  <p className="mt-1 text-[11px] text-muted-foreground">Motif : {item.decisionNote}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">Motif : {repairLegacyMojibake(item.decisionNote)}</p>
                 )}
                 {item.status === 'pending' && (
                   <button
@@ -355,18 +357,20 @@ export function MyWithdrawals({
       <MyPaymentHistory refresh={reload} />
       <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien n’apparaît pas ? Déclarez-le pour vérification</Link>
 
-      {requestOpen && <form
+      {requestOpen && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}>
+      <form role="dialog" aria-modal="true" aria-labelledby="withdrawal-request-title"
         id="nouvelle-demande"
         onSubmit={submit}
-        className="scroll-mt-24 space-y-3 rounded-2xl border border-border bg-card p-5"
+        className="max-h-[92dvh] w-full max-w-xl space-y-3 overflow-y-auto rounded-t-2xl border border-border bg-card p-5 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl"
       >
         <div>
-          <h2 className="font-display text-lg font-bold">Demander un retrait</h2>
+          <h2 id="withdrawal-request-title" className="font-display text-lg font-bold">Demander un retrait</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Un solde initial doit être établi par l’administrateur. Ne saisissez pas vos coordonnées bancaires ou Mobile
             Money ici.
           </p>
         </div>
+        {error && <p role="alert" className="rounded-lg bg-red-500/10 p-2 text-xs text-red-700 dark:text-red-300">{error}</p>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             Montant
@@ -433,7 +437,7 @@ export function MyWithdrawals({
                 .filter((entry) => entry.active && entry.currency === currency)
                 .map((entry) => (
                   <option key={entry.id} value={entry.id}>
-                    {entry.provider} · {entry.accountName} · {entry.accountNumber.slice(-4).padStart(4, '•')}
+                    {repairLegacyMojibake(entry.provider)} · {repairLegacyMojibake(entry.accountName)} · {entry.accountNumber.slice(-4).padStart(4, '•')}
                   </option>
                 ))}
             </select>
@@ -444,9 +448,10 @@ export function MyWithdrawals({
           disabled={busy || available === null}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {busy ? 'Envoi…' : 'Envoyer la demande'}
+          {busy ? 'Envoi...' : 'Envoyer la demande'}
         </button>
-      </form>}
+        <button type="button" disabled={busy} onClick={() => setRequestOpen(false)} className="ml-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Annuler</button>
+      </form></div>}
     </div>
   );
 }

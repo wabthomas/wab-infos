@@ -5,6 +5,7 @@ import { db } from '@/lib/redaction/rh/database';
 import { isUuid } from '@/lib/redaction/rh/activities';
 import { insertRecordSheetPdfSql } from '@/lib/redaction/rh/record-sheet-link-sql';
 import { json, handleError, validOrigin } from '@/lib/redaction/rh/api';
+import { getRhFlags } from '@/lib/redaction/rh/flags';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
     const type = params.get('type');
     const collaboratorId = params.get('collaboratorId');
     if (!exportId || !/^[1-9]\d{0,15}$/.test(exportId) || !['presence','prestations','paiements'].includes(type ?? '') || (collaboratorId && !isUuid(collaboratorId))) return json({ error: 'Référence invalide.' }, 400);
+    if (type === 'paiements' && !collaboratorId && !(await getRhFlags()).paymentSheetsVisible) return json({ error: 'Fiche de paiement masquée.' }, 403);
     const actor = collaboratorId ? await requireRhPermission(type === 'paiements' ? 'finance_read' : 'team_read') : await requireRhPrincipal();
     const reader = request.body?.getReader();
     if (!reader) return json({ error: 'PDF vide.' }, 400);

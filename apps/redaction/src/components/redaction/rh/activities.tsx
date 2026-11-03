@@ -2,6 +2,7 @@
 import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState, type FormEvent } from 'react';
+import { CircleCheck, CircleX, CalendarOff } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { daysToReview, isValidMonth, validateActivity, type Activity, type ActivityStatus } from '@/lib/redaction/rh/activities';
 import type { Absence } from '@/lib/redaction/rh/absences';
@@ -116,7 +117,7 @@ export function Activities({ initialMonth, today }: { initialMonth: string; toda
       {loading ? <p className="text-sm">Chargement…</p> : loadFailed ? null : <>
         <div className="rounded-lg bg-muted p-3 text-sm">
           {!person.startDate ? <p>Renseignez la date d’arrivée dans le dossier pour repérer les journées à vérifier.</p> : <>
-            <p className="font-semibold">Journées sans relevé validé : {missing.length}</p>
+            <p className="flex items-center gap-1.5 font-semibold"><CircleX aria-hidden className="h-4 w-4 text-amber-600" />Journées sans relevé validé : {missing.length}</p>
             <p className="mt-1 text-muted-foreground">{missing.length ? missing.join(' · ') : 'Aucune journée sans relevé validé sur la période écoulée.'}</p>
           </>}
           <p className="mt-2 text-xs text-muted-foreground">Indicateur provisoire à partir de la date d’arrivée : dimanches exclus, jours fériés inclus. Les absences approuvées sont exclues ; les fins de contrat et autres exceptions ne sont pas encore gérées. Une journée signalée n’est pas nécessairement une absence injustifiée.</p>
@@ -125,7 +126,7 @@ export function Activities({ initialMonth, today }: { initialMonth: string; toda
           <h3 className="font-semibold">Relevés enregistrés</h3>
           {activities.length === 0 && <p className="text-sm text-muted-foreground">Aucun relevé pour ce mois.</p>}
           {activities.map((item) => <article key={item.id} className="rounded-lg border border-border p-3 text-sm">
-            <p className="font-semibold">{item.date} — {labels[item.status]}</p>
+            <p className="flex items-center gap-2 font-semibold">{item.status === 'effectuee' ? <CircleCheck aria-hidden className="h-4 w-4 text-emerald-600" /> : <CalendarOff aria-hidden className="h-4 w-4 text-amber-600" />}{item.date} — {labels[item.status]}</p>
             {item.description && <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{item.description}</p>}
             <button disabled={busy} type="button" className="mt-2 font-semibold text-primary hover:underline" onClick={() => { setEditing(item); setDate(item.date); setStatus(item.status); setDescription(item.description); setError(''); setMessage(''); }}>Modifier</button>
           </article>)}

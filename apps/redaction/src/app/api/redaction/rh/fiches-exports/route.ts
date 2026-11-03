@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     if (!filter) return json({ error: 'Type ou dates invalides (un an maximum).' }, 400);
     if (filter.type === 'paiements') {
       const flags = await getRhFlags();
-      if (!flags.financeEnabled || !flags.withdrawalsEnabled) return json({ error: 'Gestion des retraits désactivée : fiche des paiements indisponible.' }, 403);
+      if ((!filter.collaboratorId && !flags.paymentSheetsVisible) || !flags.financeEnabled || !flags.withdrawalsEnabled) return json({ error: 'Gestion des retraits désactivée : fiche des paiements indisponible.' }, 403);
     }
     let actor: { id: number; email: string };
     if (filter.collaboratorId) actor = await requireRhPermission(filter.type === 'paiements' ? 'finance_read' : 'team_read');

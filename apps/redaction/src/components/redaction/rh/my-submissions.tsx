@@ -1,5 +1,6 @@
 'use client';
 import { useRhNotice } from './use-rh-notice';
+import { CircleCheck, CircleHelp } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { PersonalHistoryControls } from './personal-history-controls';
 import { historyUrl, type HistoryPeriod } from '@/lib/redaction/rh/personal-history';
@@ -80,7 +81,7 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
     {(!loading || page > 1) && <>
       {items.length === 0 && !error && <p className="text-sm text-muted-foreground">Aucune prestation pour cette période.</p>}
       {items.map((item) => <article key={item.id} className="rounded-xl border border-border bg-background p-3.5 text-sm shadow-sm sm:p-4">
-        <div className="flex items-start justify-between gap-2"><time dateTime={item.date} className="font-semibold tabular-nums">{new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${item.date}T12:00:00Z`))}</time><span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${statusStyles[item.status]}`}>{labels[item.status]}</span></div>
+        <div className="flex items-start justify-between gap-2"><time dateTime={item.date} className="inline-flex items-center gap-1.5 font-semibold tabular-nums">{item.status === 'approved' ? <CircleCheck aria-label="Prestation validée" className="h-4 w-4 text-emerald-600" /> : <CircleHelp aria-label="Prestation non validée" className={`h-4 w-4 ${item.status === 'rejected' ? 'text-rose-600' : 'text-amber-600'}`} />}{new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(`${item.date}T12:00:00Z`))}</time><span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${statusStyles[item.status]}`}>{labels[item.status]}</span></div>
         <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{item.description || 'Aucune description.'}</p>
         {item.decisionNote && <p className="mt-1">Motif : {item.decisionNote}</p>}
         {item.status === 'pending' && <button type="button" disabled={busy} onClick={() => { if (window.confirm('Annuler cette déclaration en attente ?')) void send('PATCH', { action: 'cancel', id: item.id, version: item.version }); }} className="mt-2 text-primary underline">Annuler ma déclaration</button>}

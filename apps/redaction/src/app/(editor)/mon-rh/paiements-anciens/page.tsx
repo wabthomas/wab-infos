@@ -4,5 +4,5 @@ import { MyHistoricalPayments } from '@/components/redaction/rh/my-historical-pa
 
 export default async function MyHistoricalPaymentsPage() {
   const flags = await getRhFlags();
-  return <div className="space-y-5"><MyHistoricalPayments />{flags.withdrawalsEnabled && <RecordSheets type="paiements" />}</div>;
+  return <div className="space-y-5"><MyHistoricalPayments />{flags.withdrawalsEnabled && flags.paymentSheetsVisible && <RecordSheets type="paiements" />}</div>;
 }
