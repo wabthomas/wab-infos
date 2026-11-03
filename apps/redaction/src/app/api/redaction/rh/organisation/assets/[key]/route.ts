@@ -22,10 +22,11 @@ async function getKey(params: Promise<{ key: string }>): Promise<OrganizationAss
   return ORGANIZATION_ASSET_KEYS.includes(key as OrganizationAssetKey) ? key as OrganizationAssetKey : null;
 }
 
-function validImage(type: string, bytes: Buffer): boolean {
-  return (type === 'image/jpeg' && bytes[0] === 0xff && bytes[1] === 0xd8)
-    || (type === 'image/png' && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
-    || (type === 'image/webp' && bytes.toString('ascii', 8, 12) === 'WEBP');
+function detectImage(bytes: Buffer): 'image/jpeg' | 'image/png' | 'image/webp' | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8) return 'image/jpeg';
+  if (bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'image/png';
+  if (bytes.length >= 12 && bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
+  return null;
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ key: string }> }) {
@@ -47,9 +48,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
     const form = await request.formData();
     const file = form.get('file');
     if (!(file instanceof File) || file.size < 16 || file.size > 2_000_000) return json({ error: 'Image invalide (2 Mo maximum).' }, 400);
-    const type = file.type.toLowerCase();
     const bytes = Buffer.from(await file.arrayBuffer());
-    if (!validImage(type, bytes)) return json({ error: 'Formats autorisés : JPG, PNG ou WebP.' }, 415);
+    const type = detectImage(bytes);
+    if (!type) return json({ error: 'Formats autorisés : JPG, PNG (transparence acceptée) ou WebP.' }, 415);
     await db().query(
       `INSERT INTO redaction_rh.organization_assets(asset_key,file_bytes,mime_type,updated_by) VALUES($1,$2,$3,$4)
        ON CONFLICT(asset_key) DO UPDATE SET file_bytes=EXCLUDED.file_bytes,mime_type=EXCLUDED.mime_type,updated_by=EXCLUDED.updated_by,updated_at=now()`,

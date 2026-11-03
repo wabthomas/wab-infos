@@ -76,9 +76,10 @@ export function OrganizationSettings() {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
-    if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 2_000_000) {
-      setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: 'Choisissez une image JPG, PNG ou WebP de 2 Mo maximum.' } }));
-      toast.error('Choisissez une image JPG, PNG ou WebP de 2 Mo maximum.');
+    const imageByName = /\.(jpe?g|png|webp)$/i.test(file.name);
+    if (!(['image/jpeg','image/png','image/webp'].includes(file.type) || imageByName) || file.size > 2_000_000) {
+      setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: 'Choisissez une image JPG, PNG (transparence acceptée) ou WebP de 2 Mo maximum.' } }));
+      toast.error('Choisissez une image JPG, PNG (transparence acceptée) ou WebP de 2 Mo maximum.');
       input.value = '';
       return;
     }
