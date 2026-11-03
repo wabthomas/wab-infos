@@ -287,6 +287,6 @@ export function OfficialDocuments() {
         <div className="mt-6 flex flex-wrap justify-end gap-2"><button data-official-dialog-action type="button" className={button} onClick={() => setArchivePrompt(false)}>Annuler</button><button data-official-dialog-action type="button" disabled={!!busy} className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" onClick={() => void archive()}>Archiver le modèle</button></div>
       </section>
     </div>}
-    <style jsx global>{`@media print { @page { size: A4; margin: 0; } html, body { height: 297mm !important; overflow: hidden !important; } body * { visibility: hidden !important; } .official-print-page { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 210mm !important; height: 297mm !important; max-width: none !important; margin: 0 !important; } }`}</style>
+    <style jsx global>{`@media print { @page { size: A4; margin: 0; } html, body { height: 297mm !important; overflow: hidden !important; } body * { visibility: hidden !important; } [data-official-toolbar], .no-print { display: none !important; } .official-print-page { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 210mm !important; height: 297mm !important; max-width: none !important; margin: 0 !important; } }`}</style>
   </div>;
 }

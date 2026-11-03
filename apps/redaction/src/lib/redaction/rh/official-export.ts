@@ -58,7 +58,7 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
   setFont(ctx, 13);
   const headerText = [doc.settings.documentHeader, doc.settings.companyAddress,
     [doc.settings.companyPhone, doc.settings.companyEmail].filter(Boolean).join(' · ')].filter(Boolean).join('\n');
-  const headerX = doc.assets['company-logo'] ? 181 : left;
+  const headerX = doc.assets['company-logo'] ? 198 : left;
   const headerRight = doc.assets['document-header'] ? 545 : right;
   setFont(ctx, 21, true);
   const nameLines = wrap(ctx, doc.settings.companyName || 'Entreprise', headerRight - headerX);
@@ -104,7 +104,7 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
       setFont(ctx, 14);
       const titles = wrap(ctx, doc.settings.directorTitle || 'Directeur général', 300);
       titles.forEach(text => { content.push({ text, x: right, y, size: 14, align: 'right' }); y += 21; });
-      if (doc.signatureMode === 'image') { signatureY = y; y += 77; }
+      if (doc.signatureMode === 'image') { signatureY = y; y += 134; }
       else {
         setFont(ctx, 22, false, true);
         for (const text of wrap(ctx, doc.settings.directorName, 300)) {
@@ -117,7 +117,7 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
         content.push({ text, x: right, y, size: 15, bold: true, align: 'right' }); y += 21;
       }
     }
-    if (y <= footerTop - 18) {
+    if (y <= footerTop - 120) {
       return { lines: [...lines, ...content], headerBottom, footerTop, footerImageY, signatureY, fontSize: size };
     }
   }
@@ -158,14 +158,6 @@ export async function renderOfficialPage(doc: OfficialExport, scale = S): Promis
   image(ctx, logo, left, 42, 108, 78);
   image(ctx, header, 560, 28, 195, 80);
   image(ctx, footer, left, layout.footerImageY, 680, 42);
-  if (qr) {
-    const qrSize = 92;
-    const qrX = left;
-    const qrY = Math.max(layout.headerBottom + 8, layout.footerTop - qrSize - 10);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(qrX - 5, qrY - 5, qrSize + 10, qrSize + 10);
-    image(ctx, qr, qrX, qrY, qrSize, qrSize);
-  }
   if (layout.signatureY !== null) {
     if (seal) {
       ctx.save();
@@ -174,7 +166,7 @@ export async function renderOfficialPage(doc: OfficialExport, scale = S): Promis
       ctx.restore();
     }
     if (!signature) throw new Error('Image de signature indisponible.');
-    image(ctx, signature, right - 170, layout.signatureY, 170, 70);
+    image(ctx, signature, right - 190, layout.signatureY + 34, 190, 92);
   }
   ctx.strokeStyle = '#a4213d'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(left, layout.headerBottom); ctx.lineTo(right, layout.headerBottom); ctx.stroke();
@@ -185,6 +177,17 @@ export async function renderOfficialPage(doc: OfficialExport, scale = S): Promis
     ctx.fillStyle = item.y >= layout.footerTop ? '#555' : '#222';
     ctx.textAlign = item.align ?? 'left';
     ctx.fillText(item.text, item.x, item.y);
+  }
+  if (qr) {
+    const qrSize = 104;
+    const qrX = left;
+    const qrY = layout.footerTop - qrSize - 10;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 12);
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 12);
+    image(ctx, qr, qrX, qrY, qrSize, qrSize);
   }
   return canvas;
 }
