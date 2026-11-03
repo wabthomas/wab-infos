@@ -3,8 +3,9 @@ package com.wabinfos.app;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
-import android.app.PrintDocumentAdapter;
 import android.print.PrintAttributes;
+import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
 import android.content.Context;
 import android.content.Intent;
@@ -95,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
     private View offlineLayout;
     private View launchOverlay;
     private boolean launchOverlayDismissed = false;
-    /** Mis à jour par le JS de la page (conteneurs internes type #redaction-main-scroll). */
+    /** Mis ÃƒÆ’Ã‚Â  jour par le JS de la page (conteneurs internes type #redaction-main-scroll). */
     private volatile boolean webCanScrollUp = false;
 
     // Gestion de l'upload de fichiers depuis le WebView (<input type="file">)
@@ -130,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
-        // SDK 36 : edge-to-edge obligatoire — on insette le contenu sous les barres système.
+        // SDK 36 : edge-to-edge obligatoire ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â on insette le contenu sous les barres systÃƒÆ’Ã‚Â¨me.
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
         rootLayout = findViewById(R.id.rootLayout);
@@ -170,10 +171,10 @@ public class MainActivity extends AppCompatActivity {
 
         UpdateManager.bindActivity(this);
         UpdateManager.registerPlayInAppUpdates(this);
-        // Toast « à jour » uniquement au froid (évite doublon onResume).
+        // Toast Ãƒâ€šÃ‚Â« ÃƒÆ’Ã‚Â  jour Ãƒâ€šÃ‚Â» uniquement au froid (ÃƒÆ’Ã‚Â©vite doublon onResume).
         UpdateManager.showUpdatedToastIfNeeded(this);
-        // Sideload : le bandeau web (NativeAppUpdate) gère la MAJ — évite 2 dialogues.
-        // Play Store : on garde la vérif native in-app.
+        // Sideload : le bandeau web (NativeAppUpdate) gÃƒÆ’Ã‚Â¨re la MAJ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ÃƒÆ’Ã‚Â©vite 2 dialogues.
+        // Play Store : on garde la vÃƒÆ’Ã‚Â©rif native in-app.
         mainHandler.postDelayed(() -> {
             if (UpdateManager.shouldUsePlayStoreUpdate(MainActivity.this)) {
                 UpdateManager.checkForUpdate(MainActivity.this);
@@ -234,8 +235,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * FCM (barre système, app en fond) passe le data payload en extras
-     * ({@code url}), pas {@code open_url} (utilisé par notre FcmService).
+     * FCM (barre systÃƒÆ’Ã‚Â¨me, app en fond) passe le data payload en extras
+     * ({@code url}), pas {@code open_url} (utilisÃƒÆ’Ã‚Â© par notre FcmService).
      */
     private String firstNotificationUrl(Intent intent) {
         String[] keys = new String[] { "open_url", "url", "link" };
@@ -262,7 +263,7 @@ public class MainActivity extends AppCompatActivity {
         return null;
     }
 
-    /** Normalise www → apex et refuse les hôtes hors domaine. */
+    /** Normalise www ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ apex et refuse les hÃƒÆ’Ã‚Â´tes hors domaine. */
     private String sanitizeDeepLinkUrl(String raw) {
         if (raw == null || raw.isEmpty()) return SITE_URL;
         try {
@@ -296,8 +297,8 @@ public class MainActivity extends AppCompatActivity {
         if (tagline != null) tagline.startAnimation(AnimationUtils.loadAnimation(this, R.anim.launch_text_in));
         if (progress != null) progress.startAnimation(AnimationUtils.loadAnimation(this, R.anim.launch_text_in));
 
-        // Filet de sécurité : si la page met trop de temps, on masque quand même
-        // l'overlay après un délai maximum pour ne jamais bloquer l'utilisateur.
+        // Filet de sÃƒÆ’Ã‚Â©curitÃƒÆ’Ã‚Â© : si la page met trop de temps, on masque quand mÃƒÆ’Ã‚Âªme
+        // l'overlay aprÃƒÆ’Ã‚Â¨s un dÃƒÆ’Ã‚Â©lai maximum pour ne jamais bloquer l'utilisateur.
         launchOverlay.postDelayed(this::dismissLaunchOverlay, 6000);
     }
 
@@ -334,7 +335,7 @@ public class MainActivity extends AppCompatActivity {
         toRequest.add(android.Manifest.permission.CAMERA);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             toRequest.add(android.Manifest.permission.POST_NOTIFICATIONS);
-            // Galerie via ACTION_GET_CONTENT — pas besoin de READ_MEDIA_* (Play Policy).
+            // Galerie via ACTION_GET_CONTENT ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â pas besoin de READ_MEDIA_* (Play Policy).
         } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
             toRequest.add(android.Manifest.permission.READ_EXTERNAL_STORAGE);
             toRequest.add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
@@ -363,7 +364,7 @@ public class MainActivity extends AppCompatActivity {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
-    /** granted | denied | prompt — exposé au site via AndroidBridge. */
+    /** granted | denied | prompt ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â exposÃƒÆ’Ã‚Â© au site via AndroidBridge. */
     private String resolvePushPermissionStatus() {
         if (!hasPostNotificationsPermission()) {
             return "prompt";
@@ -431,7 +432,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // Permission runtime OK mais notifications système coupées → ouvrir les réglages app.
+        // Permission runtime OK mais notifications systÃƒÆ’Ã‚Â¨me coupÃƒÆ’Ã‚Â©es ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ouvrir les rÃƒÆ’Ã‚Â©glages app.
         try {
             Intent intent = new Intent();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -443,7 +444,7 @@ public class MainActivity extends AppCompatActivity {
             }
             startActivity(intent);
         } catch (Exception e) {
-            Log.w("WabInfos", "Impossible d'ouvrir les réglages notifications", e);
+            Log.w("WabInfos", "Impossible d'ouvrir les rÃƒÆ’Ã‚Â©glages notifications", e);
         }
         notifyWebPushPermissionResult(areSystemNotificationsEnabled());
     }
@@ -483,7 +484,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
 
-        // --- Optimisations de fluidité et de vitesse ---
+        // --- Optimisations de fluiditÃƒÆ’Ã‚Â© et de vitesse ---
         settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
         settings.setOffscreenPreRaster(true);
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
@@ -492,7 +493,7 @@ public class MainActivity extends AppCompatActivity {
             WebView.enableSlowWholeDocumentDraw();
         } catch (Throwable ignored) {
         }
-        // Cookies persistants (connexion, préférences) et acceptés y compris multi-domaines (CDN images)
+        // Cookies persistants (connexion, prÃƒÆ’Ã‚Â©fÃƒÆ’Ã‚Â©rences) et acceptÃƒÆ’Ã‚Â©s y compris multi-domaines (CDN images)
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
@@ -510,7 +511,7 @@ public class MainActivity extends AppCompatActivity {
                 Uri parsed = Uri.parse(url);
                 String host = parsed.getHost();
                 if (isNativeGoogleStartUrl(parsed)) {
-                    // preferWeb=1 ou app sans Google natif → OAuth dans la WebView (UA Chrome).
+                    // preferWeb=1 ou app sans Google natif ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ OAuth dans la WebView (UA Chrome).
                     if ("1".equals(parsed.getQueryParameter("preferWeb")) || !BuildConfig.USE_NATIVE_GOOGLE) {
                         beginGoogleOAuthInWebView(url);
                         return true;
@@ -525,7 +526,7 @@ public class MainActivity extends AppCompatActivity {
                         return true;
                     }
                 }
-                // Pendant la connexion Google : rester dans l’APK (ne pas ouvrir Chrome).
+                // Pendant la connexion Google : rester dans lÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢APK (ne pas ouvrir Chrome).
                 if (googleOAuthChromeUaActive) {
                     String scheme = parsed.getScheme();
                     if (scheme != null
@@ -541,7 +542,7 @@ public class MainActivity extends AppCompatActivity {
                 if (url.startsWith(SITE_URL) || (host != null && host.endsWith("wab-infos.com"))) {
                     return false;
                 }
-                // Liens externes : ouvrir dans le navigateur du système
+                // Liens externes : ouvrir dans le navigateur du systÃƒÆ’Ã‚Â¨me
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW, parsed);
                     startActivity(intent);
@@ -614,8 +615,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> callback,
                                               FileChooserParams fileChooserParams) {
-                // Libère un éventuel callback précédent resté en attente (évite les blocages
-                // si l'utilisateur ouvre plusieurs fois le sélecteur de fichiers rapidement).
+                // LibÃƒÆ’Ã‚Â¨re un ÃƒÆ’Ã‚Â©ventuel callback prÃƒÆ’Ã‚Â©cÃƒÆ’Ã‚Â©dent restÃƒÆ’Ã‚Â© en attente (ÃƒÆ’Ã‚Â©vite les blocages
+                // si l'utilisateur ouvre plusieurs fois le sÃƒÆ’Ã‚Â©lecteur de fichiers rapidement).
                 if (filePathCallback != null) {
                     filePathCallback.onReceiveValue(null);
                     filePathCallback = null;
@@ -625,10 +626,10 @@ public class MainActivity extends AppCompatActivity {
                     Intent chooserIntent = buildFileChooserIntent(fileChooserParams);
                     fileChooserLauncher.launch(chooserIntent);
                 } catch (Exception e) {
-                    Log.e("WabInfos", "onShowFileChooser: échec ouverture du sélecteur", e);
+                    Log.e("WabInfos", "onShowFileChooser: ÃƒÆ’Ã‚Â©chec ouverture du sÃƒÆ’Ã‚Â©lecteur", e);
                     filePathCallback = null;
                     Toast.makeText(MainActivity.this,
-                            "Impossible d'ouvrir le sélecteur de fichiers", Toast.LENGTH_SHORT).show();
+                            "Impossible d'ouvrir le sÃƒÆ’Ã‚Â©lecteur de fichiers", Toast.LENGTH_SHORT).show();
                     return false;
                 }
                 return true;
@@ -636,7 +637,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /** Combine prise de photo directe + sélecteur de fichiers/galerie dans un seul chooser. */
+    /** Combine prise de photo directe + sÃƒÆ’Ã‚Â©lecteur de fichiers/galerie dans un seul chooser. */
     private Intent buildFileChooserIntent(WebChromeClient.FileChooserParams params) {
         cameraPhotoPath = null;
         Intent takePictureIntent = tryBuildCameraIntent();
@@ -664,15 +665,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Prépare l'intent de prise de photo directe. Toute erreur ici (permission caméra
-     * manquante, FileProvider mal configuré, etc.) est absorbée sans jamais empêcher
-     * l'ouverture du sélecteur de fichiers/galerie, qui doit toujours fonctionner.
+     * PrÃƒÆ’Ã‚Â©pare l'intent de prise de photo directe. Toute erreur ici (permission camÃƒÆ’Ã‚Â©ra
+     * manquante, FileProvider mal configurÃƒÆ’Ã‚Â©, etc.) est absorbÃƒÆ’Ã‚Â©e sans jamais empÃƒÆ’Ã‚Âªcher
+     * l'ouverture du sÃƒÆ’Ã‚Â©lecteur de fichiers/galerie, qui doit toujours fonctionner.
      */
     private Intent tryBuildCameraIntent() {
         try {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
                     != PackageManager.PERMISSION_GRANTED) {
-                Log.w("WabInfos", "tryBuildCameraIntent: permission caméra non accordée, option caméra masquée");
+                Log.w("WabInfos", "tryBuildCameraIntent: permission camÃƒÆ’Ã‚Â©ra non accordÃƒÆ’Ã‚Â©e, option camÃƒÆ’Ã‚Â©ra masquÃƒÆ’Ã‚Â©e");
                 return null;
             }
             Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -687,7 +688,7 @@ public class MainActivity extends AppCompatActivity {
             takePictureIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             return takePictureIntent;
         } catch (Exception e) {
-            Log.w("WabInfos", "tryBuildCameraIntent: option caméra indisponible, on continue avec la galerie seule", e);
+            Log.w("WabInfos", "tryBuildCameraIntent: option camÃƒÆ’Ã‚Â©ra indisponible, on continue avec la galerie seule", e);
             cameraPhotoPath = null;
             return null;
         }
@@ -709,12 +710,12 @@ public class MainActivity extends AppCompatActivity {
                     if (result.getResultCode() == Activity.RESULT_OK) {
                         Intent data = result.getData();
                         if (data == null || (data.getData() == null && data.getClipData() == null)) {
-                            // Aucune sélection de fichier : c'est probablement une photo prise à l'instant
+                            // Aucune sÃƒÆ’Ã‚Â©lection de fichier : c'est probablement une photo prise ÃƒÆ’Ã‚Â  l'instant
                             if (cameraPhotoPath != null) {
                                 results = new Uri[]{Uri.parse(cameraPhotoPath)};
                             }
                         } else if (data.getClipData() != null) {
-                            // Sélection multiple de fichiers
+                            // SÃƒÆ’Ã‚Â©lection multiple de fichiers
                             int count = data.getClipData().getItemCount();
                             results = new Uri[count];
                             for (int i = 0; i < count; i++) {
@@ -755,11 +756,11 @@ public class MainActivity extends AppCompatActivity {
                         // Annulation utilisateur : ne pas forcer le repli web.
                         if (status == GoogleSignInStatusCodes.SIGN_IN_CANCELLED
                                 || status == CommonStatusCodes.CANCELED) {
-                            Toast.makeText(MainActivity.this, "Connexion Google annulée", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, "Connexion Google annulÃƒÆ’Ã‚Â©e", Toast.LENGTH_SHORT).show();
                             return;
                         }
-                        // Ex. DEVELOPER_ERROR (10) si le package n’est pas enregistré dans Google Cloud.
-                        Log.w("WabInfos", "Google Sign-In natif échoué (status=" + status + "), repli web", e);
+                        // Ex. DEVELOPER_ERROR (10) si le package nÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢est pas enregistrÃƒÆ’Ã‚Â© dans Google Cloud.
+                        Log.w("WabInfos", "Google Sign-In natif ÃƒÆ’Ã‚Â©chouÃƒÆ’Ã‚Â© (status=" + status + "), repli web", e);
                         fallbackGoogleWebSignIn(resolveRedactionBaseUrl(webView != null ? webView.getUrl() : null));
                     } catch (Exception e) {
                         Log.w("WabInfos", "Google Sign-In natif impossible, repli web", e);
@@ -773,7 +774,7 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P
                 && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 7311);
-            Toast.makeText(this, "Autorisez le stockage pour télécharger, puis réessayez.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Autorisez le stockage pour tÃƒÆ’Ã‚Â©lÃƒÆ’Ã‚Â©charger, puis rÃƒÆ’Ã‚Â©essayez.", Toast.LENGTH_LONG).show();
             return;
         }
         try {
@@ -790,10 +791,10 @@ public class MainActivity extends AppCompatActivity {
             DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
             if (dm != null) {
                 dm.enqueue(request);
-                Toast.makeText(this, "Téléchargement démarré : " + fileName, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "TÃƒÆ’Ã‚Â©lÃƒÆ’Ã‚Â©chargement dÃƒÆ’Ã‚Â©marrÃƒÆ’Ã‚Â© : " + fileName, Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
-            Toast.makeText(this, "Impossible de démarrer le téléchargement", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Impossible de dÃƒÆ’Ã‚Â©marrer le tÃƒÆ’Ã‚Â©lÃƒÆ’Ã‚Â©chargement", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -813,11 +814,11 @@ public class MainActivity extends AppCompatActivity {
         intent.setType(mimeType == null || mimeType.isEmpty() ? "application/octet-stream" : mimeType);
         intent.putExtra(Intent.EXTRA_TITLE, safeName);
         try {
-            Toast.makeText(this, "Choisissez où enregistrer le fichier.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Choisissez oÃƒÆ’Ã‚Â¹ enregistrer le fichier.", Toast.LENGTH_SHORT).show();
             startActivityForResult(intent, SAVE_FILE_REQUEST_CODE);
         } catch (Exception error) {
             pendingSaveFileBytes = null;
-            Toast.makeText(this, "Le sélecteur de fichiers Android n’est pas disponible.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Le sÃƒÆ’Ã‚Â©lecteur de fichiers Android nÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢est pas disponible.", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -833,22 +834,22 @@ public class MainActivity extends AppCompatActivity {
             if (output == null) throw new IOException("Ouverture du fichier impossible");
             output.write(bytes);
             output.flush();
-            Toast.makeText(this, "Fichier enregistré.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Fichier enregistrÃƒÆ’Ã‚Â©.", Toast.LENGTH_SHORT).show();
         } catch (Exception error) {
-            Log.e("WabInfos", "Échec de l’enregistrement du fichier", error);
-            Toast.makeText(this, "Impossible d’enregistrer le fichier.", Toast.LENGTH_LONG).show();
+            Log.e("WabInfos", "ÃƒÆ’Ã¢â‚¬Â°chec de lÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢enregistrement du fichier", error);
+            Toast.makeText(this, "Impossible dÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢enregistrer le fichier.", Toast.LENGTH_LONG).show();
         }
     }
 
     private void printCurrentWebView() {
         runOnUiThread(() -> {
             if (webView == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-                Toast.makeText(this, "L’impression n’est pas disponible sur cet appareil.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "LÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢impression nÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢est pas disponible sur cet appareil.", Toast.LENGTH_LONG).show();
                 return;
             }
             try {
                 PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                if (printManager == null) throw new IllegalStateException("Service d’impression indisponible");
+                if (printManager == null) throw new IllegalStateException("Service dÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢impression indisponible");
                 PrintDocumentAdapter adapter = webView.createPrintDocumentAdapter("Wab-infos-RH");
                 PrintAttributes attributes = new PrintAttributes.Builder()
                         .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
@@ -857,15 +858,15 @@ public class MainActivity extends AppCompatActivity {
                         .build();
                 printManager.print("Wab-infos-RH", adapter, attributes);
             } catch (Exception error) {
-                Log.e("WabInfos", "Impossible d’ouvrir l’impression Android", error);
-                Toast.makeText(this, "Impossible d’ouvrir l’impression Android.", Toast.LENGTH_LONG).show();
+                Log.e("WabInfos", "Impossible dÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ouvrir lÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢impression Android", error);
+                Toast.makeText(this, "Impossible dÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ouvrir lÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢impression Android.", Toast.LENGTH_LONG).show();
             }
         });
     }
 
     /**
      * Redirige l'API Web standard navigator.share() vers le partage natif Android,
-     * pour que les boutons "Partager" du site fonctionnent sans code spécifique.
+     * pour que les boutons "Partager" du site fonctionnent sans code spÃƒÆ’Ã‚Â©cifique.
      */
     private void injectNativeShareBridge(WebView view) {
         String script =
@@ -890,15 +891,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Détermine la couleur de thème réellement appliquée par le site en lisant l'état
-     * visuel effectif de la page (classe "dark"/"light" posée par next-themes sur <html>,
-     * qui reflète aussi bien le choix manuel de l'utilisateur que le mode système),
-     * puis l'applique à la barre de statut Android avec des icônes claires ou sombres
-     * choisies automatiquement selon la luminosité de cette couleur pour rester lisible.
+     * DÃƒÆ’Ã‚Â©termine la couleur de thÃƒÆ’Ã‚Â¨me rÃƒÆ’Ã‚Â©ellement appliquÃƒÆ’Ã‚Â©e par le site en lisant l'ÃƒÆ’Ã‚Â©tat
+     * visuel effectif de la page (classe "dark"/"light" posÃƒÆ’Ã‚Â©e par next-themes sur <html>,
+     * qui reflÃƒÆ’Ã‚Â¨te aussi bien le choix manuel de l'utilisateur que le mode systÃƒÆ’Ã‚Â¨me),
+     * puis l'applique ÃƒÆ’Ã‚Â  la barre de statut Android avec des icÃƒÆ’Ã‚Â´nes claires ou sombres
+     * choisies automatiquement selon la luminositÃƒÆ’Ã‚Â© de cette couleur pour rester lisible.
      */
     /**
-     * Synchronise l'état de scroll avec SwipeRefreshLayout : fenêtre + conteneurs internes
-     * (rédaction #redaction-main-scroll, éditeur, etc.) pour ne pas bloquer le scroll.
+     * Synchronise l'ÃƒÆ’Ã‚Â©tat de scroll avec SwipeRefreshLayout : fenÃƒÆ’Ã‚Âªtre + conteneurs internes
+     * (rÃƒÆ’Ã‚Â©daction #redaction-main-scroll, ÃƒÆ’Ã‚Â©diteur, etc.) pour ne pas bloquer le scroll.
      */
     private void injectPullRefreshScrollSync(WebView view) {
         String script =
@@ -955,8 +956,8 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> applyStatusBarColor(color));
         });
 
-        // Observe les changements de classe sur <html> (bascule manuelle du thème sur le
-        // site, ou changement système) pour resynchroniser la barre de statut en direct,
+        // Observe les changements de classe sur <html> (bascule manuelle du thÃƒÆ’Ã‚Â¨me sur le
+        // site, ou changement systÃƒÆ’Ã‚Â¨me) pour resynchroniser la barre de statut en direct,
         // sans attendre un rechargement de page.
         String observerScript =
                 "(function(){" +
@@ -973,11 +974,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * SDK 36 impose le edge-to-edge (plus d’opt-out). On pad le layout racine avec
+     * SDK 36 impose le edge-to-edge (plus dÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢opt-out). On pad le layout racine avec
      * les insets statut / navigation / cutout pour que la WebView ne passe pas
      * sous la barre de notification.
-     * L’IME n’est PAS paddé ici : adjustResize + visualViewport JS gèrent le clavier
-     * (sinon double offset et barre d’outils instable dans la rédaction).
+     * LÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢IME nÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢est PAS paddÃƒÆ’Ã‚Â© ici : adjustResize + visualViewport JS gÃƒÆ’Ã‚Â¨rent le clavier
+     * (sinon double offset et barre dÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢outils instable dans la rÃƒÆ’Ã‚Â©daction).
      */
     private void applySystemBarInsets() {
         if (rootLayout == null) return;
@@ -989,8 +990,8 @@ public class MainActivity extends AppCompatActivity {
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
 
             Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-            // La WebView est déjà paddée des system bars : ne pas recompter la nav
-            // (sinon un trou entre barre d’outils et clavier).
+            // La WebView est dÃƒÆ’Ã‚Â©jÃƒÆ’Ã‚Â  paddÃƒÆ’Ã‚Â©e des system bars : ne pas recompter la nav
+            // (sinon un trou entre barre dÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢outils et clavier).
             final int imeForWeb = Math.max(0, ime.bottom - bars.bottom);
             notifyWebImeBottom(imeForWeb);
 
@@ -1003,7 +1004,7 @@ public class MainActivity extends AppCompatActivity {
     private void notifyWebImeBottom(int imeBottomPx) {
         if (webView == null) return;
         final float density = Math.max(0.5f, getResources().getDisplayMetrics().density);
-        // WindowInsets = px écran ; TipTap / CSS utilisent des CSS px (= px / density).
+        // WindowInsets = px ÃƒÆ’Ã‚Â©cran ; TipTap / CSS utilisent des CSS px (= px / density).
         final int cssBottom = Math.max(0, Math.round(imeBottomPx / density));
         webView.post(() -> {
             if (webView == null) return;
@@ -1035,8 +1036,8 @@ public class MainActivity extends AppCompatActivity {
         try {
             ensureSystemBarsVisible();
             int color = android.graphics.Color.parseColor(colorString);
-            // En edge-to-edge la couleur de barre peut être ignorée : on colore aussi
-            // la zone de padding du layout racine (derrière statut / navigation).
+            // En edge-to-edge la couleur de barre peut ÃƒÆ’Ã‚Âªtre ignorÃƒÆ’Ã‚Â©e : on colore aussi
+            // la zone de padding du layout racine (derriÃƒÆ’Ã‚Â¨re statut / navigation).
             getWindow().setStatusBarColor(color);
             getWindow().setNavigationBarColor(color);
             if (rootLayout != null) {
@@ -1096,7 +1097,7 @@ public class MainActivity extends AppCompatActivity {
                 && "/api/redaction/auth/google/start".equals(path);
     }
 
-    /** Domaines Google à garder dans la WebView pour l’OAuth (sinon Chrome externe). */
+    /** Domaines Google ÃƒÆ’Ã‚Â  garder dans la WebView pour lÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢OAuth (sinon Chrome externe). */
     private boolean isGoogleOAuthHost(String host) {
         if (host == null || host.isEmpty()) return false;
         String h = host.toLowerCase(Locale.ROOT);
@@ -1141,7 +1142,7 @@ public class MainActivity extends AppCompatActivity {
         String configBase = resolveRedactionBaseUrl(currentUrl);
 
         // Wab-Redaction : pas encore de client OAuth Android pour com.wabinfos.redaction
-        // → OAuth web direct (évite DEVELOPER_ERROR + toast trompeur).
+        // ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ OAuth web direct (ÃƒÆ’Ã‚Â©vite DEVELOPER_ERROR + toast trompeur).
         if (!BuildConfig.USE_NATIVE_GOOGLE) {
             fallbackGoogleWebSignIn(configBase);
             return;
@@ -1150,7 +1151,7 @@ public class MainActivity extends AppCompatActivity {
         progressBar.setVisibility(View.VISIBLE);
         progressBar.setIndeterminate(true);
 
-        // WebView doit être lu uniquement sur le thread UI (sinon crash silencieux → toast).
+        // WebView doit ÃƒÆ’Ã‚Âªtre lu uniquement sur le thread UI (sinon crash silencieux ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ toast).
         new Thread(() -> {
             try {
                 GoogleNativeConfig config = fetchGoogleNativeConfig(configBase);
@@ -1173,12 +1174,12 @@ public class MainActivity extends AppCompatActivity {
                             googleSignInLauncher.launch(googleSignInClient.getSignInIntent());
                         });
                     } catch (Exception e) {
-                        Log.e("WabInfos", "GoogleSignInOptions: échec", e);
+                        Log.e("WabInfos", "GoogleSignInOptions: ÃƒÆ’Ã‚Â©chec", e);
                         fallbackGoogleWebSignIn(configBase);
                     }
                 });
             } catch (Exception e) {
-                Log.e("WabInfos", "startNativeGoogleSignIn: échec", e);
+                Log.e("WabInfos", "startNativeGoogleSignIn: ÃƒÆ’Ã‚Â©chec", e);
                 runOnUiThread(() -> fallbackGoogleWebSignIn(configBase));
             }
         }).start();
@@ -1191,7 +1192,7 @@ public class MainActivity extends AppCompatActivity {
             if ("https".equalsIgnoreCase(currentUri.getScheme())
                     && host != null
                     && host.endsWith("wab-infos.com")) {
-                // Si on est sur le site lecteur, forcer le host rédaction.
+                // Si on est sur le site lecteur, forcer le host rÃƒÆ’Ã‚Â©daction.
                 if ("app.wab-infos.com".equalsIgnoreCase(host)
                         || "redaction.app.wab-infos.com".equalsIgnoreCase(host)
                         || host.startsWith("redaction.")) {
@@ -1231,7 +1232,7 @@ public class MainActivity extends AppCompatActivity {
         if (host == null || !host.endsWith("wab-infos.com")) {
             return;
         }
-        // Une fois revenus sur l’app rédaction (hors endpoints OAuth), restaurer l’UA natif.
+        // Une fois revenus sur lÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢app rÃƒÆ’Ã‚Â©daction (hors endpoints OAuth), restaurer lÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢UA natif.
         if (path.contains("/api/redaction/auth/google/")) {
             return;
         }
@@ -1242,14 +1243,14 @@ public class MainActivity extends AppCompatActivity {
         googleOAuthChromeUaActive = false;
     }
 
-    /** Repli OAuth web si le flux Play Services / native-config échoue. */
+    /** Repli OAuth web si le flux Play Services / native-config ÃƒÆ’Ã‚Â©choue. */
     private void fallbackGoogleWebSignIn(String configBase) {
         progressBar.setIndeterminate(false);
         progressBar.setVisibility(View.GONE);
         String base = (configBase != null && !configBase.isEmpty())
                 ? configBase
                 : REDACTION_SITE_URL;
-        // preferWeb=1 empêche shouldOverrideUrlLoading de relancer le flux natif en boucle.
+        // preferWeb=1 empÃƒÆ’Ã‚Âªche shouldOverrideUrlLoading de relancer le flux natif en boucle.
         beginGoogleOAuthInWebView(base + "/api/redaction/auth/google/start?preferWeb=1");
     }
 
@@ -1292,7 +1293,7 @@ public class MainActivity extends AppCompatActivity {
         String serverClientId = json.optString("serverClientId", "");
         String completeUrl = json.optString("completeUrl", "");
         if (serverClientId.isEmpty() || completeUrl.isEmpty()) {
-            throw new IOException("Config Google native incomplète");
+            throw new IOException("Config Google native incomplÃƒÆ’Ã‚Â¨te");
         }
 
         GoogleNativeConfig config = new GoogleNativeConfig();
@@ -1334,7 +1335,7 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-    /** Pont JS exposé au site : permet d'utiliser le partage natif Android depuis les pages web. */
+    /** Pont JS exposÃƒÆ’Ã‚Â© au site : permet d'utiliser le partage natif Android depuis les pages web. */
     private class NativeBridge {
         @android.webkit.JavascriptInterface
         public void share(String title, String text, String url) {
@@ -1451,12 +1452,12 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(MainActivity.this::fetchFcmTokenForWeb);
         }
 
-        /** Active / désactive les topics FCM (all_users, news) — lecteur uniquement. */
+        /** Active / dÃƒÆ’Ã‚Â©sactive les topics FCM (all_users, news) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â lecteur uniquement. */
         @android.webkit.JavascriptInterface
         public void setPushAlertsEnabled(boolean enabled) {
             runOnUiThread(() -> {
                 if (isRedactionProduct()) {
-                    // Rédaction : abonnements individuels via token, pas les topics lecteurs.
+                    // RÃƒÆ’Ã‚Â©daction : abonnements individuels via token, pas les topics lecteurs.
                     if (enabled) {
                         fetchFcmTokenForWeb();
                     }
