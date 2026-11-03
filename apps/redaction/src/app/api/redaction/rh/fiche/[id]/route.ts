@@ -9,7 +9,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: 'Identifiant invalide.' },400);
     const result=await db().query(`SELECT to_char(p.birth_date,'YYYY-MM-DD') AS "birthDate",p.employee_number AS "employeeNumber",p.work_location AS "workLocation",p.contract_type AS "contractType",to_char(p.contract_end_date,'YYYY-MM-DD') AS "contractEndDate",p.phone,p.work_email AS "workEmail",p.address,p.country,p.province,p.city,p.emergency_contact AS "emergencyContact",p.specialty,p.languages,p.signature,CASE WHEN p.photo_bytes IS NULL THEN NULL ELSE 'data:'||p.photo_mime||';base64,'||encode(p.photo_bytes,'base64') END AS photo,to_char(c.start_date,'YYYY-MM-DD') AS "startDate" FROM redaction_rh.employee_profiles p JOIN redaction_rh.collaborators c ON c.id=p.collaborator_id WHERE p.collaborator_id=$1`,[id]);
-    return json({profile:result.rows[0]??null});
+    const card = await db().query(`SELECT to_char(issued_at,'YYYY-MM-DD') AS "issuedAt", (status='active' AND expires_at>=CURRENT_DATE) AS active FROM redaction_rh.service_cards WHERE collaborator_id=$1 ORDER BY issued_at DESC LIMIT 1`,[id]);
+    return json({profile:result.rows[0]??null,serviceCard:card.rows[0]??null});
   } catch(error){return handleError(error);}
 }
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -47,15 +47,15 @@ function Kpi({
     rose: 'bg-rose-500/10 text-rose-700 dark:text-rose-400',
   };
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+    <div className="rounded-xl border border-border bg-card p-2.5 shadow-sm sm:rounded-2xl sm:p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+        <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[11px]">{label}</p>
         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight">{value}</p>
-      <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{hint}</p>
+      <p className="mt-1 text-xl font-bold tabular-nums tracking-tight sm:mt-2 sm:text-2xl">{value}</p>
+      <p className="mt-0.5 text-[9px] leading-tight text-muted-foreground sm:text-[11px]">{hint}</p>
     </div>
   );
 }
@@ -114,7 +114,7 @@ export function RhDashboard({
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         <Kpi label="Collaborateurs actifs" value={collaborators} hint="Dossiers RH en cours" icon={UsersRound} />
         <Kpi label="Absences en attente" value={absencesPending} hint="Demandes à valider ou refuser" icon={CalendarDays} tone="amber" />
         <Kpi label="Retraits à traiter" value={withdrawalsPending} hint="Demandes en attente ou approuvées" icon={ArrowDownUp} tone="rose" />
@@ -122,7 +122,7 @@ export function RhDashboard({
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <section className="rounded-2xl border border-border bg-card p-5">
+        <section className="rounded-xl border border-border bg-card p-3 sm:rounded-2xl sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold">Soldes disponibles</h2>
@@ -156,7 +156,7 @@ export function RhDashboard({
           ) : null}
         </section>
 
-        <section className="rounded-2xl border border-border bg-card p-5">
+        <section className="rounded-xl border border-border bg-card p-3 sm:rounded-2xl sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold">Retraits à traiter</h2>
@@ -193,21 +193,21 @@ export function RhDashboard({
 
       <section>
         <h2 className="text-sm font-bold">Accès rapides</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
           {quickLinks.map(({ href, label, text, icon: Icon }) => (
             <Link
               key={href}
               href={href}
-              className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+              className="group rounded-xl border border-border bg-card p-3 shadow-sm transition-colors hover:border-primary/30 sm:rounded-2xl sm:p-4 sm:transition-all sm:hover:-translate-y-0.5 sm:hover:shadow-md"
             >
               <div className="flex items-center justify-between">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/[0.07] text-primary">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/[0.07] text-primary sm:h-10 sm:w-10 sm:rounded-xl">
                   <Icon className="h-5 w-5" />
                 </span>
                 <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
               </div>
-              <p className="mt-3 text-sm font-bold">{label}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{text}</p>
+              <p className="mt-2 text-xs font-bold sm:mt-3 sm:text-sm">{label}</p>
+              <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground sm:text-xs">{text}</p>
             </Link>
           ))}
         </div>

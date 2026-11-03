@@ -1,5 +1,17 @@
 [
   {
+    "id": "rh-2026-11-mobile-moyens-cartes",
+    "title": "Votre espace RH évolue sur mobile",
+    "body": "Les moyens de paiement sont plus faciles à consulter et à ajouter depuis un téléphone. Votre fiche indique désormais si une carte de service a déjà été émise ; les fiches de paiement restent disponibles selon les réglages de votre administration.",
+    "highlights": [
+      "Ouvrez Moyens de paiement en haut de la page Retrait, puis ajoutez un moyen depuis la fenêtre dédiée.",
+      "Les icônes différencient les présences pointées et les prestations validées ou à vérifier.",
+      "Consultez votre fiche pour connaître l’état de votre carte de service."
+    ],
+    "url": "/mon-rh/retraits",
+    "requiresWithdrawals": true
+  },
+  {
     "id": "rh-2026-11-rattrapage-paiements",
     "title": "Paiements anciens et fiches RH PDF",
     "body": "Vous pouvez désormais déclarer les paiements réellement reçus depuis votre arrivée. La gestion RH les vérifiera avant de les intégrer au bilan historique ; une déclaration ne modifie pas votre solde. Vos fiches Présence, Prestations et Paiements peuvent aussi être téléchargées ou imprimées en PDF.",

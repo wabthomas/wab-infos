@@ -2,6 +2,7 @@
 import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
+import { MOBILE_MONEY_PROVIDERS as logoProviders } from '@/lib/redaction/rh/payouts';
 import { PlusCircle, ShieldCheck } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import {
@@ -32,6 +33,18 @@ export function PayoutMethods() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [logos, setLogos] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let active = true;
+    void Promise.all(logoProviders.map(async (entry) => {
+      const res = await fetchRedaction(`/api/redaction/rh/organisation/assets/payout-logo-${entry.value}`, { cache: 'no-store' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.asset ? [entry.value, data.asset] as const : null;
+    })).then((entries) => { if (active) setLogos(Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => entry !== null))); }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -121,11 +134,14 @@ export function PayoutMethods() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-border bg-card p-5">
-        <div>
-          <h2 className="font-display text-lg font-bold">Mes moyens de retrait</h2>
-          
+      <button type="button" aria-expanded={panelOpen} aria-haspopup="dialog" onClick={() => setPanelOpen(true)} className="flex w-full items-center justify-between rounded-xl border border-border bg-card p-4 text-left text-sm font-bold sm:hidden">Moyens de paiement <span className="text-xs text-primary">Ouvrir · {methods.length}</span></button>
+      <div className={`${panelOpen ? 'fixed inset-0 z-[80] flex items-end bg-black/60' : 'hidden'} sm:static sm:block sm:bg-transparent`} onMouseDown={(event) => { if (event.target === event.currentTarget && !formOpen) setPanelOpen(false); }}>
+      <section role={panelOpen ? 'dialog' : undefined} aria-modal={panelOpen || undefined} aria-label={panelOpen ? 'Moyens de paiement' : undefined} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-h-none sm:rounded-2xl sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-lg font-bold">Moyens de paiement</h2>
+          <button type="button" aria-haspopup="dialog" aria-expanded={formOpen} onClick={() => setFormOpen(true)} className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">+ Ajouter un moyen</button>
         </div>
+        <button type="button" onClick={() => setPanelOpen(false)} className="mt-2 text-xs font-semibold text-muted-foreground underline sm:hidden">Fermer les moyens</button>
         {error && <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
         {message && <p role="status" className="mt-3 text-sm text-primary">{message}</p>}
 
@@ -168,7 +184,7 @@ export function PayoutMethods() {
                     className="flex h-9 w-9 items-center justify-center rounded-lg text-[10px] font-bold text-white"
                     style={{ backgroundColor: providerColor(method.kind, method.provider) }}
                   >
-                    {providerShort(method.kind, method.provider)}
+                    {method.kind === 'mobile_money' && logos[method.provider] ? <img src={logos[method.provider]} alt="" className="h-full w-full rounded-lg object-contain" /> : providerShort(method.kind, method.provider)}
                   </span>
                   <div>
                     <p className="text-sm font-semibold">
@@ -192,14 +208,11 @@ export function PayoutMethods() {
             ))
           )}
         </div>
-      </section>
+      </section></div>
 
-      <section className="space-y-3">
-        <button type="button" aria-expanded={formOpen} onClick={() => setFormOpen((open) => !open)} className="w-full rounded-xl border border-dashed border-primary/40 bg-card px-4 py-3 text-left text-sm font-semibold text-primary hover:bg-primary/[0.04]">
-          {formOpen ? '− Fermer' : '+ Ajouter un moyen'}
-        </button>
-        {formOpen && <form onSubmit={add} className="space-y-3 rounded-2xl border border-border bg-card p-5">
-        <h3 className="text-sm font-bold">Ajouter un moyen</h3>
+      {formOpen && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setFormOpen(false); }}>
+        <form role="dialog" aria-modal="true" aria-labelledby="add-payout-title" onSubmit={add} className="max-h-[92dvh] w-full max-w-lg space-y-3 overflow-y-auto rounded-t-2xl border border-border bg-card p-5 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl">
+        <div className="flex items-center justify-between gap-3"><h3 id="add-payout-title" className="text-sm font-bold">Ajouter un moyen de paiement</h3><button type="button" disabled={busy} onClick={() => setFormOpen(false)} aria-label="Fermer" className="rounded-full border border-border px-3 py-1 text-xs">Fermer</button></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             Type
@@ -275,8 +288,7 @@ export function PayoutMethods() {
         >
           <PlusCircle className="h-4 w-4" /> Ajouter
         </button>
-        </form>}
-      </section>
+        </form></div>}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
-import { LogIn, LogOut, ShieldCheck } from 'lucide-react';
+import { LogIn, LogOut, ShieldCheck, CircleCheck, CircleAlert } from 'lucide-react';
 import { PersonalHistoryControls } from './personal-history-controls';
 import { historyUrl, type HistoryPeriod } from '@/lib/redaction/rh/personal-history';
 import { enqueue, pending, notifyQueue } from '@/lib/redaction/rh/offline-queue';
@@ -136,7 +136,7 @@ export function AttendanceSign({ owner }: { owner: string }) {
           ) : (
             shown.map((row) => (
               <div key={row.id} className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2 text-sm">
-                <span className="font-medium">{row.workDate}</span>
+                <span className="flex items-center gap-2 font-medium">{row.checkIn ? <CircleCheck aria-label="Présence pointée" className="h-4 w-4 text-emerald-600" /> : <CircleAlert aria-label="Arrivée non pointée" className="h-4 w-4 text-amber-600" />}{row.workDate}</span>
                 <span className="inline-flex items-center gap-3 text-xs text-muted-foreground">
                   <span>Arrivée {row.checkIn ?? '—'}</span>
                   <span>Sortie {row.checkOut ?? '—'}</span>
