@@ -37,10 +37,10 @@ async function strapiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function subscribeEmail(email: string): Promise<{ created: boolean; reactivated: boolean }> {
+export async function subscribeEmail(email: string): Promise<{ created: boolean; reactivated: boolean; blocked?: boolean }> {
   const normalized = email.trim().toLowerCase();
   const query = qs.stringify({
-    filters: { email: { $eq: normalized } },
+    filters: { email: { $eqi: normalized } },
     pagination: { pageSize: 1 },
   });
 
@@ -52,18 +52,9 @@ export async function subscribeEmail(email: string): Promise<{ created: boolean;
       return { created: false, reactivated: false };
     }
 
-    await strapiFetch(`/subscribers/${found.documentId}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        data: {
-          status: 'active',
-          subscribedAt: new Date().toISOString(),
-          unsubscribedAt: null,
-        },
-      }),
-    });
-
-    return { created: false, reactivated: true };
+    // Public POST is not proof of ownership. Do not let a third party silently
+    // undo an unsubscribe simply by submitting the address again.
+    return { created: false, reactivated: false, blocked: true };
   }
 
   await strapiFetch('/subscribers', {
@@ -90,35 +81,51 @@ export async function unsubscribeByToken(token: string): Promise<boolean> {
 
   const result = await strapiFetch<{ data: StrapiSubscriber[] }>(`/subscribers?${query}`);
   const subscriber = result.data[0];
-  if (!subscriber || subscriber.status === 'unsubscribed') return false;
-
-  await strapiFetch(`/subscribers/${subscriber.documentId}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      data: {
-        status: 'unsubscribed',
-        unsubscribedAt: new Date().toISOString(),
-      },
-    }),
-  });
-
+  if (!subscriber) return false;
+  // Historical data may contain case variants of the same mailbox. Suppress all
+  // active records for the address, not just the token's row.
+  const matches = await strapiFetch<{ data: StrapiSubscriber[] }>(`/subscribers?${qs.stringify({
+    filters: { email: { $eqi: subscriber.email.trim() } }, pagination: { pageSize: 100 },
+  })}`);
+  for (const row of matches.data) {
+    if (row.status !== 'active') continue;
+    await strapiFetch(`/subscribers/${row.documentId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ data: { status: 'unsubscribed', unsubscribedAt: new Date().toISOString() } }),
+    });
+  }
   return true;
+}
+
+export async function isSubscriberActive(token: string, email: string): Promise<boolean> {
+  const query = qs.stringify({ filters: { email: { $eqi: email.trim() } },
+    fields: ['email', 'status', 'unsubscribeToken'], pagination: { pageSize: 100 } });
+  const result = await strapiFetch<{ data: StrapiSubscriber[] }>(`/subscribers?${query}`);
+  // A historical duplicate marked unsubscribed takes precedence over an active
+  // variant; fail closed rather than mailing an address that opted out.
+  return result.data.some((row) => row.unsubscribeToken === token && row.status === 'active') &&
+    !result.data.some((row) => row.status === 'unsubscribed');
 }
 
 export async function getActiveSubscribers(): Promise<
   { email: string; unsubscribeToken: string }[]
 > {
-  const query = qs.stringify({
-    filters: { status: { $eq: 'active' } },
-    fields: ['email', 'unsubscribeToken'],
-    pagination: { pageSize: 5000 },
-  });
-
-  const result = await strapiFetch<{ data: StrapiSubscriber[] }>(`/subscribers?${query}`);
-  return result.data.map((s) => ({
-    email: s.email,
-    unsubscribeToken: s.unsubscribeToken,
-  }));
+  const seen = new Set<string>();
+  const subscribers: { email: string; unsubscribeToken: string }[] = [];
+  // Strapi can cap pageSize server-side; use its actual pagination metadata.
+  for (let page = 1; ; page++) {
+    const query = qs.stringify({ filters: { status: { $eq: 'active' } },
+      fields: ['email', 'unsubscribeToken'], sort: ['id:asc'], pagination: { page, pageSize: 100 } });
+    const result = await strapiFetch<{ data: StrapiSubscriber[]; meta: { pagination: { pageCount: number } } }>(`/subscribers?${query}`);
+    for (const row of result.data) {
+      const email = row.email.trim().toLowerCase();
+      if (!email || seen.has(email)) continue;
+      seen.add(email);
+      subscribers.push({ email, unsubscribeToken: row.unsubscribeToken });
+    }
+    if (page >= result.meta.pagination.pageCount) break;
+  }
+  return subscribers;
 }
 
 export async function markArticleNewsletterSent(documentId: string): Promise<void> {

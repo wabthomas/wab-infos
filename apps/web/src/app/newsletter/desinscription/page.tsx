@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { siteConfig } from '@/config/site';
+import { unsubscribeByToken } from '@/lib/newsletter/subscribers';
 
 export const metadata: Metadata = {
   title: 'Désinscription newsletter',
@@ -8,21 +9,16 @@ export const metadata: Metadata = {
 };
 
 async function unsubscribe(token: string) {
-  const baseUrl = siteConfig.url.replace(/\/$/, '');
-  const response = await fetch(
-    `${baseUrl}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`,
-    { cache: 'no-store' }
-  );
-
-  if (!response.ok) {
+  if (!process.env.STRAPI_API_TOKEN) return { success: false, message: 'Une erreur est survenue. Réessayez plus tard.' };
+  try {
+    const success = await unsubscribeByToken(token);
+    return { success, message: success
+      ? 'Vous avez été désinscrit de la newsletter.'
+      : 'Lien de désinscription invalide.' };
+  } catch (error) {
+    console.error('[newsletter/unsubscribe/page]', error);
     return { success: false, message: 'Une erreur est survenue. Réessayez plus tard.' };
   }
-
-  const data = (await response.json()) as { success?: boolean; message?: string };
-  return {
-    success: Boolean(data.success),
-    message: data.message || 'Demande traitée.',
-  };
 }
 
 export default async function NewsletterUnsubscribePage({

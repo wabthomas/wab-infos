@@ -10,11 +10,13 @@ import {
 } from '@/lib/newsletter/article-template';
 import { newsletterConfig } from '@/lib/newsletter/config';
 import { isMailReady } from '@/lib/newsletter/stored-settings';
+import { claimArticleNewsletterSend } from '@/lib/newsletter/article-newsletter-log';
 import { sendBatchEmails } from '@/lib/newsletter/transport';
 import {
   buildUnsubscribeUrl,
   getActiveSubscribers,
   getArticleForNewsletter,
+  isSubscriberActive,
   markArticleNewsletterSent,
 } from '@/lib/newsletter/subscribers';
 
@@ -114,6 +116,10 @@ export async function sendArticleNewsletter(slug: string): Promise<SendArticleNe
     return { ok: true, skipped: true, reason: 'no_subscribers', subscribers: 0 };
   }
 
+  if (!(await claimArticleNewsletterSend(article.documentId, article.slug))) {
+    return { ok: true, skipped: true, reason: 'already_claimed' };
+  }
+
   const emails = subscribers.map((subscriber) => {
     const payload = mapStrapiArticleToPayload(
       article,
@@ -130,7 +136,10 @@ export async function sendArticleNewsletter(slug: string): Promise<SendArticleNe
     };
   });
 
-  const { sent, failed } = await sendBatchEmails(emails);
+  const tokenByEmail = new Map(subscribers.map((subscriber) => [subscriber.email, subscriber.unsubscribeToken]));
+  const { sent, failed } = await sendBatchEmails(emails, (item) =>
+    isSubscriberActive(tokenByEmail.get(item.to)!, item.to)
+  );
 
   if (sent > 0) {
     await markArticleNewsletterSent(article.documentId);

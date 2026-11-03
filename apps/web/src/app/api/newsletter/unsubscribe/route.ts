@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unsubscribeByToken } from '@/lib/newsletter/subscribers';
 
-export async function GET(request: NextRequest) {
+async function unsubscribe(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token')?.trim();
 
   if (!token) {
@@ -18,10 +18,24 @@ export async function GET(request: NextRequest) {
       success: ok,
       message: ok
         ? 'Vous avez été désinscrit de la newsletter.'
-        : 'Lien invalide ou déjà utilisé.',
+        : 'Lien invalide.',
     });
   } catch (error) {
     console.error('[newsletter/unsubscribe]', error);
     return NextResponse.json({ error: 'Erreur lors de la désinscription.' }, { status: 500 });
   }
+}
+
+// List-Unsubscribe-Post: List-Unsubscribe=One-Click (RFC 8058).
+export async function POST(request: NextRequest) {
+  const body = await request.text();
+  if (new URLSearchParams(body).get('List-Unsubscribe') !== 'One-Click') {
+    return NextResponse.json({ error: 'Requête one-click invalide.' }, { status: 400 });
+  }
+  return unsubscribe(request);
+}
+
+// Kept for legacy links; the landing page calls the server function directly.
+export async function GET(request: NextRequest) {
+  return unsubscribe(request);
 }

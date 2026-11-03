@@ -31,7 +31,13 @@ export async function POST(request: Request) {
       );
     }
 
-    await subscribeEmail(email);
+    const subscription = await subscribeEmail(email);
+    if (subscription.blocked) {
+      return NextResponse.json(
+        { error: 'Cette adresse a été désinscrite. Pour vous réabonner, contactez notre équipe.' },
+        { status: 409 }
+      );
+    }
 
     return NextResponse.json({
       message: (await isMailReady())
