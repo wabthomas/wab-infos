@@ -1,0 +1,15 @@
+{
+  "kind": "collectionType",
+  "collectionName": "article_newsletter_logs",
+  "info": {
+    "singularName": "article-newsletter-log",
+    "pluralName": "article-newsletter-logs",
+    "displayName": "Journal d'envoi newsletter article"
+  },
+  "options": { "draftAndPublish": false },
+  "attributes": {
+    "articleDocumentId": { "type": "string", "required": true, "unique": true },
+    "articleSlug": { "type": "string" },
+    "claimedAt": { "type": "datetime" }
+  }
+}

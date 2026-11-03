@@ -10,4 +10,5 @@ export interface SendEmailOptions {
 export interface BatchSendResult {
   sent: number;
   failed: number;
+  skipped?: number;
 }

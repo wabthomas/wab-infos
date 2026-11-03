@@ -26,7 +26,8 @@ export async function sendTransactionalEmail(options: SendEmailOptions): Promise
 
 /** Envoi par lots avec débit limité (SMTP mutualisé) */
 export async function sendBatchEmails(
-  emails: SendEmailOptions[]
+  emails: SendEmailOptions[],
+  beforeSend?: (email: SendEmailOptions) => Promise<boolean>
 ): Promise<BatchSendResult> {
   if (!(await isMailReady())) {
     throw new Error('Newsletter non configurée.');
@@ -42,6 +43,7 @@ export async function sendBatchEmails(
 
   let sent = 0;
   let failed = 0;
+  let skipped = 0;
 
   for (let i = 0; i < emails.length; i += concurrency) {
     if (i > 0 && batchDelay > 0) {
@@ -50,14 +52,19 @@ export async function sendBatchEmails(
 
     const batch = emails.slice(i, i + concurrency);
     const results = await Promise.allSettled(
-      batch.map((item) => sendTransactionalEmail(item))
+      batch.map(async (item) => {
+        if (beforeSend && !(await beforeSend(item))) return false;
+        await sendTransactionalEmail(item);
+        return true;
+      })
     );
 
     for (const result of results) {
-      if (result.status === 'fulfilled') sent += 1;
-      else failed += 1;
+      if (result.status === 'rejected') failed += 1;
+      else if (result.value) sent += 1;
+      else skipped += 1;
     }
   }
 
-  return { sent, failed };
+  return { sent, failed, skipped };
 }
