@@ -65,16 +65,28 @@ export function MyWithdrawals({
   const [method, setMethod] = useState<WithdrawalMethod>('mobile_money');
   const [loading, setLoading] = useState(true);
   const [requestOpen, setRequestOpen] = useState(false);
-  const [keyboardViewport, setKeyboardViewport] = useState<{ top: number; height: number } | null>(null);
+  const [viewportBox, setViewportBox] = useState<{ top: number; height: number } | null>(null);
   useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!requestOpen || !viewport) { setKeyboardViewport(null); return; }
-    const update = () => setKeyboardViewport({ top: viewport.offsetTop, height: viewport.height });
+    if (!requestOpen) { setViewportBox(null); return; }
+    const visual = window.visualViewport;
+    const update = () => {
+      setViewportBox({ top: visual?.offsetTop ?? 0, height: visual?.height ?? window.innerHeight });
+    };
     update();
-    viewport.addEventListener('resize', update);
-    viewport.addEventListener('scroll', update);
-    return () => { viewport.removeEventListener('resize', update); viewport.removeEventListener('scroll', update); };
+    window.addEventListener('resize', update);
+    visual?.addEventListener('resize', update);
+    visual?.addEventListener('scroll', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      visual?.removeEventListener('resize', update);
+      visual?.removeEventListener('scroll', update);
+    };
   }, [requestOpen]);
+  useEffect(() => {
+    const open = () => setRequestOpen(true);
+    window.addEventListener('rh-open-withdraw', open);
+    return () => window.removeEventListener('rh-open-withdraw', open);
+  }, []);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
@@ -245,21 +257,7 @@ export function MyWithdrawals({
             </div>
           </dl>
         ) : null}
-
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setRequestOpen((open) => !open)}
-            disabled={available === null}
-            aria-expanded={requestOpen}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 ${available === null ? 'bg-white/20 text-white/60' : 'bg-white text-[#191923] hover:opacity-90'}`}
-          >
-            <PlusCircle className="h-3.5 w-3.5" /> {requestOpen ? 'Fermer' : "Retirer de l'argent"}
-          </button>
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
-            <WalletCards className="h-3.5 w-3.5" /> Aucun transfert automatique
-          </span>
-        </div>
+
       </section>
 
       {error && (
@@ -273,10 +271,7 @@ export function MyWithdrawals({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-lg font-bold">Mes demandes de retrait</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Chaque demande porte un numéro de suivi. Le paiement est enregistré par lââ‚¬â„¢administration.
-            </p>
-          </div>
+            </div>
           <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
             {items.length}
           </span>
@@ -365,7 +360,7 @@ export function MyWithdrawals({
       <MyPaymentHistory refresh={reload} />
       <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien nââ‚¬â„¢apparaît pas ? Déclarez-le pour vérification</Link>
 
-      {requestOpen && (<div className="fixed inset-0 z-[90] flex items-end justify-center overflow-y-auto bg-black/55 p-0 sm:items-center sm:p-4" style={keyboardViewport ? { top: keyboardViewport.top, height: keyboardViewport.height, bottom: 'auto' } : undefined} role="dialog" aria-modal="true" aria-labelledby="withdraw-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}><form id="nouvelle-demande" onSubmit={submit} onFocusCapture={(event) => { const target = event.target as HTMLElement; window.setTimeout(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200); }} className="relative max-h-full w-full max-w-xl space-y-3 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6"><button type="button" onClick={() => setRequestOpen(false)} disabled={busy} aria-label="Fermer le formulaire" className="absolute right-4 top-4 rounded-full border border-border bg-card p-2 text-muted-foreground disabled:opacity-50">âÅ“•</button><h2 id="withdraw-form-title" className="font-display text-lg font-bold">Retirer de l argent</h2>
+      {requestOpen && (<div className="fixed inset-x-0 top-0 z-[90] flex items-end justify-center overflow-hidden bg-black/55 p-0 sm:items-center sm:p-4" style={viewportBox ? { top: viewportBox.top, height: viewportBox.height, bottom: 'auto' } : { top: 0, height: '100dvh' }} role="dialog" aria-modal="true" aria-labelledby="withdraw-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}><form id="nouvelle-demande" onSubmit={submit} onFocusCapture={(event) => { const target = event.target as HTMLElement; window.setTimeout(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200); }} className="relative max-h-full w-full max-w-xl overscroll-contain space-y-3 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6"><button type="button" onClick={() => setRequestOpen(false)} disabled={busy} aria-label="Fermer le formulaire" className="absolute right-4 top-4 rounded-full border border-border bg-card p-2 text-muted-foreground disabled:opacity-50">âÅ“•</button><h2 id="withdraw-form-title" className="font-display text-lg font-bold">Retirer de l argent</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Un solde initial doit être établi par lââ‚¬â„¢administrateur. Ne saisissez pas vos coordonnées bancaires ou Mobile
             Money ici.
