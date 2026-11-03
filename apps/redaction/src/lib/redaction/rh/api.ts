@@ -10,7 +10,8 @@ export const json = (data: unknown, status = 200) => NextResponse.json(data, { s
 export function handleError(error: unknown) {
   if (error instanceof RhForbidden) return json({ error: 'Accès RH non autorisé.' }, 403);
   if (error instanceof RedactionAuthError) return json({ error: 'Accès non autorisé.' }, error.message.includes('administrateurs') ? 403 : 401);
-  // Ne jamais retourner les erreurs de base de données ou les informations personnelles.
+  // Ne jamais exposer les détails au client, mais les tracer pour diagnostic.
+  console.error('[rh] erreur API', error instanceof Error ? error.stack || error.message : error);
   return json({ error: 'Service RH indisponible. Vérifiez sa configuration.' }, 503);
 }
 
