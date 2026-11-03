@@ -240,7 +240,7 @@ export function MyWithdrawals({
             <div className="rounded-xl bg-white/[0.06] p-3">
               <dt className="text-zinc-400">Solde initial</dt>
               <dd className="mt-0.5 font-semibold">
-                {balance.opening === null ? 'ââ‚¬Â' : formatMinorUnits(BigInt(balance.opening), currency)}
+                {balance.opening === null ? 'Â' : formatMinorUnits(BigInt(balance.opening), currency)}
               </dd>
             </div>
             <div className="rounded-xl bg-white/[0.06] p-3">
@@ -257,7 +257,11 @@ export function MyWithdrawals({
             </div>
           </dl>
         ) : null}
-
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setRequestOpen(true)} disabled={available === null} aria-expanded={requestOpen} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-[#191923] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+            <PlusCircle className="h-3.5 w-3.5" /> Retirer de l'argent
+          </button>
+        </div>
       </section>
 
       {error && (
@@ -276,7 +280,7 @@ export function MyWithdrawals({
             {items.length}
           </span>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer lââ‚¬â„¢historique des retraits">
+        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer lâ„¢historique des retraits">
           {historyFilters.map(({ value, label }) => (
             <button
               key={value}
@@ -295,7 +299,7 @@ export function MyWithdrawals({
         </div>
         <div className="mt-3 space-y-2">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Chargementââ‚¬Â¦</p>
+            <p className="text-sm text-muted-foreground">ChargementÂ¦</p>
           ) : failed ? null : items.length === 0 ? (
             <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">Aucune demande de retrait.</p>
           ) : visibleItems.length === 0 ? (
@@ -358,11 +362,11 @@ export function MyWithdrawals({
       </section>
 
       <MyPaymentHistory refresh={reload} />
-      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien nââ‚¬â„¢apparaît pas ? Déclarez-le pour vérification</Link>
+      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien n'apparaît pas ? Déclarez-le pour vérification</Link>
 
       {requestOpen && (<div className="fixed inset-x-0 top-0 z-[90] flex items-end justify-center overflow-hidden bg-black/55 p-0 sm:items-center sm:p-4" style={viewportBox ? { top: viewportBox.top, height: viewportBox.height, bottom: 'auto' } : { top: 0, height: '100dvh' }} role="dialog" aria-modal="true" aria-labelledby="withdraw-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}><form id="nouvelle-demande" onSubmit={submit} onFocusCapture={(event) => { const target = event.target as HTMLElement; window.setTimeout(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200); }} className="relative max-h-full w-full max-w-xl overscroll-contain space-y-3 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6"><button type="button" onClick={() => setRequestOpen(false)} disabled={busy} aria-label="Fermer le formulaire" className="absolute right-4 top-4 rounded-full border border-border bg-card p-2 text-muted-foreground disabled:opacity-50">âÅ“•</button><h2 id="withdraw-form-title" className="font-display text-lg font-bold">Retirer de l argent</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Un solde initial doit être établi par lââ‚¬â„¢administrateur. Ne saisissez pas vos coordonnées bancaires ou Mobile
+            Un solde initial doit être établi par lâ„¢administrateur. Ne saisissez pas vos coordonnées bancaires ou Mobile
             Money ici.
           </p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -431,7 +435,7 @@ export function MyWithdrawals({
                 .filter((entry) => entry.active && entry.currency === currency)
                 .map((entry) => (
                   <option key={entry.id} value={entry.id}>
-                    {entry.provider} · {entry.accountName} · {entry.accountNumber.slice(-4).padStart(4, 'ââ‚¬Â¢')}
+                    {entry.provider} · {entry.accountName} · {entry.accountNumber.slice(-4).padStart(4, 'Â¢')}
                   </option>
                 ))}
             </select>
