@@ -1,6 +1,7 @@
-const OFFLINE_CACHE = 'redaction-offline-v3';
-const OFFLINE_URL = new URL('redaction-offline.html', self.registration.scope).pathname;
-const OFFLINE_SCRIPT = new URL('redaction-offline.js', self.registration.scope).pathname;
+const OFFLINE_CACHE = 'redaction-offline-v4';
+const OFFLINE_URL = new URL('redaction-offline.html', self.registration.scope).href;
+const OFFLINE_PATH = new URL(OFFLINE_URL).pathname;
+const OFFLINE_SCRIPT = new URL('redaction-offline.js', self.registration.scope).href;
 
 const OFFLINE_HTML = '<!doctype html><html lang="fr"><meta charset="utf-8"><title>Rédaction hors ligne</title><body><h1>Rédaction hors ligne</h1><p>La page locale est indisponible. Reconnectez-vous et réessayez.</p></body></html>';
 
@@ -46,7 +47,7 @@ function offlineHtmlResponse(html) {
 }
 
 function offlineNavigationResponse(request) {
-  if (new URL(request.url).pathname !== OFFLINE_URL) return Response.redirect(new URL(OFFLINE_URL, self.location.origin).href, 302);
+  if (new URL(request.url).pathname !== OFFLINE_PATH) return Response.redirect(OFFLINE_URL, 302);
   return caches.match(OFFLINE_URL).then((cached) => {
     if (cached) return cached.text().then(offlineHtmlResponse);
     return offlineHtmlResponse(OFFLINE_HTML);
@@ -59,7 +60,7 @@ function shouldServeOfflinePage(request, response) {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    (event.request.url === new URL(OFFLINE_SCRIPT, self.location.origin).href ? caches.match(OFFLINE_SCRIPT).then((cached) => cached || fetch(event.request)) : fetch(event.request))
+    (event.request.url === OFFLINE_SCRIPT ? caches.match(OFFLINE_SCRIPT).then((cached) => cached || fetch(event.request)) : fetch(event.request))
       .then((response) => {
         if (shouldServeOfflinePage(event.request, response)) {
           return offlineNavigationResponse(event.request);
