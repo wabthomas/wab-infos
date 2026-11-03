@@ -209,7 +209,7 @@ export async function signMyAttendance(principal: RhPrincipal, action: Attendanc
     const receivedColumn = action === 'in' ? 'check_in_received_at' : 'check_out_received_at';
     const eventTime = recordedAt ?? new Date();
     const result = await client.query(
-      action === 'out' ? `UPDATE redaction_rh.attendance SET check_out=$3,check_out_received_at=now() WHERE collaborator_id=$2 AND work_date=($3::timestamptz AT TIME ZONE 'Africa/Lubumbashi')::date AND check_in IS NOT NULL AND check_in <= $3 AND check_out IS NULL RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note` : `INSERT INTO redaction_rh.attendance (id,collaborator_id,work_date,${column},${receivedColumn})
+      action === 'out' ? `UPDATE redaction_rh.attendance SET check_out=$1,check_out_received_at=now() WHERE collaborator_id=$2 AND work_date=($1::timestamptz AT TIME ZONE 'Africa/Lubumbashi')::date AND check_in IS NOT NULL AND check_in <= $1 AND check_out IS NULL RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note` : `INSERT INTO redaction_rh.attendance (id,collaborator_id,work_date,${column},${receivedColumn})
        SELECT $1,$2,($3::timestamptz AT TIME ZONE 'Africa/Lubumbashi')::date,$3,now()
        ON CONFLICT (collaborator_id,work_date) DO UPDATE SET ${column}=$3,${receivedColumn}=now()
        WHERE attendance.${column} IS NULL
