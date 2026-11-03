@@ -44,6 +44,7 @@ const ADMIN_TITLES: Record<string, { eyebrow: string; title: string; text: strin
   '/rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Rémunérations', text: 'Montants mensuels, validation et référence journalière.' },
   '/rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Retraits', text: 'Soldes, demandes et paiements réellement effectués.' },
   '/rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Documents', text: 'Contrats et attestations conservés de façon privée.' },
+  '/rh/correspondance': { eyebrow: 'RÉDACTION OFFICIELLE', title: 'Correspondance RH', text: 'Lettres et communiqués formels, assistés par IA et validés par l’administration.' },
   '/rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Contestations', text: 'Réponses aux désaccords exprimés par les collaborateurs.' },
   '/rh/rapports': { eyebrow: 'SUIVI RH', title: 'Rapports', text: 'Exports filtrés et journalisés pour le suivi de l’équipe.' },
   '/rh/parametres': { eyebrow: 'ADMINISTRATION', title: 'Paramètres RH', text: 'Identité de l’entreprise, documents, fonctionnalités et accès.' },
@@ -102,6 +103,7 @@ export function RhSectionShell({
     ...(capabilities?.accessManage
       ? ([
           ...(flags.documentsEnabled ? [{ href: '/rh/documents', label: 'Documents', icon: FileLock2 }] : []),
+          { href: '/rh/correspondance', label: 'Correspondance', icon: FileSpreadsheet },
           ...(flags.disputesEnabled ? [{ href: '/rh/contestations', label: 'Contestations', icon: MessageSquare }] : []),
           { href: '/rh/parametres', label: 'Paramètres', icon: Settings },
         ] satisfies Item[])
