@@ -18,6 +18,7 @@ export default async function MyRhMorePage() {
     { href: '/mon-rh/paiements-anciens', label: 'Anciens paiements', text: 'Reconstituer vos paiements reçus', icon: WalletCards, show: true },
     { href: '/mon-rh/retraits', label: 'Mes retraits', text: 'Soldes et demandes', icon: ArrowDownUp, show: flags.financeEnabled && flags.withdrawalsEnabled },
     { href: '/mon-rh/prestations', label: 'Mes prestations', text: 'Déclarer une journée', icon: ClipboardList, show: true },
+    { href: '/mon-rh/contrats', label: 'Mes contrats', text: 'Lire et accepter mes projets CDD/CDI', icon: FileLock2, show: flags.contractsEnabled },
     { href: '/mon-rh/documents', label: 'Mes documents', text: 'Contrats et attestations', icon: FileLock2, show: flags.documentsEnabled },
     { href: '/mon-rh/contestations', label: 'Mes contestations', text: 'Signaler un désaccord', icon: MessageSquare, show: flags.disputesEnabled },
     { href: '/mon-rh/notifications', label: 'Mes notifications', text: 'Événements RH', icon: Bell, show: flags.notificationsEnabled },

@@ -31,6 +31,7 @@ type RhFlags = {
   financeEnabled: boolean;
   withdrawalsEnabled: boolean;
   documentsEnabled: boolean;
+  contractsEnabled: boolean;
   disputesEnabled: boolean;
   notificationsEnabled: boolean;
 };
@@ -64,6 +65,7 @@ const MY_TITLES: Record<string, { eyebrow: string; title: string; text: string }
   '/mon-rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Mes rémunérations', text: 'Montants validés par l’administration.' },
   '/mon-rh/paiements-anciens': { eyebrow: 'RECONSTITUTION', title: 'Anciens paiements', text: 'Déclarez vos paiements passés pour rapprochement et vérification.' },
   '/mon-rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Mes retraits', text: 'Solde disponible, demandes et paiements enregistrés.' },
+  '/mon-rh/contrats': { eyebrow: 'ACCORD PERSONNEL', title: 'Mes contrats', text: 'Projets à examiner et exemplaires acceptés.' },
   '/mon-rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Mes documents', text: 'Contrats, attestations et documents partagés.' },
   '/mon-rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Mes contestations', text: 'Signalez un désaccord et suivez la réponse.' },
   '/mon-rh/notifications': { eyebrow: 'SUIVI', title: 'Mes notifications', text: 'Les événements RH qui vous concernent.' },
@@ -108,7 +110,7 @@ export function RhSectionShell({
       ? ([
           ...(flags.documentsEnabled ? [{ href: '/rh/documents', label: 'Documents', icon: FileLock2 }] : []),
           { href: '/rh/correspondance', label: 'Correspondance', icon: FileSpreadsheet },
-          { href: '/rh/contrats', label: 'Contrats CDD / CDI', icon: FileLock2 },
+          ...(flags.contractsEnabled ? [{ href: '/rh/contrats', label: 'Contrats CDD / CDI', icon: FileLock2 }] : []),
           ...(flags.disputesEnabled ? [{ href: '/rh/contestations', label: 'Contestations', icon: MessageSquare }] : []),
           { href: '/rh/parametres', label: 'Paramètres', icon: Settings },
         ] satisfies Item[])
@@ -126,6 +128,7 @@ export function RhSectionShell({
     { href: '/mon-rh/presence', label: 'Présence', icon: UserCheck },
     { href: '/mon-rh/paiements-anciens', label: 'Anciens paiements', icon: WalletCards },
     { href: '/mon-rh/fiche', label: 'Ma fiche', icon: FileSpreadsheet },
+    ...(flags.contractsEnabled ? [{ href: '/mon-rh/contrats', label: 'Mes contrats', icon: FileLock2 }] : []),
     ...(flags.financeEnabled
       ? ([
           { href: '/mon-rh/remunerations', label: 'Rémunérations', icon: WalletCards },
