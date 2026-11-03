@@ -8,6 +8,8 @@ export const ORGANIZATION_SETTING_LABELS = {
   companyRegistration: 'RCCM / référence d’enregistrement',
   directorName: 'Nom du Directeur général',
   directorTitle: 'Titre du signataire',
+  directorSignatureWidth: 'Largeur de la signature image (px)',
+  directorSignatureHeight: 'Hauteur de la signature image (px)',
   documentHeader: 'Entête des documents',
   documentFooter: 'Pied de page des documents',
 } as const;
@@ -25,6 +27,8 @@ export const DEFAULT_ORGANIZATION_SETTINGS: OrganizationSettings = {
   companyRegistration: '',
   directorName: '',
   directorTitle: 'Directeur général',
+  directorSignatureWidth: '190',
+  directorSignatureHeight: '92',
   documentHeader: '',
   documentFooter: 'Document interne — émis par Wab-infos.',
 };

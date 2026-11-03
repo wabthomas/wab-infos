@@ -45,6 +45,7 @@ const ADMIN_TITLES: Record<string, { eyebrow: string; title: string; text: strin
   '/rh/paiements-anciens': { eyebrow: 'RECONSTITUTION', title: 'Paiements historiques', text: 'Contrôle des déclarations passées et rapprochement des paiements.' },
   '/rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Retraits', text: 'Soldes, demandes et paiements réellement effectués.' },
   '/rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Documents', text: 'Contrats et attestations conservés de façon privée.' },
+  '/rh/contrats': { eyebrow: 'GESTION CONTRACTUELLE', title: 'Contrats CDD / CDI', text: 'Préparer des projets soumis au droit de la RDC après validation juridique.' },
   '/rh/correspondance': { eyebrow: 'RÉDACTION OFFICIELLE', title: 'Correspondance RH', text: 'Lettres et communiqués formels, assistés par IA et validés par l’administration.' },
   '/rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Contestations', text: 'Réponses aux désaccords exprimés par les collaborateurs.' },
   '/rh/rapports': { eyebrow: 'SUIVI RH', title: 'Rapports', text: 'Exports filtrés et journalisés pour le suivi de l’équipe.' },
@@ -107,6 +108,7 @@ export function RhSectionShell({
       ? ([
           ...(flags.documentsEnabled ? [{ href: '/rh/documents', label: 'Documents', icon: FileLock2 }] : []),
           { href: '/rh/correspondance', label: 'Correspondance', icon: FileSpreadsheet },
+          { href: '/rh/contrats', label: 'Contrats CDD / CDI', icon: FileLock2 },
           ...(flags.disputesEnabled ? [{ href: '/rh/contestations', label: 'Contestations', icon: MessageSquare }] : []),
           { href: '/rh/parametres', label: 'Paramètres', icon: Settings },
         ] satisfies Item[])

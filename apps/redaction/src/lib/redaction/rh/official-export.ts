@@ -3,11 +3,11 @@
 import type { OfficialDocumentKind } from './official-documents';
 import type { OrganizationSettings } from './organization';
 
-type Assets = Record<'company-logo' | 'document-header' | 'document-footer' | 'director-signature', string | null>;
+type Assets = Record<'company-logo' | 'document-header' | 'document-footer' | 'director-signature' | 'company-seal', string | null>;
 export type OfficialExport = {
   kind: OfficialDocumentKind; subject: string; body: string; recipient: string;
   date: string; signed: boolean; signatureMode: 'texte' | 'image';
-  settings: OrganizationSettings; assets: Assets;
+  settings: OrganizationSettings; assets: Assets; verificationUrl?: string;
 };
 
 const W = 2480, H = 3508, S = 3;
@@ -15,7 +15,7 @@ const pageWidth = W / S, pageHeight = H / S;
 const left = 72, right = 755;
 
 type Line = { text: string; x: number; y: number; size: number; bold?: boolean; italic?: boolean; align?: CanvasTextAlign };
-type Layout = { lines: Line[]; headerBottom: number; footerTop: number; footerImageY: number; signatureY: number | null; fontSize: number };
+type Layout = { lines: Line[]; headerBottom: number; footerTop: number; footerImageY: number; signatureY: number | null; sealY: number | null; qrY: number | null; fontSize: number };
 
 export class OfficialPageOverflowError extends Error {
   constructor() { super('Le document ne tient pas sur une page A4 lisible. Raccourcissez le corps, le destinataire, l’objet ou l’entête avant de signer, imprimer ou télécharger.'); }
@@ -97,12 +97,15 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
     add(doc.kind === 'lettre' ? 'LETTRE ADMINISTRATIVE' : 'COMMUNIQUÉ OFFICIEL', 22, 20, { bold: true });
     add(`Objet : ${doc.subject}`, 18, 26, { bold: true });
     add(doc.body, size, 24);
+    const qrY = doc.verificationUrl ? footerTop - 118 : null;
+    if (qrY !== null && y > qrY - 12) continue;
     let signatureY: number | null = null;
+    const sealY = doc.signed && doc.assets['company-seal'] ? y - 12 : null;
     if (doc.signed) {
       setFont(ctx, 14);
       const titles = wrap(ctx, doc.settings.directorTitle || 'Directeur général', 300);
       titles.forEach(text => { content.push({ text, x: right, y, size: 14, align: 'right' }); y += 21; });
-      if (doc.signatureMode === 'image') { signatureY = y; y += 77; }
+      if (doc.signatureMode === 'image') { signatureY = y; y += Number(doc.settings.directorSignatureHeight || 92) + 7; }
       else {
         setFont(ctx, 22, false, true);
         for (const text of wrap(ctx, doc.settings.directorName, 300)) {
@@ -116,7 +119,7 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
       }
     }
     if (y <= footerTop - 18) {
-      return { lines: [...lines, ...content], headerBottom, footerTop, footerImageY, signatureY, fontSize: size };
+      return { lines: [...lines, ...content], headerBottom, footerTop, footerImageY, signatureY, sealY, qrY, fontSize: size };
     }
   }
   throw new OfficialPageOverflowError();
@@ -145,27 +148,43 @@ export async function renderOfficialPage(doc: OfficialExport, scale = S): Promis
   if (!ctx) throw new Error('Canvas indisponible.');
   ctx.scale(scale, scale);
   const layout = planOfficialPage(ctx, doc);
-  const [logo, header, footer, signature] = await Promise.all([
+  const [logo, header, footer, signature, seal, qr] = await Promise.all([
     load(doc.assets['company-logo']), load(doc.assets['document-header']),
-    load(doc.assets['document-footer']), load(doc.assets['director-signature']),
+    load(doc.assets['document-footer']), load(doc.assets['director-signature']), load(doc.assets['company-seal']),
+    doc.verificationUrl ? import('qrcode').then(({ default: QRCode }) => QRCode.toDataURL(doc.verificationUrl!, { errorCorrectionLevel: 'H', margin: 4, width: 520, color: { dark: '#161616', light: '#FFFFFF' } })).then(load) : Promise.resolve(null),
   ]);
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pageWidth, pageHeight);
   image(ctx, logo, left, 42, 96, 67);
   image(ctx, header, 560, 28, 195, 80);
   image(ctx, footer, left, layout.footerImageY, 680, 42);
+  if (layout.sealY !== null && seal) {
+    ctx.save(); ctx.globalAlpha = 0.26; image(ctx, seal, right - 165, layout.sealY, 150, 150); ctx.restore();
+  }
   if (layout.signatureY !== null) {
     if (!signature) throw new Error('Image de signature indisponible.');
-    image(ctx, signature, right - 170, layout.signatureY, 170, 70);
+    image(ctx, signature, right - Number(doc.settings.directorSignatureWidth || 190), layout.signatureY, Number(doc.settings.directorSignatureWidth || 190), Number(doc.settings.directorSignatureHeight || 92));
   }
   ctx.strokeStyle = '#a4213d'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(left, layout.headerBottom); ctx.lineTo(right, layout.headerBottom); ctx.stroke();
   ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(left, layout.footerTop); ctx.lineTo(right, layout.footerTop); ctx.stroke();
+  if (layout.qrY !== null && qr) {
+    ctx.fillStyle = '#fff'; ctx.fillRect(left, layout.qrY, 108, 108);
+    image(ctx, qr, left, layout.qrY, 100, 100);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#222'; setFont(ctx, 11, true);
+    ctx.fillText('Vérifier l’émission', left + 108, layout.qrY + 38);
+    setFont(ctx, 10); ctx.fillText('Scannez ce QR code', left + 108, layout.qrY + 56);
+  }
   for (const item of layout.lines) {
     setFont(ctx, item.size, item.bold, item.italic);
     ctx.fillStyle = item.y >= layout.footerTop ? '#555' : '#222';
     ctx.textAlign = item.align ?? 'left';
     ctx.fillText(item.text, item.x, item.y);
+  }
+  if (!doc.signed) {
+    ctx.save(); ctx.translate(pageWidth / 2, pageHeight / 2); ctx.rotate(-Math.PI / 8);
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(130,30,58,0.16)'; setFont(ctx, 34, true);
+    ctx.fillText('BROUILLON NON VALIDÉ', 0, 0); ctx.restore();
   }
   return canvas;
 }

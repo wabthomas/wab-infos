@@ -10,9 +10,9 @@ import { OFFICIAL_KINDS, type OfficialDocumentKind, type OfficialTemplate } from
 import { downloadCanvas, downloadOfficialPdf, renderOfficialPage, OfficialPageOverflowError, type OfficialExport } from '@/lib/redaction/rh/official-export';
 
 const base = '/api/redaction/rh';
-const assetKeys = ['company-logo','document-header','document-footer','director-signature'] as const;
+const assetKeys = ['company-logo','document-header','document-footer','director-signature','company-seal'] as const;
 type Assets = OfficialExport['assets'];
-const emptyAssets: Assets = { 'company-logo': null, 'document-header': null, 'document-footer': null, 'director-signature': null };
+const emptyAssets: Assets = { 'company-logo': null, 'document-header': null, 'document-footer': null, 'director-signature': null, 'company-seal': null };
 
 export function OfficialDocuments() {
   const toast = useToast();
@@ -24,6 +24,7 @@ export function OfficialDocuments() {
   const [pendingChoice, setPendingChoice] = useState<OfficialTemplate | null | undefined>(undefined);
   const [archivePrompt, setArchivePrompt] = useState(false);
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
+  const draftKeyRef = useRef('');
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
@@ -34,6 +35,7 @@ export function OfficialDocuments() {
   const [recipient, setRecipient] = useState('');
   const [date, setDate] = useState(() => new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date()));
   const [signed, setSigned] = useState(false);
+  const [issued, setIssued] = useState<{ url: string; fingerprint: string } | null>(null);
   const [signatureMode, setSignatureMode] = useState<'texte' | 'image'>('texte');
   const [settings, setSettings] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
   const [assets, setAssets] = useState<Assets>(emptyAssets);
@@ -66,7 +68,7 @@ export function OfficialDocuments() {
   }, [refreshKey]);
 
   function edit(field: 'subject' | 'body' | 'recipient' | 'date' | 'kind', value: string) {
-    setSigned(false); setError('');
+    setSigned(false); setIssued(null); setError('');
     if (field === 'subject') setSubject(value);
     if (field === 'body') setBody(value);
     if (field === 'recipient') setRecipient(value);
@@ -75,10 +77,10 @@ export function OfficialDocuments() {
   }
   function choose(template: OfficialTemplate) {
     setSelected(template); setTitle(template.title); setKind(template.kind);
-    setSubject(template.subject); setBody(template.body); setSigned(false);
+    setSubject(template.subject); setBody(template.body); setSigned(false); setIssued(null);
     setError('');
   }
-  function reset() { setSelected(null); setTitle(''); setSubject(''); setBody(''); setSigned(false); setError(''); }
+  function reset() { setSelected(null); setTitle(''); setSubject(''); setBody(''); setSigned(false); setIssued(null); setError(''); }
   function switchTemplate(template: OfficialTemplate | null) {
     if (template && selected?.id === template.id) return;
     if (!template && !selected && !title.trim() && !subject.trim() && !body.trim()) return;
@@ -119,7 +121,7 @@ export function OfficialDocuments() {
     finally { setBusy(''); }
   }
   async function generate() {
-    setBusy('ai'); setError(''); setSigned(false);
+    setBusy('ai'); setError(''); setSigned(false); setIssued(null);
     try {
       const result = await request('rediger', 'POST', { kind, subject, templateBody: body, instructions });
       setSubject(result.draft.subject); setBody(result.draft.body);
@@ -127,9 +129,10 @@ export function OfficialDocuments() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Erreur.'); toast.error('Rédaction IA impossible.'); }
     finally { setBusy(''); }
   }
-  function documentData(): OfficialExport { return { kind, subject: subject.trim(), body: body.trim(), recipient: recipient.trim(), date: date.trim(), signed, signatureMode, settings, assets }; }
+  function documentData(): OfficialExport { return { kind, subject: subject.trim(), body: body.trim(), recipient: recipient.trim(), date: date.trim(), signed, signatureMode, settings, assets, verificationUrl: issued?.url }; }
   async function exportFile(type: 'pdf' | 'png') {
     if (!subject.trim() || !body.trim()) { setError('Complétez l’objet et le corps avant l’export.'); return; }
+    if (signed && !issued) { setError('Émettez le document pour activer son QR avant l’export.'); return; }
     setBusy(type); setError('');
     try {
       const page = await renderOfficialPage(documentData());
@@ -156,10 +159,11 @@ export function OfficialDocuments() {
       });
     }, 350);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [kind, subject, body, recipient, date, signed, signatureMode, settings, assets]);
+  }, [kind, subject, body, recipient, date, signed, signatureMode, settings, assets, issued]);
 
   async function printDocument() {
     if (!subject.trim() || !body.trim()) { setError('Complétez l’objet et le corps avant l’impression.'); return; }
+    if (signed && !issued) { setError('Émettez le document pour activer son QR avant l’impression.'); return; }
     setBusy('print'); setError('');
     try {
       const canvas = await renderOfficialPage(documentData(), 1.5);
@@ -192,7 +196,32 @@ export function OfficialDocuments() {
     (templateFilter === 'tous' || item.kind === templateFilter)
     && (!normalizedSearch || `${item.title} ${item.subject}`.toLocaleLowerCase('fr').includes(normalizedSearch))
   );
-  const canSign = Boolean(settings.directorName.trim() && (signatureMode === 'texte' || assets['director-signature']));
+  draftKeyRef.current = JSON.stringify([kind, subject, body, recipient, date, signed, signatureMode, settings, assets]);
+  async function issueDocument() {
+    const initialKey = draftKeyRef.current;
+    if (!signed || !subject.trim() || !body.trim() || !canSign) return;
+    setBusy('issue'); setError('');
+    try {
+      // Vérifier d’abord que le document tient, avant de créer une entrée de registre.
+      await renderOfficialPage({ ...documentData(), verificationUrl: 'https://example.invalid/verification/rh/' + 'a'.repeat(64) }, 1);
+      const response = await fetchRedaction('/api/redaction/rh/emissions', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ kind, subject, body, date, recipient, signatureMode }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Émission indisponible.');
+      const canvas = await renderOfficialPage({ ...documentData(), verificationUrl: data.url });
+      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('PNG indisponible.')), 'image/png'));
+      const final = await fetchRedaction(`/api/redaction/rh/emissions/${data.token}`, { method: 'POST', headers: { 'content-type': 'image/png' }, body: blob });
+      const result = await final.json();
+      if (!final.ok) throw new Error(result.error || 'Enregistrement impossible.');
+      if (draftKeyRef.current !== initialKey) throw new Error('Le document a changé pendant l’émission. L’ancienne version reste archivée ; réémettez la nouvelle.');
+      setIssued({ url: data.url, fingerprint: data.fingerprint });
+      toast.success('Émission enregistrée ; QR de vérification activé.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Émission impossible.'); toast.error('Émission impossible.'); }
+    finally { setBusy(''); }
+  }
+  const canSign = Boolean(settings.directorName.trim() && assets['company-seal'] && (signatureMode === 'texte' || assets['director-signature']));
   const input = 'w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary';
   const button = 'rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-muted disabled:opacity-50';
   return <div className="space-y-5">
@@ -257,9 +286,16 @@ export function OfficialDocuments() {
       <div className="mt-4 rounded-xl bg-muted/60 p-4 text-sm">
         <p className="font-semibold">Visa du Directeur général</p>
         <p className="text-muted-foreground">Signature visuelle (texte ou image), non cryptographique. Vérifiez le texte et l’identité du signataire avant de l’apposer.</p>
-        <select className={input + ' mt-3 max-w-xs'} aria-label="Mode de signature" value={signatureMode} onChange={event => { setSignatureMode(event.target.value as 'texte' | 'image'); setSigned(false); }}><option value="texte">Signature en texte</option><option value="image">Image de signature enregistrée</option></select>
-        {!canSign && <p className="mt-2 text-red-600">Configurez le nom du DG{signatureMode === 'image' ? ' et son image de signature' : ''} dans Paramètres RH → Entreprise.</p>}
-        <label className="mt-3 flex items-center gap-2 font-medium"><input type="checkbox" checked={signed} disabled={!canSign || !subject.trim() || !body.trim()} onChange={event => setSigned(event.target.checked)} /> J’ai relu et j’autorise l’apposition de la signature</label>
+        <select className={input + ' mt-3 max-w-xs'} aria-label="Mode de signature" value={signatureMode} onChange={event => { setSignatureMode(event.target.value as 'texte' | 'image'); setSigned(false); setIssued(null); }}><option value="texte">Signature en texte</option><option value="image">Image de signature enregistrée</option></select>
+        {!canSign && <p className="mt-2 text-red-600">Configurez le nom du DG, le sceau de l’entreprise{signatureMode === 'image' ? ' et son image de signature' : ''} dans Paramètres RH → Entreprise.</p>}
+        <label className="mt-3 flex items-center gap-2 font-medium"><input type="checkbox" checked={signed} disabled={!canSign || !subject.trim() || !body.trim()} onChange={event => { setSigned(event.target.checked); setIssued(null); }} /> J’ai relu et j’autorise l’apposition de la signature</label>
+      </div>
+      <div className="mt-4 rounded-xl border border-border p-4 text-sm">
+        <p className="font-bold">Sceau et QR de vérification</p>
+        <p className="mt-1 text-muted-foreground">Le sceau de l’entreprise apparaît en filigrane derrière la signature, le nom et la fonction. Le QR mène au registre RH (nom + RCCM ou identifiant fiscal requis dans Paramètres). Un QR seul ne constitue pas une signature électronique certifiée.</p>
+        <button type="button" className={button + ' mt-3'} disabled={!!busy || !signed || !canSign} onClick={() => void issueDocument()}>{busy === 'issue' ? 'Émission en cours…' : issued ? 'Émettre une nouvelle version' : 'Émettre et activer le QR'}</button>
+        {issued && <p className="mt-2 break-all text-xs text-muted-foreground">Référence enregistrée · <a className="font-semibold text-primary underline" href={issued.url} target="_blank" rel="noopener noreferrer">Vérifier le QR</a> · Empreinte {issued.fingerprint.slice(0,16)}…</p>}
+        {!signed && <p className="mt-2 text-xs text-muted-foreground">Sans visa, le document exporté porte la mention « Brouillon non validé » et ne comporte pas de QR.</p>}
       </div>
       {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
       <p className="mt-3 text-sm text-muted-foreground">Une seule page A4 pour chaque lettre ou communiqué. La taille du texte s’adapte légèrement ; si cela ne suffit pas, raccourcissez le document avant l’export.</p>

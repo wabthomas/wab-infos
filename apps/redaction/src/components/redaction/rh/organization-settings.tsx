@@ -16,6 +16,7 @@ import {
 
 const assetList = Object.values(ORGANIZATION_ASSETS) as Array<{ key: OrganizationAssetKey; label: string; hint: string }>;
 const textFields: OrganizationSettingKey[] = ['companyName','companyAddress','companyPhone','companyEmail','companyWebsite','companyTaxId','companyRegistration','directorName','directorTitle','documentHeader','documentFooter'];
+const signatureSizes: OrganizationSettingKey[] = ['directorSignatureWidth','directorSignatureHeight'];
 type AssetState = { data: string | null; busy: boolean; error: string };
 
 export function OrganizationSettings() {
@@ -123,6 +124,13 @@ export function OrganizationSettings() {
             {textFields.slice(0, 9).map((key) => <label key={key} className="block text-sm font-medium">{ORGANIZATION_SETTING_LABELS[key]}
               <input type={key === 'companyEmail' ? 'email' : key === 'companyWebsite' ? 'url' : 'text'} maxLength={key === 'companyAddress' ? 500 : 320} value={settings[key]} onChange={(event) => change(key, event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5" />
             </label>)}
+          </div>
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <p className="text-sm font-bold">Format de la signature du DG · 190 × 92 px par défaut</p>
+            <p className="mt-1 text-xs text-muted-foreground">Dimensions d’affichage sur les lettres et communiqués. Le visuel original n’est pas modifié ; le sceau est placé derrière la zone signataire.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {signatureSizes.map(key => <label key={key} className="text-sm font-medium">{ORGANIZATION_SETTING_LABELS[key]}<input type="number" min={key === 'directorSignatureWidth' ? 120 : 50} max={key === 'directorSignatureWidth' ? 269 : 129} value={settings[key]} onChange={event => change(key,event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5" /></label>)}
+            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {textFields.slice(9).map((key) => <label key={key} className="block text-sm font-medium">{ORGANIZATION_SETTING_LABELS[key]}
