@@ -15,12 +15,12 @@ const redactionPublicUrl = (
 ).replace(/\/$/, '');
 
 export const metadata: Metadata = {
-  title: 'RÃƒÂ©daction',
-  description: 'Application mobile de rÃƒÂ©daction Wab-infos',
+  title: 'Rédaction',
+  description: 'Application mobile de rédaction Wab-infos',
   robots: { index: false, follow: false },
   appleWebApp: {
     capable: true,
-    title: 'Wab RÃƒÂ©daction',
+    title: 'Wab Rédaction',
     statusBarStyle: 'default',
   },
 };
@@ -34,7 +34,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  /** Le layout se redimensionne avec le clavier Ã¢â€ â€™ barre dÃ¢â‚¬â„¢outils reste visible (Chrome / WebView). */
+  /** Le layout se redimensionne avec le clavier → barre d’outils reste visible (Chrome / WebView). */
   interactiveWidget: 'resizes-content',
 };
 
