@@ -137,6 +137,33 @@ export function EmployeeIdCard({ person, adminPersonId, collaboratorId }: { pers
     finally { setSaving(false); input.value = ''; }
   }
 
+  async function uploadAdminPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file || !adminPersonId) return;
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 2_000_000) {
+      setMessage('Choisissez une photo JPG, PNG ou WebP de 2 Mo maximum.');
+      input.value = '';
+      return;
+    }
+    const form = new FormData();
+    form.set('photo', file);
+    setSaving(true);
+    setMessage('');
+    try {
+      const response = await fetchRedaction(`/api/redaction/rh/collaborateurs/${adminPersonId}/photo`, { method: 'POST', body: form });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Envoi impossible.');
+      setPhoto(data.photo);
+      setMessage('Photo enregistrée.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Envoi impossible.');
+    } finally {
+      setSaving(false);
+      input.value = '';
+    }
+  }
+
   const groups: FieldGroup[] = [
     { title: 'Identité personnelle', fields: [
       { label: 'Nom complet', value: `${person.firstName} ${person.lastName}` },
