@@ -5,6 +5,8 @@ import { NativeAppUpdate } from '@/components/pwa/native-app-update';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
 
+import { RhAnnouncementPopup } from '@/components/redaction/rh/announcement-popup';
+
 const siteDownloadsUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com'
 ).replace(/\/$/, '');
@@ -13,12 +15,12 @@ const redactionPublicUrl = (
 ).replace(/\/$/, '');
 
 export const metadata: Metadata = {
-  title: 'Rédaction',
-  description: 'Application mobile de rédaction Wab-infos',
+  title: 'RÃƒÂ©daction',
+  description: 'Application mobile de rÃƒÂ©daction Wab-infos',
   robots: { index: false, follow: false },
   appleWebApp: {
     capable: true,
-    title: 'Wab Rédaction',
+    title: 'Wab RÃƒÂ©daction',
     statusBarStyle: 'default',
   },
 };
@@ -32,7 +34,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  /** Le layout se redimensionne avec le clavier → barre d’outils reste visible (Chrome / WebView). */
+  /** Le layout se redimensionne avec le clavier Ã¢â€ â€™ barre dÃ¢â‚¬â„¢outils reste visible (Chrome / WebView). */
   interactiveWidget: 'resizes-content',
 };
 
@@ -53,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <ToastProvider>
             <NativeAppSetup />
+          <RhAnnouncementPopup />
             <NativeAppUpdate
               siteUrl={siteDownloadsUrl}
               versionManifestUrl={`${redactionPublicUrl}/api/redaction/apk-version`}
