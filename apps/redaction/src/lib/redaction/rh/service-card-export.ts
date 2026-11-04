@@ -6,7 +6,7 @@ export type ServiceCardData = {
   workLocation: string | null; photo: string | null;
 };
 export type PhotoCrop = { zoom:number; x:number; y:number };
-export type CardSheetData = { card: ServiceCardData; photoCrop?:PhotoCrop; companyName: string; qr: string; logo: string; companyWebsite?: string; companyEmail?: string; directorName?: string; directorTitle?: string; seal?: string; directorSignature?: string };
+export type CardSheetData = { card: ServiceCardData; photoCrop?:PhotoCrop; logoCrop?:PhotoCrop; companyName: string; qr: string; logo: string; companyWebsite?: string; companyEmail?: string; directorName?: string; directorTitle?: string; seal?: string; directorSignature?: string };
 type Line = { text:string;x:number;y:number;size:number;color:string;bold?:boolean };
 export type CardSheetLayout = { front:Line[];back:Line[];frontX:number;backX:number;cardY:number;cardWidth:number;cardHeight:number };
 const W=2480/3, H=3508/3;
@@ -176,7 +176,8 @@ async function renderPressSheet(data:CardSheetData,scale:number):Promise<HTMLCan
   ctx.fillStyle='#0572b5';ctx.beginPath();ctx.moveTo(fx+cw-49,y+167);ctx.lineTo(fx+cw-82,y+167);ctx.lineTo(fx+cw-49,y+186);ctx.fill();
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx+cw/2,y+30,23,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='#ec008c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx+cw/2,y+30,21,-2.4,-.2);ctx.stroke();
-  draw(ctx,logo,fx+cw/2-20,y+10,40,40);
+  if(data.logoCrop){ctx.save();ctx.beginPath();ctx.arc(fx+cw/2,y+30,20,0,Math.PI*2);ctx.clip();drawCroppedPhoto(ctx,logo!,fx+cw/2-20,y+10,40,40,data.logoCrop);ctx.restore();}
+  else draw(ctx,logo,fx+cw/2-20,y+10,40,40);
   ctx.textAlign='center';ctx.fillStyle='#fff';pressFont(ctx,14,true);
   layout.company.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+74+i*16));
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx+cw/2,y+139,48,0,Math.PI*2);ctx.fill();
@@ -201,7 +202,8 @@ async function renderPressSheet(data:CardSheetData,scale:number):Promise<HTMLCan
   ctx.textAlign='center';ctx.fillStyle='#fff';pressFont(ctx,12,true);ctx.fillText('CARTE DE PRESSE',bx+cw/2,y+31);
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx+cw/2,y+107,43,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='#ed008c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(bx+cw/2,y+107,41,-2.5,-.3);ctx.stroke();
-  draw(ctx,logo,bx+cw/2-38,y+69,76,76);
+  if(data.logoCrop){ctx.save();ctx.beginPath();ctx.arc(bx+cw/2,y+107,38,0,Math.PI*2);ctx.clip();drawCroppedPhoto(ctx,logo!,bx+cw/2-38,y+69,76,76,data.logoCrop);ctx.restore();}
+  else draw(ctx,logo,bx+cw/2-38,y+69,76,76);
   ctx.fillStyle='#101010';pressFont(ctx,30,true);ctx.fillText('PRESSE',bx+cw/2,y+187);
   ctx.save();ctx.globalAlpha=.68;draw(ctx,seal,bx+cw/2-31,y+191,62,61);ctx.restore();
   ctx.textAlign='left';ctx.fillStyle='#143d65';pressFont(ctx,9);
