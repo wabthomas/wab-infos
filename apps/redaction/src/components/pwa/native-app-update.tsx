@@ -87,18 +87,21 @@ export function NativeAppUpdate({ siteUrl }: { siteUrl: string }) {
   }
 
   async function update() {
-    if (!check?.remote || !check.apkDownloadUrl || installing.current) return;
-    installing.current = true;
+    if (!check?.remote || !check.apkDownloadUrl) return;
     writeLocal(INSTALL_STARTED_KEY, apkBannerStamp(check.remote.versionCode));
-    setState('downloading');setProgress(0);setError('');
+    setError('');
+    const bridge = getAndroidWebViewBridge();
     try {
-      await downloadAndInstallApkUpdate(check.apkDownloadUrl, setProgress);
-      if (!usesNativeAndroidUpdateBridge()) setState('idle');
+      // Téléchargement + installation par le navigateur (Chrome), comme une mise à jour standard.
+      if (bridge?.openExternalUrl) bridge.openExternalUrl(check.apkDownloadUrl);
+      else if (usesNativeAndroidUpdateBridge()) await downloadAndInstallApkUpdate(check.apkDownloadUrl, setProgress);
+      else window.open(check.apkDownloadUrl, '_blank', 'noopener,noreferrer');
+      setState('idle');
     } catch (cause) {
       writeLocal(INSTALL_STARTED_KEY, null);
-      setError(cause instanceof Error ? cause.message : 'Téléchargement impossible. Réessayez.');
+      setError(cause instanceof Error ? cause.message : 'Ouverture du navigateur impossible. Réessayez.');
       setState('error');
-    } finally { installing.current = false; }
+    }
   }
 
   if (state === 'idle' || state === 'checking' || !check?.remote) return null;

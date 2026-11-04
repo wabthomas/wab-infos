@@ -9,6 +9,8 @@ export type AndroidWebViewBridge = {
   isInstalledFromPlayStore?: () => boolean;
   checkForAppUpdate?: () => void;
   share?: (title: string, text: string, url: string) => void;
+  /** Ouvre une URL dans le navigateur externe (Chrome) au lieu de la WebView. */
+  openExternalUrl?: (url: string) => void;
   /** Affiche le sélecteur Android « Enregistrer sous… » pour un fichier Base64. */
   saveFile?: (base64: string, fileName: string, mimeType: string) => void;
   /** Ouvre la boîte d’impression Android pour le contenu courant de la WebView. */

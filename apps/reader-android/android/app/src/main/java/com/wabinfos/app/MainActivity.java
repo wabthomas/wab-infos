@@ -1371,6 +1371,20 @@ public class MainActivity extends AppCompatActivity {
 
     private class NativeBridge {
         @android.webkit.JavascriptInterface
+        public void openExternalUrl(String url) {
+            if (url == null || !(url.startsWith("https://") || url.startsWith("http://"))) return;
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception error) {
+                    Log.w("WabInfos", "Ouverture navigateur impossible", error);
+                }
+            });
+        }
+
+        @android.webkit.JavascriptInterface
         public boolean playRhVoice(String cue) {
             if (!"WabRedactionNative".equals(BuildConfig.UA_MARKER) || cue == null ||
                     !(cue.equals("arrival") || cue.equals("departure") || cue.equals("submission") ||
