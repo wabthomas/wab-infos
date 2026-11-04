@@ -10,10 +10,6 @@ import { RhAnnouncementPopup } from '@/components/redaction/rh/announcement-popu
 const siteDownloadsUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com'
 ).replace(/\/$/, '');
-const redactionPublicUrl = (
-  process.env.NEXT_PUBLIC_REDACTION_URL || 'https://app.wab-infos.com'
-).replace(/\/$/, '');
-
 export const metadata: Metadata = {
   title: 'Rédaction',
   description: 'Application mobile de rédaction Wab-infos',
@@ -55,11 +51,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <ToastProvider>
             <NativeAppSetup />
-          <RhAnnouncementPopup />
-            <NativeAppUpdate
-              siteUrl={siteDownloadsUrl}
-              versionManifestUrl={`${redactionPublicUrl}/api/redaction/apk-version`}
-            />
+            <RhAnnouncementPopup />
+            <NativeAppUpdate siteUrl={siteDownloadsUrl} />
             {children}
           </ToastProvider>
         </ThemeProvider>

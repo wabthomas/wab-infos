@@ -1,251 +1,114 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   checkForApkUpdate,
-  dismissApkUpdate,
   downloadAndInstallApkUpdate,
-  isApkUpdateDismissed,
   usesNativeAndroidUpdateBridge,
   type AppUpdateCheckResult,
 } from '@wab-infos/shared/capacitor-app-update';
-import { isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
-import { ArrowRight, Download, Loader2, Sparkles, X } from 'lucide-react';
-
-type NativeAppUpdateProps = {
-  siteUrl: string;
-  versionManifestUrl: string;
-};
+import { getAndroidWebViewBridge, isNativeCapacitorFromUserAgent, isNativeRedactionAppFromUserAgent } from '@wab-infos/shared';
+import { ArrowRight, Download, Loader2, Smartphone, X } from 'lucide-react';
+import { redactionPublicPath } from '@/lib/redaction/public-path';
+import { APK_INSTALL_WAIT_MS, APK_SNOOZE_MS, apkBannerStamp, isApkBannerTemporarilyHidden } from '@/lib/redaction/apk-update-banner';
 
 type UpdateState = 'idle' | 'checking' | 'available' | 'downloading' | 'error';
+const SNOOZE_KEY = 'wab-redaction-apk-snoozed-v1';
+const INSTALL_STARTED_KEY = 'wab-redaction-apk-install-started-v1';
 
-const APK_INSTALL_STARTED_KEY = 'wab-apk-install-started-code';
+function readLocal(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function writeLocal(key: string, value: string | null) {
+  try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch { /* L'APK reste utilisable même sans stockage local. */ }
+}
 
-export function NativeAppUpdate({ siteUrl, versionManifestUrl }: NativeAppUpdateProps) {
-  const [mounted, setMounted] = useState(false);
+/** N'apparaît que dans l'APK, après comparaison du code installé avec le manifeste officiel. */
+export function NativeAppUpdate({ siteUrl }: { siteUrl: string }) {
   const [state, setState] = useState<UpdateState>('idle');
   const [check, setCheck] = useState<AppUpdateCheckResult | null>(null);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-
-  const clearInstallStartedIfUpdated = useCallback((result: AppUpdateCheckResult) => {
-    if (typeof localStorage === 'undefined' || !result.installed) return;
-    const startedRaw = localStorage.getItem(APK_INSTALL_STARTED_KEY);
-    const startedCode = startedRaw ? Number.parseInt(startedRaw, 10) : 0;
-    if (startedCode > 0 && result.installed.versionCode >= startedCode) {
-      localStorage.removeItem(APK_INSTALL_STARTED_KEY);
-      dismissApkUpdate(startedCode);
-    }
-  }, []);
+  const [error, setError] = useState('');
+  const checking = useRef(false), installing = useRef(false);
 
   const runCheck = useCallback(async () => {
-    if (!isNativeCapacitorFromUserAgent()) return;
-
-    setState('checking');
-    const result = await checkForApkUpdate({ siteUrl, versionManifestUrl });
-    clearInstallStartedIfUpdated(result);
-
-    if (!result.updateAvailable || !result.remote || !result.apkDownloadUrl) {
+    // Un lecteur Wab-infos ouvert sur la rédaction ne doit jamais recevoir l'APK Rédaction.
+    const nativeRedaction = isNativeRedactionAppFromUserAgent() ||
+      (!isNativeCapacitorFromUserAgent() && Boolean(getAndroidWebViewBridge()?.getAppVersionJson));
+    if (!nativeRedaction || checking.current || installing.current) return;
+    checking.current = true;
+    setState(previous => previous === 'idle' ? 'checking' : previous);
+    try {
+      // Le proxy même origine respecte aussi le basePath /redaction des APK hébergées sous ce chemin.
+      const manifestUrl = `${window.location.origin}${redactionPublicPath('/api/redaction/apk-version')}`;
+      const result = await checkForApkUpdate({ siteUrl, versionManifestUrl: manifestUrl });
+      if (installing.current) return;
       setCheck(result);
-      setState('idle');
-      return;
-    }
-
-    // Après « Mettre à jour », on masque le bandeau jusqu'à ce que la version change
-    // (évite la répétition quand on revient de l'écran d'installation).
-    if (typeof localStorage !== 'undefined') {
-      const startedRaw = localStorage.getItem(APK_INSTALL_STARTED_KEY);
-      const startedCode = startedRaw ? Number.parseInt(startedRaw, 10) : 0;
-      if (startedCode === result.remote.versionCode) {
-        setCheck(result);
-        setState('idle');
-        return;
+      if (!result.updateAvailable || !result.remote || !result.apkDownloadUrl) { setState('idle'); return; }
+      const code = result.remote.versionCode;
+      if (result.installed && result.installed.versionCode >= code) {
+        writeLocal(INSTALL_STARTED_KEY, null);
+        writeLocal(SNOOZE_KEY, null);
+        setState('idle'); return;
       }
-    }
-
-    if (isApkUpdateDismissed(result.remote.versionCode)) {
-      setCheck(result);
-      setState('idle');
-      return;
-    }
-
-    setCheck(result);
-    setState('available');
-  }, [clearInstallStartedIfUpdated, siteUrl, versionManifestUrl]);
+      if (isApkBannerTemporarilyHidden(code, readLocal(SNOOZE_KEY), APK_SNOOZE_MS) ||
+          isApkBannerTemporarilyHidden(code, readLocal(INSTALL_STARTED_KEY), APK_INSTALL_WAIT_MS)) {
+        setState('idle'); return;
+      }
+      setState('available');
+    } catch { setState('idle'); }
+    finally { checking.current = false; }
+  }, [siteUrl]);
 
   useEffect(() => {
-    setMounted(true);
     void runCheck();
-
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        void runCheck();
-      }
-    };
+    const onVisible = () => { if (document.visibilityState === 'visible') void runCheck(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [runCheck]);
 
-  const handleDismiss = () => {
-    if (check?.remote) {
-      dismissApkUpdate(check.remote.versionCode);
-      if (typeof localStorage !== 'undefined') {
-        // Empêche le bandeau de revenir juste après « Plus tard » / fermeture.
-        localStorage.setItem(APK_INSTALL_STARTED_KEY, String(check.remote.versionCode));
-      }
-    }
-    setState('idle');
-    setError(null);
-  };
-
-  const handleUpdate = async () => {
-    if (!check?.apkDownloadUrl || !check.remote) return;
-
-    setError(null);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(APK_INSTALL_STARTED_KEY, String(check.remote.versionCode));
-    }
-
-    if (usesNativeAndroidUpdateBridge()) {
-      setState('downloading');
-      setProgress(100);
-      try {
-        await downloadAndInstallApkUpdate(check.apkDownloadUrl, setProgress);
-        // Masque le bandeau : l'install système prend le relais.
-        setState('idle');
-      } catch (err) {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem(APK_INSTALL_STARTED_KEY);
-        }
-        setError(err instanceof Error ? err.message : 'Mise à jour impossible');
-        setState('error');
-      }
-      return;
-    }
-
-    setState('downloading');
-    setProgress(0);
-
-    try {
-      await downloadAndInstallApkUpdate(check.apkDownloadUrl, setProgress);
-      setState('idle');
-    } catch (err) {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(APK_INSTALL_STARTED_KEY);
-      }
-      setError(err instanceof Error ? err.message : 'Mise à jour impossible');
-      setState('error');
-    }
-  };
-
-  if (!mounted || state === 'idle' || state === 'checking' || !check?.remote) {
-    return null;
+  function dismiss() {
+    if (check?.remote) writeLocal(SNOOZE_KEY, apkBannerStamp(check.remote.versionCode));
+    setState('idle'); setError('');
   }
 
-  const installedLabel = check.installed?.versionName ?? '—';
-  const remoteLabel = check.remote.versionName;
+  async function update() {
+    if (!check?.remote || !check.apkDownloadUrl || installing.current) return;
+    installing.current = true;
+    writeLocal(INSTALL_STARTED_KEY, apkBannerStamp(check.remote.versionCode));
+    setState('downloading');setProgress(0);setError('');
+    try {
+      await downloadAndInstallApkUpdate(check.apkDownloadUrl, setProgress);
+      // Le pont Android ouvre l'installateur ; aucune installation n'est présumée réussie ici.
+      setState('idle');
+    } catch (cause) {
+      writeLocal(INSTALL_STARTED_KEY, null);
+      setError(cause instanceof Error ? cause.message : 'Téléchargement impossible. Réessayez.');
+      setState('error');
+    } finally { installing.current = false; }
+  }
 
-  return (
-    <div
-      className="fixed inset-x-0 bottom-0 z-[90] px-3 pb-3 sm:px-4 sm:pb-4"
-      role="dialog"
-      aria-live="polite"
-      aria-label="Mise à jour de l'application"
-    >
-      <div className="mx-auto max-w-md overflow-hidden rounded-2xl border border-[#C41E3A]/20 bg-white text-neutral-900 shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
-        <div className="bg-gradient-to-br from-[#C41E3A] to-[#8B1538] px-4 py-4 text-white sm:px-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-              {state === 'downloading' ? (
-                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-              ) : (
-                <Sparkles className="h-5 w-5" aria-hidden />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold tracking-tight">Nouvelle version disponible</p>
-              <p className="mt-1 text-sm text-white/85">
-                Installez la dernière version pour profiter des améliorations récentes.
-              </p>
-            </div>
-            {state !== 'downloading' ? (
-              <button
-                type="button"
-                onClick={handleDismiss}
-                className="shrink-0 rounded-full p-1.5 text-white/70 transition hover:bg-white/10 hover:text-white"
-                aria-label="Fermer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            ) : null}
-          </div>
+  if (state === 'idle' || state === 'checking' || !check?.remote) return null;
+  const current = check.installed?.versionName ?? '—', latest = check.remote.versionName;
+  return <aside role="region" aria-label="Mise à jour APK Rédaction" aria-live="polite" className="fixed inset-x-0 bottom-0 z-[90] px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] sm:px-5">
+    <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-[#b8d3eb] bg-white text-[#123655] shadow-[0_14px_50px_rgba(4,36,73,0.3)] dark:border-[#4a688b] dark:bg-[#14243c] dark:text-white">
+      <div className="h-1 bg-gradient-to-r from-[#0a447e] via-[#1676bc] to-[#ef008c]" />
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap sm:px-5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0c4b87]/10 text-[#0c4b87] dark:bg-white/10 dark:text-white">
+          {state === 'downloading' ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Smartphone className="h-5 w-5" aria-hidden />}
         </div>
-
-        <div className="space-y-4 px-4 py-4 sm:px-5">
-          <div className="flex items-center justify-center gap-3 rounded-xl bg-neutral-50 px-4 py-3">
-            <div className="text-center">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
-                Actuelle
-              </p>
-              <p className="mt-0.5 text-sm font-semibold text-neutral-700">v{installedLabel}</p>
-            </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-[#C41E3A]" aria-hidden />
-            <div className="text-center">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-[#C41E3A]">
-                Nouvelle
-              </p>
-              <p className="mt-0.5 text-sm font-semibold text-[#C41E3A]">v{remoteLabel}</p>
-            </div>
-          </div>
-
-          {check.remote.releaseNotes ? (
-            <p className="text-sm leading-relaxed text-neutral-600">{check.remote.releaseNotes}</p>
-          ) : (
-            <p className="text-sm leading-relaxed text-neutral-600">
-              Corrections, performances et nouveautés — l&apos;installation se fait sans quitter
-              l&apos;application.
-            </p>
-          )}
-
-          {state === 'downloading' ? (
-            <div>
-              <div className="h-2 overflow-hidden rounded-full bg-neutral-200">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#C41E3A] to-[#8B1538] transition-[width] duration-200"
-                  style={{ width: `${Math.max(progress, 8)}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs text-neutral-500">
-                {usesNativeAndroidUpdateBridge()
-                  ? `Installation de la version ${remoteLabel}…`
-                  : `Téléchargement de la version ${remoteLabel}… ${progress}%`}
-              </p>
-            </div>
-          ) : null}
-
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-          {state !== 'downloading' ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => void handleUpdate()}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#C41E3A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#a81830] sm:flex-none"
-              >
-                <Download className="h-4 w-4" aria-hidden />
-                Mettre à jour
-              </button>
-              <button
-                type="button"
-                onClick={handleDismiss}
-                className="rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-50"
-              >
-                Plus tard
-              </button>
-            </div>
-          ) : null}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold">Mise à jour APK Rédaction disponible</p>
+          <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">Version {current} <ArrowRight className="h-3.5 w-3.5" aria-hidden /> {latest}</p>
+          {check.remote.releaseNotes && <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">{check.remote.releaseNotes}</p>}
         </div>
+        {state !== 'downloading' && <div className="flex shrink-0 items-center gap-2">
+          <button type="button" onClick={() => void update()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0b4e8b] px-4 py-2 text-xs font-bold text-white hover:bg-[#083e71]"><Download className="h-4 w-4" aria-hidden />Mettre à jour</button>
+          <button type="button" onClick={dismiss} aria-label="Plus tard : rappeler demain" title="Plus tard" className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
+        </div>}
       </div>
+      {state === 'downloading' && <div className="px-4 pb-3 sm:px-5"><div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label="Téléchargement de l'APK" className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div className="h-full bg-[#1273b4] transition-[width]" style={{width:`${Math.max(2,progress)}%`}} /></div><p className="mt-1 text-xs">{usesNativeAndroidUpdateBridge() && progress === 100 ? 'Ouverture de l’installation Android…' : `Téléchargement… ${progress}%`}</p></div>}
+      {error && <p role="alert" className="px-4 pb-3 text-xs text-red-700 dark:text-red-300 sm:px-5">{error}</p>}
     </div>
-  );
+  </aside>;
 }
