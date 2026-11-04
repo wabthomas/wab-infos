@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Download, ImageDown, Maximize2, Printer, ShieldCheck } from 'lucide-react';
+import { Crop, Download, ImageDown, Maximize2, Printer, ShieldCheck } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS } from '@/lib/redaction/rh/organization';
 import QRCode from 'qrcode';
 import { createOrganizationQr } from '@/lib/redaction/rh/organization-qr';
-import { renderServiceCardSheet, type ServiceCardData } from '@/lib/redaction/rh/service-card-export';
+import { renderServiceCardSheet, type PhotoCrop, type ServiceCardData } from '@/lib/redaction/rh/service-card-export';
+import { PressPhotoCrop } from './press-photo-crop';
 
 async function deliver(blob:Blob,filename:string) {
   const file=new File([blob],filename,{type:blob.type});
@@ -34,6 +35,7 @@ export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
   const [logo,setLogo]=useState('/logo.png');
   const [loading,setLoading]=useState(true),[ready,setReady]=useState(false),[busy,setBusy]=useState(false);
   const [preview,setPreview]=useState<string|null>(null),[error,setError]=useState(''),[zoomed,setZoomed]=useState(false);
+  const [photoCrop,setPhotoCrop]=useState<PhotoCrop>({zoom:1,x:0,y:0}),[cropping,setCropping]=useState(false);
   useEffect(()=>{
     let active=true;
     setLoading(true);setReady(false);setError('');
@@ -52,7 +54,21 @@ export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[endpoint]);
-  function pageData(item:ServiceCardData){return {card:item,companyName,qr:companyQr,logo,companyWebsite,companyEmail,directorName,directorTitle,seal,directorSignature};}
+  useEffect(()=>{
+    setPhotoCrop({zoom:1,x:0,y:0});
+    if(!card?.photo||card.cardType!=='press')return;
+    try {
+      const saved=JSON.parse(localStorage.getItem(`rh-press-crop:${card.id}`)||'null');
+      if(saved?.photoStamp===`${card.photo.length}:${card.photo.slice(-48)}` && saved.crop && [saved.crop.zoom,saved.crop.x,saved.crop.y].every(Number.isFinite))
+        setPhotoCrop({zoom:Math.min(3,Math.max(1,saved.crop.zoom)),x:Math.min(1,Math.max(-1,saved.crop.x)),y:Math.min(1,Math.max(-1,saved.crop.y))});
+    }catch {/* Stockage local indisponible : cadrage d’origine. */}
+  },[card?.id,card?.photo,card?.cardType]);
+  function applyCrop(crop:PhotoCrop){
+    if(!card?.photo)return;
+    setPhotoCrop(crop);setCropping(false);setPreview(null);
+    try {localStorage.setItem(`rh-press-crop:${card.id}`,JSON.stringify({photoStamp:`${card.photo.length}:${card.photo.slice(-48)}`,crop}));}catch {/* L’aperçu reste utilisable dans cette session. */}
+  }
+  function pageData(item:ServiceCardData){return {card:item,photoCrop,companyName,qr:companyQr,logo,companyWebsite,companyEmail,directorName,directorTitle,seal,directorSignature};}
   useEffect(()=>{
     if(!ready||!card||!companyQr){setPreview(null);return;}
     let active=true;
@@ -60,7 +76,7 @@ export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
       .then(canvas=>{if(active){setPreview(canvas.toDataURL('image/jpeg',.9));setError('');}})
       .catch(cause=>{if(active){setPreview(null);setError(cause instanceof Error?cause.message:'Aperçu indisponible.');}});},300);
     return()=>{active=false;clearTimeout(timer);};
-  },[ready,card,companyQr,companyName,logo,companyWebsite,companyEmail,directorName,directorTitle,seal,directorSignature]);
+  },[ready,card,companyQr,companyName,logo,companyWebsite,companyEmail,directorName,directorTitle,seal,directorSignature,photoCrop]);
   useEffect(()=>{if(!zoomed)return;const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setZoomed(false);};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);},[zoomed]);
 
   async function currentCard():Promise<ServiceCardData> {
@@ -124,6 +140,7 @@ export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
   return <div className="mx-auto max-w-4xl space-y-4 p-2 sm:p-4">
     <header className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4"><ShieldCheck className="h-6 w-6 text-primary"/><div><h1 className="font-bold">{card.cardType==='press'?'Carte de presse · recto et verso':'Carte de service · recto et verso'}</h1><p className="text-xs text-muted-foreground">Planche A4 d’une page avec deux faces {card.cardType==='press'?'portrait 54 × 85,6 mm':'85,6 × 54 mm'}. Découpez et assemblez dos à dos ; ce n’est pas une impression recto-verso automatique.</p></div></header>
     <div className="flex flex-wrap justify-end gap-2 print:hidden">
+      {card.cardType==='press' && card.photo && <button type="button" disabled={busy} onClick={()=>setCropping(true)} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#1263ab] bg-[#1263ab]/5 px-3 py-2 text-sm font-semibold text-[#0b437d] disabled:opacity-50"><Crop className="h-4 w-4"/>Recadrer la photo</button>}
       <button type="button" disabled={busy||!preview} onClick={()=>void printSheet()} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold disabled:opacity-50"><Printer className="h-4 w-4"/>Imprimer A4</button>
       <button type="button" disabled={busy||!preview} onClick={()=>void exportFile('pdf')} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Download className="h-4 w-4"/>Télécharger PDF</button>
       <button type="button" disabled={busy||!preview} onClick={()=>void exportFile('png')} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold disabled:opacity-50"><ImageDown className="h-4 w-4"/>Télécharger PNG HD (300 dpi)</button>
@@ -131,6 +148,7 @@ export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
     {error && <p role="status" className={`rounded-lg border p-3 text-sm print:hidden ${error.includes('Ouvrez le PDF')?'border-primary/20 bg-primary/5 text-primary':'border-red-300 bg-red-50 text-red-900'}`}>{error}</p>}
     {preview ? <button type="button" onClick={()=>setZoomed(true)} className="mx-auto block w-full max-w-[210mm] text-left print:contents" aria-label="Agrandir la planche des cartes de service"><img className="service-card-print-page block h-auto w-full bg-white shadow-lg ring-1 ring-black/10 print:shadow-none print:ring-0" src={preview} alt={`Planche A4 recto-verso de la carte de ${card.firstName} ${card.lastName}`} /><span className="mt-2 flex items-center gap-2 text-xs text-muted-foreground print:hidden"><Maximize2 className="h-4 w-4"/>Toucher pour agrandir</span></button> : <div className="mx-auto flex aspect-[210/297] max-w-[210mm] items-center justify-center rounded-lg border bg-white p-5 text-center text-sm text-muted-foreground print:hidden">{error||'Préparation de l’aperçu A4…'}</div>}
     <dl className="sr-only"><div><dt>Titulaire</dt><dd>{card.firstName} {card.lastName}</dd></div><div><dt>Matricule</dt><dd>{card.cardNumber}</dd></div><div><dt>Fonction</dt><dd>{card.jobTitle}</dd></div><div><dt>Émission</dt><dd>{card.issuedAt}</dd></div><div><dt>Expiration</dt><dd>{card.expiresAt}</dd></div></dl>
+    {cropping&&card.cardType==='press'&&card.photo&&<PressPhotoCrop photo={card.photo} initial={photoCrop} onApply={applyCrop} onClose={()=>setCropping(false)}/>}
     {zoomed&&preview&&<div role="dialog" aria-modal="true" aria-label="Planche A4 agrandie" className="fixed inset-0 z-[120] overflow-auto bg-black/90 p-4 print:hidden" onMouseDown={event=>{if(event.target===event.currentTarget)setZoomed(false);}}><div className="sticky top-0 z-10 mb-3 flex justify-end"><button type="button" onClick={()=>setZoomed(false)} className="rounded-lg bg-white px-3 py-2 text-sm font-bold text-black">Fermer</button></div><img src={preview} alt="Recto et verso à taille réelle sur une page A4" className="mx-auto h-auto min-w-[826px] max-w-[826px] bg-white"/></div>}
     <style jsx global>{`@media print { @page {size:A4;margin:0;}html,body{height:297mm!important;overflow:hidden!important;}body *{visibility:hidden!important;}.service-card-print-page{visibility:visible!important;position:fixed!important;top:0!important;left:0!important;width:210mm!important;height:297mm!important;max-width:none!important;margin:0!important;} }`}</style>
   </div>;

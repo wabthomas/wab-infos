@@ -38,6 +38,14 @@ test('carte de presse portrait : modèle fourni, informations et mentions compl�
   assert.throws(()=>planPressCardSheet(ctx,{...press,card:{...press.card,verificationUrl:''}}),ServiceCardOverflowError);
 });
 
+test('recadrage photo : zoom et déplacement restent dans le cercle sans bord vide', async () => {
+  const {photoPlacement}=await import('../apps/redaction/src/lib/redaction/rh/service-card-export.ts');
+  assert.deepEqual(photoPlacement(200,200,90,90),{x:0,y:0,width:90,height:90});
+  assert.deepEqual(photoPlacement(200,200,90,90,{zoom:2,x:0,y:0}),{x:-45,y:-45,width:180,height:180});
+  assert.deepEqual(photoPlacement(200,200,90,90,{zoom:2,x:-4,y:4}),{x:-90,y:0,width:180,height:180});
+  assert.deepEqual(photoPlacement(400,200,90,90,{zoom:1,x:1,y:-1}),{x:0,y:0,width:180,height:90});
+});
+
 test('migration additive : type presse, jeton unique et carte historique de service', async () => {
   const { PGlite }=await import('@electric-sql/pglite');
   const { readFile }=await import('node:fs/promises');

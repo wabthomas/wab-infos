@@ -5,7 +5,8 @@ export type ServiceCardData = {
   firstName: string; lastName: string; jobTitle: string; team: string;
   workLocation: string | null; photo: string | null;
 };
-export type CardSheetData = { card: ServiceCardData; companyName: string; qr: string; logo: string; companyWebsite?: string; companyEmail?: string; directorName?: string; directorTitle?: string; seal?: string; directorSignature?: string };
+export type PhotoCrop = { zoom:number; x:number; y:number };
+export type CardSheetData = { card: ServiceCardData; photoCrop?:PhotoCrop; companyName: string; qr: string; logo: string; companyWebsite?: string; companyEmail?: string; directorName?: string; directorTitle?: string; seal?: string; directorSignature?: string };
 type Line = { text:string;x:number;y:number;size:number;color:string;bold?:boolean };
 export type CardSheetLayout = { front:Line[];back:Line[];frontX:number;backX:number;cardY:number;cardWidth:number;cardHeight:number };
 const W=2480/3, H=3508/3;
@@ -64,10 +65,17 @@ async function load(src:string|null):Promise<HTMLImageElement|null> {
   if(!src||(!src.startsWith('data:image/')&&!src.startsWith('/')))return null;
   return new Promise(resolve=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>resolve(null);img.src=src;});
 }
-function drawCover(ctx:CanvasRenderingContext2D,img:HTMLImageElement|null,x:number,y:number,w:number,h:number){
-  if(!img)return;
-  const scale=Math.max(w/img.naturalWidth,h/img.naturalHeight);
-  ctx.drawImage(img,x+(w-img.naturalWidth*scale)/2,y+(h-img.naturalHeight*scale)/2,img.naturalWidth*scale,img.naturalHeight*scale);
+export function photoPlacement(imageWidth:number,imageHeight:number,w:number,h:number,crop:PhotoCrop={zoom:1,x:0,y:0}) {
+  const zoom=Math.min(3,Math.max(1,Number.isFinite(crop.zoom)?crop.zoom:1));
+  const scale=Math.max(w/imageWidth,h/imageHeight)*zoom;
+  const width=imageWidth*scale,height=imageHeight*scale;
+  const panX=Math.min(1,Math.max(-1,Number.isFinite(crop.x)?crop.x:0));
+  const panY=Math.min(1,Math.max(-1,Number.isFinite(crop.y)?crop.y:0));
+  return {x:(w-width)/2+(width-w)/2*panX,y:(h-height)/2+(height-h)/2*panY,width,height};
+}
+export function drawCroppedPhoto(ctx:CanvasRenderingContext2D,img:HTMLImageElement,x:number,y:number,w:number,h:number,crop?:PhotoCrop){
+  const placement=photoPlacement(img.naturalWidth,img.naturalHeight,w,h,crop);
+  ctx.drawImage(img,x+placement.x,y+placement.y,placement.width,placement.height);
 }
 function draw(ctx:CanvasRenderingContext2D,img:HTMLImageElement|null,x:number,y:number,w:number,h:number){
   if(!img)return;
@@ -76,8 +84,9 @@ function draw(ctx:CanvasRenderingContext2D,img:HTMLImageElement|null,x:number,y:
 }
 const PRESS_W=54*W/210, PRESS_H=85.6*H/297, PRESS_Y=230;
 const PRESS_FRONT_X=140, PRESS_BACK_X=W-140-PRESS_W;
+function pressFont(ctx:CanvasRenderingContext2D,size:number,bold=false){ctx.font=`${bold?'700':'400'} ${size}px system-ui, sans-serif`;}
 function pressLines(ctx:CanvasRenderingContext2D,text:string,size:number,width:number,maxLines:number):string[] {
-  font(ctx,size,true);const lines=wrap(ctx,text,width);
+  pressFont(ctx,size,true);const lines=wrap(ctx,text,width);
   if(lines.length>maxLines)throw new ServiceCardOverflowError();
   return lines;
 }
@@ -151,8 +160,8 @@ async function renderPressSheet(data:CardSheetData,scale:number):Promise<HTMLCan
   if(!qr||!data.card.photo||!photo)throw new Error('Photo et QR de vérification de la carte de presse requis.');
   if(!logo||!seal||!signature||!data.directorName)throw new Error('Configurez le logo, le sceau, le nom et l’image de signature du DG dans Paramètres RH.');
   ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.fillStyle='#0b437d';ctx.fillRect(0,0,W,6);
-  ctx.fillStyle='#073f79';font(ctx,24,true);ctx.fillText('CARTE DE PRESSE · PLANCHE A4',62,88);
-  font(ctx,15);ctx.fillText('Recto et verso portrait à découper et assembler dos à dos · taille réelle (100 %).',62,122);
+  ctx.fillStyle='#073f79';pressFont(ctx,24,true);ctx.fillText('CARTE DE PRESSE · PLANCHE A4',62,88);
+  pressFont(ctx,15);ctx.fillText('Recto et verso portrait à découper et assembler dos à dos · taille réelle (100 %).',62,122);
   ctx.fillText('Carte professionnelle d’entreprise · vérifier le statut actuel en scannant le QR.',62,151);
   const {frontX:fx,backX:bx,cardY:y,cardWidth:cw,cardHeight:ch}=layout;
   for(const x of [fx,bx]){
@@ -168,47 +177,48 @@ async function renderPressSheet(data:CardSheetData,scale:number):Promise<HTMLCan
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx+cw/2,y+30,23,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='#ec008c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx+cw/2,y+30,21,-2.4,-.2);ctx.stroke();
   draw(ctx,logo,fx+cw/2-20,y+10,40,40);
-  ctx.textAlign='center';ctx.fillStyle='#fff';font(ctx,14,true);
+  ctx.textAlign='center';ctx.fillStyle='#fff';pressFont(ctx,14,true);
   layout.company.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+74+i*16));
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx+cw/2,y+139,48,0,Math.PI*2);ctx.fill();
-  ctx.save();ctx.beginPath();ctx.arc(fx+cw/2,y+139,45,0,Math.PI*2);ctx.clip();drawCover(ctx,photo,fx+cw/2-45,y+94,90,90);ctx.restore();
+  ctx.save();ctx.beginPath();ctx.arc(fx+cw/2,y+139,45,0,Math.PI*2);ctx.clip();drawCroppedPhoto(ctx,photo,fx+cw/2-45,y+94,90,90,data.photoCrop);ctx.restore();
   ctx.strokeStyle='#07467d';ctx.lineWidth=3;ctx.beginPath();ctx.arc(fx+cw/2,y+139,46,0,Math.PI*2);ctx.stroke();
   ctx.strokeStyle='#ed008c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx+cw/2,y+139,47,-.9,-.15);ctx.stroke();
-  ctx.fillStyle='#1263ab';font(ctx,18,true);
+  ctx.fillStyle='#1263ab';pressFont(ctx,18,true);
   layout.name.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+201+i*19));
+  const roleY=y+217+(layout.name.length-1)*19;
   ctx.strokeStyle='#07508b';ctx.lineWidth=2.5;ctx.lineCap='round';ctx.beginPath();
-  ctx.moveTo(fx+15,y+235);ctx.lineTo(fx+60,y+235);ctx.stroke();ctx.lineCap='butt';
-  ctx.textAlign='left';ctx.fillStyle='#06477e';font(ctx,12);
-  layout.role.forEach(text=>ctx.fillText(text,fx+73,y+239));
-  ctx.fillStyle='#06477e';font(ctx,9);
+  ctx.moveTo(fx+15,roleY-4);ctx.lineTo(fx+60,roleY-4);ctx.stroke();ctx.lineCap='butt';
+  ctx.textAlign='left';ctx.fillStyle='#06477e';pressFont(ctx,12,true);
+  layout.role.forEach(text=>ctx.fillText(text,fx+73,roleY));
+  ctx.fillStyle='#06477e';pressFont(ctx,9);
   layout.website.forEach(text=>{contactIcon(ctx,fx+21,y+248,'web');ctx.fillText(text,fx+35,y+251);});
   layout.email.forEach(text=>{contactIcon(ctx,fx+21,y+261,'mail');ctx.fillText(text,fx+35,y+264);});
   curvedFooter(ctx,fx,y,cw,ch,273);
   qrFrame(ctx,fx+cw/2-34,y+265);
   draw(ctx,qr,fx+cw/2-30,y+269,60,60);
-  ctx.textAlign='left';ctx.fillStyle='#eaf6ff';font(ctx,7,true);ctx.fillText('SCAN',fx+11,y+328);
+  ctx.textAlign='left';ctx.fillStyle='#eaf6ff';pressFont(ctx,7,true);ctx.fillText('SCAN',fx+11,y+328);
   // VERSO : sceau et signature, QR uniquement sur le recto ; bas de carte en bleu courbe.
-  ctx.textAlign='center';ctx.fillStyle='#fff';font(ctx,12,true);ctx.fillText('CARTE DE PRESSE',bx+cw/2,y+31);
+  ctx.textAlign='center';ctx.fillStyle='#fff';pressFont(ctx,12,true);ctx.fillText('CARTE DE PRESSE',bx+cw/2,y+31);
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx+cw/2,y+107,43,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='#ed008c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(bx+cw/2,y+107,41,-2.5,-.3);ctx.stroke();
   draw(ctx,logo,bx+cw/2-38,y+69,76,76);
-  ctx.fillStyle='#101010';font(ctx,30,true);ctx.fillText('PRESSE',bx+cw/2,y+187);
+  ctx.fillStyle='#101010';pressFont(ctx,30,true);ctx.fillText('PRESSE',bx+cw/2,y+187);
   ctx.save();ctx.globalAlpha=.68;draw(ctx,seal,bx+cw/2-31,y+191,62,61);ctx.restore();
-  ctx.textAlign='left';ctx.fillStyle='#143d65';font(ctx,9);
+  ctx.textAlign='left';ctx.fillStyle='#143d65';pressFont(ctx,9);
   ctx.fillText(`Émise le ${data.card.issuedAt}`,bx+11,y+255);
   ctx.fillText(`Expire le ${data.card.expiresAt}`,bx+11,y+269);
   draw(ctx,signature,bx+122,y+238,74,21);
-  ctx.fillStyle='#132f4b';font(ctx,8,true);
+  ctx.fillStyle='#132f4b';pressFont(ctx,8,true);
   layout.director.forEach(text=>ctx.fillText(text,bx+120,y+268));
   curvedFooter(ctx,bx,y,cw,ch,268);
   ctx.fillStyle='#ffd83d';ctx.beginPath();ctx.arc(bx+19,y+294,7,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#06477e';font(ctx,10,true);ctx.textAlign='center';ctx.fillText('i',bx+19,y+297);
-  ctx.textAlign='left';ctx.fillStyle='#fff';font(ctx,14,true);
+  ctx.fillStyle='#06477e';pressFont(ctx,10,true);ctx.textAlign='center';ctx.fillText('i',bx+19,y+297);
+  ctx.textAlign='left';ctx.fillStyle='#fff';pressFont(ctx,14,true);
   ctx.fillText('LAISSEZ PASSER',bx+31,y+303);
-  ctx.font='7.5px Arial';ctx.fillStyle='#fff';
+  pressFont(ctx,7.5);ctx.fillStyle='#fff';
   layout.notice.forEach((text,i)=>ctx.fillText(text,bx+11,y+312+i*8));
   for(const x of [fx,bx]){ctx.strokeStyle='#0c437b';ctx.lineWidth=1;ctx.strokeRect(x,y,cw,ch);}
-  ctx.textAlign='left';ctx.fillStyle='#444';font(ctx,11);ctx.fillText('QR : identité de l’entreprise et statut actuel de la carte (non preuve d’identité du porteur).',62,640);
+  ctx.textAlign='left';ctx.fillStyle='#444';pressFont(ctx,11);ctx.fillText('QR : identité de l’entreprise et statut actuel de la carte (non preuve d’identité du porteur).',62,640);
   ctx.fillText('La mention « Laissez passer » est fournie par l’entreprise ; elle ne confère aucune habilitation publique.',62,665);
   ctx.strokeStyle='#d2d4db';ctx.beginPath();ctx.moveTo(62,H-68);ctx.lineTo(W-62,H-68);ctx.stroke();
   ctx.fillText('Document RH professionnel · recto / verso · format portrait 54 × 85,6 mm',62,H-45);
