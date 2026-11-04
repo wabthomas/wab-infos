@@ -6,18 +6,31 @@
   const draftKey = `${owner}:redaction-draft-new`;
   const voiceKey = 'redaction-rh-voice-enabled-v1';
   const voiceToggle = document.getElementById('voice-toggle');
-  const voiceLabel = document.getElementById('voice-label');
-  voiceToggle.checked = localStorage.getItem(voiceKey) !== 'off';
-  const updateVoiceLabel = () => { voiceLabel.textContent = `Son: ${voiceToggle.checked ? 'Activée' : 'Désactivée'}`; };
-  updateVoiceLabel();
-  voiceToggle.onchange = () => { try { localStorage.setItem(voiceKey, voiceToggle.checked ? 'on' : 'off'); } catch { voiceToggle.checked = false; } updateVoiceLabel(); if (!voiceToggle.checked) playing?.pause(); };
+  let voiceEnabled = localStorage.getItem(voiceKey) !== 'off';
   let playing = null;
+  function renderVoiceToggle() {
+    voiceToggle.setAttribute('aria-pressed', String(voiceEnabled));
+    voiceToggle.setAttribute('aria-label', voiceEnabled ? 'Son activé : appuyer pour désactiver' : 'Son désactivé : appuyer pour activer');
+    voiceToggle.title = voiceEnabled ? 'Son activé' : 'Son désactivé';
+  }
+  renderVoiceToggle();
+  voiceToggle.onclick = () => {
+    voiceEnabled = !voiceEnabled;
+    try { localStorage.setItem(voiceKey, voiceEnabled ? 'on' : 'off'); } catch { /* Le choix reste actif durant la session. */ }
+    if (!voiceEnabled) {
+      playing?.pause();
+      try { window.AndroidBridge?.stopRhVoice?.(); } catch { /* Ancien pont. */ }
+    }
+    renderVoiceToggle();
+  };
   function speak(kind) {
-    if (!voiceToggle.checked || !['in', 'out', 'prestation'].includes(kind)) return;
+    if (!voiceEnabled || !['in', 'out', 'prestation'].includes(kind)) return;
     const name = kind === 'in' ? 'arrival' : kind === 'out' ? 'departure' : 'submission';
+    const cue = `${name}-offline`;
+    try { if (window.AndroidBridge?.playRhVoice?.(cue)) return; } catch { /* Repli WebView. */ }
     try {
       playing?.pause();
-      playing = new Audio(new URL(`rh-voice/${name}-offline.mp3`, location.href));
+      playing = new Audio(new URL(`rh-voice/${cue}.mp3`, location.href));
       playing.play().catch(() => {});
     } catch { /* L'enregistrement local ne dépend pas de l'audio. */ }
   }

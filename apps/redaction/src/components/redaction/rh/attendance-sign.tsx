@@ -67,6 +67,8 @@ export function AttendanceSign({ owner }: { owner: string }) {
     setError('');
     setMessage('');
     const recordedAt = new Date().toISOString();
+    voice.prepare(action === 'in' ? 'arrival' : 'departure');
+    voice.prepare(action === 'in' ? 'arrival-offline' : 'departure-offline');
     try {
       if (!navigator.onLine || (action === 'out' && queuedIn)) throw new TypeError('Offline');
       const response = await fetchRedaction('/api/redaction/rh/mon-espace/presence', {

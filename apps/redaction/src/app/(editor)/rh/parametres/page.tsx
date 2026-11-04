@@ -3,6 +3,7 @@ import { Building2, Settings2, ShieldCheck } from 'lucide-react';
 import { OrganizationSettings } from '@/components/redaction/rh/organization-settings';
 import { FeatureSettings } from '@/components/redaction/rh/feature-settings';
 import { RoleManager } from '@/components/redaction/rh/role-manager';
+import { RhVoiceAdminTest } from '@/components/redaction/rh/rh-voice-admin-test';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,7 @@ export default async function RhSettingsPage() {
       <div className="mt-4 flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-xs leading-5 text-amber-900 dark:text-amber-200"><ShieldCheck className="h-4 w-4 shrink-0" />Ces réglages sont réservés aux super-administrateurs RH et ne sont pas modifiables par les collaborateurs.</div>
     </div>
     <OrganizationSettings />
+    <RhVoiceAdminTest />
     <FeatureSettings />
     <RoleManager />
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-xs leading-5 text-muted-foreground"><Building2 className="h-5 w-5 shrink-0 text-primary" />Les signatures, sceaux et logos sont enregistrés dans la base RH. La migration des fiches doit être appliquée pour rendre ces paramètres disponibles.</div>

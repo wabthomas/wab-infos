@@ -3,6 +3,9 @@ package com.wabinfos.app;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.content.res.AssetFileDescriptor;
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -82,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
 
     private View rootLayout;
     private WebView webView;
+    private MediaPlayer rhVoicePlayer;
     private SwipeRefreshLayout swipeRefresh;
     private ProgressBar progressBar;
     private View offlineLayout;
@@ -1227,6 +1231,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        stopRhVoicePlayback();
         webView.onPause();
     }
 
@@ -1240,6 +1245,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        stopRhVoicePlayback();
         UpdateManager.unbindActivity();
         mainHandler.removeCallbacks(offlineReconnectRunnable);
         if (webView != null) {
@@ -1248,8 +1254,50 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    /** Lecture média locale ; aucune permission micro ou stockage n'est requise. */
+    private void stopRhVoicePlayback() {
+        if (rhVoicePlayer == null) return;
+        MediaPlayer previous = rhVoicePlayer;
+        rhVoicePlayer = null;
+        try { previous.stop(); } catch (IllegalStateException ignored) { }
+        previous.release();
+    }
+
     /** Pont JS exposé au site : permet d'utiliser le partage natif Android depuis les pages web. */
     private class NativeBridge {
+        @android.webkit.JavascriptInterface
+        public boolean playRhVoice(String cue) {
+            if (!"WabRedactionNative".equals(BuildConfig.UA_MARKER) || cue == null ||
+                    !(cue.equals("arrival") || cue.equals("departure") || cue.equals("submission") ||
+                      cue.equals("arrival-offline") || cue.equals("departure-offline") || cue.equals("submission-offline"))) return false;
+            final AssetFileDescriptor asset;
+            try { asset = getAssets().openFd("rh-voice/" + cue + ".mp3"); }
+            catch (IOException e) { Log.w("WabRhVoice", "Voix locale indisponible", e); return false; }
+            runOnUiThread(() -> {
+                try {
+                    stopRhVoicePlayback();
+                    MediaPlayer player = new MediaPlayer();
+                    player.setAudioAttributes(new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+                    player.setDataSource(asset.getFileDescriptor(), asset.getStartOffset(), asset.getLength());
+                    player.setOnCompletionListener(done -> { if (rhVoicePlayer == done) stopRhVoicePlayback(); });
+                    player.setOnErrorListener((failed, what, extra) -> { if (rhVoicePlayer == failed) stopRhVoicePlayback(); return true; });
+                    rhVoicePlayer = player;
+                    player.prepare();
+                    player.start();
+                } catch (Exception e) {
+                    Log.w("WabRhVoice", "Lecture vocale impossible", e);
+                    stopRhVoicePlayback();
+                } finally {
+                    try { asset.close(); } catch (IOException ignored) { }
+                }
+            });
+            return true;
+        }
+
+        @android.webkit.JavascriptInterface
+        public void stopRhVoice() { runOnUiThread(MainActivity.this::stopRhVoicePlayback); }
         @android.webkit.JavascriptInterface
         public void share(String title, String text, String url) {
             runOnUiThread(() -> {
