@@ -4,6 +4,20 @@
   const owner = localStorage.getItem('redaction-offline-owner');
   const dbName = 'redaction-rh-offline-v1';
   const draftKey = `${owner}:redaction-draft-new`;
+  const voiceKey = 'redaction-rh-voice-enabled-v1';
+  const voiceToggle = document.getElementById('voice-toggle');
+  voiceToggle.checked = localStorage.getItem(voiceKey) === 'on';
+  voiceToggle.onchange = () => { try { localStorage.setItem(voiceKey, voiceToggle.checked ? 'on' : 'off'); } catch { voiceToggle.checked = false; } };
+  let playing = null;
+  function speak(kind) {
+    if (!voiceToggle.checked || !['in', 'out', 'prestation'].includes(kind)) return;
+    const name = kind === 'in' ? 'arrival' : kind === 'out' ? 'departure' : 'submission';
+    try {
+      playing?.pause();
+      playing = new Audio(new URL(`rh-voice/${name}-offline.mp3`, location.href));
+      playing.play().catch(() => {});
+    } catch { /* L'enregistrement local ne dépend pas de l'audio. */ }
+  }
   const show = (text) => { notice.textContent = text; };
   const day = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const open = () => new Promise((resolve, reject) => {
@@ -34,6 +48,7 @@
     db.close();
     await render();
     show('Enregistré sur cet appareil. Envoi après reconnexion avec le même compte.');
+    speak(entry.kind);
   }
   async function render() {
     const list = document.getElementById('pending');

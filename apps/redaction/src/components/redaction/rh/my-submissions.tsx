@@ -1,5 +1,6 @@
 'use client';
 import { useRhNotice } from './use-rh-notice';
+import { RhActionVoiceToggle, useRhActionVoice } from './rh-action-voice';
 import { CircleCheck, CircleHelp } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { PersonalHistoryControls } from './personal-history-controls';
@@ -12,6 +13,7 @@ const labels: Record<SubmissionStatus, string> = { pending: 'En attente', approv
 const statusStyles: Record<SubmissionStatus, string> = { pending: 'bg-amber-500/10 text-amber-800', approved: 'bg-emerald-500/10 text-emerald-800', rejected: 'bg-rose-500/10 text-rose-800', cancelled: 'bg-muted text-muted-foreground' };
 const endpoint = '/api/redaction/rh/mon-espace/prestations';
 export function MySubmissions({ today, owner = '' }: { today: string; owner?: string }) {
+  const voice = useRhActionVoice();
   const [localToday, setLocalToday] = useState(today);
   useEffect(() => { setLocalToday(new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())); }, []);
   const [items, setItems] = useState<Submission[]>([]);
@@ -49,6 +51,7 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
       const response = await fetchRedaction(endpoint, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(offlinePayload ?? body) });
       const data = await response.json();
       if (!response.ok) { if (method === 'POST' && [502, 503, 504].includes(response.status)) throw new TypeError('Server unavailable'); throw new Error(data.error || 'Opération impossible.'); }
+      if (method === 'POST') voice.speak('submission');
       setDate(''); setDescription(''); setMessage(method === 'POST' ? 'Déclaration transmise à l’administrateur.' : 'Déclaration annulée.'); setFormOpen(false); setPage(1); setReload((n) => n + 1);
     } catch (e) { if (method === 'POST' && e instanceof TypeError) await saveOffline(offlinePayload as { date: string; description: string; clientId: string; recordedAt: string }); else setError(e instanceof Error ? e.message : 'Opération impossible.'); }
     finally { setBusy(false); }
@@ -59,6 +62,7 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
       await enqueue({ id: input.clientId ?? crypto.randomUUID(), owner, kind: 'prestation', recordedAt: input.recordedAt ?? new Date().toISOString(), date: input.date, description: input.description });
       notifyQueue(); setDate(''); setDescription(''); setFormOpen(false);
       setMessage('Déclaration enregistrée sur cet appareil, en attente de synchronisation.');
+      voice.speak('submission-offline');
     } catch { setError('Stockage hors ligne indisponible : déclaration non enregistrée.'); }
   }
   function submit(e: FormEvent<HTMLFormElement>) {
@@ -70,7 +74,7 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
     } else void send('POST', input);
   }
   return <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-    <div><h2 className="font-semibold">Mes prestations</h2><p className="mt-1 text-sm text-muted-foreground">Déclarez votre travail pour vérification par l’admin. Une déclaration en attente n’est pas encore un relevé validé.</p></div>
+    <div><h2 className="font-semibold">Mes prestations</h2><p className="mt-1 text-sm text-muted-foreground">Déclarez votre travail pour vérification par l’admin. Une déclaration en attente n’est pas encore un relevé validé.</p><div className="mt-3"><RhActionVoiceToggle voice={voice} /></div></div>
     {error && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
     {message && <p role="status" className="text-sm text-primary">{message}</p>}
     {queued.filter((op) => op.kind === 'prestation').map((op) => <p key={op.id} role="status" className="rounded-lg bg-amber-500/10 p-3 text-sm">{op.date} · {op.description} — en attente d’envoi</p>)}
