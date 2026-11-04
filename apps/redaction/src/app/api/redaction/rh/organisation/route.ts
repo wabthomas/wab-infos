@@ -3,6 +3,7 @@ import { requireRedactionUser, isRedactionSuperAdmin } from '@/lib/redaction/str
 import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
 import { db } from '@/lib/redaction/rh/database';
 import { DEFAULT_ORGANIZATION_SETTINGS, ORGANIZATION_SETTING_LABELS, type OrganizationSettingKey } from '@/lib/redaction/rh/organization';
+import { validOfficialReferenceConfig } from '@/lib/redaction/rh/official-reference';
 import { handleError, json, readBody, validOrigin } from '@/lib/redaction/rh/api';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ const keys = Object.keys(ORGANIZATION_SETTING_LABELS) as OrganizationSettingKey[
 const lengths: Record<OrganizationSettingKey, number> = {
   companyName: 160, companyAddress: 500, companyPhone: 100, companyEmail: 320,
   companyWebsite: 240, companyTaxId: 100, companyRegistration: 160,
-  directorName: 160, directorTitle: 100, directorSignatureWidth: 3, directorSignatureHeight: 3, documentHeader: 1200, documentFooter: 1200,
+  directorName: 160, directorTitle: 100, directorSignatureWidth: 3, directorSignatureHeight: 3, documentHeader: 1200, documentFooter: 1200, communiqueReferenceMode: 9, communiqueReferenceFormat: 64,
 };
 
 async function authorizeReader() {
@@ -45,6 +46,9 @@ export async function PATCH(request: Request) {
     if (!entries.length || entries.some(([key, value]) => !keys.includes(key as OrganizationSettingKey) || typeof value !== 'string' || value.length > lengths[key as OrganizationSettingKey] || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value as string))) return json({ error: 'Un ou plusieurs champs sont invalides.' }, 400);
     const normalized = entries.map(([key, value]) => [key, (value as string).trim()] as const);
     if (normalized.some(([key, value]) => key === 'directorSignatureWidth' ? !/^(1[2-9]\d|2[0-6]\d)$/.test(value) : key === 'directorSignatureHeight' ? !/^([5-9]\d|1[0-2]\d)$/.test(value) : false)) return json({ error: 'Dimensions de signature invalides (largeur 120–269, hauteur 50–129 px).' }, 400);
+    const referenceMode = normalized.find(([key]) => key === 'communiqueReferenceMode')?.[1];
+    const referenceFormat = normalized.find(([key]) => key === 'communiqueReferenceFormat')?.[1];
+    if ((referenceMode !== undefined || referenceFormat !== undefined) && (referenceMode === undefined || referenceFormat === undefined || !validOfficialReferenceConfig(referenceMode, referenceFormat))) return json({ error: 'Format de référence invalide : utilisez {AAAA}, {MM} et exactement un {SEQ:6} (auto) ou {REF} (manuel).' }, 400);
     const email = normalized.find(([key]) => key === 'companyEmail')?.[1];
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'Adresse e-mail invalide.' }, 400);
     const website = normalized.find(([key]) => key === 'companyWebsite')?.[1];

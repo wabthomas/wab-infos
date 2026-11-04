@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 import { Archive, Check, FilePenLine, FileText, Megaphone, Plus, Search, Sparkles, X } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { formatOfficialReference, validManualReferenceCode, validOfficialReferenceConfig } from '@/lib/redaction/rh/official-reference';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { OFFICIAL_KINDS, type OfficialDocumentKind, type OfficialTemplate } from '@/lib/redaction/rh/official-documents';
 import { downloadCanvas, downloadOfficialPdf, renderOfficialPage, OfficialPageOverflowError, type OfficialExport } from '@/lib/redaction/rh/official-export';
@@ -33,6 +34,7 @@ export function OfficialDocuments() {
   const [body, setBody] = useState('');
   const [instructions, setInstructions] = useState('');
   const [recipient, setRecipient] = useState('');
+  const [referenceCode, setReferenceCode] = useState('');
   const [date, setDate] = useState(() => new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date()));
   const [signed, setSigned] = useState(false);
   const [issued, setIssued] = useState<{ url: string; fingerprint: string; reference: string | null } | null>(null);
@@ -196,17 +198,20 @@ export function OfficialDocuments() {
     (templateFilter === 'tous' || item.kind === templateFilter)
     && (!normalizedSearch || `${item.title} ${item.subject}`.toLocaleLowerCase('fr').includes(normalizedSearch))
   );
-  draftKeyRef.current = JSON.stringify([kind, subject, body, recipient, date, signed, signatureMode, settings, assets]);
+  draftKeyRef.current = JSON.stringify([kind, subject, body, recipient, date, signed, signatureMode, settings, assets, referenceCode]);
   async function issueDocument() {
     const initialKey = draftKeyRef.current;
     if (!signed || !subject.trim() || !body.trim() || !canSign) return;
+    if (kind === 'communique' && !validOfficialReferenceConfig(settings.communiqueReferenceMode, settings.communiqueReferenceFormat)) { setError('Configurez un format de référence valide dans Paramètres RH → Entreprise.'); return; }
+    if (kind === 'communique' && settings.communiqueReferenceMode === 'manual' && !validManualReferenceCode(referenceCode)) { setError('Saisissez votre code manuel de référence avant l’émission.'); return; }
     setBusy('issue'); setError('');
     try {
       // Vérifier d’abord que le document tient, avant de créer une entrée de registre.
-      await renderOfficialPage({ ...documentData(), verificationUrl: 'https://example.invalid/verification/rh/' + 'a'.repeat(64), reference: kind === 'communique' ? 'COM-RH-2026-999999999999' : null }, 1);
+      const candidate = kind === 'communique' ? formatOfficialReference(settings.communiqueReferenceMode as 'automatic' | 'manual', settings.communiqueReferenceFormat, new Date(), settings.communiqueReferenceMode === 'manual' ? referenceCode : 9999999999) : null;
+      await renderOfficialPage({ ...documentData(), verificationUrl: 'https://example.invalid/verification/rh/' + 'a'.repeat(64), reference: candidate }, 1);
       const response = await fetchRedaction('/api/redaction/rh/emissions', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ kind, subject, body, date, recipient, signatureMode }),
+        body: JSON.stringify({ kind, subject, body, date, recipient, signatureMode, ...(kind === 'communique' && settings.communiqueReferenceMode === 'manual' ? { referenceCode } : {}) }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Émission indisponible.');
@@ -292,9 +297,9 @@ export function OfficialDocuments() {
       </div>
       <div className="mt-4 rounded-xl border border-border p-4 text-sm">
         <p className="font-bold">Sceau et QR de vérification</p>
-        {kind === 'communique' && <p className="mt-1 text-muted-foreground">Un numéro de référence unique est attribué automatiquement au communiqué lors de son émission ; il figure sur le PDF, le PNG et dans le registre.</p>}
+        {kind === 'communique' && <div className="mt-2 space-y-2"><p className="text-muted-foreground">La référence est figée à l’émission, visible sur le PDF, le PNG et dans le registre. Mode et format définis par l’administration dans Paramètres RH → Entreprise.</p>{settings.communiqueReferenceMode === 'manual' && <label className="block font-semibold">Code manuel à insérer dans {'{REF}'}<input className={input + ' mt-1 max-w-sm'} maxLength={30} value={referenceCode} onChange={event => { setReferenceCode(event.target.value); setIssued(null); }} placeholder="Ex. 001 ou RH-42" /></label>}{!validOfficialReferenceConfig(settings.communiqueReferenceMode, settings.communiqueReferenceFormat) && <p role="alert" className="text-red-700">Format invalide : corrigez les paramètres de l’entreprise avant l’émission.</p>}</div>}
         <p className="mt-1 text-muted-foreground">Le sceau de l’entreprise apparaît en filigrane derrière la signature, le nom et la fonction. Le QR mène au registre RH (nom + RCCM ou identifiant fiscal requis dans Paramètres). Un QR seul ne constitue pas une signature électronique certifiée.</p>
-        <button type="button" className={button + ' mt-3'} disabled={!!busy || !signed || !canSign} onClick={() => void issueDocument()}>{busy === 'issue' ? 'Émission en cours…' : issued ? 'Émettre une nouvelle version' : 'Émettre et activer le QR'}</button>
+        <button type="button" className={button + ' mt-3'} disabled={!!busy || !signed || !canSign || (kind === 'communique' && (!validOfficialReferenceConfig(settings.communiqueReferenceMode, settings.communiqueReferenceFormat) || (settings.communiqueReferenceMode === 'manual' && !validManualReferenceCode(referenceCode))))} onClick={() => void issueDocument()}>{busy === 'issue' ? 'Émission en cours…' : issued ? 'Émettre une nouvelle version' : 'Émettre et activer le QR'}</button>
         {issued && <p className="mt-2 break-all text-xs text-muted-foreground">{issued.reference ? `Référence ${issued.reference} · ` : 'Émission enregistrée · '} <a className="font-semibold text-primary underline" href={issued.url} target="_blank" rel="noopener noreferrer">Vérifier le QR</a> · Empreinte {issued.fingerprint.slice(0,16)}…</p>}
         {!signed && <p className="mt-2 text-xs text-muted-foreground">Sans visa, le document exporté porte la mention « Brouillon non validé » et ne comporte pas de QR.</p>}
       </div>

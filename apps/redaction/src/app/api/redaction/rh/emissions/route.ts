@@ -3,6 +3,7 @@ import { requireRhPermission } from '@/lib/redaction/rh/authorization';
 import { db } from '@/lib/redaction/rh/database';
 import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api';
 import { validateOfficialContent } from '@/lib/redaction/rh/official-documents';
+import { formatOfficialReference, validManualReferenceCode, validOfficialReferenceConfig } from '@/lib/redaction/rh/official-reference';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 
 export const runtime = 'nodejs';
@@ -38,9 +39,16 @@ export async function POST(request: Request) {
     const hashes = Object.fromEntries(assets.rows.map(row => [row.asset_key, createHash('sha256').update(row.file_bytes).digest('hex')])) as Record<string,string>;
     if (!settings.companyName.trim() || (!settings.companyRegistration.trim() && !settings.companyTaxId.trim())) return json({ error: 'Configurez le nom et le RCCM ou l’identifiant fiscal de l’entreprise pour le registre.' }, 409);
     if (!settings.directorName.trim() || !hashes['company-seal'] || (input.signatureMode === 'image' && !hashes['director-signature'])) return json({ error: 'Configurez le DG, le sceau et la signature image si sélectionnée dans Paramètres RH.' }, 409);
-    // Référence attribuée par la base, non saisie par le navigateur ; la séquence évite les doublons concurrents.
+    const mode = settings.communiqueReferenceMode;
+    const format = settings.communiqueReferenceFormat;
+    if (input.kind === 'communique' && !validOfficialReferenceConfig(mode, format)) return json({ error: 'Format de référence invalide dans Paramètres RH → Entreprise.' }, 409);
+    if (input.kind === 'communique' && mode === 'manual' && !validManualReferenceCode(input.referenceCode)) return json({ error: 'Saisissez un code manuel de 1 à 30 caractères (lettres, chiffres, tirets, points ou soulignés).' }, 400);
+    if (input.kind === 'communique' && mode === 'automatic' && input.referenceCode !== undefined) return json({ error: 'Le numéro automatique ne peut pas être saisi par le navigateur.' }, 400);
+    // Un compteur PostgreSQL global évite les doublons lors d'émissions simultanées.
+    const number = input.kind === 'communique' && mode === 'automatic'
+      ? Number((await db().query("SELECT nextval('redaction_rh.official_issue_reference_seq') AS number")).rows[0].number) : null;
     const reference = input.kind === 'communique'
-      ? `COM-RH-${new Intl.DateTimeFormat('en-GB', { year: 'numeric', timeZone: 'Africa/Kinshasa' }).format(new Date())}-${String((await db().query("SELECT nextval('redaction_rh.official_issue_reference_seq') AS number")).rows[0].number).padStart(6, '0')}`
+      ? formatOfficialReference(mode as 'automatic' | 'manual', format, new Date(), mode === 'automatic' ? number! : input.referenceCode as string)
       : null;
     const token = randomBytes(32).toString('hex');
     const url = new URL(`${base.pathname.replace(/\/$/,'')}/verification/rh/${token}`, base.origin).toString();
@@ -49,5 +57,8 @@ export async function POST(request: Request) {
     await db().query(`INSERT INTO redaction_rh.official_issues(id,token_hash,kind,company_name,company_registration,company_tax_id,document_date,content_hash,snapshot,created_by,reference)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[randomUUID(),sha(token),input.kind,settings.companyName,settings.companyRegistration,settings.companyTaxId,input.date.trim(),fingerprint,JSON.stringify(snapshot),actor.email,reference]);
     return json({ token, url, reference, fingerprint: fingerprint.toString('hex') });
-  } catch (error) { return handleError(error); }
+  } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === '23505') return json({ error: 'Référence déjà utilisée : choisissez un autre code ou modifiez le format.' }, 409);
+    return handleError(error);
+  }
 }

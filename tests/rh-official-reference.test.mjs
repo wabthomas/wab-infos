@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
+import { formatOfficialReference, validOfficialReferenceConfig, validManualReferenceCode } from '../apps/redaction/src/lib/redaction/rh/official-reference.ts';
 import { planOfficialPage } from '../apps/redaction/src/lib/redaction/rh/official-export.ts';
 
 const migration = new URL('../docs/sql/rh-official-issues.sql', import.meta.url);
@@ -40,4 +41,18 @@ test('la référence figure sur la page A4 du communiqué avec le QR', () => {
   assert.ok(layout.qrY !== null && layout.qrY+100 < layout.footerTop);
   assert.ok(layout.lines.some(line=>line.text==='COMMUNIQUÉ OFFICIEL'));
   assert.ok(planOfficialPage(ctx,{...doc,reference:null}).lines.some(line=>line.text.includes('attribuée à l’émission')));
+});
+
+test('configuration admin : formats automatiques/manuels, mois Kinshasa et entrées rejetées', () => {
+  const instant = new Date('2026-12-31T23:30:00.000Z'); // 1 janvier à Kinshasa
+  assert.equal(formatOfficialReference('automatic','DG/{AAAA}/{MM}/{SEQ:4}',instant,42),'DG/2027/01/0042');
+  assert.equal(formatOfficialReference('manual','RH-{AAAA}-{REF}',instant,'ab-12'),'RH-2027-AB-12');
+  assert.equal(validOfficialReferenceConfig('automatic','RH-{SEQ:6}-{SEQ:6}'),false);
+  assert.equal(validOfficialReferenceConfig('manual','RH-{SEQ:6}'),false);
+  assert.equal(validOfficialReferenceConfig('manual','RH-{REF} {AAAA}'),false);
+  assert.equal(validOfficialReferenceConfig('manual','RH-{REF}-{MAUVAIS}'),false);
+  assert.equal(validManualReferenceCode('ABC-2'),true);
+  assert.equal(validManualReferenceCode('../../script'),false);
+  assert.equal(validManualReferenceCode(''),false);
+  assert.throws(() => formatOfficialReference('automatic','RH-{SEQ:2}',instant,0));
 });

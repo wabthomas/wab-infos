@@ -12,6 +12,8 @@ export const ORGANIZATION_SETTING_LABELS = {
   directorSignatureHeight: 'Hauteur de la signature image (px)',
   documentHeader: 'Entête des documents',
   documentFooter: 'Pied de page des documents',
+  communiqueReferenceMode: 'Attribution du numéro du communiqué',
+  communiqueReferenceFormat: 'Format de référence du communiqué',
 } as const;
 
 export type OrganizationSettingKey = keyof typeof ORGANIZATION_SETTING_LABELS;
@@ -31,6 +33,8 @@ export const DEFAULT_ORGANIZATION_SETTINGS: OrganizationSettings = {
   directorSignatureHeight: '92',
   documentHeader: '',
   documentFooter: 'Document interne — émis par Wab-infos.',
+  communiqueReferenceMode: 'automatic',
+  communiqueReferenceFormat: 'COM-RH-{AAAA}-{SEQ:6}',
 };
 
 export const ORGANIZATION_ASSETS = {
