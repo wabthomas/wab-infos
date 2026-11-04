@@ -85,19 +85,63 @@ export function planPressCardSheet(ctx:CanvasRenderingContext2D,data:CardSheetDa
   const {card}=data;
   if(!card.verificationUrl || !/^https?:\/\//.test(card.verificationUrl))throw new ServiceCardOverflowError();
   const name=pressLines(ctx,`${card.firstName} ${card.lastName}`,18,PRESS_W-18,2);
-  const role=pressLines(ctx,card.jobTitle,12,PRESS_W-20,1);
+  const role=pressLines(ctx,card.jobTitle,12,PRESS_W-78,1);
   const company=pressLines(ctx,data.companyName,14,PRESS_W-20,2);
-  const website=data.companyWebsite?pressLines(ctx,data.companyWebsite,9,PRESS_W-22,1):[];
-  const email=data.companyEmail?pressLines(ctx,data.companyEmail,9,PRESS_W-22,1):[];
+  const website=data.companyWebsite?pressLines(ctx,data.companyWebsite,9,PRESS_W-46,1):[];
+  const email=data.companyEmail?pressLines(ctx,data.companyEmail,9,PRESS_W-46,1):[];
   const director=data.directorName?pressLines(ctx,data.directorName,8,90,1):[];
   const notice=pressLines(ctx,"Les autorités tant civiles que militaires sont priées d'apporter assistance au porteur de cette carte en cas de nécessité.",7.5,PRESS_W-22,3);
   return {name,role,company,website,email,director,notice,cardWidth:PRESS_W,cardHeight:PRESS_H,frontX:PRESS_FRONT_X,backX:PRESS_BACK_X,cardY:PRESS_Y};
 }
 function network(ctx:CanvasRenderingContext2D,x:number,y:number,w:number){
-  ctx.save();ctx.strokeStyle='rgba(255,255,255,.48)';ctx.lineWidth=1;
-  for(let i=0;i<5;i++){const sx=x+(i%2)*26;const sy=y+9+i*13;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+19,sy);ctx.lineTo(sx+31,sy+12);ctx.stroke();ctx.beginPath();ctx.arc(sx+31,sy+12,2.4,0,Math.PI*2);ctx.stroke();}
-  for(let i=0;i<5;i++){const sx=x+w-7-(i%2)*22;const sy=y+14+i*15;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx-15,sy);ctx.lineTo(sx-29,sy+10);ctx.stroke();ctx.beginPath();ctx.arc(sx-29,sy+10,2,0,Math.PI*2);ctx.stroke();}
+  ctx.save();ctx.strokeStyle='rgba(222,243,255,.60)';ctx.lineWidth=.8;
+  for(let i=0;i<5;i++){
+    const sy=y+12+i*15, left=x+(i%2)*9, right=x+w-(i%2)*8;
+    ctx.beginPath();ctx.moveTo(left,sy);ctx.lineTo(left+19,sy);ctx.lineTo(left+27,sy+9);ctx.stroke();
+    ctx.beginPath();ctx.arc(left+27,sy+9,1.5,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(right,sy+2);ctx.lineTo(right-17,sy+2);ctx.lineTo(right-26,sy+11);ctx.stroke();
+    ctx.beginPath();ctx.arc(right-26,sy+11,1.5,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.strokeStyle='rgba(2,25,65,.34)';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(x+2,y+96);ctx.lineTo(x+42,y+130);ctx.moveTo(x+w-2,y+87);ctx.lineTo(x+w-37,y+130);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.52)';
+  for(let row=0;row<3;row++)for(let col=0;col<7;col++){
+    ctx.beginPath();ctx.arc(x+w-55+col*4,y+99+row*4,0.7,0,Math.PI*2);ctx.fill();
+  }
   ctx.restore();
+}
+function curvedFooter(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,top:number){
+  ctx.save();
+  const gradient=ctx.createLinearGradient(x,y+top,x+w,y+h);
+  gradient.addColorStop(0,'#1167b4');gradient.addColorStop(1,'#06457f');
+  ctx.fillStyle=gradient;ctx.beginPath();ctx.moveTo(x,y+top);
+  ctx.quadraticCurveTo(x+w/2,y+top+40,x+w,y+top);
+  ctx.lineTo(x+w,y+h);ctx.lineTo(x,y+h);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(184,224,255,.18)';ctx.lineWidth=.8;
+  for(const side of [0,1]){
+    const sx=side?x+w:x;
+    ctx.beginPath();ctx.moveTo(sx,y+h-12);ctx.lineTo(sx+(side?-28:28),y+h-38);
+    ctx.moveTo(sx,y+h-25);ctx.lineTo(sx+(side?-20:20),y+h-44);ctx.stroke();
+  }
+  ctx.restore();
+}
+function contactIcon(ctx:CanvasRenderingContext2D,x:number,y:number,kind:'web'|'mail'){
+  ctx.save();ctx.fillStyle='#1167b4';ctx.beginPath();ctx.arc(x,y,5.5,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#fff';ctx.lineWidth=.8;
+  if(kind==='web'){
+    ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.moveTo(x-3,y);ctx.lineTo(x+3,y);
+    ctx.moveTo(x,y-3);ctx.lineTo(x,y+3);ctx.stroke();
+  }else{
+    ctx.strokeRect(x-3,y-2,6,4);ctx.beginPath();ctx.moveTo(x-3,y-2);ctx.lineTo(x,y+1);ctx.lineTo(x+3,y-2);ctx.stroke();
+  }
+  ctx.restore();
+}
+function qrFrame(ctx:CanvasRenderingContext2D,x:number,y:number){
+  ctx.save();ctx.fillStyle='#fff';ctx.strokeStyle='#1a5d9e';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(x+6,y);ctx.lineTo(x+62,y);ctx.quadraticCurveTo(x+68,y,x+68,y+6);
+  ctx.lineTo(x+68,y+62);ctx.quadraticCurveTo(x+68,y+68,x+62,y+68);
+  ctx.lineTo(x+6,y+68);ctx.quadraticCurveTo(x,y+68,x,y+62);
+  ctx.lineTo(x,y+6);ctx.quadraticCurveTo(x,y,x+6,y);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
 }
 async function renderPressSheet(data:CardSheetData,scale:number):Promise<HTMLCanvasElement> {
   const canvas=document.createElement('canvas');canvas.width=Math.round(W*scale);canvas.height=Math.round(H*scale);
@@ -113,30 +157,57 @@ async function renderPressSheet(data:CardSheetData,scale:number):Promise<HTMLCan
   const {frontX:fx,backX:bx,cardY:y,cardWidth:cw,cardHeight:ch}=layout;
   for(const x of [fx,bx]){
     ctx.fillStyle='#fff';ctx.fillRect(x,y,cw,ch);
-    ctx.fillStyle='#0c437b';ctx.fillRect(x,y,cw,130);
-    ctx.strokeStyle='#0c437b';ctx.lineWidth=1;ctx.strokeRect(x,y,cw,ch);
+    const header=ctx.createLinearGradient(x,y,x+cw,y+130);
+    header.addColorStop(0,'#073a71');header.addColorStop(.6,'#10518f');header.addColorStop(1,'#063a72');
+    ctx.fillStyle=header;ctx.fillRect(x,y,cw,130);
     network(ctx,x,y,cw);
   }
-  // Recto : en-tête bleu technique, médaillon photo et informations professionnelles.
-  ctx.save();ctx.beginPath();ctx.arc(fx+cw/2,y+139,47,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.clip();drawCover(ctx,photo,fx+cw/2-45,y+94,90,90);ctx.restore();
-  ctx.strokeStyle='#083d74';ctx.lineWidth=5;ctx.beginPath();ctx.arc(fx+cw/2,y+139,46,0,Math.PI*2);ctx.stroke();
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx+cw/2,y+30,22,0,Math.PI*2);ctx.fill();draw(ctx,logo,fx+cw/2-20,y+10,40,40);
-  ctx.textAlign='center';ctx.fillStyle='#fff';font(ctx,14,true);layout.company.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+74+i*16));
-  ctx.fillStyle='#1263ab';font(ctx,18,true);layout.name.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+201+i*19));
-  ctx.fillStyle='#06477e';font(ctx,12);layout.role.forEach(text=>ctx.fillText(text,fx+cw/2,y+239));
-  font(ctx,9);ctx.fillStyle='#06477e';layout.website.forEach(text=>ctx.fillText(text,fx+cw/2,y+251));layout.email.forEach(text=>ctx.fillText(text,fx+cw/2,y+264));
-  ctx.fillStyle='#0e5ca7';ctx.fillRect(fx,y+270,cw,ch-270);
-  ctx.fillStyle='#fff';ctx.fillRect(fx+cw/2-34,y+271,68,64);draw(ctx,qr,fx+cw/2-30,y+273,60,60);
-  // Verso : modèle presse, sceau et image du DG configurés, mention demandée par l'administration.
-  ctx.fillStyle='#fff';ctx.fillRect(bx,y+106,cw,ch-106);
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx+cw/2,y+107,46,0,Math.PI*2);ctx.fill();draw(ctx,logo,bx+cw/2-40,y+67,80,80);
-  ctx.fillStyle='#101010';font(ctx,30,true);ctx.fillText('PRESSE',bx+cw/2,y+189);
-  ctx.save();ctx.globalAlpha=.67;draw(ctx,seal,bx+cw/2-29,y+195,58,56);ctx.restore();
-  ctx.textAlign='left';ctx.fillStyle='#151515';font(ctx,9);ctx.fillText(`Émise le ${data.card.issuedAt}`,bx+11,y+260);ctx.fillText(`Expire le ${data.card.expiresAt}`,bx+11,y+273);
-  draw(ctx,signature,bx+122,y+257,74,22);font(ctx,8,true);layout.director.forEach(text=>ctx.fillText(text,bx+120,y+288));
-  ctx.fillStyle='#ff274b';font(ctx,15,true);ctx.fillText('LAISSEZ PASSER',bx+11,y+304);
-  ctx.fillStyle='#101010';font(ctx,7.5);layout.notice.forEach((text,i)=>ctx.fillText(text,bx+11,y+313+i*8));
-  ctx.fillStyle='#fff';ctx.fillRect(bx+cw-68,y+193,64,60);draw(ctx,qr,bx+cw-66,y+195,60,56);
+  // RECTO : identité, charte bleue et rose, contacts avec pictogrammes.
+  ctx.fillStyle='#ed008c';ctx.beginPath();ctx.moveTo(fx+49,y+169);ctx.lineTo(fx+83,y+169);ctx.lineTo(fx+49,y+188);ctx.fill();
+  ctx.fillStyle='#0572b5';ctx.beginPath();ctx.moveTo(fx+cw-49,y+167);ctx.lineTo(fx+cw-82,y+167);ctx.lineTo(fx+cw-49,y+186);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx+cw/2,y+30,23,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#ec008c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx+cw/2,y+30,21,-2.4,-.2);ctx.stroke();
+  draw(ctx,logo,fx+cw/2-20,y+10,40,40);
+  ctx.textAlign='center';ctx.fillStyle='#fff';font(ctx,14,true);
+  layout.company.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+74+i*16));
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx+cw/2,y+139,48,0,Math.PI*2);ctx.fill();
+  ctx.save();ctx.beginPath();ctx.arc(fx+cw/2,y+139,45,0,Math.PI*2);ctx.clip();drawCover(ctx,photo,fx+cw/2-45,y+94,90,90);ctx.restore();
+  ctx.strokeStyle='#07467d';ctx.lineWidth=3;ctx.beginPath();ctx.arc(fx+cw/2,y+139,46,0,Math.PI*2);ctx.stroke();
+  ctx.strokeStyle='#ed008c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(fx+cw/2,y+139,47,-.9,-.15);ctx.stroke();
+  ctx.fillStyle='#1263ab';font(ctx,18,true);
+  layout.name.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+201+i*19));
+  ctx.strokeStyle='#07508b';ctx.lineWidth=2.5;ctx.lineCap='round';ctx.beginPath();
+  ctx.moveTo(fx+15,y+235);ctx.lineTo(fx+60,y+235);ctx.stroke();ctx.lineCap='butt';
+  ctx.textAlign='left';ctx.fillStyle='#06477e';font(ctx,12);
+  layout.role.forEach(text=>ctx.fillText(text,fx+73,y+239));
+  ctx.fillStyle='#06477e';font(ctx,9);
+  layout.website.forEach(text=>{contactIcon(ctx,fx+21,y+248,'web');ctx.fillText(text,fx+35,y+251);});
+  layout.email.forEach(text=>{contactIcon(ctx,fx+21,y+261,'mail');ctx.fillText(text,fx+35,y+264);});
+  curvedFooter(ctx,fx,y,cw,ch,273);
+  qrFrame(ctx,fx+cw/2-34,y+265);
+  draw(ctx,qr,fx+cw/2-30,y+269,60,60);
+  ctx.textAlign='left';ctx.fillStyle='#eaf6ff';font(ctx,7,true);ctx.fillText('SCAN',fx+11,y+328);
+  // VERSO : sceau et signature, QR uniquement sur le recto ; bas de carte en bleu courbe.
+  ctx.textAlign='center';ctx.fillStyle='#fff';font(ctx,12,true);ctx.fillText('CARTE DE PRESSE',bx+cw/2,y+31);
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx+cw/2,y+107,43,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#ed008c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(bx+cw/2,y+107,41,-2.5,-.3);ctx.stroke();
+  draw(ctx,logo,bx+cw/2-38,y+69,76,76);
+  ctx.fillStyle='#101010';font(ctx,30,true);ctx.fillText('PRESSE',bx+cw/2,y+187);
+  ctx.save();ctx.globalAlpha=.68;draw(ctx,seal,bx+cw/2-31,y+191,62,61);ctx.restore();
+  ctx.textAlign='left';ctx.fillStyle='#143d65';font(ctx,9);
+  ctx.fillText(`Émise le ${data.card.issuedAt}`,bx+11,y+255);
+  ctx.fillText(`Expire le ${data.card.expiresAt}`,bx+11,y+269);
+  draw(ctx,signature,bx+122,y+238,74,21);
+  ctx.fillStyle='#132f4b';font(ctx,8,true);
+  layout.director.forEach(text=>ctx.fillText(text,bx+120,y+268));
+  curvedFooter(ctx,bx,y,cw,ch,268);
+  ctx.fillStyle='#ffd83d';ctx.beginPath();ctx.arc(bx+19,y+294,7,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#06477e';font(ctx,10,true);ctx.textAlign='center';ctx.fillText('i',bx+19,y+297);
+  ctx.textAlign='left';ctx.fillStyle='#fff';font(ctx,14,true);
+  ctx.fillText('LAISSEZ PASSER',bx+31,y+303);
+  ctx.font='7.5px Arial';ctx.fillStyle='#fff';
+  layout.notice.forEach((text,i)=>ctx.fillText(text,bx+11,y+312+i*8));
+  for(const x of [fx,bx]){ctx.strokeStyle='#0c437b';ctx.lineWidth=1;ctx.strokeRect(x,y,cw,ch);}
   ctx.textAlign='left';ctx.fillStyle='#444';font(ctx,11);ctx.fillText('QR : identité de l’entreprise et statut actuel de la carte (non preuve d’identité du porteur).',62,640);
   ctx.fillText('La mention « Laissez passer » est fournie par l’entreprise ; elle ne confère aucune habilitation publique.',62,665);
   ctx.strokeStyle='#d2d4db';ctx.beginPath();ctx.moveTo(62,H-68);ctx.lineTo(W-62,H-68);ctx.stroke();
