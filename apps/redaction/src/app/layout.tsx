@@ -8,10 +8,6 @@ import { ToastProvider } from '@/components/ui/toast';
 const siteDownloadsUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || 'https://wab-infos.com'
 ).replace(/\/$/, '');
-const redactionPublicUrl = (
-  process.env.NEXT_PUBLIC_REDACTION_URL || 'https://app.wab-infos.com'
-).replace(/\/$/, '');
-
 export const metadata: Metadata = {
   title: 'Rédaction',
   description: 'Application mobile de rédaction Wab-infos',
@@ -53,10 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <ToastProvider>
             <NativeAppSetup />
-            <NativeAppUpdate
-              siteUrl={siteDownloadsUrl}
-              versionManifestUrl={`${redactionPublicUrl}/api/redaction/apk-version`}
-            />
+            <NativeAppUpdate siteUrl={siteDownloadsUrl} />
             {children}
           </ToastProvider>
         </ThemeProvider>

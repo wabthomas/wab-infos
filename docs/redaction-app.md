@@ -96,6 +96,10 @@ Technique : manifest unique `/manifest.webmanifest`, service worker `sw.js` (sco
 
 Générer les icônes PNG après clone : `npm run pwa:icons --workspace=apps/web`
 
+## Bandeau de mise à jour de l’APK Rédaction
+
+Dans l’APK Android **Rédaction** uniquement (pas le navigateur, la PWA ni l’APK Lecteurs), l’application compare le `versionCode` installé au manifeste publié via `/api/redaction/apk-version` sur la même origine. Elle affiche un bandeau compact indiquant la version actuelle, la nouvelle version, les notes de publication et « Mettre à jour » seulement si la nouvelle version est supérieure. La vérification est renouvelée au retour de l’application au premier plan. Le bouton déclenche le mécanisme Android existant (Play Store si applicable, sinon téléchargement de l’APK), sans présumer que l’installation a abouti. « Plus tard » rappelle la même version après 24 heures ; une installation abandonnée est reproposée après une heure ; une **nouvelle** version n’est pas masquée par ces délais. Le bandeau reste invisible si le manifeste ou la version installée sont indisponibles. Publier le manifeste et l’APK **ensemble**, après vérification de leur signature et du code de version ; ce bandeau ne déploie pas lui-même un APK.
+
 ## Fonctionnalités
 
 | Fonction | Description |
