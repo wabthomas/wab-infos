@@ -1,78 +1,123 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Printer, ShieldCheck } from 'lucide-react';
+import { flushSync } from 'react-dom';
+import { Download, ImageDown, Maximize2, Printer, ShieldCheck } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS } from '@/lib/redaction/rh/organization';
 import { createOrganizationQr } from '@/lib/redaction/rh/organization-qr';
+import { renderServiceCardSheet, type ServiceCardData } from '@/lib/redaction/rh/service-card-export';
 
-type Card = {
-  cardNumber: string;
-  issuedAt: string;
-  expiresAt: string;
-  firstName: string;
-  lastName: string;
-  jobTitle: string;
-  team: string;
-  workLocation: string | null;
-  photo: string | null;
-};
+async function deliver(blob:Blob,filename:string) {
+  const file=new File([blob],filename,{type:blob.type});
+  if(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && navigator.share && navigator.canShare?.({files:[file]})) {
+    try {await navigator.share({files:[file],title:'Carte de service'});return;}
+    catch(error){if(error instanceof DOMException && error.name==='AbortError')return;}
+  }
+  const bridge=(window as unknown as {AndroidBridge?:{savePdf?:(data:string,name:string)=>void}}).AndroidBridge;
+  if(blob.type==='application/pdf' && bridge?.savePdf) {
+    const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]??'');reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob);});
+    bridge.savePdf(base64,filename);return;
+  }
+  const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=filename;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),30_000);
+}
 
-export function ServiceCard() {
-  const [card, setCard] = useState<Card | null>(null);
-  const [companyQr, setCompanyQr] = useState('');
-  const [loading, setLoading] = useState(true);
+export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
+  const endpoint=adminPersonId?`/api/redaction/rh/cartes/${adminPersonId}`:'/api/redaction/rh/mon-espace/carte-service';
+  const [card,setCard]=useState<ServiceCardData|null>(null);
+  const [companyName,setCompanyName]=useState('');
+  const [companyQr,setCompanyQr]=useState('');
+  const [logo,setLogo]=useState('/logo.png');
+  const [loading,setLoading]=useState(true),[ready,setReady]=useState(false),[busy,setBusy]=useState(false);
+  const [preview,setPreview]=useState<string|null>(null),[error,setError]=useState(''),[zoomed,setZoomed]=useState(false);
+  useEffect(()=>{
+    let active=true;
+    setLoading(true);setReady(false);setError('');
+    void Promise.all([
+      fetchRedaction(endpoint,{cache:'no-store'}).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||'Carte indisponible.');return data.card as ServiceCardData|null;}),
+      fetchRedaction('/api/redaction/rh/organisation',{cache:'no-store'}).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||'Identité de l’entreprise indisponible.');const settings={...DEFAULT_ORGANIZATION_SETTINGS,...data.settings};return {companyName:settings.companyName,qr:await createOrganizationQr(settings)};}),
+      fetchRedaction('/api/redaction/rh/organisation/assets/company-logo',{cache:'no-store'}).then(async response=>response.ok?(await response.json()).asset as string|null:null).catch(()=>null),
+    ]).then(([item,identity,asset])=>{if(!active)return;setCard(item);setCompanyName(identity.companyName);setCompanyQr(identity.qr);setLogo(asset||'/logo.png');setReady(true);})
+      .catch(cause=>{if(active)setError(cause instanceof Error?cause.message:'Chargement impossible.');})
+      .finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[endpoint]);
+  useEffect(()=>{
+    if(!ready||!card||!companyQr){setPreview(null);return;}
+    let active=true;
+    const timer=setTimeout(()=>{void renderServiceCardSheet({card,companyName,qr:companyQr,logo},1)
+      .then(canvas=>{if(active){setPreview(canvas.toDataURL('image/jpeg',.9));setError('');}})
+      .catch(cause=>{if(active){setPreview(null);setError(cause instanceof Error?cause.message:'Aperçu indisponible.');}});},300);
+    return()=>{active=false;clearTimeout(timer);};
+  },[ready,card,companyQr,companyName,logo]);
+  useEffect(()=>{if(!zoomed)return;const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setZoomed(false);};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);},[zoomed]);
 
-  useEffect(() => {
-    fetchRedaction('/api/redaction/rh/mon-espace/carte-service', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error();
-        const data = await response.json();
-        setCard(data.card);
-      })
-      .catch(() => setCard(null))
-      .finally(() => setLoading(false));
-
-    fetchRedaction('/api/redaction/rh/organisation', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error();
-        const data = await response.json();
-        return createOrganizationQr({ ...DEFAULT_ORGANIZATION_SETTINGS, ...data.settings });
-      })
-      .catch(() => createOrganizationQr(DEFAULT_ORGANIZATION_SETTINGS))
-      .then(setCompanyQr)
-      .catch(() => setCompanyQr(''));
-  }, []);
-
-  if (loading) return <p className="p-4 text-sm text-muted-foreground">Chargement de la carte…</p>;
-  if (!card) return <section className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">Aucune carte de service active. L’administration vous notifiera lorsqu’elle sera disponible.</section>;
-
-  return <div className="mx-auto max-w-2xl space-y-4 p-2 sm:p-4">
-    <div className="flex justify-end print:hidden"><button type="button" disabled={!companyQr} onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Printer className="h-4 w-4" />{companyQr ? 'Imprimer recto-verso' : 'Préparation du QR…'}</button></div>
-    <div className="grid gap-4 sm:grid-cols-2 print:grid-cols-1 print:gap-0">
-      <article className="relative aspect-[1.58] overflow-hidden rounded-2xl bg-gradient-to-br from-[#191923] via-[#292333] to-[#a71d43] p-4 text-white shadow-lg print:mb-0 print:h-[54mm] print:w-[85.6mm] print:break-after-page print:break-inside-avoid print:rounded-lg print:shadow-none sm:p-5">
-        <div className="absolute -right-12 -top-16 h-48 w-48 rounded-full border border-white/10" />
-        <header className="relative flex items-center justify-between"><img src="/logo.png" className="h-8 w-auto rounded bg-white/90 p-1" alt="Wab-infos" /><span className="text-[9px] font-bold uppercase tracking-[.2em] text-rose-200">Carte de service</span></header>
-        <div className="relative mt-4 flex gap-3">
-          <div className="h-24 w-[4.5rem] shrink-0 overflow-hidden rounded-lg border border-white/30 bg-white/10">{card.photo ? <img src={card.photo} alt="Photo du collaborateur" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-xl font-bold">{card.firstName[0]}{card.lastName[0]}</div>}</div>
-          <div className="min-w-0"><h2 className="text-base font-bold leading-tight sm:text-lg">{card.firstName} {card.lastName}</h2><p className="mt-1 text-xs font-medium text-rose-100">{card.jobTitle}</p><p className="mt-0.5 text-[10px] text-white/75">{card.team}{card.workLocation ? ` · ${card.workLocation}` : ''}</p><p className="mt-3 font-mono text-xs font-bold tracking-widest">{card.cardNumber}</p></div>
-        </div>
-        <footer className="absolute inset-x-4 bottom-3 flex items-end justify-between gap-2 pr-12 text-[9px] text-white/75 print:pr-[13mm]"><span>Émise le {card.issuedAt}</span><span className="text-right">Expire le {card.expiresAt}</span></footer>
-        {companyQr && <div className="absolute bottom-2 right-2 flex flex-col items-center rounded bg-white p-1 text-zinc-600 shadow-sm print:bottom-[2mm] print:right-[2mm] print:p-[0.5mm]"><img src={companyQr} alt="QR code des coordonnées de l’entreprise" className="h-12 w-12 print:h-[15mm] print:w-[15mm]" /><span className="mt-0.5 text-[5px] font-semibold leading-none print:hidden">Entreprise</span></div>}
-      </article>
-
-      <article className="relative aspect-[1.58] overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4 text-[#191923] shadow-lg print:h-[54mm] print:w-[85.6mm] print:break-inside-avoid print:rounded-lg print:shadow-none sm:p-5">
-        <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-[#191923] via-rose-600 to-rose-300" />
-        <header className="mt-1 flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-rose-600" /><h2 className="text-xs font-bold uppercase tracking-wider">Identification & validité</h2></header>
-        <dl className="mt-4 space-y-2 text-[11px]">
-          <div className="flex justify-between gap-2"><dt className="text-zinc-500">Titulaire</dt><dd className="text-right font-semibold">{card.firstName} {card.lastName}</dd></div>
-          <div className="flex justify-between gap-2"><dt className="text-zinc-500">Matricule</dt><dd className="font-mono font-semibold">{card.cardNumber}</dd></div>
-          <div className="flex justify-between gap-2"><dt className="text-zinc-500">Fonction / équipe</dt><dd className="text-right font-semibold">{card.jobTitle} · {card.team}</dd></div>
-          <div className="flex justify-between gap-2"><dt className="text-zinc-500">Délivrée le</dt><dd className="font-semibold">{card.issuedAt}</dd></div>
-          <div className="flex justify-between gap-2"><dt className="text-zinc-500">Valide jusqu’au</dt><dd className="font-semibold">{card.expiresAt}</dd></div>
-        </dl>
-        <p className="absolute inset-x-4 bottom-3 border-t border-zinc-200 pt-2 text-[9px] leading-3 text-zinc-500">Cette carte demeure la propriété de Wab-infos et doit être restituée à la fin de la collaboration. En cas de perte, prévenir immédiatement les ressources humaines.</p>
-      </article>
+  async function currentCard():Promise<ServiceCardData> {
+    const response=await fetchRedaction(endpoint,{cache:'no-store'});
+    const data=await response.json();if(!response.ok)throw new Error(data.error||'Vérification de la carte impossible.');
+    if(!data.card || data.card.id!==card?.id) {setCard(data.card??null);throw new Error('Carte révoquée, expirée ou renouvelée : rechargez sa nouvelle version avant l’export.');}
+    if(JSON.stringify(data.card)!==JSON.stringify(card)) {setCard(data.card);throw new Error('Les informations de la carte ont changé. Vérifiez le nouvel aperçu avant l’export.');}
+    const identityResponse=await fetchRedaction('/api/redaction/rh/organisation',{cache:'no-store'});
+    if(!identityResponse.ok)throw new Error('Identité de l’entreprise indisponible.');
+    const identity=(await identityResponse.json()).settings;
+    const settings={...DEFAULT_ORGANIZATION_SETTINGS,...identity};
+    const freshQr=await createOrganizationQr(settings);
+    if(settings.companyName!==companyName || freshQr!==companyQr){setCompanyName(settings.companyName);setCompanyQr(freshQr);throw new Error('L’identité de l’entreprise a changé. Vérifiez le nouvel aperçu avant l’export.');}
+    const logoResponse=await fetchRedaction('/api/redaction/rh/organisation/assets/company-logo',{cache:'no-store'});
+    if(!logoResponse.ok)throw new Error('Logo de l’entreprise indisponible.');
+    const freshLogo=(await logoResponse.json()).asset||'/logo.png';
+    if(freshLogo!==logo){setLogo(freshLogo);throw new Error('Le logo a changé. Vérifiez le nouvel aperçu avant l’export.');}
+    return data.card;
+  }
+  function filename(item:ServiceCardData){return `carte-service-${item.cardNumber.replace(/[^a-z0-9_-]+/gi,'-')}`;}
+  async function exportFile(type:'pdf'|'png') {
+    if(!ready||!card)return;
+    setBusy(true);setError('');
+    try {
+      const current=await currentCard();
+      const canvas=await renderServiceCardSheet({card:current,companyName,qr:companyQr,logo});
+      if(type==='pdf'){
+        const {jsPDF}=await import('jspdf');const pdf=new jsPDF({unit:'mm',format:'a4',compress:true});
+        pdf.addImage(canvas.toDataURL('image/jpeg',.94),'JPEG',0,0,210,297,undefined,'FAST');
+        await deliver(pdf.output('blob'),`${filename(current)}.pdf`);
+      } else {
+        const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('PNG indisponible.')),'image/png'));
+        await deliver(blob,`${filename(current)}-300dpi.png`);
+      }
+    } catch(cause){setError(cause instanceof Error?cause.message:'Export impossible.');}
+    finally{setBusy(false);}
+  }
+  async function printSheet() {
+    if(!ready||!card)return;
+    setBusy(true);setError('');
+    try {
+      const current=await currentCard(),mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+      const canvas=await renderServiceCardSheet({card:current,companyName,qr:companyQr,logo},mobile?3:1.5);
+      if(mobile){
+        const {jsPDF}=await import('jspdf');const pdf=new jsPDF({unit:'mm',format:'a4',compress:true});
+        pdf.addImage(canvas.toDataURL('image/jpeg',.94),'JPEG',0,0,210,297,undefined,'FAST');
+        await deliver(pdf.output('blob'),`${filename(current)}.pdf`);
+        setError('Ouvrez le PDF A4 partagé ou enregistré avec une application pouvant imprimer ; choisissez la taille réelle (100 %).');return;
+      }
+      const url=canvas.toDataURL('image/jpeg',.9);
+      await new Promise<void>((resolve,reject)=>{const img=new Image();img.onload=()=>resolve();img.onerror=()=>reject(new Error('Aperçu indisponible.'));img.src=url;});
+      flushSync(()=>setPreview(url));window.print();
+    } catch(cause){setError(cause instanceof Error?cause.message:'Impression impossible.');}
+    finally{setBusy(false);}
+  }
+  if(loading)return <p className="p-4 text-sm text-muted-foreground">Chargement de la carte…</p>;
+  if(!card)return <section className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{error||'Aucune carte de service active. L’administration vous notifiera lorsqu’elle sera disponible.'}</section>;
+  return <div className="mx-auto max-w-4xl space-y-4 p-2 sm:p-4">
+    <header className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4"><ShieldCheck className="h-6 w-6 text-primary"/><div><h1 className="font-bold">Carte de service · recto et verso</h1><p className="text-xs text-muted-foreground">Planche A4 d’une page avec deux faces au format 85,6 × 54 mm. Découpez et assemblez dos à dos ; ce n’est pas une impression recto-verso automatique.</p></div></header>
+    <div className="flex flex-wrap justify-end gap-2 print:hidden">
+      <button type="button" disabled={busy||!preview} onClick={()=>void printSheet()} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold disabled:opacity-50"><Printer className="h-4 w-4"/>Imprimer A4</button>
+      <button type="button" disabled={busy||!preview} onClick={()=>void exportFile('pdf')} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Download className="h-4 w-4"/>Télécharger PDF</button>
+      <button type="button" disabled={busy||!preview} onClick={()=>void exportFile('png')} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold disabled:opacity-50"><ImageDown className="h-4 w-4"/>Télécharger PNG HD (300 dpi)</button>
     </div>
+    {error && <p role="status" className={`rounded-lg border p-3 text-sm print:hidden ${error.includes('Ouvrez le PDF')?'border-primary/20 bg-primary/5 text-primary':'border-red-300 bg-red-50 text-red-900'}`}>{error}</p>}
+    {preview ? <button type="button" onClick={()=>setZoomed(true)} className="mx-auto block w-full max-w-[210mm] text-left print:contents" aria-label="Agrandir la planche des cartes de service"><img className="service-card-print-page block h-auto w-full bg-white shadow-lg ring-1 ring-black/10 print:shadow-none print:ring-0" src={preview} alt={`Planche A4 recto-verso de la carte de ${card.firstName} ${card.lastName}`} /><span className="mt-2 flex items-center gap-2 text-xs text-muted-foreground print:hidden"><Maximize2 className="h-4 w-4"/>Toucher pour agrandir</span></button> : <div className="mx-auto flex aspect-[210/297] max-w-[210mm] items-center justify-center rounded-lg border bg-white p-5 text-center text-sm text-muted-foreground print:hidden">{error||'Préparation de l’aperçu A4…'}</div>}
+    <dl className="sr-only"><div><dt>Titulaire</dt><dd>{card.firstName} {card.lastName}</dd></div><div><dt>Matricule</dt><dd>{card.cardNumber}</dd></div><div><dt>Fonction</dt><dd>{card.jobTitle}</dd></div><div><dt>Émission</dt><dd>{card.issuedAt}</dd></div><div><dt>Expiration</dt><dd>{card.expiresAt}</dd></div></dl>
+    {zoomed&&preview&&<div role="dialog" aria-modal="true" aria-label="Planche A4 agrandie" className="fixed inset-0 z-[120] overflow-auto bg-black/90 p-4 print:hidden" onMouseDown={event=>{if(event.target===event.currentTarget)setZoomed(false);}}><div className="sticky top-0 z-10 mb-3 flex justify-end"><button type="button" onClick={()=>setZoomed(false)} className="rounded-lg bg-white px-3 py-2 text-sm font-bold text-black">Fermer</button></div><img src={preview} alt="Recto et verso à taille réelle sur une page A4" className="mx-auto h-auto min-w-[826px] max-w-[826px] bg-white"/></div>}
+    <style jsx global>{`@media print { @page {size:A4;margin:0;}html,body{height:297mm!important;overflow:hidden!important;}body *{visibility:hidden!important;}.service-card-print-page{visibility:visible!important;position:fixed!important;top:0!important;left:0!important;width:210mm!important;height:297mm!important;max-width:none!important;margin:0!important;} }`}</style>
   </div>;
 }
