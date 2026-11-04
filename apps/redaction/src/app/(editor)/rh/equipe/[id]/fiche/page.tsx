@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { EmployeeIdCard } from '@/components/redaction/rh/employee-id-card';
+import { db } from '@/lib/redaction/rh/database';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
 import { listCollaborators } from '@/lib/redaction/rh/database';
 
@@ -15,5 +16,6 @@ export default async function AdminEmployeeFichePage({ params }: { params: Promi
   const { id } = await params;
   const person = (await listCollaborators()).find((collaborator) => collaborator.id === id);
   if (!person) notFound();
-  return <Suspense fallback={null}><EmployeeIdCard person={person} adminPersonId={id} collaboratorId={id} /></Suspense>;
+  const card = await db().query(`SELECT to_char(issued_at,'YYYY-MM-DD') AS "issuedAt", (status='active' AND expires_at>=CURRENT_DATE) AS active FROM redaction_rh.service_cards WHERE collaborator_id=$1 ORDER BY issued_at DESC LIMIT 1`, [id]).then((result) => result.rows[0] ?? null).catch(() => null);
+  return <Suspense fallback={null}><EmployeeIdCard person={person} adminPersonId={id} serviceCard={card} /></Suspense>;
 }

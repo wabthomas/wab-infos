@@ -26,7 +26,9 @@ export async function POST(request: Request) {
   if (typeof id !== 'string' || id.length > 100 || !RH_RELEASES.some((item) => item.id === id) || (cursor !== undefined && (!Number.isSafeInteger(cursor) || Number(cursor) < 0))) return json({ error: 'Annonce ou curseur invalide.' }, 400);
   if (!isFirebaseAdminConfigured() || !ensureFirebaseAdmin()) return json({ error: 'Firebase non configuré.' }, 503);
   const release = findRhRelease(id)!;
-  if (release.requiresWithdrawals && !(await getRhFlags()).withdrawalsEnabled) return json({ error: 'Fonction retraits désactivée : annonce non diffusée.' }, 409);
+  const flags = await getRhFlags();
+  if (release.requiresWithdrawals && !flags.withdrawalsEnabled) return json({ error: 'Fonction retraits désactivée : annonce non diffusée.' }, 409);
+  if (release.requiresContracts && !flags.contractsEnabled) return json({ error: 'Contrats désactivés : annonce non diffusée.' }, 409);
   try {
     const recipients = await db().query(`SELECT l.account_id, l.account_email
       FROM redaction_rh.account_links l JOIN redaction_rh.collaborators c ON c.id=l.collaborator_id

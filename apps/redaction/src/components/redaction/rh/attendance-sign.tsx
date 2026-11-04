@@ -1,5 +1,6 @@
 'use client';
 import { useRhNotice } from './use-rh-notice';
+import { RhActionVoiceToggle, useRhActionVoice } from './rh-action-voice';
 
 import { useEffect, useState } from 'react';
 import { LogIn, LogOut, ShieldCheck, CircleCheck, CircleAlert } from 'lucide-react';
@@ -11,6 +12,7 @@ import type { Attendance } from '@/lib/redaction/rh/attendance';
 import { kinshasaToday } from '@/lib/redaction/rh/activities';
 
 export function AttendanceSign({ owner }: { owner: string }) {
+  const voice = useRhActionVoice();
   const [rows, setRows] = useState<Attendance[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [filter, setFilter] = useState<{ period: Exclude<HistoryPeriod, 'recent'>; value: string }>({ period: 'all', value: '' });
@@ -74,12 +76,14 @@ export function AttendanceSign({ owner }: { owner: string }) {
       const data = await response.json();
       if (!response.ok) { if ([502, 503, 504].includes(response.status)) throw new TypeError('Server unavailable'); throw new Error(data.error || 'Pointage impossible.'); }
       setMessage(action === 'in' ? 'Arrivée signée.' : 'Sortie signée.');
+      voice.speak(action === 'in' ? 'arrival' : 'departure');
       setHistory([]); setPage(1); setReload((n) => n + 1);
     } catch (e) {
       if (e instanceof TypeError) {
         try {
           await enqueue({ id: crypto.randomUUID(), owner, kind: action, recordedAt });
           notifyQueue(); setMessage('Pointage conservé sur cet appareil, en attente de synchronisation (heure déclarée, à vérifier).');
+          voice.speak(action === 'in' ? 'arrival-offline' : 'departure-offline');
         } catch { setError('Impossible de conserver le pointage sur cet appareil. Réessayez.'); }
       } else setError(e instanceof Error ? e.message : 'Pointage impossible.');
     } finally {
@@ -99,6 +103,7 @@ export function AttendanceSign({ owner }: { owner: string }) {
       {queued.filter((op) => op.kind === 'in' || op.kind === 'out').length > 0 && <p role="status" className="text-sm text-amber-700">{queued.filter((op) => op.kind === 'in' || op.kind === 'out').length} pointage(s) en attente sur cet appareil.</p>}
       <section className="rounded-2xl border border-border bg-card p-5">
         <h2 className="font-display text-lg font-bold">Signer ma présence</h2>
+        <div className="mt-3"><RhActionVoiceToggle voice={voice} /></div>
         
         {error && <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
         {message && <p role="status" className="mt-3 text-sm text-primary">{message}</p>}

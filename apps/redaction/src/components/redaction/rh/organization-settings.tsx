@@ -4,6 +4,7 @@ import { useToast } from '@/components/ui/toast';
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Building2, Check, FileText, ImagePlus, Save, Trash2, Upload } from 'lucide-react';
+import { DEFAULT_OFFICIAL_REFERENCE_FORMAT, MANUAL_OFFICIAL_REFERENCE_FORMAT, formatOfficialReference, validOfficialReferenceConfig } from '@/lib/redaction/rh/official-reference';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import {
   DEFAULT_ORGANIZATION_SETTINGS,
@@ -16,6 +17,7 @@ import {
 
 const assetList = Object.values(ORGANIZATION_ASSETS) as Array<{ key: OrganizationAssetKey; label: string; hint: string }>;
 const textFields: OrganizationSettingKey[] = ['companyName','companyAddress','companyPhone','companyEmail','companyWebsite','companyTaxId','companyRegistration','directorName','directorTitle','documentHeader','documentFooter'];
+const signatureSizes: OrganizationSettingKey[] = ['directorSignatureWidth','directorSignatureHeight'];
 type AssetState = { data: string | null; busy: boolean; error: string };
 
 export function OrganizationSettings() {
@@ -125,7 +127,24 @@ export function OrganizationSettings() {
               <input type={key === 'companyEmail' ? 'email' : key === 'companyWebsite' ? 'url' : 'text'} maxLength={key === 'companyAddress' ? 500 : 320} value={settings[key]} onChange={(event) => change(key, event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5" />
             </label>)}
           </div>
-          <label className="block text-sm font-medium">{ORGANIZATION_SETTING_LABELS.attendanceEndTime}<input type="time" value={settings.attendanceEndTime} onChange={(event) => change('attendanceEndTime', event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5" /></label>
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <p className="text-sm font-bold">Format de la signature du DG · 190 × 92 px par défaut</p>
+            <p className="mt-1 text-xs text-muted-foreground">Dimensions d’affichage sur les lettres et communiqués. Le visuel original n’est pas modifié ; le sceau est placé derrière la zone signataire.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {<label className="text-sm font-medium">{ORGANIZATION_SETTING_LABELS.attendanceEndTime}<input type="time" value={settings.attendanceEndTime} onChange={(event) => change('attendanceEndTime', event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5" /></label>}
+        {signatureSizes.map(key => <label key={key} className="text-sm font-medium">{ORGANIZATION_SETTING_LABELS[key]}<input type="number" min={key === 'directorSignatureWidth' ? 120 : 50} max={key === 'directorSignatureWidth' ? 269 : 129} value={settings[key]} onChange={event => change(key,event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5" /></label>)}
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <p className="text-sm font-bold">Référence des communiqués officiels</p>
+            <p className="mt-1 text-xs text-muted-foreground">Choisissez l’attribution et le format. Le numéro unique est figé au moment de l’émission ; modifier ce réglage ne renumérote aucun document antérieur.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-medium">Mode d’attribution<select value={settings.communiqueReferenceMode} onChange={event => { setNotice(''); setSettings(current => ({ ...current, communiqueReferenceMode: event.target.value, communiqueReferenceFormat: current.communiqueReferenceFormat === (event.target.value === 'manual' ? DEFAULT_OFFICIAL_REFERENCE_FORMAT : MANUAL_OFFICIAL_REFERENCE_FORMAT) ? (event.target.value === 'manual' ? MANUAL_OFFICIAL_REFERENCE_FORMAT : DEFAULT_OFFICIAL_REFERENCE_FORMAT) : current.communiqueReferenceFormat })); }} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5"><option value="automatic">Automatique (compteur unique)</option><option value="manual">Manuel (code saisi avant émission)</option></select></label>
+              <label className="text-sm font-medium">Format<input type="text" maxLength={64} value={settings.communiqueReferenceFormat} onChange={event => change('communiqueReferenceFormat', event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-xs" /></label>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">Placeholders : <code>{'{AAAA}'}</code> (année d’émission à Kinshasa), <code>{'{MM}'}</code> (mois), et une seule fois <code>{settings.communiqueReferenceMode === 'manual' ? '{REF}' : '{SEQ:6}'}</code> ({settings.communiqueReferenceMode === 'manual' ? 'code fourni à l’émission' : 'compteur à 6 chiffres minimum ; largeur de 2 à 10'}). Littéraux autorisés : lettres latines, chiffres, points, tirets, barres et soulignés. Le compteur automatique est global, sans remise à zéro annuelle.</p>
+            {validOfficialReferenceConfig(settings.communiqueReferenceMode, settings.communiqueReferenceFormat) ? <p className="mt-2 text-xs font-semibold text-emerald-700">Exemple : {formatOfficialReference(settings.communiqueReferenceMode as 'automatic'|'manual', settings.communiqueReferenceFormat, new Date(), settings.communiqueReferenceMode === 'manual' ? 'EXEMPLE' : 42)}</p> : <p role="alert" className="mt-2 text-xs font-semibold text-red-700">Le format doit contenir exactement un marqueur de numéro adapté au mode choisi.</p>}
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {textFields.slice(9).map((key) => <label key={key} className="block text-sm font-medium">{ORGANIZATION_SETTING_LABELS[key]}
               <textarea rows={3} maxLength={1200} value={settings[key]} onChange={(event) => change(key, event.target.value)} className="mt-1 block w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5" />

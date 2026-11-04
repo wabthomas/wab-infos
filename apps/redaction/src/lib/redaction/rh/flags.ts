@@ -1,12 +1,13 @@
 import 'server-only';
 import { db } from './database';
-export type RhFeatureKey = 'rhEnabled'|'financeEnabled'|'withdrawalsEnabled'|'documentsEnabled'|'disputesEnabled'|'notificationsEnabled'|'rolesEnabled'|'serviceCardsEnabled'|'chatEnabled'|'paymentSheetsVisible';
-export const RH_FEATURE_LABELS: Record<RhFeatureKey,string> = {rhEnabled:'Espace RH',financeEnabled:'Rémunérations',withdrawalsEnabled:'Retraits',documentsEnabled:'Documents RH',disputesEnabled:'Contestations',notificationsEnabled:'Notifications RH',rolesEnabled:'Rôles RH délégués',serviceCardsEnabled:'Cartes de service',chatEnabled:'Chat RH',paymentSheetsVisible:'Fiche de paiement du collaborateur'};
+export type RhFeatureKey = 'rhEnabled'|'financeEnabled'|'withdrawalsEnabled'|'documentsEnabled'|'contractsEnabled'|'disputesEnabled'|'notificationsEnabled'|'rolesEnabled'|'serviceCardsEnabled'|'chatEnabled'|'paymentSheetsVisible';
+export const RH_FEATURE_LABELS: Record<RhFeatureKey,string> = {rhEnabled:'Espace RH',financeEnabled:'Rémunérations',withdrawalsEnabled:'Retraits',documentsEnabled:'Documents RH',contractsEnabled:'Contrats CDD/CDI',disputesEnabled:'Contestations',notificationsEnabled:'Notifications RH',rolesEnabled:'Rôles RH délégués',serviceCardsEnabled:'Cartes de service',chatEnabled:'Chat RH',paymentSheetsVisible:'Fiche de paiement du collaborateur'};
 const ENV_DEFAULTS: Record<RhFeatureKey,boolean> = {
   rhEnabled: process.env.REDACTION_RH_ENABLED !== 'false',
   financeEnabled: process.env.REDACTION_RH_FINANCE_ENABLED === 'true',
   withdrawalsEnabled: process.env.REDACTION_RH_WITHDRAWALS_ENABLED === 'true',
   documentsEnabled: process.env.REDACTION_RH_DOCUMENTS_ENABLED === 'true',
+  contractsEnabled: process.env.REDACTION_RH_CONTRACTS_ENABLED === 'true',
   disputesEnabled: process.env.REDACTION_RH_DISPUTES_ENABLED === 'true',
   notificationsEnabled: process.env.REDACTION_RH_NOTIFICATIONS_ENABLED === 'true',
   rolesEnabled: process.env.REDACTION_RH_ROLES_ENABLED === 'true',

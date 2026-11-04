@@ -2,6 +2,7 @@ const OFFLINE_CACHE = 'redaction-offline-v4';
 const OFFLINE_URL = new URL('redaction-offline.html', self.registration.scope).href;
 const OFFLINE_PATH = new URL(OFFLINE_URL).pathname;
 const OFFLINE_SCRIPT = new URL('redaction-offline.js', self.registration.scope).href;
+const VOICE_URLS = ['arrival', 'departure', 'submission', 'arrival-offline', 'departure-offline', 'submission-offline'].map((name) => new URL(`rh-voice/${name}.mp3`, self.registration.scope).pathname);
 
 const OFFLINE_HTML = '<!doctype html><html lang="fr"><meta charset="utf-8"><title>Rédaction hors ligne</title><body><h1>Rédaction hors ligne</h1><p>La page locale est indisponible. Reconnectez-vous et réessayez.</p></body></html>';
 
@@ -17,7 +18,7 @@ function isRedactionAppClient(client) {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(OFFLINE_CACHE).then((cache) => cache.addAll([OFFLINE_URL, OFFLINE_SCRIPT]))
+    caches.open(OFFLINE_CACHE).then((cache) => cache.addAll([OFFLINE_URL, OFFLINE_SCRIPT, ...VOICE_URLS]))
   );
   self.skipWaiting();
 });
@@ -60,7 +61,7 @@ function shouldServeOfflinePage(request, response) {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    (event.request.url === OFFLINE_SCRIPT ? caches.match(OFFLINE_SCRIPT).then((cached) => cached || fetch(event.request)) : fetch(event.request))
+    ((event.request.url === OFFLINE_SCRIPT || VOICE_URLS.includes(new URL(event.request.url).pathname)) ? caches.match(event.request).then((cached) => cached || fetch(event.request)) : fetch(event.request))
       .then((response) => {
         if (shouldServeOfflinePage(event.request, response)) {
           return offlineNavigationResponse(event.request);

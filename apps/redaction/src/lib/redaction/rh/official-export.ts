@@ -1,15 +1,14 @@
 'use client';
 
-import { saveBlobToAndroid } from '@wab-infos/shared';
 import type { OfficialDocumentKind } from './official-documents';
 import type { OrganizationSettings } from './organization';
-import { createOrganizationQr } from './organization-qr';
+import { organizationQrPayload } from './organization-qr';
 
 type Assets = Record<'company-logo' | 'document-header' | 'document-footer' | 'director-signature' | 'company-seal' | 'rh-seal', string | null>;
 export type OfficialExport = {
   kind: OfficialDocumentKind; subject: string; body: string; recipient: string;
   date: string; signed: boolean; signatureMode: 'texte' | 'image';
-  settings: OrganizationSettings; assets: Assets;
+  settings: OrganizationSettings; assets: Assets; verificationUrl?: string; reference?: string | null;
 };
 
 const W = 2480, H = 3508, S = 3;
@@ -17,7 +16,7 @@ const pageWidth = W / S, pageHeight = H / S;
 const left = 72, right = 755;
 
 type Line = { text: string; x: number; y: number; size: number; bold?: boolean; italic?: boolean; align?: CanvasTextAlign };
-type Layout = { lines: Line[]; headerBottom: number; footerTop: number; footerImageY: number; signatureY: number | null; fontSize: number };
+type Layout = { lines: Line[]; headerBottom: number; footerTop: number; footerImageY: number; signatureY: number | null; sealY: number | null; qrY: number | null; fontSize: number };
 
 export class OfficialPageOverflowError extends Error {
   constructor() { super('Le document ne tient pas sur une page A4 lisible. Raccourcissez le corps, le destinataire, l’objet ou l’entête avant de signer, imprimer ou télécharger.'); }
@@ -64,26 +63,26 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
   const nameLines = wrap(ctx, doc.settings.companyName || 'Entreprise', headerRight - headerX);
   setFont(ctx, 13);
   const headerLines = headerText ? wrap(ctx, headerText, headerRight - headerX) : [];
-  const detailsY = 65 + 25 * nameLines.length;
-  const headerBottom = Math.max(150, detailsY + 17 * headerLines.length + 12);
-  if (headerBottom > 250) throw new OfficialPageOverflowError();
-  nameLines.forEach((text, i) => lines.push({ text, x: headerX, y: 65 + 25 * i, size: 21, bold: true }));
-  headerLines.forEach((text, i) => lines.push({ text, x: headerX, y: detailsY + 17 * i, size: 13 }));
+  const detailsY = 65 + 26 * nameLines.length;
+  const headerBottom = Math.max(150, detailsY + 18 * headerLines.length + 15);
+  if (headerBottom > 275) throw new OfficialPageOverflowError();
+  nameLines.forEach((text, i) => lines.push({ text, x: headerX, y: 65 + 26 * i, size: 21, bold: true }));
+  headerLines.forEach((text, i) => lines.push({ text, x: headerX, y: detailsY + 18 * i, size: 13 }));
 
   setFont(ctx, 12);
   const footerLines = doc.settings.documentFooter ? wrap(ctx, doc.settings.documentFooter, right - left) : [];
-  const lastFooterBaseline = pageHeight - 42;
-  const firstFooterBaseline = lastFooterBaseline - (footerLines.length - 1) * 16;
+  const lastFooterBaseline = pageHeight - 40;
+  const firstFooterBaseline = lastFooterBaseline - (footerLines.length - 1) * 17;
   const footerImageY = (footerLines.length ? firstFooterBaseline : pageHeight - 40) - (doc.assets['document-footer'] ? 52 : 12);
   const footerTop = footerImageY - 12;
-  if (footerTop < pageHeight - 210) throw new OfficialPageOverflowError();
-  footerLines.forEach((text, i) => lines.push({ text, x: left, y: firstFooterBaseline + i * 16, size: 12 }));
-  lines.push({ text: 'Page 1 / 1', x: right, y: pageHeight - 18, size: 11, align: 'right' });
+  if (footerTop < pageHeight - 230) throw new OfficialPageOverflowError();
+  footerLines.forEach((text, i) => lines.push({ text, x: left, y: firstFooterBaseline + i * 17, size: 12 }));
+  lines.push({ text: 'Page 1 / 1', x: right, y: pageHeight - 16, size: 11, align: 'right' });
 
-  // Ajustement modéré de 14 à 11 px ; au-delà, l'utilisateur doit condenser son texte.
-  for (const size of [17, 16, 15, 14, 13, 12]) {
+  // Le corps reste à 12 points minimum (16 px). Si nécessaire, demander un texte plus court.
+  for (const size of [18, 17, 16]) {
     const content: Line[] = [];
-    let y = headerBottom + 33;
+    let y = headerBottom + 38;
     function add(text: string, fontSize: number, gap: number, options: { bold?: boolean; align?: CanvasTextAlign } = {}) {
       setFont(ctx, fontSize, options.bold);
       const wrapped = wrap(ctx, text, right - left);
@@ -94,17 +93,22 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
       }
       y += gap;
     }
-    add(doc.date, 14, 26, { align: 'right' });
-    if (doc.kind === 'lettre' && doc.recipient) add(`À l’attention de : ${doc.recipient}`, size, 19);
+    add(doc.date, 14, 14, { align: 'right' });
+    if (doc.kind === 'communique') add(`Réf. : ${doc.reference || 'attribuée à l’émission'}`, 14, 24, { bold: true });
+    else y += 13;
+    if (doc.kind === 'lettre' && doc.recipient) add(`À l’attention de : ${doc.recipient}`, size, 23);
     add(doc.kind === 'lettre' ? 'LETTRE ADMINISTRATIVE' : 'COMMUNIQUÉ OFFICIEL', 22, 20, { bold: true });
-    add(`Objet : ${doc.subject}`, 18, 25, { bold: true });
-    add(doc.body, size, 20);
+    add(`Objet : ${doc.subject}`, 18, 26, { bold: true });
+    add(doc.body, size, 24);
+    const qrY = footerTop - 118;
+    if (y > qrY - 12) continue;
     let signatureY: number | null = null;
+    const sealY = doc.signed && doc.assets['company-seal'] ? y - 12 : null;
     if (doc.signed) {
       setFont(ctx, 14);
       const titles = wrap(ctx, doc.settings.directorTitle || 'Directeur général', 300);
       titles.forEach(text => { content.push({ text, x: right, y, size: 14, align: 'right' }); y += 21; });
-      if (doc.signatureMode === 'image') { signatureY = y; y += 134; }
+      if (doc.signatureMode === 'image') { signatureY = y; y += Number(doc.settings.directorSignatureHeight || 110) + 7; }
       else {
         setFont(ctx, 22, false, true);
         for (const text of wrap(ctx, doc.settings.directorName, 300)) {
@@ -112,13 +116,13 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
         }
         y += 14;
       }
-      setFont(ctx, 13, true);
+      setFont(ctx, 15, true);
       for (const text of wrap(ctx, doc.settings.directorName, 300)) {
         content.push({ text, x: right, y, size: 15, bold: true, align: 'right' }); y += 21;
       }
     }
-    if (y <= footerTop - 120) {
-      return { lines: [...lines, ...content], headerBottom, footerTop, footerImageY, signatureY, fontSize: size };
+    if (y <= footerTop - 18) {
+      return { lines: [...lines, ...content], headerBottom, footerTop, footerImageY, signatureY, sealY, qrY, fontSize: size };
     }
   }
   throw new OfficialPageOverflowError();
@@ -147,54 +151,48 @@ export async function renderOfficialPage(doc: OfficialExport, scale = S): Promis
   if (!ctx) throw new Error('Canvas indisponible.');
   ctx.scale(scale, scale);
   const layout = planOfficialPage(ctx, doc);
-  const [logo, header, footer, signature, seal, qrData] = await Promise.all([
+  const [logo, header, footer, signature, seal, qr] = await Promise.all([
     load(doc.assets['company-logo']), load(doc.assets['document-header']),
-    load(doc.assets['document-footer']), load(doc.assets['director-signature']),
-    load(doc.assets['company-seal'] || doc.assets['rh-seal'] || null),
-    createOrganizationQr(doc.settings).catch(() => null),
+    load(doc.assets['document-footer']), load(doc.assets['director-signature']), load(doc.assets['company-seal'] || doc.assets['rh-seal'] || null),
+    import('qrcode').then(({ default: QRCode }) => QRCode.toDataURL([organizationQrPayload(doc.settings), doc.verificationUrl].filter(Boolean).join('\n'), { errorCorrectionLevel: 'M', margin: 4, width: 560, color: { dark: '#000000', light: '#FFFFFF' } })).then(load),
   ]);
-  const qr = qrData ? await load(qrData) : null;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, pageWidth, pageHeight);
   image(ctx, logo, left, 42, 108, 78);
   image(ctx, header, 560, 28, 195, 80);
   image(ctx, footer, left, layout.footerImageY, 680, 42);
+  if (layout.sealY !== null && seal) {
+    ctx.save(); ctx.globalAlpha = 0.82; image(ctx, seal, right - 150, layout.sealY, 140, 140); ctx.restore();
+  }
   if (layout.signatureY !== null) {
-    if (seal) {
-      ctx.save();
-      ctx.globalAlpha = 0.92;
-      image(ctx, seal, right - 136, layout.signatureY + 4, 120, 120);
-      ctx.restore();
-    }
     if (!signature) throw new Error('Image de signature indisponible.');
-    image(ctx, signature, right - 190, layout.signatureY + 34, 190, 92);
+    image(ctx, signature, right - Number(doc.settings.directorSignatureWidth || 220), layout.signatureY, Number(doc.settings.directorSignatureWidth || 190), Number(doc.settings.directorSignatureHeight || 92));
   }
   ctx.strokeStyle = '#a4213d'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(left, layout.headerBottom); ctx.lineTo(right, layout.headerBottom); ctx.stroke();
   ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(left, layout.footerTop); ctx.lineTo(right, layout.footerTop); ctx.stroke();
+  if (layout.qrY !== null && qr) {
+    ctx.fillStyle = '#fff'; ctx.fillRect(left, layout.qrY, 108, 108);
+    image(ctx, qr, left, layout.qrY, 100, 100);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#222'; setFont(ctx, 11, true);
+    ctx.fillText('Vérifier l’émission', left + 108, layout.qrY + 38);
+    setFont(ctx, 10); ctx.fillText('Scannez ce QR code', left + 108, layout.qrY + 56);
+  }
   for (const item of layout.lines) {
     setFont(ctx, item.size, item.bold, item.italic);
     ctx.fillStyle = item.y >= layout.footerTop ? '#555' : '#222';
     ctx.textAlign = item.align ?? 'left';
     ctx.fillText(item.text, item.x, item.y);
   }
-  if (qr) {
-    const qrSize = 104;
-    const qrX = left;
-    const qrY = layout.footerTop - qrSize - 10;
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 12);
-    ctx.strokeStyle = '#ddd';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 12);
-    image(ctx, qr, qrX, qrY, qrSize, qrSize);
+  if (!doc.signed) {
+    ctx.save(); ctx.translate(pageWidth / 2, pageHeight / 2); ctx.rotate(-Math.PI / 8);
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(130,30,58,0.16)'; setFont(ctx, 34, true);
+    ctx.fillText('BROUILLON NON VALIDÉ', 0, 0); ctx.restore();
   }
   return canvas;
 }
 
-export async function downloadCanvas(canvas: HTMLCanvasElement, filename: string) {
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-  if (blob && await saveBlobToAndroid(blob, filename, 'image/png')) return;
+export function downloadCanvas(canvas: HTMLCanvasElement, filename: string) {
   const anchor = document.createElement('a'); anchor.href = canvas.toDataURL('image/png'); anchor.download = filename;
   document.body.append(anchor); anchor.click(); anchor.remove();
 }
@@ -203,7 +201,5 @@ export async function downloadOfficialPdf(page: HTMLCanvasElement, filename: str
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
   pdf.addImage(page.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-  const blob = pdf.output('blob');
-  if (await saveBlobToAndroid(blob, filename, 'application/pdf')) return;
   pdf.save(filename);
 }

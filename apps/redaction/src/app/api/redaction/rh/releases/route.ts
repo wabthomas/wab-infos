@@ -11,7 +11,7 @@ export async function GET() {
     const principal = await requireRhPrincipal();
     if (!(await getMyCollaborator(principal))) return json({ error: 'Dossier RH indisponible.' }, 403);
     const flags = await getRhFlags();
-    const release = RH_RELEASES.find((item) => !item.requiresWithdrawals || flags.withdrawalsEnabled);
+    const release = RH_RELEASES.find((item) => (!item.requiresWithdrawals || flags.withdrawalsEnabled) && (!item.requiresContracts || flags.contractsEnabled));
     if (!release) return json({ release: null });
     const result = await db().query(
       'SELECT 1 FROM redaction_rh.release_acknowledgements WHERE account_id=$1 AND release_id=$2',

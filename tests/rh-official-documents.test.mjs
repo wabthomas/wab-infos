@@ -40,6 +40,9 @@ test('composition A4 : une page entière ou une erreur, sans tronquer le corps e
   const assets = { 'company-logo': null, 'document-header': null, 'document-footer': null, 'director-signature': null };
   const doc = { kind: 'lettre', subject: 'Convocation', date: 'Kinshasa, le 3 novembre 2026', recipient: 'Madame X', body: 'Nous vous invitons à une réunion.\nVeuillez agréer nos salutations distinguées.', signed: true, signatureMode: 'texte', settings, assets };
   const layout = planOfficialPage(ctx, doc);
+  assert.equal(layout.fontSize, 18);
+  assert.ok(layout.lines.filter(line => line.text.includes('salutations')).every(line => line.size >= 16));
+  assert.ok(layout.lines.find(line => line.text === 'Document officiel').size >= 12);
   assert.equal(layout.lines.filter(line => line.text.includes('salutations')).length, 1);
   assert.equal(layout.lines.some(line => line.text === settings.directorName), true);
   assert.equal(layout.signatureY, null);

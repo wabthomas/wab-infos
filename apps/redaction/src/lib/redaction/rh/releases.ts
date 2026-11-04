@@ -7,6 +7,7 @@ export interface RhRelease {
   highlights: readonly string[];
   url: string;
   requiresWithdrawals?: boolean;
+  requiresContracts?: boolean;
 }
 
 export const RH_RELEASES: readonly RhRelease[] = registry;

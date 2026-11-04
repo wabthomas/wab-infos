@@ -8,9 +8,13 @@ export const ORGANIZATION_SETTING_LABELS = {
   companyRegistration: 'RCCM / référence d’enregistrement',
   directorName: 'Nom du Directeur général',
   directorTitle: 'Titre du signataire',
+  directorSignatureWidth: 'Largeur de la signature image (px)',
+  directorSignatureHeight: 'Hauteur de la signature image (px)',
+  attendanceEndTime: 'Heure limite de signature de sortie (HH:MM)',
   documentHeader: 'Entête des documents',
   documentFooter: 'Pied de page des documents',
-  attendanceEndTime: 'Heure limite de signature de sortie (HH:MM)',
+  communiqueReferenceMode: 'Attribution du numéro du communiqué',
+  communiqueReferenceFormat: 'Format de référence du communiqué',
 } as const;
 
 export type OrganizationSettingKey = keyof typeof ORGANIZATION_SETTING_LABELS;
@@ -26,9 +30,13 @@ export const DEFAULT_ORGANIZATION_SETTINGS: OrganizationSettings = {
   companyRegistration: '',
   directorName: '',
   directorTitle: 'Directeur général',
+  directorSignatureWidth: '220',
+  directorSignatureHeight: '110',
+  attendanceEndTime: '18:00',
   documentHeader: '',
   documentFooter: 'Document interne — émis par Wab-infos.',
-  attendanceEndTime: '18:00',
+  communiqueReferenceMode: 'automatic',
+  communiqueReferenceFormat: 'COM-RH-{AAAA}-{SEQ:6}',
 };
 
 export const ORGANIZATION_ASSETS = {

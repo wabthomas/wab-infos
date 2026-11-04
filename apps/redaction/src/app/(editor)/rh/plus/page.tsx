@@ -34,6 +34,7 @@ export default async function RhMorePage() {
     { href: '/rh/paiements-anciens', label: 'Paiements historiques', text: 'Rattrapage et bilan', icon: FileSpreadsheet, show: capabilities.financeRead && flags.financeEnabled },
     { href: '/rh/retraits', label: 'Retraits', text: 'Soldes et paiements', icon: ArrowDownUp, show: capabilities.financeRead && flags.financeEnabled },
     { href: '/rh/documents', label: 'Documents', text: 'Contrats et attestations', icon: FileLock2, show: capabilities.accessManage && flags.documentsEnabled },
+    { href: '/rh/contrats', label: 'Contrats CDD / CDI', text: 'Préparer un projet de contrat', icon: FileLock2, show: capabilities.accessManage && flags.contractsEnabled },
     { href: '/rh/correspondance', label: 'Correspondance RH', text: 'Lettres et communiqués officiels', icon: FileSpreadsheet, show: capabilities.accessManage },
     { href: '/rh/contestations', label: 'Contestations', text: 'Recours des collaborateurs', icon: MessageSquare, show: capabilities.accessManage && flags.disputesEnabled },
     { href: '/rh/rapports', label: 'Rapports', text: 'Exports journalisés', icon: FileSpreadsheet, show: capabilities.hrManage && flags.rhEnabled },

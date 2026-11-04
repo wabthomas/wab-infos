@@ -22,8 +22,7 @@ test('les textes de la rédaction sont en UTF-8 propre', async () => {
 
 test('ServiceCard accepte un collaborateur absent sans erreur', async () => {
   const component = await read('src/components/redaction/rh/service-card.tsx');
-  assert.match(component, /collaboratorId\?: string/);
-  assert.match(component, /\{collaboratorId && <SendDocumentActions/);
+  assert.match(component, /adminPersonId\?: ?string/);
 });
 
 test('le service worker met en cache des URLs complètes', async () => {

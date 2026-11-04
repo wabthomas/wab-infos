@@ -1,5 +1,17 @@
 [
   {
+    "id": "rh-2026-11-contrats-cdd-cdi",
+    "title": "Vos contrats RH dans un espace privé",
+    "body": "Consultez les projets de CDD ou CDI transmis par votre administration, téléchargez le PDF, puis acceptez explicitement une version après lecture. Vous pouvez aussi refuser et demander une nouvelle version.",
+    "highlights": [
+      "Lisez les clauses et téléchargez le projet avant de répondre.",
+      "Votre accord visuel est enregistré sur une version figée ; ce n’est pas une signature électronique qualifiée.",
+      "Retrouvez votre exemplaire accepté dans Mes contrats."
+    ],
+    "url": "/mon-rh/contrats",
+    "requiresContracts": true
+  },
+  {
     "id": "rh-2026-11-mobile-moyens-cartes",
     "title": "Votre espace RH évolue sur mobile",
     "body": "Les moyens de paiement sont plus faciles à consulter et à ajouter depuis un téléphone. Votre fiche indique désormais si une carte de service a déjà été émise ; les fiches de paiement restent disponibles selon les réglages de votre administration.",
