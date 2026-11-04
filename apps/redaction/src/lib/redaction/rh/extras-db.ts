@@ -216,7 +216,7 @@ export async function signMyAttendance(principal: RhPrincipal, action: Attendanc
        RETURNING id,to_char(work_date,'YYYY-MM-DD') AS "workDate",
                  to_char(check_in AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkIn",
                  to_char(check_out AT TIME ZONE 'Africa/Lubumbashi','HH24:MI') AS "checkOut",note`,
-      [randomUUID(), person, eventTime.toISOString()]
+      action === 'out' ? [eventTime.toISOString(), person] : [randomUUID(), person, eventTime.toISOString()]
     );
     if (!result.rowCount && recordedAt) {
       const previous = await client.query(
