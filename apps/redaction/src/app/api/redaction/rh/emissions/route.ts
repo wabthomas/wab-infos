@@ -38,12 +38,16 @@ export async function POST(request: Request) {
     const hashes = Object.fromEntries(assets.rows.map(row => [row.asset_key, createHash('sha256').update(row.file_bytes).digest('hex')])) as Record<string,string>;
     if (!settings.companyName.trim() || (!settings.companyRegistration.trim() && !settings.companyTaxId.trim())) return json({ error: 'Configurez le nom et le RCCM ou l’identifiant fiscal de l’entreprise pour le registre.' }, 409);
     if (!settings.directorName.trim() || !hashes['company-seal'] || (input.signatureMode === 'image' && !hashes['director-signature'])) return json({ error: 'Configurez le DG, le sceau et la signature image si sélectionnée dans Paramètres RH.' }, 409);
+    // Référence attribuée par la base, non saisie par le navigateur ; la séquence évite les doublons concurrents.
+    const reference = input.kind === 'communique'
+      ? `COM-RH-${new Intl.DateTimeFormat('en-GB', { year: 'numeric', timeZone: 'Africa/Kinshasa' }).format(new Date())}-${String((await db().query("SELECT nextval('redaction_rh.official_issue_reference_seq') AS number")).rows[0].number).padStart(6, '0')}`
+      : null;
     const token = randomBytes(32).toString('hex');
     const url = new URL(`${base.pathname.replace(/\/$/,'')}/verification/rh/${token}`, base.origin).toString();
-    const snapshot = { kind: input.kind, subject: content.subject, body: content.body, recipient: input.recipient.trim(), date: input.date.trim(), signatureMode: input.signatureMode, settings, assetHashes: hashes };
+    const snapshot = { reference, kind: input.kind, subject: content.subject, body: content.body, recipient: input.recipient.trim(), date: input.date.trim(), signatureMode: input.signatureMode, settings, assetHashes: hashes };
     const fingerprint = sha(JSON.stringify(snapshot));
-    await db().query(`INSERT INTO redaction_rh.official_issues(id,token_hash,kind,company_name,company_registration,company_tax_id,document_date,content_hash,snapshot,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[randomUUID(),sha(token),input.kind,settings.companyName,settings.companyRegistration,settings.companyTaxId,input.date.trim(),fingerprint,JSON.stringify(snapshot),actor.email]);
-    return json({ token, url, fingerprint: fingerprint.toString('hex') });
+    await db().query(`INSERT INTO redaction_rh.official_issues(id,token_hash,kind,company_name,company_registration,company_tax_id,document_date,content_hash,snapshot,created_by,reference)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[randomUUID(),sha(token),input.kind,settings.companyName,settings.companyRegistration,settings.companyTaxId,input.date.trim(),fingerprint,JSON.stringify(snapshot),actor.email,reference]);
+    return json({ token, url, reference, fingerprint: fingerprint.toString('hex') });
   } catch (error) { return handleError(error); }
 }

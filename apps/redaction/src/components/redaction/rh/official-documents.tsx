@@ -35,7 +35,7 @@ export function OfficialDocuments() {
   const [recipient, setRecipient] = useState('');
   const [date, setDate] = useState(() => new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date()));
   const [signed, setSigned] = useState(false);
-  const [issued, setIssued] = useState<{ url: string; fingerprint: string } | null>(null);
+  const [issued, setIssued] = useState<{ url: string; fingerprint: string; reference: string | null } | null>(null);
   const [signatureMode, setSignatureMode] = useState<'texte' | 'image'>('texte');
   const [settings, setSettings] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
   const [assets, setAssets] = useState<Assets>(emptyAssets);
@@ -129,7 +129,7 @@ export function OfficialDocuments() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Erreur.'); toast.error('Rédaction IA impossible.'); }
     finally { setBusy(''); }
   }
-  function documentData(): OfficialExport { return { kind, subject: subject.trim(), body: body.trim(), recipient: recipient.trim(), date: date.trim(), signed, signatureMode, settings, assets, verificationUrl: issued?.url }; }
+  function documentData(): OfficialExport { return { kind, subject: subject.trim(), body: body.trim(), recipient: recipient.trim(), date: date.trim(), signed, signatureMode, settings, assets, verificationUrl: issued?.url, reference: issued?.reference }; }
   async function exportFile(type: 'pdf' | 'png') {
     if (!subject.trim() || !body.trim()) { setError('Complétez l’objet et le corps avant l’export.'); return; }
     if (signed && !issued) { setError('Émettez le document pour activer son QR avant l’export.'); return; }
@@ -203,21 +203,21 @@ export function OfficialDocuments() {
     setBusy('issue'); setError('');
     try {
       // Vérifier d’abord que le document tient, avant de créer une entrée de registre.
-      await renderOfficialPage({ ...documentData(), verificationUrl: 'https://example.invalid/verification/rh/' + 'a'.repeat(64) }, 1);
+      await renderOfficialPage({ ...documentData(), verificationUrl: 'https://example.invalid/verification/rh/' + 'a'.repeat(64), reference: kind === 'communique' ? 'COM-RH-2026-999999999999' : null }, 1);
       const response = await fetchRedaction('/api/redaction/rh/emissions', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ kind, subject, body, date, recipient, signatureMode }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Émission indisponible.');
-      const canvas = await renderOfficialPage({ ...documentData(), verificationUrl: data.url });
+      const canvas = await renderOfficialPage({ ...documentData(), verificationUrl: data.url, reference: data.reference });
       const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('PNG indisponible.')), 'image/png'));
       const final = await fetchRedaction(`/api/redaction/rh/emissions/${data.token}`, { method: 'POST', headers: { 'content-type': 'image/png' }, body: blob });
       const result = await final.json();
       if (!final.ok) throw new Error(result.error || 'Enregistrement impossible.');
       if (draftKeyRef.current !== initialKey) throw new Error('Le document a changé pendant l’émission. L’ancienne version reste archivée ; réémettez la nouvelle.');
-      setIssued({ url: data.url, fingerprint: data.fingerprint });
-      toast.success('Émission enregistrée ; QR de vérification activé.');
+      setIssued({ url: data.url, fingerprint: data.fingerprint, reference: data.reference });
+      toast.success(data.reference ? `Communiqué ${data.reference} enregistré ; QR activé.` : 'Émission enregistrée ; QR de vérification activé.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Émission impossible.'); toast.error('Émission impossible.'); }
     finally { setBusy(''); }
   }
@@ -292,9 +292,10 @@ export function OfficialDocuments() {
       </div>
       <div className="mt-4 rounded-xl border border-border p-4 text-sm">
         <p className="font-bold">Sceau et QR de vérification</p>
+        {kind === 'communique' && <p className="mt-1 text-muted-foreground">Un numéro de référence unique est attribué automatiquement au communiqué lors de son émission ; il figure sur le PDF, le PNG et dans le registre.</p>}
         <p className="mt-1 text-muted-foreground">Le sceau de l’entreprise apparaît en filigrane derrière la signature, le nom et la fonction. Le QR mène au registre RH (nom + RCCM ou identifiant fiscal requis dans Paramètres). Un QR seul ne constitue pas une signature électronique certifiée.</p>
         <button type="button" className={button + ' mt-3'} disabled={!!busy || !signed || !canSign} onClick={() => void issueDocument()}>{busy === 'issue' ? 'Émission en cours…' : issued ? 'Émettre une nouvelle version' : 'Émettre et activer le QR'}</button>
-        {issued && <p className="mt-2 break-all text-xs text-muted-foreground">Référence enregistrée · <a className="font-semibold text-primary underline" href={issued.url} target="_blank" rel="noopener noreferrer">Vérifier le QR</a> · Empreinte {issued.fingerprint.slice(0,16)}…</p>}
+        {issued && <p className="mt-2 break-all text-xs text-muted-foreground">{issued.reference ? `Référence ${issued.reference} · ` : 'Émission enregistrée · '} <a className="font-semibold text-primary underline" href={issued.url} target="_blank" rel="noopener noreferrer">Vérifier le QR</a> · Empreinte {issued.fingerprint.slice(0,16)}…</p>}
         {!signed && <p className="mt-2 text-xs text-muted-foreground">Sans visa, le document exporté porte la mention « Brouillon non validé » et ne comporte pas de QR.</p>}
       </div>
       {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}

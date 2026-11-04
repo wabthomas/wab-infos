@@ -7,7 +7,7 @@ type Assets = Record<'company-logo' | 'document-header' | 'document-footer' | 'd
 export type OfficialExport = {
   kind: OfficialDocumentKind; subject: string; body: string; recipient: string;
   date: string; signed: boolean; signatureMode: 'texte' | 'image';
-  settings: OrganizationSettings; assets: Assets; verificationUrl?: string;
+  settings: OrganizationSettings; assets: Assets; verificationUrl?: string; reference?: string | null;
 };
 
 const W = 2480, H = 3508, S = 3;
@@ -92,7 +92,9 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
       }
       y += gap;
     }
-    add(doc.date, 14, 27, { align: 'right' });
+    add(doc.date, 14, 14, { align: 'right' });
+    if (doc.kind === 'communique') add(`Réf. : ${doc.reference || 'attribuée à l’émission'}`, 14, 24, { bold: true });
+    else y += 13;
     if (doc.kind === 'lettre' && doc.recipient) add(`À l’attention de : ${doc.recipient}`, size, 23);
     add(doc.kind === 'lettre' ? 'LETTRE ADMINISTRATIVE' : 'COMMUNIQUÉ OFFICIEL', 22, 20, { bold: true });
     add(`Objet : ${doc.subject}`, 18, 26, { bold: true });
