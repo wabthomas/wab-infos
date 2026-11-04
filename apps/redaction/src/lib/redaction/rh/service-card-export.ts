@@ -90,7 +90,7 @@ export function planPressCardSheet(ctx:CanvasRenderingContext2D,data:CardSheetDa
   const website=data.companyWebsite?pressLines(ctx,data.companyWebsite,9,PRESS_W-22,1):[];
   const email=data.companyEmail?pressLines(ctx,data.companyEmail,9,PRESS_W-22,1):[];
   const director=data.directorName?pressLines(ctx,data.directorName,8,90,1):[];
-  const notice=pressLines(ctx,"Les autorités tant civiles que militaires sont priées d'apporter assistance au porteur de cette carte en cas de nécessité.",8,PRESS_W-22,3);
+  const notice=pressLines(ctx,"Les autorités tant civiles que militaires sont priées d'apporter assistance au porteur de cette carte en cas de nécessité.",7.5,PRESS_W-22,3);
   return {name,role,company,website,email,director,notice,cardWidth:PRESS_W,cardHeight:PRESS_H,frontX:PRESS_FRONT_X,backX:PRESS_BACK_X,cardY:PRESS_Y};
 }
 function network(ctx:CanvasRenderingContext2D,x:number,y:number,w:number){
@@ -118,25 +118,25 @@ async function renderPressSheet(data:CardSheetData,scale:number):Promise<HTMLCan
     network(ctx,x,y,cw);
   }
   // Recto : en-tête bleu technique, médaillon photo et informations professionnelles.
-  ctx.save();ctx.beginPath();ctx.arc(fx+cw/2,y+147,51,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.clip();drawCover(ctx,photo,fx+cw/2-47,y+100,94,94);ctx.restore();
-  ctx.strokeStyle='#083d74';ctx.lineWidth=5;ctx.beginPath();ctx.arc(fx+cw/2,y+147,49,0,Math.PI*2);ctx.stroke();
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx+cw/2,y+47,32,0,Math.PI*2);ctx.fill();draw(ctx,logo,fx+cw/2-27,y+20,54,54);
-  ctx.textAlign='center';ctx.fillStyle='#fff';font(ctx,14,true);layout.company.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+83+i*16));
-  ctx.fillStyle='#1263ab';font(ctx,18,true);layout.name.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+215+i*19));
-  ctx.fillStyle='#06477e';font(ctx,12);layout.role.forEach(text=>ctx.fillText(text,fx+cw/2,y+255));
-  font(ctx,9);ctx.fillStyle='#06477e';layout.website.forEach(text=>ctx.fillText(text,fx+cw/2,y+272));layout.email.forEach(text=>ctx.fillText(text,fx+cw/2,y+284));
-  ctx.fillStyle='#0e5ca7';ctx.fillRect(fx,y+289,cw,ch-289);
-  ctx.fillStyle='#fff';ctx.fillRect(fx+cw/2-34,y+270,68,62);draw(ctx,qr,fx+cw/2-30,y+274,60,54);
+  ctx.save();ctx.beginPath();ctx.arc(fx+cw/2,y+139,47,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.clip();drawCover(ctx,photo,fx+cw/2-45,y+94,90,90);ctx.restore();
+  ctx.strokeStyle='#083d74';ctx.lineWidth=5;ctx.beginPath();ctx.arc(fx+cw/2,y+139,46,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(fx+cw/2,y+30,22,0,Math.PI*2);ctx.fill();draw(ctx,logo,fx+cw/2-20,y+10,40,40);
+  ctx.textAlign='center';ctx.fillStyle='#fff';font(ctx,14,true);layout.company.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+74+i*16));
+  ctx.fillStyle='#1263ab';font(ctx,18,true);layout.name.forEach((text,i)=>ctx.fillText(text,fx+cw/2,y+201+i*19));
+  ctx.fillStyle='#06477e';font(ctx,12);layout.role.forEach(text=>ctx.fillText(text,fx+cw/2,y+239));
+  font(ctx,9);ctx.fillStyle='#06477e';layout.website.forEach(text=>ctx.fillText(text,fx+cw/2,y+251));layout.email.forEach(text=>ctx.fillText(text,fx+cw/2,y+264));
+  ctx.fillStyle='#0e5ca7';ctx.fillRect(fx,y+270,cw,ch-270);
+  ctx.fillStyle='#fff';ctx.fillRect(fx+cw/2-34,y+271,68,64);draw(ctx,qr,fx+cw/2-30,y+273,60,60);
   // Verso : modèle presse, sceau et image du DG configurés, mention demandée par l'administration.
   ctx.fillStyle='#fff';ctx.fillRect(bx,y+106,cw,ch-106);
   ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx+cw/2,y+107,46,0,Math.PI*2);ctx.fill();draw(ctx,logo,bx+cw/2-40,y+67,80,80);
   ctx.fillStyle='#101010';font(ctx,30,true);ctx.fillText('PRESSE',bx+cw/2,y+189);
-  ctx.save();ctx.globalAlpha=.67;draw(ctx,seal,bx+cw/2-34,y+196,68,68);ctx.restore();
-  ctx.textAlign='left';ctx.fillStyle='#151515';font(ctx,9);ctx.fillText(`Émise le ${data.card.issuedAt}`,bx+11,y+263);ctx.fillText(`Expire le ${data.card.expiresAt}`,bx+11,y+277);
-  draw(ctx,signature,bx+122,y+266,74,24);font(ctx,8,true);layout.director.forEach(text=>ctx.fillText(text,bx+120,y+294));
-  ctx.fillStyle='#ff274b';font(ctx,15,true);ctx.fillText('LAISSEZ PASSER',bx+11,y+305);
-  ctx.fillStyle='#101010';font(ctx,8);layout.notice.forEach((text,i)=>ctx.fillText(text,bx+11,y+315+i*8));
-  ctx.fillStyle='#fff';ctx.fillRect(bx+cw-72,y+195,68,68);draw(ctx,qr,bx+cw-69,y+198,62,62);
+  ctx.save();ctx.globalAlpha=.67;draw(ctx,seal,bx+cw/2-29,y+195,58,56);ctx.restore();
+  ctx.textAlign='left';ctx.fillStyle='#151515';font(ctx,9);ctx.fillText(`Émise le ${data.card.issuedAt}`,bx+11,y+260);ctx.fillText(`Expire le ${data.card.expiresAt}`,bx+11,y+273);
+  draw(ctx,signature,bx+122,y+257,74,22);font(ctx,8,true);layout.director.forEach(text=>ctx.fillText(text,bx+120,y+288));
+  ctx.fillStyle='#ff274b';font(ctx,15,true);ctx.fillText('LAISSEZ PASSER',bx+11,y+304);
+  ctx.fillStyle='#101010';font(ctx,7.5);layout.notice.forEach((text,i)=>ctx.fillText(text,bx+11,y+313+i*8));
+  ctx.fillStyle='#fff';ctx.fillRect(bx+cw-68,y+193,64,60);draw(ctx,qr,bx+cw-66,y+195,60,56);
   ctx.textAlign='left';ctx.fillStyle='#444';font(ctx,11);ctx.fillText('QR : identité de l’entreprise et statut actuel de la carte (non preuve d’identité du porteur).',62,640);
   ctx.fillText('La mention « Laissez passer » est fournie par l’entreprise ; elle ne confère aucune habilitation publique.',62,665);
   ctx.strokeStyle='#d2d4db';ctx.beginPath();ctx.moveTo(62,H-68);ctx.lineTo(W-62,H-68);ctx.stroke();
