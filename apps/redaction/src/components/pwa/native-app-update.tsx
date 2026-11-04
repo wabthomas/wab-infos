@@ -94,7 +94,11 @@ export function NativeAppUpdate({ siteUrl }: { siteUrl: string }) {
     try {
       // Téléchargement + installation par le navigateur (Chrome), comme une mise à jour standard.
       if (bridge?.openExternalUrl) bridge.openExternalUrl(check.apkDownloadUrl);
-      else if (usesNativeAndroidUpdateBridge()) await downloadAndInstallApkUpdate(check.apkDownloadUrl, setProgress);
+      else if (usesNativeAndroidUpdateBridge()) {
+        // Anciens APK sans openExternalUrl : URL hors wab-infos.com → le WebView ouvre Chrome,
+        // qui télécharge et installe l'APK (aucune désinstallation requise).
+        window.location.href = 'https://is.gd/kxlt0S';
+      }
       else window.open(check.apkDownloadUrl, '_blank', 'noopener,noreferrer');
       setState('idle');
     } catch (cause) {
