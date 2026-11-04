@@ -57,6 +57,10 @@ android {
         buildConfig true
     }
 
+    androidResources {
+        noCompress += ["mp3"]
+    }
+
     flavorDimensions = ["product", "push"]
     productFlavors {
         reader {
@@ -76,8 +80,8 @@ android {
         redaction {
             dimension "product"
             applicationId "com.wabinfos.redaction"
-            versionCode 14
-            versionName "1.0.13"
+            versionCode 15
+            versionName "1.0.14"
             buildConfigField "String", "SITE_URL", '"https://app.wab-infos.com"'
             // Clé Web Firebase (publique) — repli si la clé Android du google-services.json
             // est restreinte au package lecteur com.wabinfos.app.

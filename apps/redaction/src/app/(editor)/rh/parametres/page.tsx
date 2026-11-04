@@ -4,6 +4,7 @@ import { OrganizationSettings } from '@/components/redaction/rh/organization-set
 import { AnnouncementSettings } from '@/components/redaction/rh/announcement-settings';
 import { FeatureSettings } from '@/components/redaction/rh/feature-settings';
 import { RoleManager } from '@/components/redaction/rh/role-manager';
+import { RhVoiceAdminTest } from '@/components/redaction/rh/rh-voice-admin-test';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
 
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,7 @@ export default async function RhSettingsPage() {
     </div>
     <OrganizationSettings />
     <AnnouncementSettings />
+    <RhVoiceAdminTest />
     <FeatureSettings />
     <RoleManager />
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-xs leading-5 text-muted-foreground"><Building2 className="h-5 w-5 shrink-0 text-primary" />Les signatures, sceaux et logos sont enregistrés dans la base RH. La migration des fiches doit être appliquée pour rendre ces paramètres disponibles.</div>

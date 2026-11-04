@@ -46,6 +46,7 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
   }, [reload, expanded, filter, page]);
   async function send(method: 'POST' | 'PATCH', body: unknown) {
     setBusy(true); setError(''); setMessage('');
+    if(method === 'POST'){voice.prepare('submission');voice.prepare('submission-offline');}
     const offlinePayload = method === 'POST' ? { ...(body as object), clientId: crypto.randomUUID(), recordedAt: new Date().toISOString() } : null;
     try {
       const response = await fetchRedaction(endpoint, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(offlinePayload ?? body) });
@@ -58,6 +59,7 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
   }
   async function saveOffline(input: { date: string; description: string; clientId?: string; recordedAt?: string }) {
     try {
+      voice.prepare('submission-offline');
       if (!owner) throw new Error('Identité indisponible');
       await enqueue({ id: input.clientId ?? crypto.randomUUID(), owner, kind: 'prestation', recordedAt: input.recordedAt ?? new Date().toISOString(), date: input.date, description: input.description });
       notifyQueue(); setDate(''); setDescription(''); setFormOpen(false);

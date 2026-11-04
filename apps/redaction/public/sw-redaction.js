@@ -1,4 +1,4 @@
-const OFFLINE_CACHE = 'redaction-offline-v4';
+const OFFLINE_CACHE = 'redaction-offline-v6';
 const OFFLINE_URL = new URL('redaction-offline.html', self.registration.scope).href;
 const OFFLINE_PATH = new URL(OFFLINE_URL).pathname;
 const OFFLINE_SCRIPT = new URL('redaction-offline.js', self.registration.scope).href;

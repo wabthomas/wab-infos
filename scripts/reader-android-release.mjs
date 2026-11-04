@@ -4,7 +4,7 @@
  * Product : reader (défaut) | redaction via READER_ANDROID_PRODUCT=redaction
  * Nécessite android/keystore.properties et google-services.json pour withFcm.
  */
-import { existsSync } from 'fs';
+import { cpSync, existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
@@ -40,6 +40,17 @@ if (!existsSync(googleServices)) {
       product === 'redaction' ? 'com.wabinfos.redaction' : 'com.wabinfos.app'
     } → build noFcm`
   );
+}
+
+// APK rédaction : embarquer les sons de confirmation vocale (lecture native MediaPlayer).
+if (product === 'redaction') {
+  const voiceSrc = join(root, 'apps/redaction/public/rh-voice');
+  const voiceDest = join(androidDir, 'app/src/main/assets/rh-voice');
+  if (existsSync(voiceSrc)) {
+    mkdirSync(voiceDest, { recursive: true });
+    cpSync(voiceSrc, voiceDest, { recursive: true });
+    console.log('[release] Sons de voix RH copiés dans les assets APK');
+  }
 }
 
 const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew';
