@@ -10,7 +10,7 @@ import {
   persistPwaVariantFromPath,
   type PwaVariant,
 } from '@/lib/pwa/detect';
-import { isAndroidDevice, isNativeCapacitorApp, isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
+import { getAndroidWebViewBridge, isAndroidDevice, isNativeCapacitorApp, isNativeCapacitorFromUserAgent } from '@wab-infos/shared';
 
 interface PwaInstallBannerProps {
   variant: PwaVariant;
@@ -67,7 +67,7 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
       // ignore
     }
 
-    if (isStandalonePwa() || isNativeCapacitorFromUserAgent()) {
+    if (isStandalonePwa() || isNativeCapacitorFromUserAgent() || Boolean(getAndroidWebViewBridge())) {
       setInNativeApp(true);
       return;
     }

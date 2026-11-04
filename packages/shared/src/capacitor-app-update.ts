@@ -152,8 +152,7 @@ export async function downloadAndInstallApkUpdate(
   onProgress?: (progress: number) => void
 ): Promise<void> {
   const bridge = getAndroidUpdateBridge();
-  if (bridge?.downloadAndInstallApkUpdate) {
-    onProgress?.(100);
+  if (bridge?.downloadAndInstallApkUpdate) {
     if (prefersPlayStoreAppUpdate()) {
       bridge.checkForAppUpdate?.();
     } else {

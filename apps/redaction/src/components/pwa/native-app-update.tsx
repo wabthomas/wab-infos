@@ -12,7 +12,7 @@ import { ArrowRight, Download, Loader2, Smartphone, X } from 'lucide-react';
 import { redactionPublicPath } from '@/lib/redaction/public-path';
 import { APK_INSTALL_WAIT_MS, APK_SNOOZE_MS, apkBannerStamp, isApkBannerTemporarilyHidden } from '@/lib/redaction/apk-update-banner';
 
-type UpdateState = 'idle' | 'checking' | 'available' | 'downloading' | 'error';
+type UpdateState = 'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'error';
 const SNOOZE_KEY = 'wab-redaction-apk-snoozed-v1';
 const INSTALL_STARTED_KEY = 'wab-redaction-apk-install-started-v1';
 
@@ -67,6 +67,20 @@ export function NativeAppUpdate({ siteUrl }: { siteUrl: string }) {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [runCheck]);
 
+  useEffect(() => {
+    const onProgress = (event: Event) => {
+      const detail = (event as CustomEvent<{ percent?: number }>).detail;
+      if (typeof detail?.percent === 'number') setProgress(Math.max(0, Math.min(100, Math.round(detail.percent))));
+    };
+    const onInstalling = () => { setProgress(100); setState('installing'); };
+    window.addEventListener('wab-apk-download-progress', onProgress);
+    window.addEventListener('wab-apk-installing', onInstalling);
+    return () => {
+      window.removeEventListener('wab-apk-download-progress', onProgress);
+      window.removeEventListener('wab-apk-installing', onInstalling);
+    };
+  }, []);
+
   function dismiss() {
     if (check?.remote) writeLocal(SNOOZE_KEY, apkBannerStamp(check.remote.versionCode));
     setState('idle'); setError('');
@@ -79,8 +93,7 @@ export function NativeAppUpdate({ siteUrl }: { siteUrl: string }) {
     setState('downloading');setProgress(0);setError('');
     try {
       await downloadAndInstallApkUpdate(check.apkDownloadUrl, setProgress);
-      // Le pont Android ouvre l'installateur ; aucune installation n'est présumée réussie ici.
-      setState('idle');
+      if (!usesNativeAndroidUpdateBridge()) setState('idle');
     } catch (cause) {
       writeLocal(INSTALL_STARTED_KEY, null);
       setError(cause instanceof Error ? cause.message : 'Téléchargement impossible. Réessayez.');
@@ -102,12 +115,12 @@ export function NativeAppUpdate({ siteUrl }: { siteUrl: string }) {
           <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">Version {current} <ArrowRight className="h-3.5 w-3.5" aria-hidden /> {latest}</p>
           {check.remote.releaseNotes && <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">{check.remote.releaseNotes}</p>}
         </div>
-        {state !== 'downloading' && <div className="flex shrink-0 items-center gap-2">
+        {state !== 'downloading' && state !== 'installing' && <div className="flex shrink-0 items-center gap-2">
           <button type="button" onClick={() => void update()} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#0b4e8b] px-4 py-2 text-xs font-bold text-white hover:bg-[#083e71]"><Download className="h-4 w-4" aria-hidden />Mettre à jour</button>
           <button type="button" onClick={dismiss} aria-label="Plus tard : rappeler demain" title="Plus tard" className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"><X className="h-4 w-4" /></button>
         </div>}
       </div>
-      {state === 'downloading' && <div className="px-4 pb-3 sm:px-5"><div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label="Téléchargement de l'APK" className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div className="h-full bg-[#1273b4] transition-[width]" style={{width:`${Math.max(2,progress)}%`}} /></div><p className="mt-1 text-xs">{usesNativeAndroidUpdateBridge() && progress === 100 ? 'Ouverture de l’installation Android…' : `Téléchargement… ${progress}%`}</p></div>}
+      {(state === 'downloading' || state === 'installing') && <div className="px-4 pb-3 sm:px-5"><div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label="Téléchargement de l'APK" className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div className={`h-full bg-[#1273b4] transition-[width] ${state === 'installing' ? 'animate-pulse' : ''}`} style={{width:`${state === 'installing' ? 100 : Math.max(2,progress)}%`}} /></div><p className="mt-1 text-xs">{state === 'installing' ? 'Ouverture de l’installation Android…' : `Téléchargement… ${progress}%`}</p></div>}
       {error && <p role="alert" className="px-4 pb-3 text-xs text-red-700 dark:text-red-300 sm:px-5">{error}</p>}
     </div>
   </aside>;

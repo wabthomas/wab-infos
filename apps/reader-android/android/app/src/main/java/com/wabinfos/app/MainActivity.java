@@ -1351,6 +1351,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /** Pont JS exposé au site : permet d'utiliser le partage natif Android depuis les pages web. */
+    public void emitApkUpdateProgress(int percent) {
+        runOnUiThread(() -> {
+            if (webView == null) return;
+            try {
+                webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('wab-apk-download-progress',{detail:{percent:" + percent + "}}));", null);
+            } catch (Exception ignored) { }
+        });
+    }
+
+    public void emitApkInstalling() {
+        runOnUiThread(() -> {
+            if (webView == null) return;
+            try {
+                webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('wab-apk-installing',{detail:{}}));", null);
+            } catch (Exception ignored) { }
+        });
+    }
+
     private class NativeBridge {
         @android.webkit.JavascriptInterface
         public boolean playRhVoice(String cue) {

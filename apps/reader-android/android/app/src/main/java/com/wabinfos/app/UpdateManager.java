@@ -60,6 +60,18 @@ public class UpdateManager {
         activityRef = null;
     }
 
+    private static int lastReportedProgress = -1;
+
+    private static void reportProgress(int percent) {
+        Activity activity = activityRef == null ? null : activityRef.get();
+        if (activity instanceof MainActivity) ((MainActivity) activity).emitApkUpdateProgress(percent);
+    }
+
+    private static void reportInstalling() {
+        Activity activity = activityRef == null ? null : activityRef.get();
+        if (activity instanceof MainActivity) ((MainActivity) activity).emitApkInstalling();
+    }
+
     public static JSONObject getLocalVersionJson(Context context) throws Exception {
         PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
         int versionCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
@@ -247,6 +259,7 @@ public class UpdateManager {
             File apkFile = null;
             try {
                 apkFile = downloadApkToCache(appContext, urlToFetch);
+                reportInstalling();
                 final File readyFile = apkFile;
                 Activity host = activityRef != null ? activityRef.get() : null;
                 if (host != null) {
@@ -337,6 +350,13 @@ public class UpdateManager {
             while ((read = in.read(buffer)) != -1) {
                 out.write(buffer, 0, read);
                 total += read;
+                if (contentLength > 0) {
+                    int percent = (int) Math.min(100L, (total * 100L) / contentLength);
+                    if (percent >= lastReportedProgress + 2 || percent == 100) {
+                        lastReportedProgress = percent;
+                        reportProgress(percent);
+                    }
+                }
             }
             out.flush();
             if (contentLength > 0 && total < contentLength) {
