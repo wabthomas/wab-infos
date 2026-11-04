@@ -6,8 +6,11 @@
   const draftKey = `${owner}:redaction-draft-new`;
   const voiceKey = 'redaction-rh-voice-enabled-v1';
   const voiceToggle = document.getElementById('voice-toggle');
-  voiceToggle.checked = localStorage.getItem(voiceKey) === 'on';
-  voiceToggle.onchange = () => { try { localStorage.setItem(voiceKey, voiceToggle.checked ? 'on' : 'off'); } catch { voiceToggle.checked = false; } };
+  const voiceLabel = document.getElementById('voice-label');
+  voiceToggle.checked = localStorage.getItem(voiceKey) !== 'off';
+  const updateVoiceLabel = () => { voiceLabel.textContent = `Son: ${voiceToggle.checked ? 'Activée' : 'Désactivée'}`; };
+  updateVoiceLabel();
+  voiceToggle.onchange = () => { try { localStorage.setItem(voiceKey, voiceToggle.checked ? 'on' : 'off'); } catch { voiceToggle.checked = false; } updateVoiceLabel(); if (!voiceToggle.checked) playing?.pause(); };
   let playing = null;
   function speak(kind) {
     if (!voiceToggle.checked || !['in', 'out', 'prestation'].includes(kind)) return;

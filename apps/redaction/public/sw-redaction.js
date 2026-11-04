@@ -1,4 +1,4 @@
-const OFFLINE_CACHE = 'redaction-offline-v4';
+const OFFLINE_CACHE = 'redaction-offline-v5';
 const OFFLINE_URL = new URL('redaction-offline.html', self.registration.scope).pathname;
 const OFFLINE_SCRIPT = new URL('redaction-offline.js', self.registration.scope).pathname;
 const VOICE_URLS = ['arrival', 'departure', 'submission', 'arrival-offline', 'departure-offline', 'submission-offline'].map((name) => new URL(`rh-voice/${name}.mp3`, self.registration.scope).pathname);
