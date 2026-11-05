@@ -7,6 +7,8 @@ import { organizationQrPayload } from './organization-qr';
 type Assets = Record<'company-logo' | 'document-header' | 'document-footer' | 'director-signature' | 'company-seal' | 'rh-seal', string | null>;
 export type OfficialExport = {
   kind: OfficialDocumentKind; subject: string; body: string; recipient: string;
+  /** Titre affiché (ex. Lettre Administrative, Recommandation…). */
+  title?: string; showTitle?: boolean; showSubject?: boolean;
   date: string; signed: boolean; signatureMode: 'texte' | 'image';
   settings: OrganizationSettings; assets: Assets; verificationUrl?: string; reference?: string | null;
 };
@@ -97,8 +99,9 @@ export function planOfficialPage(ctx: CanvasRenderingContext2D, doc: OfficialExp
     if (doc.kind === 'communique') add(`Réf. : ${doc.reference || 'attribuée à l’émission'}`, 14, 24, { bold: true });
     else y += 13;
     if (doc.kind === 'lettre' && doc.recipient) add(`À l’attention de : ${doc.recipient}`, size, 23);
-    add(doc.kind === 'lettre' ? 'LETTRE ADMINISTRATIVE' : 'COMMUNIQUÉ OFFICIEL', 22, 20, { bold: true });
-    add(`Objet : ${doc.subject}`, 18, 26, { bold: true });
+    const heading = doc.title?.trim() || (doc.kind === 'lettre' ? 'LETTRE ADMINISTRATIVE' : 'COMMUNIQUÉ OFFICIEL');
+    if (doc.showTitle !== false) add(heading, 22, 20, { bold: true });
+    if (doc.showSubject !== false) add(`Objet : ${doc.subject}`, 18, 26, { bold: true });
     add(doc.body, size, 24);
     const qrY = footerTop - 118;
     if (y > qrY - 12) continue;

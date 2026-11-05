@@ -34,6 +34,9 @@ export function OfficialDocuments() {
   const [loadError, setLoadError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [kind, setKind] = useState<OfficialDocumentKind>('lettre');
+  const [documentTitle, setDocumentTitle] = useState('');
+  const [showTitle, setShowTitle] = useState(true);
+  const [showSubject, setShowSubject] = useState(true);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [instructions, setInstructions] = useState('');
@@ -138,7 +141,7 @@ export function OfficialDocuments() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Erreur.'); toast.error('Rédaction IA impossible.'); }
     finally { setBusy(''); }
   }
-  function documentData(): OfficialExport { return { kind, subject: subject.trim(), body: body.trim(), recipient: recipient.trim(), date: date.trim(), signed, signatureMode, settings, assets, verificationUrl: issued?.url, reference: issued?.reference }; }
+  function documentData(): OfficialExport { return { kind, subject: subject.trim(), body: body.trim(), recipient: recipient.trim(), date: date.trim(), signed, signatureMode, settings, assets, verificationUrl: issued?.url, reference: issued?.reference, title: documentTitle.trim() || undefined, showTitle, showSubject }; }
   async function exportFile(type: 'pdf' | 'png') {
     if (!subject.trim() || !body.trim()) { setError('Complétez l’objet et le corps avant l’export.'); return; }
     if (unresolvedAdministrativeFields(subject, body).length) { setError('Remplacez tous les champs entre {{ }} par des faits vérifiés avant l’export.'); return; }
@@ -299,6 +302,13 @@ export function OfficialDocuments() {
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-medium">Date et lieu<input className={input + ' mt-1'} value={date} maxLength={150} onChange={event => edit('date', event.target.value)} /></label>
         {kind === 'lettre' && <label className="text-sm font-medium">Destinataire<input className={input + ' mt-1'} value={recipient} maxLength={200} onChange={event => edit('recipient', event.target.value)} placeholder="À l’attention de…" /></label>}
+      </div>
+      <label className="mt-3 block text-sm font-medium">Titre du document
+        <input className={input + ' mt-1'} maxLength={80} value={documentTitle} placeholder={kind === 'lettre' ? 'Lettre Administrative' : 'Communiqué Officiel'} onChange={event => { setDocumentTitle(event.target.value); setSigned(false); setIssued(null); }} />
+      </label>
+      <div className="mt-2 flex flex-wrap items-center gap-4 text-sm font-medium">
+        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={showTitle} onChange={event => { setShowTitle(event.target.checked); setSigned(false); setIssued(null); }} /> Afficher le titre sur le document</label>
+        <label className="inline-flex items-center gap-2"><input type="checkbox" checked={showSubject} onChange={event => { setShowSubject(event.target.checked); setSigned(false); setIssued(null); }} /> Afficher l’objet sur le document</label>
       </div>
       <label className="mt-3 block text-sm font-medium">Objet<input className={input + ' mt-1'} maxLength={200} value={subject} onChange={event => edit('subject', event.target.value)} /></label>
       <label className="mt-3 block text-sm font-medium">Corps du document<textarea className={input + ' mt-1 min-h-64'} maxLength={4000} value={body} onChange={event => edit('body', event.target.value)} /></label>
