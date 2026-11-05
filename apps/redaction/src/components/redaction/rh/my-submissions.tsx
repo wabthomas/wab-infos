@@ -26,6 +26,21 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
+  const [viewportBox, setViewportBox] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    if (!formOpen || !window.matchMedia('(max-width: 639px)').matches) { setViewportBox(null); return; }
+    const visual = window.visualViewport;
+    const update = () => setViewportBox({ top: visual?.offsetTop ?? 0, height: visual?.height ?? window.innerHeight });
+    update();
+    window.addEventListener('resize', update);
+    visual?.addEventListener('resize', update);
+    visual?.addEventListener('scroll', update);
+    return () => {
+      window.removeEventListener('resize', update);
+      visual?.removeEventListener('resize', update);
+      visual?.removeEventListener('scroll', update);
+    };
+  }, [formOpen]);
   const [queued, setQueued] = useState<Awaited<ReturnType<typeof pending>>>([]);
   useEffect(() => {
     const refresh = () => { void pending(owner).then(setQueued).catch(() => setError('Stockage local indisponible.')); };
@@ -95,8 +110,8 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
       {expanded && hasMore && <button type="button" disabled={loading} onClick={() => setPage((n) => n + 1)} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Charger plus de prestations</button>}
     </>}
       <button type="button" aria-expanded={formOpen} onClick={() => setFormOpen((open) => !open)} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">{formOpen ? 'Fermer' : '+ Déclarer une prestation'}</button>
-      {formOpen && <div className="fixed inset-0 z-[80] flex items-end bg-black/50 sm:static sm:block sm:bg-transparent" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
-      <form onSubmit={submit} className="max-h-[88dvh] w-full space-y-3 overflow-y-auto rounded-t-2xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-none sm:rounded-xl sm:border-t sm:shadow-none">
+      {formOpen && <div className="fixed inset-x-0 top-0 z-[80] flex items-end overflow-hidden bg-black/50 sm:static sm:block sm:overflow-visible sm:bg-transparent" style={viewportBox ? { top: viewportBox.top, height: viewportBox.height, bottom: 'auto' } : undefined} onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
+      <form onSubmit={submit} className="max-h-full w-full space-y-3 overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-none sm:rounded-xl sm:border-t sm:shadow-none" onFocusCapture={(event) => { const target = event.target as HTMLElement; window.setTimeout(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200); }}>
         <div className="flex items-center justify-between"><h3 className="font-semibold">Déclarer une prestation</h3><button type="button" onClick={() => setFormOpen(false)} className="rounded-full px-3 py-1 text-sm font-semibold text-muted-foreground">Fermer</button></div>
         <p className="text-xs text-muted-foreground">Décrivez les missions du jour, même si aucun contenu n’a été publié. Ne saisissez pas de données sensibles.</p>
         <label className="block text-sm font-medium">Date<input type="date" required min="1900-01-01" max={localToday} value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>

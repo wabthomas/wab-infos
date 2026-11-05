@@ -293,6 +293,10 @@ export async function createMySubmission(principal: import('./principal').RhPrin
     if (offline) {
       const retry = await client.query(`SELECT ${submissionColumns} FROM redaction_rh.activity_submissions WHERE id=$1 AND collaborator_id=$2 AND activity_date=$3 AND description=$4 AND created_at=$5`, [offline.id, id, input.date, input.description, offline.recordedAt.toISOString()]);
       if (retry.rowCount) { await client.query('COMMIT'); return retry.rows[0]; }
+      const replay = await client.query(`SELECT ${submissionColumns} FROM redaction_rh.activity_submissions WHERE id=$1 AND collaborator_id=$2`, [offline.id, id]);
+      if (replay.rowCount) { await client.query('COMMIT'); return replay.rows[0]; }
+      const pendingForDay = await client.query(`SELECT ${submissionColumns} FROM redaction_rh.activity_submissions WHERE collaborator_id=$1 AND activity_date=$2 AND status='pending' ORDER BY created_at DESC LIMIT 1`, [id, input.date]);
+      if (pendingForDay.rowCount) { await client.query('COMMIT'); return pendingForDay.rows[0]; }
     }
     const existing = await client.query('SELECT 1 FROM redaction_rh.daily_activities WHERE collaborator_id=$1 AND activity_date=$2', [id, input.date]);
     if (existing.rowCount) { await client.query('ROLLBACK'); return null; }

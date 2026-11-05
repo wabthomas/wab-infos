@@ -23,6 +23,15 @@ export function RhOfflineSync({ owner }: { owner: string }) {
           try {
             response = await fetchRedaction(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(op.kind === 'prestation' ? { date: op.date, description: op.description, clientId: op.id, recordedAt: op.recordedAt } : op.kind === 'absence' ? { startDate: op.startDate, endDate: op.endDate, category: op.category, clientId: op.id, recordedAt: op.recordedAt } : { action: op.kind, recordedAt: op.recordedAt }) });
           } catch { break; }
+          if (response.status === 409) {
+            await remove(op.id);
+            notifyQueue();
+            if (live) {
+              setCount((n) => Math.max(0, n - 1));
+              setError(`${op.kind === 'prestation' ? 'Prestation' : op.kind === 'absence' ? 'Absence' : 'Pointage'} déjà enregistré côté serveur : élément retiré de la file.`);
+            }
+            continue;
+          }
           if (!response.ok) {
             if (live) setError(`Envoi bloqué pour ${op.kind} du ${new Date(op.recordedAt).toLocaleString('fr-FR')} (${response.status}). Vérifiez le compte et la saisie ; les données restent sur cet appareil.`);
             break;
