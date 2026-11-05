@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { redactionPublicPath } from '@/lib/redaction/public-path';
 
 /** Renders the actual PDF, not an HTML approximation of its clauses. Only the visible A4 page is rasterized. */
 export function ContractPdfPreview({ bytes, status }: { bytes: Uint8Array | null; status: string }) {
@@ -25,7 +26,7 @@ export function ContractPdfPreview({ bytes, status }: { bytes: Uint8Array | null
           if (!active) return;
           pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
           // PDF.js transfers its input to the worker; keep the caller's buffer intact.
-          task = pdfjs.getDocument({ data: bytes.slice(), useSystemFonts: true });
+          task = pdfjs.getDocument({ data: bytes.slice(), standardFontDataUrl: redactionPublicPath('/pdfjs/standard_fonts/'), useSystemFonts: false });
           loaded = await task.promise;
           if (active) setDocument(loaded);
           else void loaded.destroy();
