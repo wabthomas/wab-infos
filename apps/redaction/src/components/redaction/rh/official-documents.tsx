@@ -8,9 +8,11 @@ import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatOfficialReference, validManualReferenceCode, validOfficialReferenceConfig } from '@/lib/redaction/rh/official-reference';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { OFFICIAL_KINDS, type OfficialDocumentKind, type OfficialTemplate } from '@/lib/redaction/rh/official-documents';
+import { ADMINISTRATIVE_PRESETS, unresolvedAdministrativeFields, type AdministrativePreset } from '@/lib/redaction/rh/administrative-presets';
 import { downloadCanvas, downloadOfficialPdf, renderOfficialPage, OfficialPageOverflowError, type OfficialExport } from '@/lib/redaction/rh/official-export';
 
 const base = '/api/redaction/rh';
+const administrativeCategories = [...new Set(ADMINISTRATIVE_PRESETS.map(item => item.category))];
 const assetKeys = ['company-logo','document-header','document-footer','director-signature','company-seal','rh-seal'] as const;
 type Assets = OfficialExport['assets'];
 const emptyAssets: Assets = { 'company-logo': null, 'document-header': null, 'document-footer': null, 'director-signature': null, 'company-seal': null, 'rh-seal': null };
@@ -19,10 +21,12 @@ export function OfficialDocuments() {
   const toast = useToast();
   const [templates, setTemplates] = useState<OfficialTemplate[]>([]);
   const [selected, setSelected] = useState<OfficialTemplate | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<AdministrativePreset | null>(null);
   const [title, setTitle] = useState('');
   const [templateSearch, setTemplateSearch] = useState('');
   const [templateFilter, setTemplateFilter] = useState<'tous' | OfficialDocumentKind>('tous');
-  const [pendingChoice, setPendingChoice] = useState<OfficialTemplate | null | undefined>(undefined);
+  const [categoryFilter, setCategoryFilter] = useState<'toutes' | AdministrativePreset['category']>('toutes');
+  const [pendingChoice, setPendingChoice] = useState<OfficialTemplate | AdministrativePreset | null | undefined>(undefined);
   const [archivePrompt, setArchivePrompt] = useState(false);
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const draftKeyRef = useRef('');
@@ -77,19 +81,22 @@ export function OfficialDocuments() {
     if (field === 'date') setDate(value);
     if (field === 'kind') setKind(value as OfficialDocumentKind);
   }
-  function choose(template: OfficialTemplate) {
-    setSelected(template); setTitle(template.title); setKind(template.kind);
+  function choose(template: OfficialTemplate | AdministrativePreset) {
+    if ('category' in template) { setSelected(null); setSelectedPreset(template); }
+    else { setSelected(template); setSelectedPreset(null); }
+    setTitle(template.title); setKind(template.kind); setRecipient('');
     setSubject(template.subject); setBody(template.body); setSigned(false); setIssued(null);
     setError('');
   }
-  function reset() { setSelected(null); setTitle(''); setSubject(''); setBody(''); setSigned(false); setIssued(null); setError(''); }
-  function switchTemplate(template: OfficialTemplate | null) {
-    if (template && selected?.id === template.id) return;
-    if (!template && !selected && !title.trim() && !subject.trim() && !body.trim()) return;
-    const hasDraftChanges = selected
-      ? title !== selected.title || kind !== selected.kind || subject !== selected.subject || body !== selected.body
+  function reset() { setSelected(null); setSelectedPreset(null); setTitle(''); setSubject(''); setBody(''); setRecipient(''); setSigned(false); setIssued(null); setError(''); }
+  function switchTemplate(template: OfficialTemplate | AdministrativePreset | null) {
+    if (template && (selected?.id === template.id || selectedPreset?.id === template.id)) return;
+    if (!template && !selected && !selectedPreset && !title.trim() && !subject.trim() && !body.trim()) return;
+    const original = selected || selectedPreset;
+    const hasDraftChanges = original
+      ? title !== original.title || kind !== original.kind || subject !== original.subject || body !== original.body
       : Boolean(title.trim() || subject.trim() || body.trim());
-    if (hasDraftChanges) { setPendingChoice(template); return; }
+    if (hasDraftChanges || recipient.trim()) { setPendingChoice(template); return; }
     if (template) choose(template); else reset();
   }
   function confirmSwitch() {
@@ -107,7 +114,7 @@ export function OfficialDocuments() {
     setBusy('save'); setError('');
     try {
       const result = await request('modeles', selected ? 'PATCH' : 'POST', { ...(selected ? { id: selected.id, version: selected.version, action: 'update' } : {}), title, kind, subject, body });
-      setSelected(result.template);
+      setSelected(result.template); setSelectedPreset(null); setCategoryFilter('toutes');
       setTemplates(current => [result.template, ...current.filter(item => item.id !== result.template.id)]);
       toast.success('Modèle enregistré.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Erreur.'); toast.error('Enregistrement impossible.'); }
@@ -134,6 +141,7 @@ export function OfficialDocuments() {
   function documentData(): OfficialExport { return { kind, subject: subject.trim(), body: body.trim(), recipient: recipient.trim(), date: date.trim(), signed, signatureMode, settings, assets, verificationUrl: issued?.url, reference: issued?.reference }; }
   async function exportFile(type: 'pdf' | 'png') {
     if (!subject.trim() || !body.trim()) { setError('Complétez l’objet et le corps avant l’export.'); return; }
+    if (unresolvedAdministrativeFields(subject, body).length) { setError('Remplacez tous les champs entre {{ }} par des faits vérifiés avant l’export.'); return; }
     if (signed && !issued) { setError('Émettez le document pour activer son QR avant l’export.'); return; }
     setBusy(type); setError('');
     try {
@@ -165,6 +173,7 @@ export function OfficialDocuments() {
 
   async function printDocument() {
     if (!subject.trim() || !body.trim()) { setError('Complétez l’objet et le corps avant l’impression.'); return; }
+    if (unresolvedAdministrativeFields(subject, body).length) { setError('Remplacez tous les champs entre {{ }} par des faits vérifiés avant l’impression.'); return; }
     if (signed && !issued) { setError('Émettez le document pour activer son QR avant l’impression.'); return; }
     setBusy('print'); setError('');
     try {
@@ -194,14 +203,18 @@ export function OfficialDocuments() {
   }, [pendingChoice, archivePrompt]);
 
   const normalizedSearch = templateSearch.trim().toLocaleLowerCase('fr');
-  const filteredTemplates = templates.filter(item =>
+  const allTemplates: (OfficialTemplate | AdministrativePreset)[] = [...ADMINISTRATIVE_PRESETS, ...templates];
+  const missingFields = unresolvedAdministrativeFields(subject, body);
+  const filteredTemplates = allTemplates.filter(item =>
     (templateFilter === 'tous' || item.kind === templateFilter)
-    && (!normalizedSearch || `${item.title} ${item.subject}`.toLocaleLowerCase('fr').includes(normalizedSearch))
+    && (categoryFilter === 'toutes' || ('category' in item && item.category === categoryFilter))
+    && (!normalizedSearch || `${item.title} ${item.subject} ${'category' in item ? item.category : ''}`.toLocaleLowerCase('fr').includes(normalizedSearch))
   );
   draftKeyRef.current = JSON.stringify([kind, subject, body, recipient, date, signed, signatureMode, settings, assets, referenceCode]);
   async function issueDocument() {
     const initialKey = draftKeyRef.current;
     if (!signed || !subject.trim() || !body.trim() || !canSign) return;
+    if (missingFields.length) { setError('Remplacez tous les champs entre {{ }} par des faits vérifiés avant l’émission.'); return; }
     if (kind === 'communique' && !validOfficialReferenceConfig(settings.communiqueReferenceMode, settings.communiqueReferenceFormat)) { setError('Configurez un format de référence valide dans Paramètres RH → Entreprise.'); return; }
     if (kind === 'communique' && settings.communiqueReferenceMode === 'manual' && !validManualReferenceCode(referenceCode)) { setError('Saisissez votre code manuel de référence avant l’émission.'); return; }
     setBusy('issue'); setError('');
@@ -245,24 +258,25 @@ export function OfficialDocuments() {
       </div>
       <div className="space-y-5 p-4 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><h3 className="text-sm font-bold">Bibliothèque des modèles</h3><p className="mt-0.5 text-sm text-muted-foreground">{templates.length} modèle{templates.length > 1 ? 's' : ''} enregistré{templates.length > 1 ? 's' : ''} · Accès RH privé</p></div>
+          <div><h3 className="text-sm font-bold">Bibliothèque des modèles</h3><p className="mt-0.5 text-sm text-muted-foreground">{ADMINISTRATIVE_PRESETS.length} trames prêtes à personnaliser · {templates.length} modèle{templates.length > 1 ? 's' : ''} enregistré{templates.length > 1 ? 's' : ''} · Accès RH privé</p></div>
           <label className="relative block w-full sm:max-w-64"><span className="sr-only">Rechercher un modèle</span><Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input className={input + ' pl-9'} type="search" value={templateSearch} onChange={event => setTemplateSearch(event.target.value)} placeholder="Rechercher un modèle…" /></label>
         </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrer les modèles">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer les modèles">
           {([['tous', 'Tous'], ['lettre', 'Lettres'], ['communique', 'Communiqués']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={templateFilter === value} onClick={() => setTemplateFilter(value)} className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-primary ${templateFilter === value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground'}`}>{label}</button>)}
+          <label className="ml-auto flex items-center gap-2 text-sm font-semibold">Catégorie <select aria-label="Catégorie des trames administratives" value={categoryFilter} onChange={event => setCategoryFilter(event.target.value as typeof categoryFilter)} className="rounded-xl border border-border bg-background px-3 py-1.5 text-sm"><option value="toutes">Toutes</option>{administrativeCategories.map(category => <option key={category} value={category}>{category}</option>)}</select></label>
         </div>
-        {loadingTemplates ? <div role="status" className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(i => <div key={i} className="h-32 animate-pulse rounded-2xl border border-border bg-muted/50" />)}</div> : loadError ? <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm"><p className="font-semibold">Bibliothèque indisponible</p><p className="mt-1 text-muted-foreground">{loadError}</p><button type="button" className={button + ' mt-3'} onClick={() => setRefreshKey(value => value + 1)}>Réessayer</button></div> : filteredTemplates.length ? <div className="grid max-h-[22rem] grid-cols-1 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3" role="group" aria-label="Modèles disponibles">
+        {loadingTemplates ? <div role="status" className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2].map(i => <div key={i} className="h-32 animate-pulse rounded-2xl border border-border bg-muted/50" />)}</div> : <>{loadError && <div role="alert" className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm"><p className="font-semibold">Modèles enregistrés ou identité visuelle indisponibles</p><p className="mt-1 text-muted-foreground">{loadError} Les trames intégrées restent consultables ; l’enregistrement et l’émission peuvent nécessiter le rétablissement du service.</p><button type="button" className={button + ' mt-3'} onClick={() => setRefreshKey(value => value + 1)}>Réessayer</button></div>}{filteredTemplates.length ? <div className="grid max-h-[22rem] grid-cols-1 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3" role="group" aria-label="Modèles disponibles">
           {filteredTemplates.map(item => {
-            const active = selected?.id === item.id;
+            const active = selected?.id === item.id || selectedPreset?.id === item.id;
             const Icon = item.kind === 'lettre' ? FileText : Megaphone;
             return <button type="button" key={item.id} aria-pressed={active} disabled={!!busy} onClick={() => switchTemplate(item)} className={`group flex min-h-32 flex-col rounded-2xl border p-4 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60 ${active ? 'border-primary/60 bg-primary/[0.08] ring-2 ring-primary/15' : 'border-border bg-background hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md'}`}>
               <span className="flex w-full items-start justify-between gap-3"><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-primary text-primary-foreground' : 'bg-primary/[0.08] text-primary'}`}><Icon className="h-4 w-4" /></span>{active && <span className="inline-flex items-center gap-1 text-[11px] font-bold text-primary"><Check className="h-3.5 w-3.5" /> Sélectionné</span>}</span>
-              <span className="mt-3 line-clamp-2 text-base font-bold leading-snug">{item.title}</span><span className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{item.subject}</span><span className="mt-auto pt-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">{OFFICIAL_KINDS[item.kind]} · v{item.version}</span>
+              <span className="mt-3 line-clamp-2 text-base font-bold leading-snug">{item.title}</span><span className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{'description' in item ? item.description : item.subject}</span><span className="mt-auto pt-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">{'category' in item ? `${item.category} · Trame à compléter` : `${OFFICIAL_KINDS[item.kind]} · v${item.version}`}</span>
             </button>;
           })}
-        </div> : <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-5 py-8 text-center"><FileText className="mx-auto h-7 w-7 text-muted-foreground" /><p className="mt-2 text-sm font-semibold">{templates.length ? 'Aucun modèle ne correspond à votre recherche.' : 'Votre bibliothèque est encore vide.'}</p><p className="mt-1 text-xs text-muted-foreground">{templates.length ? 'Essayez un autre mot-clé ou filtre.' : 'Créez votre premier modèle pour réutiliser vos lettres et communiqués.'}</p></div>}
+        </div> : <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-5 py-8 text-center"><FileText className="mx-auto h-7 w-7 text-muted-foreground" /><p className="mt-2 text-sm font-semibold">Aucun modèle ne correspond à votre recherche.</p><p className="mt-1 text-xs text-muted-foreground">Essayez un autre mot-clé ou filtre.</p></div>}</>}
         <div className="rounded-2xl border border-border bg-muted/30 p-4 sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-sm font-bold">{selected ? 'Modifier le modèle sélectionné' : 'Créer un modèle'}</h3><p className="mt-0.5 text-sm text-muted-foreground">Le nom, l’objet et le texte du document seront enregistrés dans votre bibliothèque.</p></div>{selected && <span className="rounded-full border border-primary/20 bg-primary/[0.08] px-2.5 py-1 text-[11px] font-semibold text-primary">Version {selected.version}</span>}</div>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-sm font-bold">{selected ? 'Modifier le modèle sélectionné' : selectedPreset ? 'Personnaliser une trame administrative' : 'Créer un modèle'}</h3><p className="mt-0.5 text-sm text-muted-foreground">{selected ? 'Les modifications de ce modèle privé sont versionnées.' : 'Enregistrer crée une copie privée modifiable de la trame.'} Vérifiez les faits et remplacez tous les champs {'{{ }}'} avant d’émettre.</p></div>{selected && <span className="rounded-full border border-primary/20 bg-primary/[0.08] px-2.5 py-1 text-[11px] font-semibold text-primary">Version {selected.version}</span>}</div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
             <label className="text-sm font-medium">Nom du modèle<input className={input + ' mt-1'} maxLength={120} value={title} onChange={event => setTitle(event.target.value)} placeholder="Ex. Convocation à une réunion" /></label>
             <label className="text-sm font-medium">Type<select className={input + ' mt-1'} value={kind} onChange={event => edit('kind', event.target.value)}><option value="lettre">Lettre administrative</option><option value="communique">Communiqué</option></select></label>
@@ -288,6 +302,7 @@ export function OfficialDocuments() {
       </div>
       <label className="mt-3 block text-sm font-medium">Objet<input className={input + ' mt-1'} maxLength={200} value={subject} onChange={event => edit('subject', event.target.value)} /></label>
       <label className="mt-3 block text-sm font-medium">Corps du document<textarea className={input + ' mt-1 min-h-64'} maxLength={4000} value={body} onChange={event => edit('body', event.target.value)} /></label>
+      {missingFields.length > 0 && <p role="alert" className="mt-3 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200">Champs à remplacer avant l’émission, l’export ou l’impression : {missingFields.join(' · ')}. Une trame ne prouve aucun fait sans vérification du dossier.</p>}
       <div className="mt-4 rounded-xl bg-muted/60 p-4 text-sm">
         <p className="font-semibold">Visa du Directeur général</p>
         <p className="text-muted-foreground">Signature visuelle (texte ou image), non cryptographique. Vérifiez le texte et l’identité du signataire avant de l’apposer.</p>
@@ -299,7 +314,7 @@ export function OfficialDocuments() {
         <p className="font-bold">Sceau et QR de vérification</p>
         {kind === 'communique' && <div className="mt-2 space-y-2"><p className="text-muted-foreground">La référence est figée à l’émission, visible sur le PDF, le PNG et dans le registre. Mode et format définis par l’administration dans Paramètres RH → Entreprise.</p>{settings.communiqueReferenceMode === 'manual' && <label className="block font-semibold">Code manuel à insérer dans {'{REF}'}<input className={input + ' mt-1 max-w-sm'} maxLength={30} value={referenceCode} onChange={event => { setReferenceCode(event.target.value); setIssued(null); }} placeholder="Ex. 001 ou RH-42" /></label>}{!validOfficialReferenceConfig(settings.communiqueReferenceMode, settings.communiqueReferenceFormat) && <p role="alert" className="text-red-700">Format invalide : corrigez les paramètres de l’entreprise avant l’émission.</p>}</div>}
         <p className="mt-1 text-muted-foreground">Le sceau de l’entreprise apparaît en filigrane derrière la signature, le nom et la fonction. Le QR mène au registre RH (nom + RCCM ou identifiant fiscal requis dans Paramètres). Un QR seul ne constitue pas une signature électronique certifiée.</p>
-        <button type="button" className={button + ' mt-3'} disabled={!!busy || !signed || !canSign || (kind === 'communique' && (!validOfficialReferenceConfig(settings.communiqueReferenceMode, settings.communiqueReferenceFormat) || (settings.communiqueReferenceMode === 'manual' && !validManualReferenceCode(referenceCode))))} onClick={() => void issueDocument()}>{busy === 'issue' ? 'Émission en cours…' : issued ? 'Émettre une nouvelle version' : 'Émettre et activer le QR'}</button>
+        <button type="button" className={button + ' mt-3'} disabled={!!busy || !signed || !canSign || missingFields.length > 0 || (kind === 'communique' && (!validOfficialReferenceConfig(settings.communiqueReferenceMode, settings.communiqueReferenceFormat) || (settings.communiqueReferenceMode === 'manual' && !validManualReferenceCode(referenceCode))))} onClick={() => void issueDocument()}>{busy === 'issue' ? 'Émission en cours…' : issued ? 'Émettre une nouvelle version' : 'Émettre et activer le QR'}</button>
         {issued && <p className="mt-2 break-all text-xs text-muted-foreground">{issued.reference ? `Référence ${issued.reference} · ` : 'Émission enregistrée · '} <a className="font-semibold text-primary underline" href={issued.url} target="_blank" rel="noopener noreferrer">Vérifier le QR</a> · Empreinte {issued.fingerprint.slice(0,16)}…</p>}
         {!signed && <p className="mt-2 text-xs text-muted-foreground">Sans visa, le document exporté porte la mention « Brouillon non validé » et ne comporte pas de QR.</p>}
       </div>
