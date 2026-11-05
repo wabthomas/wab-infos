@@ -30,3 +30,15 @@ test('popup retrait : actions en texte ASCII non ambigu et fermeture après succ
   assert.match(component, /setRequestOpen\(false\)/);
   assert.match(component, />Annuler<\/button>/);
 });
+
+test('nouvelle prestation : fenêtre mobile titrée, visible avec le clavier et fermée après envoi', async () => {
+  const component = await source('components/redaction/rh/my-submissions.tsx');
+  assert.match(component, /createPortal\(<div/);
+  assert.match(component, /aria-modal="true" aria-labelledby="new-prestation-title"/);
+  assert.match(component, /id="new-prestation-title"[^>]*>Nouvelle Prestation/);
+  assert.match(component, /--rh-viewport-height/);
+  assert.match(component, /viewport\.addEventListener\('resize', resize\)/);
+  assert.match(component, /if \(method === 'POST'\) \{[^}]*setFormOpen\(false\)/);
+  assert.match(component, /setFormOpen\(false\); setMessage\('Prestation et vidéo enregistrées/);
+  assert.match(component, /setFormOpen\(false\);\s*setMessage\('Déclaration enregistrée sur cet appareil/);
+});

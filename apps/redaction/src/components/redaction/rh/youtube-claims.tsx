@@ -5,7 +5,7 @@ import type { Submission } from '@/lib/redaction/rh/submissions';
 import type { YoutubePerformance } from '@/lib/redaction/rh/youtube-performance';
 
 const endpoint = '/api/redaction/rh/mon-espace/performances';
-export function YoutubeClaims({ submissions }: { submissions: Submission[] }) {
+export function YoutubeClaims({ submissions, refreshKey = 0 }: { submissions: Submission[]; refreshKey?: number }) {
   const [claims, setClaims] = useState<YoutubePerformance[]>([]);
   const [submissionId, setSubmissionId] = useState('');
   const [url, setUrl] = useState(''); const [role, setRole] = useState('');
@@ -17,7 +17,7 @@ export function YoutubeClaims({ submissions }: { submissions: Submission[] }) {
       .then(async r => { if (!r.ok) throw new Error(); setClaims((await r.json()).performances); })
       .catch(() => { if (!controller.signal.aborted) setError('Statistiques YouTube indisponibles. Vérifiez la configuration et la migration RH.'); });
     return () => controller.abort();
-  }, [reload]);
+  }, [reload, refreshKey]);
   const eligible = submissions.filter(item => item.status === 'pending' && !claims.some(c => c.submissionId === item.id));
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(''); setMessage('');
