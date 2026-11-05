@@ -1,5 +1,6 @@
 import { getRhFlags } from '@/lib/redaction/rh/flags';
 import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { requireRhPermission } from '@/lib/redaction/rh/authorization';
 import { db } from '@/lib/redaction/rh/database';
 import { json, handleError, validOrigin } from '@/lib/redaction/rh/api';
@@ -72,10 +73,20 @@ export async function PATCH(request: Request) {
         const settings = { ...DEFAULT_ORGANIZATION_SETTINGS };
         const saved = await client.query('SELECT setting_key,setting_value FROM redaction_rh.organization_settings');
         for (const item of saved.rows) if (Object.hasOwn(settings,item.setting_key)) (settings as Record<string,string>)[item.setting_key] = item.setting_value;
-        const assets = await client.query("SELECT asset_key,file_bytes FROM redaction_rh.organization_assets WHERE asset_key IN ('director-signature','company-seal')");
+        const assets = await client.query("SELECT asset_key,file_bytes FROM redaction_rh.organization_assets WHERE asset_key IN ('director-signature','company-seal','company-logo')");
         const asset = Object.fromEntries(assets.rows.map(item => [item.asset_key,item.file_bytes]));
         if (!settings.companyName.trim() || !settings.directorName.trim() || !asset['director-signature'] || !asset['company-seal']) { await client.query('ROLLBACK'); return json({ error: 'Configurez l’entreprise, le DG, son image de signature et le sceau avant transmission.' }, 409); }
-        await client.query(`UPDATE redaction_rh.contract_cases SET status='proposed',legal_reviewed_by=$2,proposed_at=now(),proposed_account_id=$3,proposed_account_email=$4,employer_snapshot=$5,signature_bytes=$6,seal_bytes=$7,version=version+1,updated_at=now() WHERE id=$1`,[v.id,actor.email,link.rows[0].account_id,link.rows[0].account_email,JSON.stringify(settings),asset['director-signature'],asset['company-seal']]);
+        // Preserve the logo at transmission: a later change in organization settings must not alter this contract.
+        let logoPng: string | null = null;
+        if (asset['company-logo']) {
+          try {
+            const bytes = await sharp(asset['company-logo'] as Buffer, { limitInputPixels: 12_000_000 })
+              .resize(400, 240, { fit: 'inside', withoutEnlargement: true }).png().toBuffer();
+            logoPng = `data:image/png;base64,${bytes.toString('base64')}`;
+          } catch { await client.query('ROLLBACK'); return json({ error: 'Le logo de l’entreprise ne peut pas être intégré au contrat.' }, 409); }
+        }
+        const employerSnapshot = { ...settings, logoPng };
+        await client.query(`UPDATE redaction_rh.contract_cases SET status='proposed',legal_reviewed_by=$2,proposed_at=now(),proposed_account_id=$3,proposed_account_email=$4,employer_snapshot=$5,signature_bytes=$6,seal_bytes=$7,version=version+1,updated_at=now() WHERE id=$1`,[v.id,actor.email,link.rows[0].account_id,link.rows[0].account_email,JSON.stringify(employerSnapshot),asset['director-signature'],asset['company-seal']]);
       }
       await client.query('INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,$3)',[v.id,actor.email,v.action]);
       await client.query('COMMIT'); return json({ ok: true });
