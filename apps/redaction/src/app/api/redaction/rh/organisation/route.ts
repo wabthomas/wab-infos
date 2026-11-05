@@ -52,7 +52,7 @@ export async function PATCH(request: Request) {
     const email = normalized.find(([key]) => key === 'companyEmail')?.[1];
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'Adresse e-mail invalide.' }, 400);
     const endTime = normalized.find(([key]) => key === 'attendanceEndTime')?.[1];
-    if (endTime && !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(endTime)) return json({ error: 'Heure de sortie invalide (format HH:MM).' }, 400);
+    if (endTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) return json({ error: 'Heure de sortie invalide (format HH:MM).' }, 400);
     const website = normalized.find(([key]) => key === 'companyWebsite')?.[1];
     if (website) { try { const url = new URL(website); if (!['http:', 'https:'].includes(url.protocol)) throw new Error(); } catch { return json({ error: 'Adresse du site web invalide.' }, 400); } }
     const client = await db().connect();
