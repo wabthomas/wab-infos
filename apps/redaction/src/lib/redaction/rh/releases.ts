@@ -8,6 +8,7 @@ export interface RhRelease {
   url: string;
   requiresWithdrawals?: boolean;
   requiresContracts?: boolean;
+  requiresYoutube?: boolean;
 }
 
 export const RH_RELEASES: readonly RhRelease[] = registry;

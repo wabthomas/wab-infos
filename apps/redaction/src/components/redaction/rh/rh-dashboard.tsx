@@ -69,6 +69,7 @@ export function RhDashboard({
   balances,
   pendingWithdrawals,
   capabilities,
+  youtubeEnabled,
 }: {
   collaborators: number;
   absencesPending: number;
@@ -84,6 +85,7 @@ export function RhDashboard({
     status: string;
   }>;
   capabilities: RhCapabilities;
+  youtubeEnabled: boolean;
 }) {
   const quickLinks = [
     capabilities.hrManage
@@ -91,6 +93,9 @@ export function RhDashboard({
       : null,
     capabilities.hrManage
       ? { href: '/rh/prestations', label: 'Prestations', text: 'Journées à vérifier', icon: ClipboardList }
+      : null,
+    capabilities.hrManage && youtubeEnabled
+      ? { href: '/rh/prestations#performances-youtube', label: 'Performances YouTube', text: 'Vidéos, contributions et rapport', icon: TrendingUp }
       : null,
     capabilities.hrManage
       ? { href: '/rh/conges', label: 'Congés', text: 'Demandes à traiter', icon: CalendarDays }

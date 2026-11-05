@@ -1,6 +1,7 @@
 import { getRhFlags } from '@/lib/redaction/rh/flags';
 import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
 import { getMyCollaborator, db } from '@/lib/redaction/rh/database';
+import { youtubePerformanceEnabled } from '@/lib/redaction/rh/youtube-performance-server';
 import { RH_RELEASES, findRhRelease } from '@/lib/redaction/rh/releases';
 import { handleError, json, readBody, validOrigin } from '@/lib/redaction/rh/api';
 
@@ -11,7 +12,7 @@ export async function GET() {
     const principal = await requireRhPrincipal();
     if (!(await getMyCollaborator(principal))) return json({ error: 'Dossier RH indisponible.' }, 403);
     const flags = await getRhFlags();
-    const release = RH_RELEASES.find((item) => (!item.requiresWithdrawals || flags.withdrawalsEnabled) && (!item.requiresContracts || flags.contractsEnabled));
+    const release = RH_RELEASES.find((item) => (!item.requiresWithdrawals || flags.withdrawalsEnabled) && (!item.requiresContracts || flags.contractsEnabled) && (!item.requiresYoutube || youtubePerformanceEnabled()));
     if (!release) return json({ release: null });
     const result = await db().query(
       'SELECT 1 FROM redaction_rh.release_acknowledgements WHERE account_id=$1 AND release_id=$2',

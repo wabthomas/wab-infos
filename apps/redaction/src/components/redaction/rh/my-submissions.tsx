@@ -1,5 +1,6 @@
 'use client';
 import { useRhNotice } from './use-rh-notice';
+import { YoutubeClaims } from './youtube-claims';
 import { RhActionVoiceToggle, useRhActionVoice } from './rh-action-voice';
 import { CircleCheck, CircleHelp } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
@@ -12,7 +13,7 @@ import { validateSubmission, type Submission, type SubmissionStatus } from '@/li
 const labels: Record<SubmissionStatus, string> = { pending: 'En attente', approved: 'Validée', rejected: 'Refusée', cancelled: 'Annulée' };
 const statusStyles: Record<SubmissionStatus, string> = { pending: 'bg-amber-500/10 text-amber-800', approved: 'bg-emerald-500/10 text-emerald-800', rejected: 'bg-rose-500/10 text-rose-800', cancelled: 'bg-muted text-muted-foreground' };
 const endpoint = '/api/redaction/rh/mon-espace/prestations';
-export function MySubmissions({ today, owner = '' }: { today: string; owner?: string }) {
+export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { today: string; owner?: string; youtubeEnabled?: boolean }) {
   const voice = useRhActionVoice();
   const [localToday, setLocalToday] = useState(today);
   useEffect(() => { setLocalToday(new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())); }, []);
@@ -103,5 +104,6 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
         <label className="block text-sm font-medium">Activités réalisées<input required maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
         <button type="submit" disabled={busy} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? 'Envoi…' : 'Envoyer la déclaration'}</button>
       </form></div>}
+    {youtubeEnabled && <YoutubeClaims submissions={items} />}
   </section>;
 }

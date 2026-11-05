@@ -10,6 +10,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
+import type { YoutubePerformance } from '@/lib/redaction/rh/youtube-performance';
 import type { Balance, Withdrawal } from '@/lib/redaction/rh/withdrawals';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -41,6 +42,8 @@ export function MyRhDashboard({
   notificationsUnread,
   disputesOpen,
   documentsCount,
+  performances,
+  youtubeEnabled,
   flags,
 }: {
   person: { firstName: string; lastName: string };
@@ -50,6 +53,8 @@ export function MyRhDashboard({
   notificationsUnread: number;
   disputesOpen: number;
   documentsCount: number;
+  performances: YoutubePerformance[];
+  youtubeEnabled: boolean;
   flags: {
     financeEnabled: boolean;
     withdrawalsEnabled: boolean;
@@ -106,6 +111,15 @@ export function MyRhDashboard({
           <p className="text-[9px] leading-tight text-muted-foreground sm:text-[11px]">partagé(s)</p>
         </div>
       </section>
+
+      {youtubeEnabled && <section className="rounded-2xl border border-border bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-bold">Mes performances YouTube</h2><p className="mt-1 text-xs text-muted-foreground">Contributions et prestations vérifiées sur la chaîne officielle. Chiffres publics au dernier relevé, distincts du paiement.</p></div><Link className="text-xs font-semibold text-primary underline" href="/mon-rh/prestations">Voir mes vidéos et mes prestations</Link></div>
+        {performances.length ? <>
+          <div className="mt-3 grid grid-cols-3 gap-2">{([['Vues', 'views'], ['J’aime', 'likes'], ['Commentaires', 'comments']] as const).map(([label,key]) => <div key={key} className="rounded-xl bg-muted/60 p-3"><p className="text-[11px] text-muted-foreground">{label} cumulés</p><p className="text-lg font-bold tabular-nums">{performances.every(item => item[key] === null) ? '—' : performances.reduce((sum,item) => sum + BigInt(item[key] ?? '0'), BigInt(0)).toLocaleString('fr-FR')}</p></div>)}</div>
+          <p className="mt-2 text-xs text-muted-foreground">Les émissions collectives peuvent aussi apparaître chez vos collègues ; les totaux de l’entreprise dédoublonnent les vidéos. Les statistiques ne déterminent pas automatiquement votre salaire.</p>
+          <div className="mt-3 space-y-2">{performances.slice(0, 4).map(item => <div key={item.id} className="rounded-xl border border-border p-3 text-xs"><a href={item.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">{item.title} ↗</a><p className="mt-1 text-muted-foreground">{item.role} · {item.submissionDate} · relevé {item.checkedAt ? new Date(item.checkedAt).toLocaleDateString('fr-FR') : 'indisponible'}{item.unavailableAt ? ' · vidéo indisponible, chiffres exclus du cumul' : ''}</p><p className="mt-1">Prime évaluée : {formatMinorUnits(BigInt(item.bonusMinor), item.bonusCurrency)} · à intégrer au circuit de rémunération par l’administration</p></div>)}</div>
+        </> : <p className="mt-3 text-sm text-muted-foreground">Aucune vidéo validée pour le moment.</p>}
+      </section>}
 
       {flags.financeEnabled ? (
         <section className="rounded-2xl border border-border bg-card p-5">
