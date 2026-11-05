@@ -30,13 +30,11 @@ function shortRef(id: string): string {
 function Kpi({
   label,
   value,
-  hint,
   icon: Icon,
   tone = 'primary',
 }: {
   label: string;
   value: string | number;
-  hint: string;
   icon: typeof UsersRound;
   tone?: 'primary' | 'amber' | 'emerald' | 'rose';
 }) {
@@ -55,7 +53,6 @@ function Kpi({
         </span>
       </div>
       <p className="mt-1 text-xl font-bold tabular-nums tracking-tight sm:mt-2 sm:text-2xl">{value}</p>
-      <p className="mt-0.5 text-[9px] leading-tight text-muted-foreground sm:text-[11px]">{hint}</p>
     </div>
   );
 }
@@ -69,6 +66,7 @@ export function RhDashboard({
   balances,
   pendingWithdrawals,
   capabilities,
+  youtubeEnabled,
 }: {
   collaborators: number;
   absencesPending: number;
@@ -84,41 +82,45 @@ export function RhDashboard({
     status: string;
   }>;
   capabilities: RhCapabilities;
+  youtubeEnabled: boolean;
 }) {
   const quickLinks = [
     capabilities.hrManage
-      ? { href: '/rh/equipe', label: 'Collaborateurs', text: 'Dossiers et comptes liés', icon: UsersRound }
+      ? { href: '/rh/equipe', label: 'Collaborateurs', icon: UsersRound }
       : null,
     capabilities.hrManage
-      ? { href: '/rh/prestations', label: 'Prestations', text: 'Journées à vérifier', icon: ClipboardList }
+      ? { href: '/rh/prestations', label: 'Prestations', icon: ClipboardList }
+      : null,
+    capabilities.hrManage && youtubeEnabled
+      ? { href: '/rh/prestations#performances-youtube', label: 'Performances YouTube', icon: TrendingUp }
       : null,
     capabilities.hrManage
-      ? { href: '/rh/conges', label: 'Congés', text: 'Demandes à traiter', icon: CalendarDays }
+      ? { href: '/rh/conges', label: 'Congés', icon: CalendarDays }
       : null,
     capabilities.financeManage
-      ? { href: '/rh/retraits', label: 'Retraits', text: 'Soldes et paiements', icon: ArrowDownUp }
+      ? { href: '/rh/retraits', label: 'Retraits', icon: ArrowDownUp }
       : null,
     capabilities.financeManage
-      ? { href: '/rh/remunerations', label: 'Rémunérations', text: 'Montants mensuels', icon: WalletCards }
+      ? { href: '/rh/remunerations', label: 'Rémunérations', icon: WalletCards }
       : null,
     capabilities.accessManage
-      ? { href: '/rh/documents', label: 'Documents', text: 'Contrats et attestations', icon: FileLock2 }
+      ? { href: '/rh/documents', label: 'Documents', icon: FileLock2 }
       : null,
     capabilities.hrManage
-      ? { href: '/rh/rapports', label: 'Rapports', text: 'Exports journalisés', icon: FileSpreadsheet }
+      ? { href: '/rh/rapports', label: 'Rapports', icon: FileSpreadsheet }
       : null,
     capabilities.accessManage
-      ? { href: '/rh/parametres', label: 'Paramètres', text: 'Entreprise et réglages RH', icon: Settings }
+      ? { href: '/rh/parametres', label: 'Paramètres', icon: Settings }
       : null,
   ].filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-        <Kpi label="Collaborateurs actifs" value={collaborators} hint="Dossiers RH en cours" icon={UsersRound} />
-        <Kpi label="Absences en attente" value={absencesPending} hint="Demandes à valider ou refuser" icon={CalendarDays} tone="amber" />
-        <Kpi label="Retraits à traiter" value={withdrawalsPending} hint="Demandes en attente ou approuvées" icon={ArrowDownUp} tone="rose" />
-        <Kpi label="Contestations ouvertes" value={disputesOpen} hint="Réponses attendues" icon={MessageSquare} tone="amber" />
+        <Kpi label="Collaborateurs actifs" value={collaborators} icon={UsersRound} />
+        <Kpi label="Absences en attente" value={absencesPending} icon={CalendarDays} tone="amber" />
+        <Kpi label="Retraits à traiter" value={withdrawalsPending} icon={ArrowDownUp} tone="rose" />
+        <Kpi label="Contestations ouvertes" value={disputesOpen} icon={MessageSquare} tone="amber" />
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
@@ -126,7 +128,6 @@ export function RhDashboard({
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold">Soldes disponibles</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Somme des soldes de l’équipe, par devise.</p>
             </div>
             <TrendingUp className="h-4 w-4 text-primary" />
           </div>
@@ -144,7 +145,6 @@ export function RhDashboard({
                       ? 'Non établi'
                       : formatMinorUnits(BigInt(balance.available), balance.currency)}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">Disponible après réservations</p>
                 </div>
               ))
             )}
@@ -160,7 +160,6 @@ export function RhDashboard({
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold">Retraits à traiter</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Demandes en attente ou approuvées, à payer.</p>
             </div>
             <span className="rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-700 dark:text-rose-400">
               {withdrawalsPending}
@@ -194,7 +193,7 @@ export function RhDashboard({
       <section>
         <h2 className="text-sm font-bold">Accès rapides</h2>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-          {quickLinks.map(({ href, label, text, icon: Icon }) => (
+          {quickLinks.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -207,16 +206,11 @@ export function RhDashboard({
                 <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
               </div>
               <p className="mt-2 text-xs font-bold sm:mt-3 sm:text-sm">{label}</p>
-              <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground sm:text-xs">{text}</p>
             </Link>
           ))}
         </div>
       </section>
 
-      <p className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4 text-xs leading-5 text-amber-900 dark:text-amber-200">
-        Module en cours de validation : les règles RH en RDC et les traitements financiers doivent être vérifiés avant toute
-        utilisation réelle. Aucun transfert d’argent n’est effectué automatiquement.
-      </p>
     </div>
   );
 }

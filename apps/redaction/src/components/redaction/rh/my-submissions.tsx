@@ -1,8 +1,9 @@
 'use client';
 import { useRhNotice } from './use-rh-notice';
+import { YoutubeClaims } from './youtube-claims';
 import { RhActionVoiceToggle, useRhActionVoice } from './rh-action-voice';
 import { CircleCheck, CircleHelp } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { PersonalHistoryControls } from './personal-history-controls';
 import { historyUrl, type HistoryPeriod } from '@/lib/redaction/rh/personal-history';
 import { enqueue, pending, notifyQueue } from '@/lib/redaction/rh/offline-queue';
@@ -12,7 +13,7 @@ import { validateSubmission, type Submission, type SubmissionStatus } from '@/li
 const labels: Record<SubmissionStatus, string> = { pending: 'En attente', approved: 'Validée', rejected: 'Refusée', cancelled: 'Annulée' };
 const statusStyles: Record<SubmissionStatus, string> = { pending: 'bg-amber-500/10 text-amber-800 dark:text-amber-300', approved: 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300', rejected: 'bg-rose-500/10 text-rose-800 dark:text-rose-300', cancelled: 'bg-muted text-muted-foreground' };
 const endpoint = '/api/redaction/rh/mon-espace/prestations';
-export function MySubmissions({ today, owner = '' }: { today: string; owner?: string }) {
+export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { today: string; owner?: string; youtubeEnabled?: boolean }) {
   const voice = useRhActionVoice();
   const [localToday, setLocalToday] = useState(today);
   useEffect(() => { setLocalToday(new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kinshasa', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())); }, []);
@@ -26,30 +27,42 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
-  const [viewportBox, setViewportBox] = useState<{ top: number; height: number } | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const nativeInsetRef = useRef(0);
+  const [visibleViewport, setVisibleViewport] = useState({ top: '0px', height: '100dvh' });
   useEffect(() => {
-    if (!formOpen || window.innerWidth >= 1024) { setViewportBox(null); return; }
-    let nativeInset = 0;
-    const update = () => {
-      const visual = window.visualViewport;
-      const visible = Math.min(visual?.height ?? window.innerHeight, window.innerHeight);
-      const keyboard = Math.max(nativeInset, Math.max(0, window.innerHeight - visible));
-      setViewportBox({ top: 0, height: Math.max(260, window.innerHeight - keyboard) });
+    if (!formOpen) return;
+    const viewport = window.visualViewport;
+    const keepFocusedFieldVisible = () => {
+      const form = formRef.current;
+      const field = document.activeElement;
+      if (!form || !(field instanceof HTMLElement) || !form.contains(field)) return;
+      const bounds = form.getBoundingClientRect();
+      const focus = field.getBoundingClientRect();
+      if (focus.bottom > bounds.bottom - 72) form.scrollTop += focus.bottom - (bounds.bottom - 72);
+      else if (focus.top < bounds.top + 12) form.scrollTop -= bounds.top + 12 - focus.top;
+    };
+    const resize = () => {
+      const base = Math.min(viewport?.height ?? window.innerHeight, window.innerHeight);
+      const height = Math.max(120, base - nativeInsetRef.current);
+      setVisibleViewport({ top: `${Math.max(0, viewport?.offsetTop ?? 0)}px`, height: `${height}px` });
+      requestAnimationFrame(keepFocusedFieldVisible);
     };
     const onNativeInset = (event: Event) => {
       const detail = (event as CustomEvent<{ inset?: number }>).detail;
-      if (typeof detail?.inset === 'number') { nativeInset = Math.max(0, detail.inset); update(); }
+      nativeInsetRef.current = Math.max(0, Number(detail?.inset) || 0);
+      resize();
     };
-    update();
-    window.addEventListener('resize', update);
+    resize();
+    viewport?.addEventListener('resize', resize);
+    viewport?.addEventListener('scroll', resize);
+    window.addEventListener('resize', resize);
     window.addEventListener('wab-keyboard-inset', onNativeInset);
-    window.visualViewport?.addEventListener('resize', update);
-    window.visualViewport?.addEventListener('scroll', update);
     return () => {
-      window.removeEventListener('resize', update);
+      viewport?.removeEventListener('resize', resize);
+      viewport?.removeEventListener('scroll', resize);
+      window.removeEventListener('resize', resize);
       window.removeEventListener('wab-keyboard-inset', onNativeInset);
-      window.visualViewport?.removeEventListener('resize', update);
-      window.visualViewport?.removeEventListener('scroll', update);
     };
   }, [formOpen]);
 
@@ -103,7 +116,7 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
     } else void send('POST', input);
   }
   return <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-    <div><h2 className="font-semibold">Mes prestations</h2><p className="mt-1 text-sm text-muted-foreground">Déclarez votre travail pour vérification par l’admin. Une déclaration en attente n’est pas encore un relevé validé.</p><div className="mt-3"><RhActionVoiceToggle voice={voice} /></div></div>
+    <div><h2 className="font-semibold">Mes prestations</h2><div className="mt-3"><RhActionVoiceToggle voice={voice} /></div></div>
     {error && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
     {message && <p role="status" className="text-sm text-primary">{message}</p>}
     {queued.filter((op) => op.kind === 'prestation').map((op) => <p key={op.id} role="status" className="rounded-lg bg-amber-500/10 p-3 text-sm">{op.date} · {op.description} — en attente d’envoi</p>)}
@@ -122,13 +135,13 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
       {expanded && hasMore && <button type="button" disabled={loading} onClick={() => setPage((n) => n + 1)} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Charger plus de prestations</button>}
     </>}
       <button type="button" aria-expanded={formOpen} onClick={() => setFormOpen((open) => !open)} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">{formOpen ? 'Fermer' : '+ Déclarer une prestation'}</button>
-      {formOpen && <div className="fixed inset-x-0 top-0 z-[80] flex items-end overflow-hidden bg-black/50 sm:static sm:block sm:overflow-visible sm:bg-transparent" style={viewportBox ? { top: viewportBox.top, height: viewportBox.height, bottom: 'auto' } : undefined} onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
-      <form onSubmit={submit} className="max-h-full w-full space-y-3 overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-none sm:rounded-xl sm:border-t sm:shadow-none" onFocusCapture={(event) => { const target = event.target as HTMLElement; window.setTimeout(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200); }}>
+      {formOpen && <div style={{ '--rh-viewport-top': visibleViewport.top, '--rh-viewport-height': visibleViewport.height } as React.CSSProperties} className="fixed inset-x-0 top-[var(--rh-viewport-top)] z-[80] flex h-[var(--rh-viewport-height)] items-end bg-black/50 sm:static sm:block sm:h-auto sm:bg-transparent" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
+      <form ref={formRef} onFocusCapture={(event) => { const field = event.target; window.setTimeout(() => { if (document.activeElement !== field) return; const form = formRef.current; if (!form) return; const bounds = form.getBoundingClientRect(); const focus = field.getBoundingClientRect(); if (focus.bottom > bounds.bottom - 72) form.scrollTop += focus.bottom - (bounds.bottom - 72); }, 300); }} onSubmit={submit} className="max-h-full w-full space-y-3 overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-none sm:rounded-xl sm:border-t sm:shadow-none">
         <div className="flex items-center justify-between"><h3 className="font-semibold">Déclarer une prestation</h3><button type="button" onClick={() => setFormOpen(false)} className="rounded-full px-3 py-1 text-sm font-semibold text-muted-foreground">Fermer</button></div>
-        <p className="text-xs text-muted-foreground">Décrivez les missions du jour, même si aucun contenu n’a été publié. Ne saisissez pas de données sensibles.</p>
         <label className="block text-sm font-medium">Date<input type="date" required min="1900-01-01" max={localToday} value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
-        <label className="block text-sm font-medium">Activités réalisées<input required maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <label className="block text-sm font-medium">Activités réalisées<textarea required rows={3} maxLength={500} value={description} onChange={(e) => setDescription(e.target.value.replace(/[\r\n]+/g, ' '))} className="mt-1 block w-full resize-y rounded-lg border border-border bg-background px-3 py-2" /></label>
         <button type="submit" disabled={busy} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? 'Envoi…' : 'Envoyer la déclaration'}</button>
       </form></div>}
+    {youtubeEnabled && <YoutubeClaims submissions={items} />}
   </section>;
 }

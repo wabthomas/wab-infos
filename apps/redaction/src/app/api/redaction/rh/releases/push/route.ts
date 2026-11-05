@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { getRhFlags } from '@/lib/redaction/rh/flags';
 import { db } from '@/lib/redaction/rh/database';
+import { youtubePerformanceEnabled } from '@/lib/redaction/rh/youtube-performance-server';
 import { RH_RELEASES, findRhRelease } from '@/lib/redaction/rh/releases';
 import { sendReleasePushToUser } from '@/lib/redaction/web-push';
 import { ensureFirebaseAdmin } from '@/lib/firebase/admin';
@@ -28,6 +29,7 @@ export async function POST(request: Request) {
   const release = findRhRelease(id)!;
   const flags = await getRhFlags();
   if (release.requiresWithdrawals && !flags.withdrawalsEnabled) return json({ error: 'Fonction retraits désactivée : annonce non diffusée.' }, 409);
+  if (release.requiresYoutube && !youtubePerformanceEnabled()) return json({ error: 'Performances YouTube désactivées : annonce non diffusée.' }, 409);
   if (release.requiresContracts && !flags.contractsEnabled) return json({ error: 'Contrats désactivés : annonce non diffusée.' }, 409);
   try {
     const recipients = await db().query(`SELECT l.account_id, l.account_email

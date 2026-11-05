@@ -8,6 +8,7 @@ import {
   listOpenDisputes,
   listSubmissions,
 } from '@/lib/redaction/rh/database';
+import { youtubePerformanceEnabled } from '@/lib/redaction/rh/youtube-performance-server';
 import { getRhFlags } from '@/lib/redaction/rh/flags';
 import type { RhCurrency } from '@/lib/redaction/rh/money';
 
@@ -83,6 +84,7 @@ export default async function RhPage() {
   return (
     <RhDashboard
       capabilities={capabilities}
+      youtubeEnabled={youtubePerformanceEnabled()}
       collaborators={collaborators.length}
       absencesPending={absencesPending}
       submissionsPending={submissionsPending}

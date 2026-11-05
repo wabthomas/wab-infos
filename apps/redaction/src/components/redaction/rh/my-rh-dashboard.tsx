@@ -10,6 +10,7 @@ import {
   WalletCards,
 } from 'lucide-react';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
+import type { YoutubePerformance } from '@/lib/redaction/rh/youtube-performance';
 import type { Balance, Withdrawal } from '@/lib/redaction/rh/withdrawals';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -41,6 +42,8 @@ export function MyRhDashboard({
   notificationsUnread,
   disputesOpen,
   documentsCount,
+  performances,
+  youtubeEnabled,
   flags,
 }: {
   person: { firstName: string; lastName: string };
@@ -50,6 +53,8 @@ export function MyRhDashboard({
   notificationsUnread: number;
   disputesOpen: number;
   documentsCount: number;
+  performances: YoutubePerformance[];
+  youtubeEnabled: boolean;
   flags: {
     financeEnabled: boolean;
     withdrawalsEnabled: boolean;
@@ -59,14 +64,14 @@ export function MyRhDashboard({
   };
 }) {
   const quickLinks = [
-    { href: '/mon-rh/conges', label: 'Congés', text: 'Demander une absence', icon: CalendarDays, show: true },
-    { href: '/mon-rh/prestations', label: 'Prestations', text: 'Déclarer une journée', icon: ClipboardList, show: true },
-    { href: '/mon-rh/paiements-anciens', label: 'Anciens paiements', text: 'Déclarer vos paiements passés', icon: WalletCards, show: true },
-    { href: '/mon-rh/retraits', label: 'Retraits', text: 'Demander un paiement', icon: ArrowDownUp, show: flags.financeEnabled && flags.withdrawalsEnabled },
-    { href: '/mon-rh/remunerations', label: 'Rémunérations', text: 'Montants validés', icon: WalletCards, show: flags.financeEnabled },
-    { href: '/mon-rh/documents', label: 'Documents', text: 'Contrats et attestations', icon: FileLock2, show: flags.documentsEnabled },
-    { href: '/mon-rh/contestations', label: 'Contestations', text: 'Signaler un désaccord', icon: MessageSquare, show: flags.disputesEnabled },
-    { href: '/mon-rh/notifications', label: 'Notifications', text: 'Événements RH', icon: Bell, show: flags.notificationsEnabled },
+    { href: '/mon-rh/conges', label: 'Congés', icon: CalendarDays, show: true },
+    { href: '/mon-rh/prestations', label: 'Prestations', icon: ClipboardList, show: true },
+    { href: '/mon-rh/paiements-anciens', label: 'Anciens paiements', icon: WalletCards, show: true },
+    { href: '/mon-rh/retraits', label: 'Retraits', icon: ArrowDownUp, show: flags.financeEnabled && flags.withdrawalsEnabled },
+    { href: '/mon-rh/remunerations', label: 'Rémunérations', icon: WalletCards, show: flags.financeEnabled },
+    { href: '/mon-rh/documents', label: 'Documents', icon: FileLock2, show: flags.documentsEnabled },
+    { href: '/mon-rh/contestations', label: 'Contestations', icon: MessageSquare, show: flags.disputesEnabled },
+    { href: '/mon-rh/notifications', label: 'Notifications', icon: Bell, show: flags.notificationsEnabled },
   ].filter((item) => item.show);
 
   return (
@@ -82,7 +87,6 @@ export function MyRhDashboard({
             </span>
             <div>
               <p className="text-sm font-bold">{notificationsUnread} notification(s) non lue(s)</p>
-              <p className="text-xs text-muted-foreground">Consultez les événements RH qui vous concernent.</p>
             </div>
           </div>
           <ArrowRight className="h-4 w-4 text-primary" />
@@ -107,14 +111,19 @@ export function MyRhDashboard({
         </div>
       </section>
 
+      {youtubeEnabled && <section className="rounded-2xl border border-border bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-sm font-bold">Mes performances YouTube</h2></div><Link className="text-xs font-semibold text-primary underline" href="/mon-rh/prestations">Voir mes vidéos et mes prestations</Link></div>
+        {performances.length ? <>
+          <div className="mt-3 grid grid-cols-3 gap-2">{([['Vues', 'views'], ['J’aime', 'likes'], ['Commentaires', 'comments']] as const).map(([label,key]) => <div key={key} className="rounded-xl bg-muted/60 p-3"><p className="text-[11px] text-muted-foreground">{label} cumulés</p><p className="text-lg font-bold tabular-nums">{performances.every(item => item[key] === null) ? '—' : performances.reduce((sum,item) => sum + BigInt(item[key] ?? '0'), BigInt(0)).toLocaleString('fr-FR')}</p></div>)}</div>
+          <div className="mt-3 space-y-2">{performances.slice(0, 4).map(item => <div key={item.id} className="rounded-xl border border-border p-3 text-xs"><a href={item.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">{item.title} ↗</a><p className="mt-1 text-muted-foreground">{item.role} · {item.submissionDate} · relevé {item.checkedAt ? new Date(item.checkedAt).toLocaleDateString('fr-FR') : 'indisponible'}{item.unavailableAt ? ' · vidéo indisponible, chiffres exclus du cumul' : ''}</p><p className="mt-1">Prime évaluée : {formatMinorUnits(BigInt(item.bonusMinor), item.bonusCurrency)}</p></div>)}</div>
+        </> : <p className="mt-3 text-sm text-muted-foreground">Aucune vidéo validée pour le moment.</p>}
+      </section>}
+
       {flags.financeEnabled ? (
         <section className="rounded-2xl border border-border bg-card p-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold">Mes soldes</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Bonjour {person.firstName} — montants validés, réservés et payés.
-              </p>
             </div>
             {flags.withdrawalsEnabled ? (
               <Link
@@ -167,9 +176,6 @@ export function MyRhDashboard({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-bold">Mes dernières demandes de retrait</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Le numéro permet de suivre la demande auprès de l’administration.
-                  </p>
                 </div>
                 <Link href="/mon-rh/retraits" className="text-xs font-bold text-primary hover:underline">
                   Tout voir
@@ -215,7 +221,7 @@ export function MyRhDashboard({
       <section>
         <h2 className="text-sm font-bold">Accès rapides</h2>
         <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-3 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
-          {quickLinks.map(({ href, label, text, icon: Icon }) => (
+          {quickLinks.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -228,7 +234,6 @@ export function MyRhDashboard({
                 <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
               </div>
               <p className="mt-3 text-sm font-bold">{label}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{text}</p>
             </Link>
           ))}
         </div>

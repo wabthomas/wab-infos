@@ -98,7 +98,6 @@ export function Activities({ initialMonth, today }: { initialMonth: string; toda
   return <section className="space-y-4 rounded-xl border border-border bg-card p-5">
     <div>
       <h2 className="font-display text-lg font-bold">Prestations et journées à vérifier</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Saisie par l’administrateur uniquement. Aucune retenue n’est calculée ni appliquée.</p>
     </div>
     {error && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
     {message && <p role="status" className="text-sm text-primary">{message}</p>}

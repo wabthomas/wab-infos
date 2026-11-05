@@ -1,5 +1,17 @@
 [
   {
+    "id": "rh-2026-11-performances-youtube",
+    "title": "Vos performances YouTube dans votre espace RH",
+    "body": "Associez une vidéo de la chaîne officielle à une prestation. Après vérification de votre travail et de votre contribution par l’administration, consultez les vues, les J’aime et le nombre de commentaires dans votre tableau de bord.",
+    "highlights": [
+      "Une émission peut réunir plusieurs journalistes, chacun avec son rôle.",
+      "Le lien ne valide pas automatiquement la prestation : la décision appartient à l’administration.",
+      "Les statistiques ne sont pas un revenu ; toute prime évaluée est distincte de la rémunération effectivement validée."
+    ],
+    "url": "/mon-rh/prestations",
+    "requiresYoutube": true
+  },
+  {
     "id": "rh-2026-11-contrats-cdd-cdi",
     "title": "Vos contrats RH dans un espace privé",
     "body": "Consultez les projets de CDD ou CDI transmis par votre administration, téléchargez le PDF, puis acceptez explicitement une version après lecture. Vous pouvez aussi refuser et demander une nouvelle version.",
