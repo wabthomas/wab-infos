@@ -172,7 +172,7 @@ export function OfficialDocuments() {
       });
     }, 350);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [kind, subject, body, recipient, date, signed, signatureMode, settings, assets, issued]);
+  }, [kind, subject, body, recipient, date, signed, signatureMode, settings, assets, issued, documentTitle, showTitle, showSubject]);
 
   async function printDocument() {
     if (!subject.trim() || !body.trim()) { setError('Complétez l’objet et le corps avant l’impression.'); return; }
@@ -213,7 +213,7 @@ export function OfficialDocuments() {
     && (categoryFilter === 'toutes' || ('category' in item && item.category === categoryFilter))
     && (!normalizedSearch || `${item.title} ${item.subject} ${'category' in item ? item.category : ''}`.toLocaleLowerCase('fr').includes(normalizedSearch))
   );
-  draftKeyRef.current = JSON.stringify([kind, subject, body, recipient, date, signed, signatureMode, settings, assets, referenceCode]);
+  draftKeyRef.current = JSON.stringify([kind, subject, body, recipient, date, signed, signatureMode, settings, assets, referenceCode, documentTitle, showTitle, showSubject]);
   async function issueDocument() {
     const initialKey = draftKeyRef.current;
     if (!signed || !subject.trim() || !body.trim() || !canSign) return;
