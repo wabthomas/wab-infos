@@ -8,6 +8,7 @@ import { PersonalHistoryControls } from './personal-history-controls';
 import { historyUrl, type HistoryPeriod } from '@/lib/redaction/rh/personal-history';
 import { enqueue, pending, notifyQueue } from '@/lib/redaction/rh/offline-queue';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { contributionRole, youtubeVideoId } from '@/lib/redaction/rh/youtube-performance';
 import { validateSubmission, type Submission, type SubmissionStatus } from '@/lib/redaction/rh/submissions';
 
 const labels: Record<SubmissionStatus, string> = { pending: 'En attente', approved: 'Validée', rejected: 'Refusée', cancelled: 'Annulée' };
@@ -23,6 +24,9 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [date, setDate] = useState(''); const [description, setDescription] = useState('');
+  const [videoUrl, setVideoUrl] = useState(''); const [videoRole, setVideoRole] = useState('');
+  const [linkedSubmissionId, setLinkedSubmissionId] = useState<string | null>(null);
+  const videoRequestRef = useRef<{ clientId: string; recordedAt: string } | null>(null);
   const [error, setError] = useRhNotice('error'); const [message, setMessage] = useRhNotice('success');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
@@ -83,16 +87,42 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
       const data = await response.json();
       if (!response.ok) { if (method === 'POST' && [502, 503, 504].includes(response.status)) throw new TypeError('Server unavailable'); throw new Error(data.error || 'Opération impossible.'); }
       if (method === 'POST') voice.speak('submission');
-      setDate(''); setDescription(''); setMessage(method === 'POST' ? 'Déclaration transmise à l’administrateur.' : 'Déclaration annulée.'); setFormOpen(false); setPage(1); setReload((n) => n + 1);
+      if (method === 'POST') { setDate(''); setDescription(''); setVideoRole(''); setVideoUrl(''); setFormOpen(false); }
+      setMessage(method === 'POST' ? 'Déclaration transmise à l’administrateur.' : 'Déclaration annulée.'); setPage(1); setReload((n) => n + 1);
     } catch (e) { if (method === 'POST' && e instanceof TypeError) await saveOffline(offlinePayload as { date: string; description: string; clientId: string; recordedAt: string }); else setError(e instanceof Error ? e.message : 'Opération impossible.'); }
     finally { setBusy(false); }
+  }
+  async function sendWithVideo(input: { date: string; description: string }) {
+    setBusy(true); setError(''); setMessage('');
+    try {
+      let submissionId = linkedSubmissionId;
+      if (!submissionId) {
+        const requestId = videoRequestRef.current ?? { clientId: crypto.randomUUID(), recordedAt: new Date().toISOString() };
+        videoRequestRef.current = requestId;
+        voice.prepare('submission');
+        const response = await fetchRedaction(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...input, ...requestId }) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Prestation non enregistrée.');
+        submissionId = data.submission.id;
+        setLinkedSubmissionId(submissionId);
+        voice.speak('submission');
+        setPage(1); setReload(n => n + 1);
+      }
+      const response = await fetchRedaction('/api/redaction/rh/mon-espace/performances', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submissionId, url: videoUrl, role: videoRole }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Lien non associé.');
+      setDate(''); setDescription(''); setVideoUrl(''); setVideoRole(''); setLinkedSubmissionId(null); videoRequestRef.current = null;
+      setFormOpen(false); setMessage('Prestation et vidéo enregistrées.'); setPage(1); setReload(n => n + 1);
+    } catch (cause) {
+      setError(`${linkedSubmissionId ? 'Prestation enregistrée. ' : ''}${cause instanceof Error ? cause.message : 'Envoi impossible.'}`);
+    } finally { setBusy(false); }
   }
   async function saveOffline(input: { date: string; description: string; clientId?: string; recordedAt?: string }) {
     try {
       voice.prepare('submission-offline');
       if (!owner) throw new Error('Identité indisponible');
       await enqueue({ id: input.clientId ?? crypto.randomUUID(), owner, kind: 'prestation', recordedAt: input.recordedAt ?? new Date().toISOString(), date: input.date, description: input.description });
-      notifyQueue(); setDate(''); setDescription(''); setFormOpen(false);
+      notifyQueue(); setDate(''); setDescription(''); setVideoRole(''); setVideoUrl(''); setFormOpen(false);
       setMessage('Déclaration enregistrée sur cet appareil, en attente de synchronisation.');
       voice.speak('submission-offline');
     } catch { setError('Stockage hors ligne indisponible : déclaration non enregistrée.'); }
@@ -101,7 +131,12 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
     e.preventDefault();
     const input = validateSubmission({ date, description }, localToday);
     if (!input) { setError('Vérifiez la date et la description.'); return; }
-    if (!navigator.onLine) {
+    if (videoUrl.trim() || videoRole.trim() || linkedSubmissionId) {
+      if (!youtubeEnabled) { setError('Lien YouTube non activé.'); return; }
+      if (!youtubeVideoId(videoUrl) || !contributionRole(videoRole)) { setError('Vérifiez le lien YouTube et votre rôle.'); return; }
+      if (!navigator.onLine) { setError('Connexion nécessaire pour vérifier le lien. Vous pouvez déclarer la prestation sans vidéo hors ligne.'); return; }
+      void sendWithVideo(input);
+    } else if (!navigator.onLine) {
       void saveOffline(input);
     } else void send('POST', input);
   }
@@ -110,6 +145,18 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
     {error && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
     {message && <p role="status" className="text-sm text-primary">{message}</p>}
     {queued.filter((op) => op.kind === 'prestation').map((op) => <p key={op.id} role="status" className="rounded-lg bg-amber-500/10 p-3 text-sm">{op.date} · {op.description} — en attente d’envoi</p>)}
+      <button type="button" aria-expanded={formOpen} onClick={() => setFormOpen((open) => !open)} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">{formOpen ? 'Fermer' : '+ Déclarer une prestation'}</button>
+      {formOpen && <div style={{ '--rh-viewport-top': visibleViewport.top, '--rh-viewport-height': visibleViewport.height } as React.CSSProperties} className="fixed inset-x-0 top-[var(--rh-viewport-top)] z-[80] flex h-[var(--rh-viewport-height)] items-end bg-black/50 sm:static sm:block sm:h-auto sm:bg-transparent" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
+      <form ref={formRef} onFocusCapture={(event) => { const field = event.target; window.setTimeout(() => { if (document.activeElement !== field) return; const form = formRef.current; if (!form) return; const bounds = form.getBoundingClientRect(); const focus = field.getBoundingClientRect(); if (focus.bottom > bounds.bottom - 72) form.scrollTop += focus.bottom - (bounds.bottom - 72); }, 300); }} onSubmit={submit} className="max-h-full w-full space-y-3 overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-none sm:rounded-xl sm:border-t sm:shadow-none">
+        <div className="flex items-center justify-between"><h3 className="font-semibold">Déclarer une prestation</h3><button type="button" onClick={() => setFormOpen(false)} className="rounded-full px-3 py-1 text-sm font-semibold text-muted-foreground">Fermer</button></div>
+        <label className="block text-sm font-medium">Date<input type="date" required disabled={!!linkedSubmissionId} min="1900-01-01" max={localToday} value={date} onChange={(e) => { setDate(e.target.value); videoRequestRef.current = null; }} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <label className="block text-sm font-medium">Activités réalisées<textarea required disabled={!!linkedSubmissionId} rows={3} maxLength={500} value={description} onChange={(e) => { setDescription(e.target.value.replace(/[\r\n]+/g, ' ')); videoRequestRef.current = null; }} className="mt-1 block w-full resize-y rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <label className="block text-sm font-medium">Lien de la vidéo YouTube (facultatif){!youtubeEnabled && <span className="ml-2 text-xs text-muted-foreground">Non activé</span>}<input type="url" disabled={!youtubeEnabled || busy} maxLength={300} value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 disabled:opacity-60" /></label>
+        {youtubeEnabled && <label className="block text-sm font-medium">Votre rôle dans la vidéo<input required={!!videoUrl.trim()} disabled={busy} maxLength={80} value={videoRole} onChange={e => setVideoRole(e.target.value)} placeholder="Journaliste, présentateur, monteur…" className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>}
+        <button type="submit" disabled={busy} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? 'Envoi…' : linkedSubmissionId ? 'Réessayer le lien vidéo' : 'Envoyer la déclaration'}</button>
+        {linkedSubmissionId && <button type="button" onClick={() => { setLinkedSubmissionId(null); videoRequestRef.current = null; setDate(''); setDescription(''); setVideoRole(''); setVideoUrl(''); setError(''); setMessage('Prestation enregistrée.'); setFormOpen(false); }} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold">Terminer sans vidéo</button>}
+      </form></div>}
+    {youtubeEnabled && <YoutubeClaims submissions={items} refreshKey={reload} />}
     <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold">{expanded ? 'Toutes mes prestations' : 'Prestations de la semaine'}</h3>
       <button type="button" aria-expanded={expanded} onClick={() => { setExpanded((open) => !open); setPage(1); setItems([]); }} className="text-sm font-semibold text-primary underline">{expanded ? 'Réduire' : 'Voir plus'}</button></div>
     {expanded && <PersonalHistoryControls filter={filter} onChange={(next) => { setFilter(next); setPage(1); setItems([]); }} />}
@@ -124,14 +171,5 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
       </article>)}
       {expanded && hasMore && <button type="button" disabled={loading} onClick={() => setPage((n) => n + 1)} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Charger plus de prestations</button>}
     </>}
-      <button type="button" aria-expanded={formOpen} onClick={() => setFormOpen((open) => !open)} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">{formOpen ? 'Fermer' : '+ Déclarer une prestation'}</button>
-      {formOpen && <div style={{ '--rh-viewport-top': visibleViewport.top, '--rh-viewport-height': visibleViewport.height } as React.CSSProperties} className="fixed inset-x-0 top-[var(--rh-viewport-top)] z-[80] flex h-[var(--rh-viewport-height)] items-end bg-black/50 sm:static sm:block sm:h-auto sm:bg-transparent" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
-      <form ref={formRef} onFocusCapture={(event) => { const field = event.target; window.setTimeout(() => { if (document.activeElement !== field) return; const form = formRef.current; if (!form) return; const bounds = form.getBoundingClientRect(); const focus = field.getBoundingClientRect(); if (focus.bottom > bounds.bottom - 72) form.scrollTop += focus.bottom - (bounds.bottom - 72); }, 300); }} onSubmit={submit} className="max-h-full w-full space-y-3 overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-none sm:rounded-xl sm:border-t sm:shadow-none">
-        <div className="flex items-center justify-between"><h3 className="font-semibold">Déclarer une prestation</h3><button type="button" onClick={() => setFormOpen(false)} className="rounded-full px-3 py-1 text-sm font-semibold text-muted-foreground">Fermer</button></div>
-        <label className="block text-sm font-medium">Date<input type="date" required min="1900-01-01" max={localToday} value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
-        <label className="block text-sm font-medium">Activités réalisées<textarea required rows={3} maxLength={500} value={description} onChange={(e) => setDescription(e.target.value.replace(/[\r\n]+/g, ' '))} className="mt-1 block w-full resize-y rounded-lg border border-border bg-background px-3 py-2" /></label>
-        <button type="submit" disabled={busy} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? 'Envoi…' : 'Envoyer la déclaration'}</button>
-      </form></div>}
-    {youtubeEnabled && <YoutubeClaims submissions={items} />}
   </section>;
 }
