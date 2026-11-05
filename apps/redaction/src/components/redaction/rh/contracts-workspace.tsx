@@ -31,7 +31,7 @@ export function ContractsWorkspace() {
   const [templates,setTemplates] = useState<ContractTemplate[]>([]), [selectedTemplate,setSelectedTemplate] = useState<ContractTemplate|null>(null), [templateTitle,setTemplateTitle] = useState('');
   const [savedSnapshot,setSavedSnapshot] = useState('');
   const [settings, setSettings] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
-  const [seal, setSeal] = useState<string | null>(null), [signature, setSignature] = useState<string | null>(null);
+  const [seal, setSeal] = useState<string | null>(null), [signature, setSignature] = useState<string | null>(null), [logo, setLogo] = useState<string | null>(null);
   const [personId, setPersonId] = useState(''), [kind, setKind] = useState<'CDD' | 'CDI'>('CDD');
   const [startDate, setStartDate] = useState(''), [endDate, setEndDate] = useState('');
   const [job, setJob] = useState(''), [location, setLocation] = useState('');
@@ -46,11 +46,11 @@ export function ContractsWorkspace() {
     let active = true;
     async function load() {
       try {
-        const paths = ['/api/redaction/rh/contrats/modeles','/api/redaction/rh/contrats','/api/redaction/rh/collaborateurs','/api/redaction/rh/organisation','/api/redaction/rh/organisation/assets/company-seal','/api/redaction/rh/organisation/assets/director-signature'];
+        const paths = ['/api/redaction/rh/contrats/modeles','/api/redaction/rh/contrats','/api/redaction/rh/collaborateurs','/api/redaction/rh/organisation','/api/redaction/rh/organisation/assets/company-seal','/api/redaction/rh/organisation/assets/director-signature','/api/redaction/rh/organisation/assets/company-logo'];
         const responses = await Promise.all(paths.map(path => fetchRedaction(path, { cache: 'no-store' })));
         if (responses.some(response => !response.ok)) throw new Error('Chargement RH impossible.');
-        const [savedTemplates,savedCases,list, org, stamp, image] = await Promise.all(responses.map(r => r.json()));
-        if (active) { setTemplates(savedTemplates.templates); setCases(savedCases.contracts); setPeople((list.collaborators as Person[]).filter(p => !p.archived)); setSettings({ ...DEFAULT_ORGANIZATION_SETTINGS, ...org.settings }); setSeal(stamp.asset); setSignature(image.asset); }
+        const [savedTemplates,savedCases,list, org, stamp, image, brand] = await Promise.all(responses.map(r => r.json()));
+        if (active) { setTemplates(savedTemplates.templates); setCases(savedCases.contracts); setPeople((list.collaborators as Person[]).filter(p => !p.archived)); setSettings({ ...DEFAULT_ORGANIZATION_SETTINGS, ...org.settings }); setSeal(stamp.asset); setSignature(image.asset); setLogo(brand.asset); }
       } catch { if (active) setError('Impossible de charger les collaborateurs et les visuels RH.'); }
     }
     void load(); return () => { active = false; };
@@ -134,13 +134,13 @@ export function ContractsWorkspace() {
       const timer = window.setTimeout(() => {
         void (async () => {
           try {
-            const images = sign ? await Promise.all([png(seal, .22), png(signature)]) : [null, null];
+            const images = await Promise.all([png(logo), sign ? png(seal, .22) : null, sign ? png(signature) : null]);
             if (!active) return;
             const pdf = buildContractDocument({
               kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
               startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses,
               employer: settings, draft: true,
-            }, { seal: images[0], signature: images[1] });
+            }, { logo: images[0], seal: images[1], signature: images[2] });
             if (active) setPreviewPdf(new Uint8Array(pdf.output('arraybuffer')));
           } catch { if (active) setPreviewStatus('Préparation de l’aperçu impossible.'); }
         })();
@@ -148,7 +148,7 @@ export function ContractsWorkspace() {
       return () => { active = false; window.clearTimeout(timer); };
     } else setPreviewStatus('Sélectionnez un collaborateur et saisissez le corps du contrat.');
     return () => { active = false; };
-  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, settings, sign, seal, signature]);
+  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, settings, sign, seal, signature, logo]);
 
   function applyFormat(command: ContractFormatCommand) {
     const textarea = clausesRef.current;
@@ -175,7 +175,7 @@ export function ContractsWorkspace() {
         kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
         startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses,
         employer: settings, draft: true,
-      }, { seal: sign ? await png(seal, .22) : null, signature: sign ? await png(signature) : null });
+      }, { logo: await png(logo), seal: sign ? await png(seal, .22) : null, signature: sign ? await png(signature) : null });
       pdf.save(`projet-contrat-${kind.toLowerCase()}-${person.lastName.replace(/[^a-zA-Z0-9-]/g,'-')}.pdf`);
       toast.success('Projet PDF prêt. Déposez la version signée dans Documents RH après contrôle.');
     } catch { setError('Génération PDF impossible.'); toast.error('Génération PDF impossible.'); }

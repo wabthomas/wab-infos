@@ -4,10 +4,10 @@ import { contractRuns, parseContractBlocks, type ContractBlock, type ContractRun
 export type ContractDocumentData = {
   kind: 'CDD' | 'CDI'; firstName: string; lastName: string; jobTitle: string; workLocation: string;
   startDate: string; endDate?: string | null; salary: string; currency: string; clauses: string;
-  employer: { companyName?: string; companyAddress?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string };
+  employer: { companyName?: string; companyAddress?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string; logoPng?: string | null };
   employeeSignature?: string | null; acceptedAt?: string | null; draft?: boolean; draftLabel?: string;
 };
-export type ContractDocumentAssets = { seal?: string | null; signature?: string | null; employeeSignatureImage?: string | null };
+export type ContractDocumentAssets = { logo?: string | null; seal?: string | null; signature?: string | null; employeeSignatureImage?: string | null };
 
 type Piece = { text: string; style: ContractRun['style'] };
 type TextLine = Piece[];
@@ -66,6 +66,16 @@ function addImage(doc: jsPDF, image: string | null | undefined, x: number, y: nu
   try { doc.addImage(image, 'PNG', x, y, w, h); } catch { /* Invalid optional image: keep the document printable. */ }
 }
 
+function addContainedLogo(doc: jsPDF, image: string | null | undefined) {
+  if (!image) return;
+  try {
+    const { width, height } = doc.getImageProperties(image);
+    if (!width || !height) return;
+    const ratio = Math.min(29 / width, 21 / height);
+    doc.addImage(image, 'PNG', 20 + (29 - width * ratio) / 2, 15 + (21 - height * ratio) / 2, width * ratio, height * ratio);
+  } catch { /* Existing drafts remain printable even if an optional asset is invalid. */ }
+}
+
 /** Shared A4 composition for the browser draft and the server's frozen version. */
 export function buildContractDocument(data: ContractDocumentData, assets: ContractDocumentAssets = {}): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
@@ -79,12 +89,15 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
   };
   const room = (height: number) => { if (y + height > BOTTOM) nextPage(); };
 
+  const logo = assets.logo || data.employer.logoPng;
+  if (logo) { addContainedLogo(doc, logo); y += 2; }
   doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
   doc.text(data.employer.companyName || 'Employeur', 105, y, { align: 'center' });
   y += 5;
   const header = [data.employer.companyAddress, data.employer.documentHeader].filter(Boolean).join(' · ');
   if (header) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text(header, 105, y, { align: 'center', maxWidth: WIDTH }); y += 6; }
   else y += 6;
+  if (logo) y = Math.max(y, 43);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
   doc.text(`CONTRAT DE TRAVAIL À DURÉE ${data.kind === 'CDD' ? 'DÉTERMINÉE' : 'INDÉTERMINÉE'}`, 105, y, { align: 'center' });
   y += 4;

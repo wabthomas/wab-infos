@@ -32,6 +32,18 @@ test('aperçu A4 : le moteur de rendu lit chaque page du PDF exporté', async ()
   } finally { await loaded.destroy(); }
 });
 
+test('logo facultatif : image intégrée en haut du projet et de la version figée', async () => {
+  const sharp = (await import('sharp')).default;
+  const bytes = await sharp({ create: { width: 120, height: 60, channels: 4, background: '#2184bb' } }).png().toBuffer();
+  const logoPng = `data:image/png;base64,${bytes.toString('base64')}`;
+  const draft = buildContractDocument(data('Article 1 : Texte fictif.'), { logo: logoPng });
+  const frozen = buildContractDocument({ ...data('Article 1 : Texte fictif.'), employer: { ...data('').employer, logoPng } });
+  const legacy = buildContractDocument(data('Article 1 : Texte fictif.'));
+  assert.ok(draft.internal.pages[1].includes('/I0 Do'));
+  assert.ok(frozen.internal.pages[1].includes('/I0 Do'));
+  assert.ok(!legacy.internal.pages[1].includes('/I0 Do'));
+});
+
 test('PDF A4 partagé : blancs répétés condensés, marqueurs cachés et signatures groupées', () => {
   const clause = '## Article 1 : Objet\n\nUne phrase **importante** et *nuancée* pour le contrat.\n\n- Un élément listé.\n';
   const compact = buildContractDocument(data(clause.repeat(27)));
