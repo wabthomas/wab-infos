@@ -80,8 +80,8 @@ android {
         redaction {
             dimension "product"
             applicationId "com.wabinfos.redaction"
-            versionCode 17
-            versionName "1.0.16"
+            versionCode 18
+            versionName "1.0.17"
             buildConfigField "String", "SITE_URL", '"https://app.wab-infos.com"'
             // Clé Web Firebase (publique) — repli si la clé Android du google-services.json
             // est restreinte au package lecteur com.wabinfos.app.

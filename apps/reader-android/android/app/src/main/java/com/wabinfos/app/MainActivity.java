@@ -50,6 +50,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.ViewCompat;
@@ -504,6 +506,12 @@ public class MainActivity extends AppCompatActivity {
 
         // Pont JavaScript : partage natif depuis le site (window.AndroidBridge.share(...))
         webView.addJavascriptInterface(new NativeBridge(), "AndroidBridge");
+
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+            int ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+            emitKeyboardInset(ime);
+            return insets;
+        });
 
         webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) ->
                 startNativeDownload(url, userAgent, contentDisposition, mimeType));
@@ -1351,6 +1359,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /** Pont JS exposé au site : permet d'utiliser le partage natif Android depuis les pages web. */
+    public void emitKeyboardInset(int px) {
+        final int cssPx = Math.round(px / getResources().getDisplayMetrics().density);
+        runOnUiThread(() -> {
+            if (webView == null) return;
+            try {
+                webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('wab-keyboard-inset',{detail:{inset:" + cssPx + "}}));", null);
+            } catch (Exception ignored) { }
+        });
+    }
+
     public void emitApkUpdateProgress(int percent) {
         runOnUiThread(() -> {
             if (webView == null) return;

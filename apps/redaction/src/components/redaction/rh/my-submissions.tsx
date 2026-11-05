@@ -28,19 +28,31 @@ export function MySubmissions({ today, owner = '' }: { today: string; owner?: st
   const [formOpen, setFormOpen] = useState(false);
   const [viewportBox, setViewportBox] = useState<{ top: number; height: number } | null>(null);
   useEffect(() => {
-    if (!formOpen || !window.matchMedia('(max-width: 639px)').matches) { setViewportBox(null); return; }
-    const visual = window.visualViewport;
-    const update = () => setViewportBox({ top: visual?.offsetTop ?? 0, height: visual?.height ?? window.innerHeight });
+    if (!formOpen || window.innerWidth >= 1024) { setViewportBox(null); return; }
+    let nativeInset = 0;
+    const update = () => {
+      const visual = window.visualViewport;
+      const visible = Math.min(visual?.height ?? window.innerHeight, window.innerHeight);
+      const keyboard = Math.max(nativeInset, Math.max(0, window.innerHeight - visible));
+      setViewportBox({ top: 0, height: Math.max(260, window.innerHeight - keyboard) });
+    };
+    const onNativeInset = (event: Event) => {
+      const detail = (event as CustomEvent<{ inset?: number }>).detail;
+      if (typeof detail?.inset === 'number') { nativeInset = Math.max(0, detail.inset); update(); }
+    };
     update();
     window.addEventListener('resize', update);
-    visual?.addEventListener('resize', update);
-    visual?.addEventListener('scroll', update);
+    window.addEventListener('wab-keyboard-inset', onNativeInset);
+    window.visualViewport?.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('scroll', update);
     return () => {
       window.removeEventListener('resize', update);
-      visual?.removeEventListener('resize', update);
-      visual?.removeEventListener('scroll', update);
+      window.removeEventListener('wab-keyboard-inset', onNativeInset);
+      window.visualViewport?.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('scroll', update);
     };
   }, [formOpen]);
+
   const [queued, setQueued] = useState<Awaited<ReturnType<typeof pending>>>([]);
   useEffect(() => {
     const refresh = () => { void pending(owner).then(setQueued).catch(() => setError('Stockage local indisponible.')); };
