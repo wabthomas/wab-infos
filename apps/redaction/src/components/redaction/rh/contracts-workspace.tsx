@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { buildContractDocument } from '@/lib/redaction/rh/contract-document';
-import { contractRuns, formatContractSelection, parseContractBlocks, type ContractFormatCommand } from '@/lib/redaction/rh/contract-format';
+import { formatContractSelection, type ContractFormatCommand } from '@/lib/redaction/rh/contract-format';
+import { ContractPdfPreview } from './contract-pdf-preview';
 import Link from 'next/link';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
@@ -36,7 +37,8 @@ export function ContractsWorkspace() {
   const [job, setJob] = useState(''), [location, setLocation] = useState('');
   const [salary, setSalary] = useState(''), [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
   const [clauses, setClauses] = useState(''), [approved, setApproved] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [previewPdf, setPreviewPdf] = useState<Uint8Array | null>(null);
+  const [previewStatus, setPreviewStatus] = useState('Sélectionnez un collaborateur et saisissez le corps du contrat.');
   const clausesRef = useRef<HTMLTextAreaElement>(null);
   const [sign, setSign] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const person = people.find(p => p.id === personId);
@@ -114,6 +116,40 @@ export function ContractsWorkspace() {
     const next = people.find(p => p.id === id);
     setPersonId(id); setJob(next?.jobTitle || ''); setStartDate(next?.startDate || ''); setApproved(false); setSign(false);
   }
+  useEffect(() => {
+    let active = true;
+    setPreviewPdf(null);
+    if (selected && selected.status !== 'draft') {
+      setPreviewStatus('Chargement de la version enregistrée…');
+      void (async () => {
+        try {
+          const response = await fetchRedaction(`/api/redaction/rh/contrats/${selected.id}/pdf`, { cache: 'no-store' });
+          if (!response.ok) throw new Error('Version enregistrée indisponible.');
+          const pdf = new Uint8Array(await response.arrayBuffer());
+          if (active) setPreviewPdf(pdf);
+        } catch { if (active) setPreviewStatus('Aperçu indisponible pour ce contrat.'); }
+      })();
+    } else if (person && clauses.trim()) {
+      setPreviewStatus('Préparation de l’aperçu A4…');
+      const timer = window.setTimeout(() => {
+        void (async () => {
+          try {
+            const images = sign ? await Promise.all([png(seal, .22), png(signature)]) : [null, null];
+            if (!active) return;
+            const pdf = buildContractDocument({
+              kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
+              startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses,
+              employer: settings, draft: true,
+            }, { seal: images[0], signature: images[1] });
+            if (active) setPreviewPdf(new Uint8Array(pdf.output('arraybuffer')));
+          } catch { if (active) setPreviewStatus('Préparation de l’aperçu impossible.'); }
+        })();
+      }, 450);
+      return () => { active = false; window.clearTimeout(timer); };
+    } else setPreviewStatus('Sélectionnez un collaborateur et saisissez le corps du contrat.');
+    return () => { active = false; };
+  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, settings, sign, seal, signature]);
+
   function applyFormat(command: ContractFormatCommand) {
     const textarea = clausesRef.current;
     if (!textarea || locked || busy) return;
@@ -162,7 +198,7 @@ export function ContractsWorkspace() {
       <button type="button" className="rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-muted" onClick={()=>newCase()}>+ Nouveau contrat</button>
     </header>
     {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="min-w-0 space-y-5">
         <fieldset disabled={locked||busy} className="space-y-5 disabled:opacity-70">
           <section className="rounded-xl border p-4 sm:p-5">
@@ -182,16 +218,9 @@ export function ContractsWorkspace() {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-4 sm:px-5"><h3 className="text-base font-bold">02 · Corps du contrat</h3><span className="text-xs tabular-nums text-muted-foreground">{clauses.length} / 12 000 caractères</span></div>
             <div role="toolbar" aria-label="Mise en forme du corps du contrat" className="flex flex-wrap items-center gap-1 border-b p-2 sm:px-4">
               {formats.map(item=><button key={item.command} type="button" title={item.title} aria-label={item.title} onMouseDown={e=>e.preventDefault()} onClick={()=>applyFormat(item.command)} className={`min-h-9 rounded-lg border px-2.5 text-sm hover:bg-muted ${item.command==='bold'?'font-bold':item.command==='italic'?'italic':''}`}>{item.label}</button>)}
-              <button type="button" onClick={()=>setShowPreview(v=>!v)} aria-pressed={showPreview} className="ml-auto min-h-9 rounded-lg border px-2.5 text-sm font-medium hover:bg-muted">{showPreview?'Masquer l’aperçu':'Aperçu du texte'}</button>
             </div>
             <label className="block px-4 pt-3 text-sm font-medium sm:px-5" htmlFor="contract-body">Corps texte</label>
             <textarea id="contract-body" ref={clausesRef} className="min-h-80 w-full resize-y bg-background px-4 py-3 font-mono text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-5" value={clauses} maxLength={12000} onChange={e => { setClauses(e.target.value); setApproved(false); setSign(false); }} placeholder="Saisissez les clauses vérifiées…" />
-            {showPreview && <div className="border-t bg-white p-5 text-slate-900 sm:p-7" aria-label="Aperçu du corps du contrat">
-              {parseContractBlocks(clauses).map((block,index)=>{
-                const text=contractRuns(block.text).map((run,i)=>run.style==='bold'?<strong key={i}>{run.text}</strong>:run.style==='italic'?<em key={i}>{run.text}</em>:run.style==='underline'?<u key={i}>{run.text}</u>:<span key={i}>{run.text}</span>);
-                return <div key={index} className={block.kind==='article'||block.kind==='heading'?'mb-2 mt-5 font-bold':block.kind==='bullet'||block.kind==='number'?'ml-5 mb-1.5 text-sm leading-relaxed':'mb-3 text-sm leading-relaxed'}>{block.marker&&<span className="mr-2">{block.marker}</span>}{text}</div>;
-              })}
-            </div>}
           </section>
           <section className="space-y-3 rounded-xl border p-4 sm:p-5">
             <h3 className="text-base font-bold">03 · Validation et visa</h3>
@@ -209,6 +238,7 @@ export function ContractsWorkspace() {
         <Link href="/rh/documents" className="inline-block text-sm font-semibold text-primary underline">Déposer la version signée dans Documents RH</Link>
       </div>
       <aside className="space-y-5">
+        <ContractPdfPreview bytes={previewPdf} status={previewStatus} />
         <section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Dossiers enregistrés</h3>
           <div className="mt-3 grid max-h-72 gap-2 overflow-auto">{cases.map(item=><button type="button" key={item.id} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id} className={`rounded-xl border p-3 text-left text-sm ${selected?.id===item.id?'border-primary bg-primary/10':'bg-card hover:border-primary/40'}`}><strong>{item.kind} · {item.firstName} {item.lastName}</strong><span className="mt-1 block text-xs text-muted-foreground">{item.jobTitle} · {item.status==='draft'?'Brouillon':item.status==='proposed'?'À examiner':'Accord enregistré'} · v{item.version}</span></button>)}</div>
           {!cases.length&&<p className="mt-3 text-sm text-muted-foreground">Aucun dossier.</p>}

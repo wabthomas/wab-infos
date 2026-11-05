@@ -19,6 +19,19 @@ test('barre d’outils : sélection et changement de type de paragraphe', () => 
   assert.equal(formatContractSelection('## Texte',4,4,'paragraph').value,'Texte');
 });
 
+test('aperçu A4 : le moteur de rendu lit chaque page du PDF exporté', async () => {
+  const pdf = buildContractDocument(data(('## Article 1 : Objet\nTexte fictif.\n').repeat(45)));
+  const viewer = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const loaded = await viewer.getDocument({ data: new Uint8Array(pdf.output('arraybuffer')), useSystemFonts: true }).promise;
+  try {
+    assert.equal(loaded.numPages, pdf.getNumberOfPages());
+    assert.ok(loaded.numPages > 1);
+    const secondPage = await loaded.getPage(2);
+    const text = await secondPage.getTextContent();
+    assert.ok(text.items.some(item => 'str' in item && item.str.includes('Article')));
+  } finally { await loaded.destroy(); }
+});
+
 test('PDF A4 partagé : blancs répétés condensés, marqueurs cachés et signatures groupées', () => {
   const clause = '## Article 1 : Objet\n\nUne phrase **importante** et *nuancée* pour le contrat.\n\n- Un élément listé.\n';
   const compact = buildContractDocument(data(clause.repeat(27)));
