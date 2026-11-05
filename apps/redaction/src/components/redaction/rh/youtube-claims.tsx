@@ -31,7 +31,7 @@ export function YoutubeClaims({ submissions }: { submissions: Submission[] }) {
     finally { setBusy(false); }
   }
   return <section className="space-y-3 rounded-xl border border-border bg-card p-5">
-    <div><h2 className="font-bold">Mes vidéos et contributions</h2><p className="mt-1 text-sm text-muted-foreground">Une émission peut être créditée à plusieurs collègues. Le lien YouTube constitue une preuve à vérifier, pas une approbation automatique. Les chiffres apparaissent après validation de la prestation et de votre contribution.</p></div>
+    <div><h2 className="font-bold">Mes vidéos et contributions</h2></div>
     {error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}{message && <p role="status" className="text-sm text-primary">{message}</p>}
     {claims.map(item => <div key={item.id} className="rounded-xl border border-border p-3 text-sm"><p className="font-semibold"><a href={item.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{item.title} ↗</a> · {item.role}</p><p className="text-muted-foreground">{item.submissionDate} · {item.submissionStatus === 'cancelled' || item.submissionStatus === 'rejected' ? 'Prestation non validée' : item.status === 'approved' && item.submissionStatus === 'approved' ? 'Contribution validée' : item.status === 'rejected' ? 'Contribution refusée' : 'À vérifier par l’admin'}</p>{item.note && <p>Motif : {item.note}</p>}</div>)}
     {eligible.length > 0 && <form onSubmit={submit} className="grid gap-2 sm:grid-cols-2">
@@ -40,6 +40,6 @@ export function YoutubeClaims({ submissions }: { submissions: Submission[] }) {
       <label className="text-sm sm:col-span-2">Lien de la vidéo sur la chaîne officielle<input required type="url" maxLength={300} placeholder="https://www.youtube.com/watch?v=…" className="mt-1 w-full rounded-lg border border-border bg-background p-2" value={url} onChange={e => setUrl(e.target.value)} /></label>
       <button disabled={busy} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:col-span-2">{busy ? 'Vérification…' : 'Associer la vidéo à ma prestation'}</button>
     </form>}
-    <p className="text-xs text-muted-foreground">La prestation peut être déclarée sans vidéo ; si elle a été enregistrée hors ligne, attendez sa synchronisation avant d’ajouter le lien.</p>
+
   </section>;
 }

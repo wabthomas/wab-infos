@@ -16,9 +16,11 @@ test('migration YouTube : vidéo partagée, attribution unique par personne et p
       await db.query('INSERT INTO redaction_rh.collaborators (id,first_name,last_name,job_title,team,contract_status) VALUES ($1,$2,$3,$4,$5,$6)', [ids[n], `Journaliste ${n}`, 'Test', 'Journaliste', 'Rédaction', 'Actif']);
       await db.query('INSERT INTO redaction_rh.activity_submissions (id,collaborator_id,activity_date,description) VALUES ($1,$2,$3,$4)', [submissions[n], ids[n], '2026-11-05', 'Émission']);
     }
+    await db.query("UPDATE redaction_rh.activity_submissions SET status='approved' WHERE id=$1", [submissions[1]]);
     await db.query('INSERT INTO redaction_rh.youtube_videos (video_id,title,views,likes,comments) VALUES ($1,$2,$3,$4,$5)', ['dQw4w9WgXcQ','Émission',100,10,2]);
     for (let n = 0; n < 2; n++) await db.query('INSERT INTO redaction_rh.youtube_contributions (id,video_id,collaborator_id,submission_id,contribution_role) VALUES ($1,$2,$3,$4,$5)', [claims[n],'dQw4w9WgXcQ',ids[n],submissions[n],'Journaliste']);
     assert.equal((await db.query('SELECT count(DISTINCT video_id)::integer AS videos, count(*)::integer AS people FROM redaction_rh.youtube_contributions')).rows[0].videos, 1);
+    assert.equal((await db.query('SELECT s.status FROM redaction_rh.youtube_contributions p JOIN redaction_rh.activity_submissions s ON s.id=p.submission_id WHERE p.id=$1', [claims[1]])).rows[0].status, 'approved');
     assert.equal((await db.query('SELECT count(*)::integer AS count FROM redaction_rh.youtube_contributions')).rows[0].count, 2);
     await assert.rejects(db.query('INSERT INTO redaction_rh.youtube_contributions (id,video_id,collaborator_id,submission_id,contribution_role) VALUES ($1,$2,$3,$4,$5)', ['66666666-2222-3333-4444-555555555555','dQw4w9WgXcQ',ids[0],submissions[1],'Journaliste']));
     await assert.rejects(db.query("UPDATE redaction_rh.youtube_contributions SET bonus_minor=-1 WHERE id=$1", [claims[0]]));

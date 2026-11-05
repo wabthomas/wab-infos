@@ -1,5 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
 import { db } from './database';
 import type { RhPrincipal } from './principal';
 import type { OfficialVideo } from './youtube-performance-server';
@@ -41,6 +42,43 @@ export async function mayClaimYoutubePerformance(principal: RhPrincipal, submiss
   return !!result.rowCount;
 }
 
+async function insertYoutubeClaim(client: PoolClient, collaboratorId: string, submissionId: string, role: string, video: OfficialVideo, actor: string): Promise<boolean> {
+  await client.query(`INSERT INTO redaction_rh.youtube_videos (video_id,title,views,likes,comments) VALUES ($1,$2,$3,$4,$5)
+    ON CONFLICT (video_id) DO UPDATE SET title=EXCLUDED.title, views=EXCLUDED.views,likes=EXCLUDED.likes,comments=EXCLUDED.comments,checked_at=now(),unavailable_at=NULL`,
+  [video.videoId, video.title, video.views, video.likes, video.comments]);
+  await client.query(`INSERT INTO redaction_rh.youtube_video_snapshots (video_id,checked_at,views,likes,comments)
+    SELECT video_id,checked_at,views,likes,comments FROM redaction_rh.youtube_videos WHERE video_id=$1
+    ON CONFLICT DO NOTHING`, [video.videoId]);
+  const inserted = await client.query(`INSERT INTO redaction_rh.youtube_contributions (id,video_id,collaborator_id,submission_id,contribution_role)
+    VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id`, [randomUUID(), video.videoId, collaboratorId, submissionId, role]);
+  if (!inserted.rowCount) return false;
+  await client.query(`INSERT INTO redaction_rh.youtube_contribution_events (contribution_id,actor_email,action) VALUES ($1,$2,'claim')`, [inserted.rows[0].id, actor]);
+  return true;
+}
+
+export async function mayAdminClaimYoutubePerformance(collaboratorId: string, submissionId: string): Promise<boolean> {
+  const result = await db().query(`SELECT 1 FROM redaction_rh.activity_submissions s
+    JOIN redaction_rh.collaborators c ON c.id=s.collaborator_id AND NOT c.archived
+    WHERE s.id=$1 AND c.id=$2 AND s.status IN ('pending','approved')
+    AND NOT EXISTS (SELECT 1 FROM redaction_rh.youtube_contributions p WHERE p.submission_id=s.id)`, [submissionId, collaboratorId]);
+  return !!result.rowCount;
+}
+
+export async function adminClaimYoutubePerformance(collaboratorId: string, submissionId: string, role: string, video: OfficialVideo, actor: string): Promise<boolean> {
+  const client = await db().connect();
+  try {
+    await client.query('BEGIN');
+    const submission = await client.query(`SELECT s.id FROM redaction_rh.activity_submissions s
+      JOIN redaction_rh.collaborators c ON c.id=s.collaborator_id AND NOT c.archived
+      WHERE s.id=$1 AND c.id=$2 AND s.status IN ('pending','approved') FOR UPDATE OF s`, [submissionId, collaboratorId]);
+    if (!submission.rowCount || !(await insertYoutubeClaim(client, collaboratorId, submissionId, role, video, actor))) {
+      await client.query('ROLLBACK'); return false;
+    }
+    await client.query('COMMIT'); return true;
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+}
+
 /** La même vidéo peut être créditée à plusieurs collaborateurs, mais une seule fois par personne. */
 export async function claimYoutubePerformance(principal: RhPrincipal, submissionId: string, role: string, video: OfficialVideo): Promise<boolean> {
   const client = await db().connect();
@@ -51,16 +89,9 @@ export async function claimYoutubePerformance(principal: RhPrincipal, submission
       JOIN redaction_rh.account_links l ON l.collaborator_id=c.id
       WHERE s.id=$1 AND s.status='pending' AND l.account_id=$2 AND l.account_email=$3 FOR UPDATE OF s`, [submissionId, principal.id, principal.email]);
     if (!submission.rowCount) { await client.query('ROLLBACK'); return false; }
-    await client.query(`INSERT INTO redaction_rh.youtube_videos (video_id,title,views,likes,comments) VALUES ($1,$2,$3,$4,$5)
-      ON CONFLICT (video_id) DO UPDATE SET title=EXCLUDED.title, views=EXCLUDED.views,likes=EXCLUDED.likes,comments=EXCLUDED.comments,checked_at=now(),unavailable_at=NULL`,
-    [video.videoId, video.title, video.views, video.likes, video.comments]);
-    await client.query(`INSERT INTO redaction_rh.youtube_video_snapshots (video_id,checked_at,views,likes,comments)
-      SELECT video_id,checked_at,views,likes,comments FROM redaction_rh.youtube_videos WHERE video_id=$1
-      ON CONFLICT DO NOTHING`, [video.videoId]);
-    const inserted = await client.query(`INSERT INTO redaction_rh.youtube_contributions (id,video_id,collaborator_id,submission_id,contribution_role)
-      VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id`, [randomUUID(), video.videoId, submission.rows[0].collaborator_id, submissionId, role]);
-    if (!inserted.rowCount) { await client.query('ROLLBACK'); return false; }
-    await client.query(`INSERT INTO redaction_rh.youtube_contribution_events (contribution_id,actor_email,action) VALUES ($1,$2,'claim')`, [inserted.rows[0].id, principal.email]);
+    if (!(await insertYoutubeClaim(client, submission.rows[0].collaborator_id, submissionId, role, video, principal.email))) {
+      await client.query('ROLLBACK'); return false;
+    }
     await client.query('COMMIT'); return true;
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }

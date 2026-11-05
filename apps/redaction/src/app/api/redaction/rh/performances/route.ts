@@ -1,6 +1,8 @@
 import { youtubePerformanceEnabled } from '@/lib/redaction/rh/youtube-performance-server';
 import { requireRhPermission } from '@/lib/redaction/rh/authorization';
-import { adminYoutubePerformances, reviewYoutubePerformance, setYoutubeBonus } from '@/lib/redaction/rh/youtube-performance-db';
+import { adminClaimYoutubePerformance, adminYoutubePerformances, mayAdminClaimYoutubePerformance, reviewYoutubePerformance, setYoutubeBonus } from '@/lib/redaction/rh/youtube-performance-db';
+import { fetchOfficialVideos } from '@/lib/redaction/rh/youtube-performance-server';
+import { contributionRole, youtubeVideoId } from '@/lib/redaction/rh/youtube-performance';
 import { isUuid } from '@/lib/redaction/rh/activities';
 import { bonusDecision } from '@/lib/redaction/rh/youtube-performance';
 import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api';
@@ -10,6 +12,24 @@ export async function GET() {
   try { await requireRhPermission('hr_manage'); return json({ performances: await adminYoutubePerformances() }); }
   catch (error) { return handleError(error); }
 }
+export async function POST(request: Request) {
+  if (!youtubePerformanceEnabled()) return json({ error: 'Module désactivé.' }, 503);
+  try {
+    const actor = await requireRhPermission('hr_manage');
+    if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
+    let body: unknown; try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return json({ error: 'Requête invalide.' }, 400);
+    const input = body as Record<string, unknown>;
+    const videoId = youtubeVideoId(input.url); const role = contributionRole(input.role);
+    if (!isUuid(input.collaboratorId) || !isUuid(input.submissionId) || !videoId || !role) return json({ error: 'Collaborateur, prestation, rôle ou lien invalide.' }, 400);
+    if (!(await mayAdminClaimYoutubePerformance(input.collaboratorId, input.submissionId))) return json({ error: 'Prestation introuvable ou déjà associée à une vidéo.' }, 409);
+    const video = (await fetchOfficialVideos([videoId])).get(videoId);
+    if (!video) return json({ error: 'Vidéo introuvable ou hors de la chaîne officielle.' }, 400);
+    if (!(await adminClaimYoutubePerformance(input.collaboratorId, input.submissionId, role, video, actor.email))) return json({ error: 'Prestation modifiée ou contribution déjà enregistrée.' }, 409);
+    return json({ ok: true }, 201);
+  } catch (error) { return handleError(error); }
+}
+
 export async function PATCH(request: Request) {
   if (!youtubePerformanceEnabled()) return json({ error: 'Module désactivé.' }, 503);
   try {

@@ -3,7 +3,7 @@ import { useRhNotice } from './use-rh-notice';
 import { YoutubeClaims } from './youtube-claims';
 import { RhActionVoiceToggle, useRhActionVoice } from './rh-action-voice';
 import { CircleCheck, CircleHelp } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { PersonalHistoryControls } from './personal-history-controls';
 import { historyUrl, type HistoryPeriod } from '@/lib/redaction/rh/personal-history';
 import { enqueue, pending, notifyQueue } from '@/lib/redaction/rh/offline-queue';
@@ -27,6 +27,35 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [visibleViewport, setVisibleViewport] = useState({ top: '0px', height: '100dvh' });
+  useEffect(() => {
+    if (!formOpen) return;
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const keepFocusedFieldVisible = () => {
+      const form = formRef.current;
+      const field = document.activeElement;
+      if (!form || !(field instanceof HTMLElement) || !form.contains(field)) return;
+      const bounds = form.getBoundingClientRect();
+      const focus = field.getBoundingClientRect();
+      if (focus.bottom > bounds.bottom - 72) form.scrollTop += focus.bottom - (bounds.bottom - 72);
+      else if (focus.top < bounds.top + 12) form.scrollTop -= bounds.top + 12 - focus.top;
+    };
+    const resize = () => {
+      setVisibleViewport({ top: `${Math.max(0, viewport.offsetTop)}px`, height: `${Math.max(120, viewport.height)}px` });
+      requestAnimationFrame(keepFocusedFieldVisible);
+    };
+    resize();
+    viewport.addEventListener('resize', resize);
+    viewport.addEventListener('scroll', resize);
+    window.addEventListener('resize', resize);
+    return () => {
+      viewport.removeEventListener('resize', resize);
+      viewport.removeEventListener('scroll', resize);
+      window.removeEventListener('resize', resize);
+    };
+  }, [formOpen]);
   const [queued, setQueued] = useState<Awaited<ReturnType<typeof pending>>>([]);
   useEffect(() => {
     const refresh = () => { void pending(owner).then(setQueued).catch(() => setError('Stockage local indisponible.')); };
@@ -96,12 +125,11 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
       {expanded && hasMore && <button type="button" disabled={loading} onClick={() => setPage((n) => n + 1)} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Charger plus de prestations</button>}
     </>}
       <button type="button" aria-expanded={formOpen} onClick={() => setFormOpen((open) => !open)} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">{formOpen ? 'Fermer' : '+ Déclarer une prestation'}</button>
-      {formOpen && <div className="fixed inset-0 z-[80] flex items-end bg-black/50 sm:static sm:block sm:bg-transparent" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
-      <form onSubmit={submit} className="max-h-[88dvh] w-full space-y-3 overflow-y-auto rounded-t-2xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-none sm:rounded-xl sm:border-t sm:shadow-none">
+      {formOpen && <div style={{ '--rh-viewport-top': visibleViewport.top, '--rh-viewport-height': visibleViewport.height } as React.CSSProperties} className="fixed inset-x-0 top-[var(--rh-viewport-top)] z-[80] flex h-[var(--rh-viewport-height)] items-end bg-black/50 sm:static sm:block sm:h-auto sm:bg-transparent" onMouseDown={(event) => { if (event.target === event.currentTarget) setFormOpen(false); }}>
+      <form ref={formRef} onFocusCapture={(event) => { const field = event.target; window.setTimeout(() => { if (document.activeElement !== field) return; const form = formRef.current; if (!form) return; const bounds = form.getBoundingClientRect(); const focus = field.getBoundingClientRect(); if (focus.bottom > bounds.bottom - 72) form.scrollTop += focus.bottom - (bounds.bottom - 72); }, 300); }} onSubmit={submit} className="max-h-full w-full space-y-3 overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-none sm:rounded-xl sm:border-t sm:shadow-none">
         <div className="flex items-center justify-between"><h3 className="font-semibold">Déclarer une prestation</h3><button type="button" onClick={() => setFormOpen(false)} className="rounded-full px-3 py-1 text-sm font-semibold text-muted-foreground">Fermer</button></div>
-        <p className="text-xs text-muted-foreground">Décrivez les missions du jour, même si aucun contenu n’a été publié. Ne saisissez pas de données sensibles.</p>
         <label className="block text-sm font-medium">Date<input type="date" required min="1900-01-01" max={localToday} value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
-        <label className="block text-sm font-medium">Activités réalisées<input required maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <label className="block text-sm font-medium">Activités réalisées<textarea required rows={3} maxLength={500} value={description} onChange={(e) => setDescription(e.target.value.replace(/[\r\n]+/g, ' '))} className="mt-1 block w-full resize-y rounded-lg border border-border bg-background px-3 py-2" /></label>
         <button type="submit" disabled={busy} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? 'Envoi…' : 'Envoyer la déclaration'}</button>
       </form></div>}
     {youtubeEnabled && <YoutubeClaims submissions={items} />}
