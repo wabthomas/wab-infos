@@ -26,7 +26,7 @@ export function YoutubeClaims({ submissions }: { submissions: Submission[] }) {
     try {
       const r = await fetchRedaction(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ submissionId, url, role }) });
       const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Vérification impossible.');
-      setSubmissionId(''); setUrl(''); setRole(''); setMessage('Vidéo vérifiée sur la chaîne officielle. L’admin doit valider la prestation et votre contribution.'); setReload(v => v + 1);
+      setSubmissionId(''); setUrl(''); setRole(''); setMessage('Vidéo ajoutée, en attente de validation.'); setReload(v => v + 1);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Envoi impossible.'); }
     finally { setBusy(false); }
   }

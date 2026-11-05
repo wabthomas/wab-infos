@@ -37,39 +37,39 @@ type RhFlags = {
 };
 type Item = { href: string; label: string; icon: Icon; exact?: boolean };
 
-const ADMIN_TITLES: Record<string, { eyebrow: string; title: string; text: string }> = {
-  '/rh': { eyebrow: 'ESPACE DE TRAVAIL', title: 'Ressources humaines', text: 'Pilotez l’équipe, les prestations et les paiements depuis un seul espace.' },
-  '/rh/equipe': { eyebrow: 'ÉQUIPE', title: 'Collaborateurs', text: 'Dossiers professionnels, comptes liés et fonctions de chacun.' },
-  '/rh/prestations': { eyebrow: 'SUIVI QUOTIDIEN', title: 'Prestations', text: 'Déclarations de la rédaction et journées à vérifier.' },
-  '/rh/conges': { eyebrow: 'TEMPS & DISPONIBILITÉ', title: 'Congés et absences', text: 'Demandes de l’équipe, validations et refus motivés.' },
-  '/rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Rémunérations', text: 'Montants mensuels, validation et référence journalière.' },
-  '/rh/paiements-anciens': { eyebrow: 'RECONSTITUTION', title: 'Paiements historiques', text: 'Contrôle des déclarations passées et rapprochement des paiements.' },
-  '/rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Retraits', text: 'Soldes, demandes et paiements réellement effectués.' },
-  '/rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Documents', text: 'Contrats et attestations conservés de façon privée.' },
-  '/rh/contrats': { eyebrow: 'GESTION CONTRACTUELLE', title: 'Contrats CDD / CDI', text: 'Préparer des projets soumis au droit de la RDC après validation juridique.' },
-  '/rh/correspondance': { eyebrow: 'RÉDACTION OFFICIELLE', title: 'Correspondance RH', text: 'Lettres et communiqués formels, assistés par IA et validés par l’administration.' },
-  '/rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Contestations', text: 'Réponses aux désaccords exprimés par les collaborateurs.' },
-  '/rh/rapports': { eyebrow: 'SUIVI RH', title: 'Rapports', text: 'Exports filtrés et journalisés pour le suivi de l’équipe.' },
-  '/rh/parametres': { eyebrow: 'ADMINISTRATION', title: 'Paramètres RH', text: 'Identité de l’entreprise, documents, fonctionnalités et accès.' },
-  '/rh/plus': { eyebrow: 'TOUS LES ESPACES', title: 'Plus', text: 'Accès direct aux autres sections du module RH.' },
+const ADMIN_TITLES: Record<string, { eyebrow: string; title: string }> = {
+  '/rh': { eyebrow: 'ESPACE DE TRAVAIL', title: 'Ressources humaines' },
+  '/rh/equipe': { eyebrow: 'ÉQUIPE', title: 'Collaborateurs' },
+  '/rh/prestations': { eyebrow: 'SUIVI QUOTIDIEN', title: 'Prestations' },
+  '/rh/conges': { eyebrow: 'TEMPS & DISPONIBILITÉ', title: 'Congés et absences' },
+  '/rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Rémunérations' },
+  '/rh/paiements-anciens': { eyebrow: 'RECONSTITUTION', title: 'Paiements historiques' },
+  '/rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Retraits' },
+  '/rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Documents' },
+  '/rh/contrats': { eyebrow: 'GESTION CONTRACTUELLE', title: 'Contrats CDD / CDI' },
+  '/rh/correspondance': { eyebrow: 'RÉDACTION OFFICIELLE', title: 'Correspondance RH' },
+  '/rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Contestations' },
+  '/rh/rapports': { eyebrow: 'SUIVI RH', title: 'Rapports' },
+  '/rh/parametres': { eyebrow: 'ADMINISTRATION', title: 'Paramètres RH' },
+  '/rh/plus': { eyebrow: 'TOUS LES ESPACES', title: 'Plus' },
 };
 
-const MY_TITLES: Record<string, { eyebrow: string; title: string; text: string }> = {
-  '/mon-rh': { eyebrow: 'MON ESPACE', title: 'Mon espace RH', text: 'Vos soldes, demandes, documents et notifications en un coup d’œil.' },
-  '/mon-rh/conges': { eyebrow: 'TEMPS & DISPONIBILITÉ', title: 'Mes congés', text: 'Vos demandes d’absence et leur suivi.' },
-  '/mon-rh/prestations': { eyebrow: 'SUIVI QUOTIDIEN', title: 'Mes prestations', text: 'Déclarez et suivez vos journées de travail.' },
-  '/mon-rh/presence': { eyebrow: 'TEMPS DE TRAVAIL', title: 'Ma présence', text: 'Signez votre arrivée et votre sortie.' },
-  '/mon-rh/fiche': { eyebrow: 'IDENTIFICATION', title: 'Ma fiche', text: 'Fiche d’identification électronique imprimable.' },
-  '/mon-rh/carte-service': { eyebrow: 'IDENTIFICATION', title: 'Ma carte de service', text: 'Carte professionnelle sécurisée, recto-verso.' },
-  '/mon-rh/chat': { eyebrow: 'ÉQUIPE', title: 'Chat RH', text: 'Échanges de groupe et conversations privées.' },
-  '/mon-rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Mes rémunérations', text: 'Montants validés par l’administration.' },
-  '/mon-rh/paiements-anciens': { eyebrow: 'RECONSTITUTION', title: 'Anciens paiements', text: 'Déclarez vos paiements passés pour rapprochement et vérification.' },
-  '/mon-rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Mes retraits', text: 'Solde disponible, demandes et paiements enregistrés.' },
-  '/mon-rh/contrats': { eyebrow: 'ACCORD PERSONNEL', title: 'Mes contrats', text: 'Projets à examiner et exemplaires acceptés.' },
-  '/mon-rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Mes documents', text: 'Contrats, attestations et documents partagés.' },
-  '/mon-rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Mes contestations', text: 'Signalez un désaccord et suivez la réponse.' },
-  '/mon-rh/notifications': { eyebrow: 'SUIVI', title: 'Mes notifications', text: 'Les événements RH qui vous concernent.' },
-  '/mon-rh/plus': { eyebrow: 'TOUS LES ESPACES', title: 'Plus', text: 'Accès direct aux autres sections de mon espace.' },
+const MY_TITLES: Record<string, { eyebrow: string; title: string }> = {
+  '/mon-rh': { eyebrow: 'MON ESPACE', title: 'Mon espace RH' },
+  '/mon-rh/conges': { eyebrow: 'TEMPS & DISPONIBILITÉ', title: 'Mes congés' },
+  '/mon-rh/prestations': { eyebrow: 'SUIVI QUOTIDIEN', title: 'Mes prestations' },
+  '/mon-rh/presence': { eyebrow: 'TEMPS DE TRAVAIL', title: 'Ma présence' },
+  '/mon-rh/fiche': { eyebrow: 'IDENTIFICATION', title: 'Ma fiche' },
+  '/mon-rh/carte-service': { eyebrow: 'IDENTIFICATION', title: 'Ma carte de service' },
+  '/mon-rh/chat': { eyebrow: 'ÉQUIPE', title: 'Chat RH' },
+  '/mon-rh/remunerations': { eyebrow: 'SUIVI FINANCIER', title: 'Mes rémunérations' },
+  '/mon-rh/paiements-anciens': { eyebrow: 'RECONSTITUTION', title: 'Anciens paiements' },
+  '/mon-rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Mes retraits' },
+  '/mon-rh/contrats': { eyebrow: 'ACCORD PERSONNEL', title: 'Mes contrats' },
+  '/mon-rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Mes documents' },
+  '/mon-rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Mes contestations' },
+  '/mon-rh/notifications': { eyebrow: 'SUIVI', title: 'Mes notifications' },
+  '/mon-rh/plus': { eyebrow: 'TOUS LES ESPACES', title: 'Plus' },
 };
 
 function isActive(pathname: string, href: string, exact?: boolean): boolean {
@@ -172,7 +172,6 @@ export function RhSectionShell({
               {info.title}
               <span className="text-rose-400">.</span>
             </h1>
-            <p className="mt-1.5 max-w-xl text-sm leading-6 text-zinc-300">{info.text}</p>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.07] px-3 py-2 text-[11px] font-medium text-zinc-200">
             <LockKeyhole className="h-3.5 w-3.5 text-rose-300" />

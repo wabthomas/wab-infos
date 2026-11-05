@@ -106,7 +106,7 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
     } else void send('POST', input);
   }
   return <section className="space-y-4 rounded-xl border border-border bg-card p-5">
-    <div><h2 className="font-semibold">Mes prestations</h2><p className="mt-1 text-sm text-muted-foreground">Déclarez votre travail pour vérification par l’admin. Une déclaration en attente n’est pas encore un relevé validé.</p><div className="mt-3"><RhActionVoiceToggle voice={voice} /></div></div>
+    <div><h2 className="font-semibold">Mes prestations</h2><div className="mt-3"><RhActionVoiceToggle voice={voice} /></div></div>
     {error && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
     {message && <p role="status" className="text-sm text-primary">{message}</p>}
     {queued.filter((op) => op.kind === 'prestation').map((op) => <p key={op.id} role="status" className="rounded-lg bg-amber-500/10 p-3 text-sm">{op.date} · {op.description} — en attente d’envoi</p>)}
