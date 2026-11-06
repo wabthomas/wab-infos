@@ -17,6 +17,11 @@ export function YoutubePerformanceAdmin({ canManageBonus }: { canManageBonus: bo
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false);
   const [error, setError] = useState(''); const [message, setMessage] = useState(''); const [reload, setReload] = useState(0);
   useEffect(() => {
+    const refresh = () => setReload(n => n + 1);
+    window.addEventListener('rh-performances-changed', refresh);
+    return () => window.removeEventListener('rh-performances-changed', refresh);
+  }, []);
+  useEffect(() => {
     const controller = new AbortController(); setLoading(true);
     fetchRedaction(endpoint, { cache: 'no-store', signal: controller.signal })
       .then(async r => { if (!r.ok) throw new Error(); setRows((await r.json()).performances); setError(''); })
@@ -33,7 +38,7 @@ export function YoutubePerformanceAdmin({ canManageBonus }: { canManageBonus: bo
     try {
       const response = await fetchRedaction(url, { method, ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Action impossible.');
-      setMessage('Décision enregistrée.'); setReload(n => n + 1);
+      setMessage('Décision enregistrée.'); setReload(n => n + 1); window.dispatchEvent(new Event('rh-submissions-changed'));
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Action impossible.'); }
     finally { setBusy(false); }
   }
@@ -45,7 +50,7 @@ export function YoutubePerformanceAdmin({ canManageBonus }: { canManageBonus: bo
   }
   return <section id="performances-youtube" className="scroll-mt-6 space-y-4 rounded-xl border border-border bg-card p-5">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-lg font-bold">Performances YouTube · équipe</h2></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowClaim(value => !value)} aria-expanded={showClaim} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">{showClaim ? 'Fermer' : '+ Ajouter une vidéo'}</button><button type="button" disabled={busy} onClick={() => void request(`${endpoint}/actualiser`, 'POST')} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold disabled:opacity-50">Actualiser (6 h)</button><button type="button" disabled={!visible.length} onClick={downloadCsv} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold disabled:opacity-50">Rapport CSV</button></div></div>
-    {showClaim && <YoutubeClaimAdmin linkedSubmissionIds={rows.map(row => row.submissionId)} onAdded={() => setReload(n => n + 1)} />}
+    {showClaim && <YoutubeClaimAdmin linkedSubmissionIds={rows.map(row => row.submissionId)} onAdded={() => { setReload(n => n + 1); window.dispatchEvent(new Event('rh-submissions-changed')); }} />}
     {error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}{message && <p role="status" className="text-sm text-primary">{message}</p>}
     <div className="grid grid-cols-3 gap-2">{([['Vues', total('views')], ['J’aime', total('likes')], ['Commentaires', total('comments')]] as const).map(([label,value]) => <div key={label} className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">{label} · vidéos validées</p><p className="text-lg font-bold tabular-nums">{value}</p></div>)}</div>
     <div className="flex flex-wrap gap-2"><input aria-label="Filtrer collaborateurs et vidéos" placeholder="Collaborateur, vidéo, rôle…" className="rounded-lg border border-border bg-background p-2 text-sm" value={filter} onChange={e => setFilter(e.target.value)} /><input aria-label="Mois de la prestation" type="month" className="rounded-lg border border-border bg-background p-2 text-sm" value={month} onChange={e => setMonth(e.target.value)} /></div>

@@ -3,6 +3,18 @@ import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 
+test('admin Prestations : lien YouTube proposé dans la déclaration non associée, sans validation automatique', async () => {
+  const page = await readFile(new URL('../apps/redaction/src/app/(editor)/rh/prestations/page.tsx', import.meta.url), 'utf8');
+  const review = await readFile(new URL('../apps/redaction/src/components/redaction/rh/submission-review.tsx', import.meta.url), 'utf8');
+  assert.match(page, /<SubmissionReview youtubeEnabled=\{youtubePerformanceEnabled\(\)\}/);
+  assert.match(review, /\+ Ajouter le lien vidéo manquant/);
+  assert.match(review, /linked \? <div/);
+  assert.match(review, /item\.status === 'pending' \|\| item\.status === 'approved'/);
+  assert.match(review, /fetchRedaction\('\/api\/redaction\/rh\/performances', \{\s*method: 'POST'/);
+  assert.match(review, /body: JSON\.stringify\(\{ collaboratorId: personId, submissionId: item\.id, url: videoUrl, role: videoRole \}\)/);
+  assert.match(review, /Vidéo associée\. Vérifiez-la, puis validez la prestation et la contribution séparément\./);
+});
+
 test('migration YouTube : vidéo partagée, attribution unique par personne et par prestation, événements financiers', async () => {
   const db = new PGlite();
   try {
