@@ -14,6 +14,7 @@ import { GoogleTagManagerBody, GoogleTagManagerHead } from '@/components/google/
 import { AdsenseConfigProvider } from '@/components/ads/adsense-config-context';
 import { getAdsenseConfig } from '@/lib/adsense-config.server';
 import { getSiteSettings } from '@/lib/site-settings.server';
+import { startNewsletterQueueWorker } from '@/lib/newsletter/queue-worker';
 import { generateOrganizationJsonLd, generateWebsiteJsonLd } from '@/lib/seo';
 import {
   buildBunnyFontsStylesheetUrl,
@@ -93,6 +94,9 @@ export const viewport: Viewport = {
   maximumScale: 5,
   viewportFit: 'cover',
 };
+
+// File d'envoi newsletter : un seul worker par processus serveur.
+try { startNewsletterQueueWorker(); } catch { /* le worker ne doit jamais bloquer le rendu */ }
 
 export default async function RootLayout({
   children,

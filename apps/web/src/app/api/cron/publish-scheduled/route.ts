@@ -6,6 +6,7 @@ import { sendReaderDailyEngagementIfDue } from '@/lib/push/broadcast';
 import { triggerNewsIngestIfIdle } from '@/lib/news-ingest/run';
 import { triggerAiImportProcessingIfIdle } from '@/lib/ai/trigger-redaction-ai';
 import { renewYoutubePubSubSubscription } from '@/lib/youtube-pubsub';
+import { drainNewsletterQueue } from '@/lib/newsletter/queue';
 
 export async function POST(request: Request) {
   const secret = request.headers.get('x-revalidation-secret');
@@ -17,12 +18,13 @@ export async function POST(request: Request) {
     triggerNewsIngestIfIdle();
     triggerAiImportProcessingIfIdle();
 
-    const [articles, youtube, newsletterVideos, engagement, youtubeHub] = await Promise.all([
+    const [articles, youtube, newsletterVideos, engagement, youtubeHub, newsletterQueue] = await Promise.all([
       publishDueScheduledArticles(),
       publishNewYoutubeVideoPushes(),
       publishNewYoutubeVideoNewsletters(),
       sendReaderDailyEngagementIfDue(),
       renewYoutubePubSubSubscription(),
+      drainNewsletterQueue(),
     ]);
     return NextResponse.json({
       ok: true,

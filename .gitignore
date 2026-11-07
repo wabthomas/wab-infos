@@ -61,3 +61,5 @@ apps/web/public/downloads/*.apk
 
 # WordPress import
 scripts/wordpress-import/data/
+
+.data/

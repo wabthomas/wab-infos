@@ -2,8 +2,8 @@ import { getVideoPagePath, siteConfig } from '@/config/site';
 import { isRecentPublication } from '@/lib/article-publish';
 import { newsletterConfig } from '@/lib/newsletter/config';
 import { isMailReady } from '@/lib/newsletter/stored-settings';
-import { sendBatchEmails } from '@/lib/newsletter/transport';
-import { buildUnsubscribeUrl, getActiveSubscribers, isSubscriberActive } from '@/lib/newsletter/subscribers';
+import { enqueueYoutubeNewsletter } from '@/lib/newsletter/queue';
+import { buildUnsubscribeUrl, getActiveSubscribers } from '@/lib/newsletter/subscribers';
 import {
   buildVideoNewsletterSubject,
   renderVideoNewsletterHtml,
@@ -106,30 +106,21 @@ export async function publishNewYoutubeVideoNewsletters(
       publishedAt: video.publishedAt,
     };
 
-    const emails = subscribers.map((subscriber) => {
-      const payload: VideoNewsletterData = {
-        ...payloadBase,
-        unsubscribeUrl: buildUnsubscribeUrl(subscriber.unsubscribeToken),
-      };
-      return {
-        to: subscriber.email,
-        subject: buildVideoNewsletterSubject(payload),
-        html: renderVideoNewsletterHtml(payload),
-        text: renderVideoNewsletterText(payload),
-        unsubscribeUrl: payload.unsubscribeUrl,
-        replyTo: newsletterConfig.replyTo,
-      };
+    const recipients = subscribers.map((subscriber) => ({
+      email: subscriber.email,
+      unsubscribeUrl: buildUnsubscribeUrl(subscriber.unsubscribeToken),
+    }));
+    const queuedCount = await enqueueYoutubeNewsletter({
+      video: {
+        title,
+        excerpt: payloadBase.excerpt,
+        videoUrl: payloadBase.videoUrl,
+        imageUrl: payloadBase.imageUrl,
+        publishedAt: payloadBase.publishedAt,
+      },
+      recipients,
     });
-
-    const tokenByEmail = new Map(subscribers.map((subscriber) => [subscriber.email, subscriber.unsubscribeToken]));
-    const { sent, failed } = await sendBatchEmails(emails, (item) =>
-      isSubscriberActive(tokenByEmail.get(item.to)!, item.to)
-    );
-    if (sent === 0) {
-      await releaseYoutubeNewsletterClaim(claimId);
-    }
-
-    processed.push({ youtubeId: video.videoId, title, sent, failed });
+    processed.push({ youtubeId: video.videoId, title, sent: 0, failed: 0, skipped: queuedCount === 0, reason: queuedCount === 0 ? 'already_queued' : undefined });
   }
 
   const anyFailed = processed.some((row) => row.failed > 0 && !row.skipped);

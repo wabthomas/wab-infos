@@ -11,7 +11,7 @@ import {
 import { newsletterConfig } from '@/lib/newsletter/config';
 import { isMailReady } from '@/lib/newsletter/stored-settings';
 import { claimArticleNewsletterSend } from '@/lib/newsletter/article-newsletter-log';
-import { sendBatchEmails } from '@/lib/newsletter/transport';
+import { enqueueArticleNewsletter } from '@/lib/newsletter/queue';
 import {
   buildUnsubscribeUrl,
   getActiveSubscribers,
@@ -27,6 +27,7 @@ export interface SendArticleNewsletterResult {
   sent?: number;
   failed?: number;
   subscribers?: number;
+  queued?: boolean;
 }
 
 function mapStrapiArticleToPayload(
@@ -112,9 +113,6 @@ export async function sendArticleNewsletter(slug: string): Promise<SendArticleNe
   }
 
   const subscribers = await getActiveSubscribers();
-  if (subscribers.length > newsletterConfig.maxRecipientsPerRun) {
-    return { ok: false, skipped: true, reason: 'rate_limited', subscribers: subscribers.length };
-  }
   if (subscribers.length === 0) {
     return { ok: true, skipped: true, reason: 'no_subscribers', subscribers: 0 };
   }
@@ -123,35 +121,12 @@ export async function sendArticleNewsletter(slug: string): Promise<SendArticleNe
     return { ok: true, skipped: true, reason: 'already_claimed' };
   }
 
-  const emails = subscribers.map((subscriber) => {
-    const payload = mapStrapiArticleToPayload(
-      article,
-      buildUnsubscribeUrl(subscriber.unsubscribeToken)
-    );
-
-    return {
-      to: subscriber.email,
-      subject: buildArticleNewsletterSubject(payload),
-      html: renderArticleNewsletterHtml(payload),
-      text: renderArticleNewsletterText(payload),
-      unsubscribeUrl: buildUnsubscribeUrl(subscriber.unsubscribeToken),
-      replyTo: newsletterConfig.replyTo,
-    };
-  });
-
-  const tokenByEmail = new Map(subscribers.map((subscriber) => [subscriber.email, subscriber.unsubscribeToken]));
-  const { sent, failed } = await sendBatchEmails(emails, (item) =>
-    isSubscriberActive(tokenByEmail.get(item.to)!, item.to)
-  );
-
-  if (sent > 0) {
-    await markArticleNewsletterSent(article.documentId);
-  }
-
-  return {
-    ok: failed === 0,
-    sent,
-    failed,
-    subscribers: subscribers.length,
-  };
+  const recipients = subscribers.map((subscriber) => ({
+    email: subscriber.email,
+    unsubscribeUrl: buildUnsubscribeUrl(subscriber.unsubscribeToken),
+  }));
+  const queued = await enqueueArticleNewsletter({ slug: article.slug, recipients });
+  if (queued === 0) return { ok: true, skipped: true, reason: 'already_queued' };
+  await markArticleNewsletterSent(article.documentId);
+  return { ok: true, queued: true, sent: 0, failed: 0, subscribers: queued };
 }
