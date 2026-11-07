@@ -85,7 +85,7 @@ export async function PATCH(request: Request) {
         let logoPng: string | null = null;
         if (asset['company-logo']) {
           try {
-            const bytes = await sharp(asset['company-logo'] as Buffer, { limitInputPixels: 12_000_000 })
+            const bytes = await sharp(asset['company-logo'] as Buffer, { limitInputPixels: 80_000_000 })
               .resize(400, 240, { fit: 'inside', withoutEnlargement: true }).png().toBuffer();
             logoPng = `data:image/png;base64,${bytes.toString('base64')}`;
           } catch { await client.query('ROLLBACK'); return json({ error: 'Le logo de l’entreprise ne peut pas être intégré au contrat.' }, 409); }

@@ -8,7 +8,7 @@ export type ContractPdfData = ContractDocumentData & {
 
 async function asPng(bytes?: Buffer | null, opacity = 1): Promise<string | null> {
   if (!bytes) return null;
-  const raw = await sharp(bytes, { limitInputPixels: 12_000_000 }).resize(600, 300, { fit: 'inside', withoutEnlargement: true }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const raw = await sharp(bytes, { limitInputPixels: 80_000_000 }).resize(600, 300, { fit: 'inside', withoutEnlargement: true }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   if (opacity < 1) for (let i = 3; i < raw.data.length; i += 4) raw.data[i] = Math.round(raw.data[i] * opacity);
   return `data:image/png;base64,${(await sharp(raw.data, { raw: raw.info }).png().toBuffer()).toString('base64')}`;
 }
