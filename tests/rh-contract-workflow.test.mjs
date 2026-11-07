@@ -7,7 +7,9 @@ const person = '6eb981c5-f9ea-41f0-9e2c-e26a75ec1ca0';
 const input = { collaboratorId: person,kind:'CDD',jobTitle:'Rédacteur',workLocation:'Kinshasa',startDate:'2026-11-04',endDate:'2027-11-04',salary:'100.00',currency:'CDF',clauses:'Clauses préalablement vérifiées par un juriste.' };
 
 test('CDD et CDI : dates réelles, champs et rémunération', () => {
-  assert.deepEqual(validateContractInput(input),{...input,birthPlace:''});
+  assert.deepEqual(validateContractInput(input),{...input,birthPlace:'',signaturePlace:'',signatureDate:null});
+  assert.equal(validateContractInput({...input,signaturePlace:'Goma',signatureDate:'2026-09-12'})?.signatureDate,'2026-09-12');
+  assert.equal(validateContractInput({...input,signatureDate:'2026-02-30'}),null);
   assert.equal(validateContractInput({...input,birthPlace:'Goma'})?.birthPlace,'Goma');
   assert.equal(validateContractInput({...input,birthPlace:'Goma\nFaux'}),null);
   assert.equal(validateContractInput({...input,endDate:'2026-11-04'}),null);
@@ -108,5 +110,25 @@ test('migration additive : identité figée et lieu de naissance sans modifier l
     await db.query('UPDATE redaction_rh.contract_cases SET birth_place=$2,party_snapshot=$3 WHERE id=$1',[id,'Goma',JSON.stringify(snapshot)]);
     const stored = await db.query('SELECT party_snapshot FROM redaction_rh.contract_cases WHERE id=$1',[id]);
     assert.deepEqual(stored.rows[0].party_snapshot,snapshot);
+  } finally { await db.close(); }
+});
+
+test('lieu et date du modèle copiés au dossier, migration additive sans altérer les anciens', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec('CREATE SCHEMA redaction_rh; CREATE TABLE redaction_rh.collaborators(id uuid PRIMARY KEY);');
+    await db.query('INSERT INTO redaction_rh.collaborators(id) VALUES($1)',[person]);
+    await db.exec(await readFile(new URL('../docs/sql/rh-contract-workflow.sql',import.meta.url),'utf8'));
+    const id='a127e83b-6e6f-42c0-8b4e-3f9eb7a1f2a0';
+    await db.query(`INSERT INTO redaction_rh.contract_templates(id,kind,title,clauses,created_by,signature_place,signature_date)
+      VALUES($1,'CDI','Journalisme','Clause','admin@example.test','Goma','2026-09-12')`,[id]);
+    const template = await db.query("SELECT signature_place,to_char(signature_date,'YYYY-MM-DD') AS day FROM redaction_rh.contract_templates WHERE id=$1",[id]);
+    assert.deepEqual(template.rows[0],{signature_place:'Goma',day:'2026-09-12'});
+    await db.exec(await readFile(new URL('../docs/sql/rh-contract-signing-place.sql',import.meta.url),'utf8'));
+    const other='95f79863-6507-4c20-a855-fcf8f6991689';
+    await db.query(`INSERT INTO redaction_rh.contract_cases(id,collaborator_id,kind,job_title,work_location,start_date,salary,currency,clauses,prepared_by,signature_place,signature_date)
+      VALUES($1,$2,'CDI','Journaliste','Kinshasa','2026-11-04',100,'CDF','Clause','admin@example.test',$3,$4)`,[other,person,template.rows[0].signature_place,template.rows[0].day]);
+    const caseData=await db.query("SELECT signature_place,to_char(signature_date,'YYYY-MM-DD') AS day FROM redaction_rh.contract_cases WHERE id=$1",[other]);
+    assert.deepEqual(caseData.rows[0],{signature_place:'Goma',day:'2026-09-12'});
   } finally { await db.close(); }
 });

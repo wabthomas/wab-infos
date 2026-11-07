@@ -130,3 +130,16 @@ test('préambule dans l’encadré à barre verticale, phrase de conclusion hors
     assert.ok(endPanel.transform[5] > belowPanel.transform[5], 'La phrase est placée après la fin du bloc des parties.');
   } finally { await document.destroy(); }
 });
+
+test('ligne de signature : lieu/date du modèle à droite, conservés dans le PDF', async () => {
+  const pdf = buildContractDocument({ ...data('Clause test.'), signaturePlace:'Goma',signatureDate:'2026-09-12' });
+  const viewer = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const document = await viewer.getDocument({ data:new Uint8Array(pdf.output('arraybuffer')), useSystemFonts:true }).promise;
+  try {
+    const page = await document.getPage(1);
+    const content = await page.getTextContent();
+    const line=content.items.find(item => 'str' in item && item.str.includes('Fait à Goma, le 12/09/2026'));
+    assert.ok(line, 'La date configurée apparaît sans utiliser la date du jour ni la date de début du contrat.');
+    assert.ok(line.transform[4] > page.view[2] / 2, 'La ligne commence dans la moitié droite de la page A4.');
+  } finally { await document.destroy(); }
+});

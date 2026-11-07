@@ -5,6 +5,7 @@ import { contractRuns, parseContractBlocks, type ContractBlock, type ContractRun
 export type ContractDocumentData = {
   kind: 'CDD' | 'CDI'; firstName: string; lastName: string; jobTitle: string; workLocation: string;
   startDate: string; endDate?: string | null; salary: string; currency: string; clauses: string;
+  signaturePlace?: string | null; signatureDate?: string | null;
   employer: { companyName?: string; companyAddress?: string; companyPhone?: string; companyEmail?: string; companyTaxId?: string; companyRegistration?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorAuthorized?: boolean; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string; logoPng?: string | null };
   parties?: ContractParties | null;
   employeeSignature?: string | null; acceptedAt?: string | null; draft?: boolean; draftLabel?: string;
@@ -69,7 +70,7 @@ function addContainedLogo(doc: jsPDF, image: string | null | undefined) {
     doc.addImage(image, 'PNG', 20 + (28 - width * ratio) / 2, 11 + (18 - height * ratio) / 2, width * ratio, height * ratio);
   } catch { /* Older snapshots can have no logo. */ }
 }
-function singleLine(doc: jsPDF, value: string, x: number, y: number, width: number, minSize: number, align: 'center' | 'left' = 'left') {
+function singleLine(doc: jsPDF, value: string, x: number, y: number, width: number, minSize: number, align: 'center' | 'left' | 'right' = 'left') {
   if (!value) return;
   while (doc.getTextWidth(value) > width && doc.getFontSize() > minSize) doc.setFontSize(Math.max(minSize, doc.getFontSize() - .25));
   let line = value;
@@ -273,7 +274,16 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
   room(64); y += 3;
   doc.setDrawColor(...BORDER); doc.setLineWidth(.25);
   doc.setTextColor(...MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.4);
-  doc.text('Date de signature : …… / …… / …………', MARGIN, y); y += 5;
+  if (!data.parties && !data.signaturePlace && !data.signatureDate) {
+    // Proposed legacy contracts did not carry a signature location/date; preserve their old layout.
+    doc.text('Date de signature : …… / …… / …………', MARGIN, y);
+  } else {
+    const signatureLocation = data.signaturePlace?.trim();
+    const signatureDate = data.signatureDate ? displayDate(data.signatureDate) : '…… / …… / …………';
+    const signatureLine = `Fait à ${signatureLocation || '……………………'}, le ${signatureDate}`;
+    singleLine(doc, signatureLine, 190, y, WIDTH, 7.4, 'right');
+  }
+  y += 5;
   const boxY = y; const boxHeight = 47;
   doc.rect(MARGIN, boxY, WIDTH, boxHeight); doc.line(105, boxY, 105, boxY + boxHeight);
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND); doc.setFontSize(8.7);
