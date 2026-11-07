@@ -1,0 +1,11 @@
+﻿import fs from 'node:fs';
+let pdf = fs.readFileSync('apps/redaction/src/lib/redaction/rh/contract-pdf.ts', 'utf8');
+pdf = pdf.replace('asPng(data.sealBytes, .23)', 'asPng(data.sealBytes, .85)');
+fs.writeFileSync('apps/redaction/src/lib/redaction/rh/contract-pdf.ts', pdf, 'utf8');
+let ws = fs.readFileSync('apps/redaction/src/components/redaction/rh/contracts-workspace.tsx', 'utf8');
+ws = ws.split('png(seal, .22)').join('png(seal, .85)');
+fs.writeFileSync('apps/redaction/src/components/redaction/rh/contracts-workspace.tsx', ws, 'utf8');
+let doc = fs.readFileSync('apps/redaction/src/lib/redaction/rh/contract-document.ts', 'utf8');
+doc = doc.replace('addImage(doc, assets.seal, MARGIN + 7, imageY, 25, 25);', 'addImage(doc, assets.seal, MARGIN + 6, imageY - 3, 34, 34);');
+fs.writeFileSync('apps/redaction/src/lib/redaction/rh/contract-document.ts', doc, 'utf8');
+console.log('PDF', pdf.includes('.85') ? 'OK' : 'MISS', 'WS', ws.includes('png(seal, .85)') ? 'OK' : 'MISS', 'DOC', doc.includes('34, 34') ? 'OK' : 'MISS');

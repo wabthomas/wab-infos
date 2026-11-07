@@ -171,7 +171,7 @@ export function ContractsWorkspace() {
       const timer = window.setTimeout(() => {
         void (async () => {
           try {
-            const images = await Promise.all([png(logo), sign ? png(seal, .22) : null, sign ? png(signature) : null]);
+            const images = await Promise.all([png(logo), sign ? png(seal, .85) : null, sign ? png(signature) : null]);
             if (!active) return;
             const pdf = buildContractDocument({
               kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
@@ -213,7 +213,7 @@ export function ContractsWorkspace() {
         kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
         startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties, signaturePlace, signatureDate, displayOptions,
         employer: { ...settings, directorAuthorized:authorized }, draft: true,
-      }, { logo: await png(logo), seal: sign ? await png(seal, .22) : null, signature: sign ? await png(signature) : null });
+      }, { logo: await png(logo), seal: sign ? await png(seal, .85) : null, signature: sign ? await png(signature) : null });
       pdf.save(`projet-contrat-${kind.toLowerCase()}-${person.lastName.replace(/[^a-zA-Z0-9-]/g,'-')}.pdf`);
       toast.success('Projet PDF prêt. Déposez la version signée dans Documents RH après contrôle.');
     } catch { setError('Génération PDF impossible.'); toast.error('Génération PDF impossible.'); }

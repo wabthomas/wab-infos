@@ -36,8 +36,8 @@ export async function POST(request: Request) {
     const client = await db().connect();
     try {
       await client.query('BEGIN');
-      const result = await client.query(`INSERT INTO redaction_rh.contract_cases(id,collaborator_id,kind,job_title,work_location,start_date,end_date,salary,currency,clauses,birth_place,signature_place,signature_date,prepared_by)
-        SELECT $1,id,$3,$4,$5,$6,$7,$8,$9,$10,$12,$13,$14,$11 FROM redaction_rh.collaborators WHERE id=$2 AND NOT archived RETURNING id`,[randomUUID(),input.collaboratorId,input.kind,input.jobTitle,input.workLocation,input.startDate,input.endDate,input.salary,input.currency,input.clauses,actor.email,input.birthPlace,input.signaturePlace,input.signatureDate,JSON.stringify(input.displayOptions)]);
+      const result = await client.query(`INSERT INTO redaction_rh.contract_cases(id,collaborator_id,kind,job_title,work_location,start_date,end_date,salary,currency,clauses,birth_place,signature_place,signature_date,display_options,prepared_by)
+        SELECT $1,id,$3,$4,$5,$6,$7,$8,$9,$10,$12,$13,$14,$15,$11 FROM redaction_rh.collaborators WHERE id=$2 AND NOT archived RETURNING id`,[randomUUID(),input.collaboratorId,input.kind,input.jobTitle,input.workLocation,input.startDate,input.endDate,input.salary,input.currency,input.clauses,actor.email,input.birthPlace,input.signaturePlace,input.signatureDate,JSON.stringify(input.displayOptions)]);
       if (!result.rowCount) { await client.query('ROLLBACK'); return json({ error: 'Dossier collaborateur introuvable.' }, 409); }
       await client.query("INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,'create')",[result.rows[0].id,actor.email]);
       await client.query('COMMIT'); return json({ id: result.rows[0].id }, 201);

@@ -16,7 +16,7 @@ async function asPng(bytes?: Buffer | null, opacity = 1): Promise<string | null>
 /** Rendu serveur à partir des données enregistrées et des visuels figés à la transmission. */
 export async function renderContractPdf(data: ContractPdfData): Promise<Buffer> {
   const doc = buildContractDocument({ ...data, draft: !data.employeeSignature, draftLabel: 'PROJET NON ACCEPTÉ' }, {
-    seal: await asPng(data.sealBytes, .23),
+    seal: await asPng(data.sealBytes, .85),
     signature: await asPng(data.signatureBytes),
     employeeSignatureImage: await asPng(data.employeeSignatureBytes),
   });

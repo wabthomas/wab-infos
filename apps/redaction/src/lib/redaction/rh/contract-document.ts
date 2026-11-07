@@ -299,7 +299,7 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND); doc.setFontSize(8.7);
   doc.text('POUR L’EMPLOYEUR', MARGIN + 3, boxY + 6); doc.text('LE TRAVAILLEUR', 108, boxY + 6);
   const imageY = boxY + 8;
-  addImage(doc, assets.seal, MARGIN + 7, imageY, 25, 25);
+  addImage(doc, assets.seal, MARGIN + 6, imageY - 3, 34, 34);
   addImage(doc, assets.signature, MARGIN + 16, imageY + 1, Math.min(46, Number(data.employer.directorSignatureWidth || 190) / 4), Math.min(22, Number(data.employer.directorSignatureHeight || 92) / 4));
   addImage(doc, assets.employeeSignatureImage, 111, imageY + 1, 53, 21);
   doc.setTextColor(...INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.9);
