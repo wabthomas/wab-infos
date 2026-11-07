@@ -7,7 +7,7 @@ const person = '6eb981c5-f9ea-41f0-9e2c-e26a75ec1ca0';
 const input = { collaboratorId: person,kind:'CDD',jobTitle:'Rédacteur',workLocation:'Kinshasa',startDate:'2026-11-04',endDate:'2027-11-04',salary:'100.00',currency:'CDF',clauses:'Clauses préalablement vérifiées par un juriste.' };
 
 test('CDD et CDI : dates réelles, champs et rémunération', () => {
-  assert.deepEqual(validateContractInput(input),{...input,birthPlace:'',signaturePlace:'',signatureDate:null});
+  assert.deepEqual(validateContractInput(input),{...input,birthPlace:'',signaturePlace:'',signatureDate:null,displayOptions:{job:true,location:true,startDate:true,endDate:true,salary:true}});
   assert.equal(validateContractInput({...input,signaturePlace:'Goma',signatureDate:'2026-09-12'})?.signatureDate,'2026-09-12');
   assert.equal(validateContractInput({...input,signatureDate:'2026-02-30'}),null);
   assert.equal(validateContractInput({...input,birthPlace:'Goma'})?.birthPlace,'Goma');
@@ -17,7 +17,8 @@ test('CDD et CDI : dates réelles, champs et rémunération', () => {
   assert.equal(validateContractInput({...input,kind:'CDI',endDate:'2027-11-04'}),null);
   assert.equal(validateContractInput({...input,kind:'CDI',endDate:null})?.kind,'CDI');
   assert.equal(validateContractInput({...input,salary:'-5'}),null);
-  assert.equal(validateContractInput({...input,clauses:'x'.repeat(12001)}),null);
+  assert.equal(validateContractInput({...input,clauses:'x'.repeat(15000)})?.clauses.length,15000);
+  assert.equal(validateContractInput({...input,clauses:'x'.repeat(15001)}),null);
   assert.equal(validateContractInput({...input,clauses:'x\n'.repeat(251)}),null);
 });
 
@@ -130,5 +131,26 @@ test('lieu et date du modèle copiés au dossier, migration additive sans altér
       VALUES($1,$2,'CDI','Journaliste','Kinshasa','2026-11-04',100,'CDF','Clause','admin@example.test',$3,$4)`,[other,person,template.rows[0].signature_place,template.rows[0].day]);
     const caseData=await db.query("SELECT signature_place,to_char(signature_date,'YYYY-MM-DD') AS day FROM redaction_rh.contract_cases WHERE id=$1",[other]);
     assert.deepEqual(caseData.rows[0],{signature_place:'Goma',day:'2026-09-12'});
+  } finally { await db.close(); }
+});
+
+test('migration 15 000 caractères : les modèles et dossiers existants restent valides', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec('CREATE SCHEMA redaction_rh; CREATE TABLE redaction_rh.collaborators(id uuid PRIMARY KEY);');
+    await db.query('INSERT INTO redaction_rh.collaborators(id) VALUES($1)',[person]);
+    const schema=(await readFile(new URL('../docs/sql/rh-contract-workflow.sql',import.meta.url),'utf8')).replaceAll('length(clauses) BETWEEN 1 AND 15000','length(clauses) BETWEEN 1 AND 12000');
+    await db.exec(schema);
+    const template='dd14f16a-caf7-43cc-8108-9ba21c7183d9';
+    const contract='95f79863-6507-4c20-a855-fcf8f6991689';
+    await db.query("INSERT INTO redaction_rh.contract_templates(id,kind,title,clauses,created_by) VALUES($1,'CDD','Trame','Ancien texte','admin@example.test')",[template]);
+    await db.query("INSERT INTO redaction_rh.contract_cases(id,collaborator_id,kind,job_title,work_location,start_date,end_date,salary,currency,clauses,prepared_by) VALUES($1,$2,'CDD','Reporter','Goma','2026-11-04','2027-11-04',100,'CDF','Ancien texte','admin@example.test')",[contract,person]);
+    await assert.rejects(()=>db.query('UPDATE redaction_rh.contract_templates SET clauses=$2 WHERE id=$1',[template,'x'.repeat(15000)]));
+    await db.exec(await readFile(new URL('../docs/sql/rh-contract-clauses-15000.sql',import.meta.url),'utf8'));
+    assert.equal((await db.query('SELECT clauses FROM redaction_rh.contract_templates WHERE id=$1',[template])).rows[0].clauses,'Ancien texte');
+    await db.query('UPDATE redaction_rh.contract_templates SET clauses=$2 WHERE id=$1',[template,'x'.repeat(15000)]);
+    await db.query('UPDATE redaction_rh.contract_cases SET clauses=$2 WHERE id=$1',[contract,'x'.repeat(15000)]);
+    await assert.rejects(()=>db.query('UPDATE redaction_rh.contract_templates SET clauses=$2 WHERE id=$1',[template,'x'.repeat(15001)]));
+    await assert.rejects(()=>db.query('UPDATE redaction_rh.contract_cases SET clauses=$2 WHERE id=$1',[contract,'x'.repeat(15001)]));
   } finally { await db.close(); }
 });

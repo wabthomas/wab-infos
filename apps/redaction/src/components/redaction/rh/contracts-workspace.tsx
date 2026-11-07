@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { contractPartiesFromProfile, type ContractProfile } from '@/lib/redaction/rh/contract-parties';
+import { MAX_CONTRACT_CLAUSES } from '@/lib/redaction/rh/contracts';
+import { contractProgress } from '@/lib/redaction/rh/contract-lifecycle';
 import { buildContractDocument } from '@/lib/redaction/rh/contract-document';
 import { formatContractSelection, type ContractFormatCommand } from '@/lib/redaction/rh/contract-format';
 import { ContractPdfPreview } from './contract-pdf-preview';
@@ -12,7 +14,7 @@ import { DEFAULT_CONTRACT_DISPLAY, type ContractDisplayOptions } from '@/lib/red
 import { useToast } from '@/components/ui/toast';
 
 type ContractTemplate = { id:string;kind:'CDD'|'CDI';title:string;clauses:string;signaturePlace:string;signatureDate:string|null;version:number };
-type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses:string; birthPlace:string; signaturePlace:string; signatureDate:string|null; status:'draft'|'proposed'|'accepted'; version:number; firstName:string;lastName:string; employeeSignature:string|null; displayOptions?:Partial<ContractDisplayOptions>|null };
+type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses:string; birthPlace:string; signaturePlace:string; signatureDate:string|null; status:'draft'|'proposed'|'pending_approval'|'accepted'|'declined'; approvedAt:string|null; version:number; firstName:string;lastName:string; employeeSignature:string|null;signatureMode:string|null;consentCompanyRules:boolean;consentWorkRules:boolean;acceptedAt:string|null; displayOptions?:Partial<ContractDisplayOptions>|null };
 type Person = { id: string; firstName: string; lastName: string; jobTitle: string; startDate: string; archived: boolean };
 async function png(src: string | null, opacity = 1): Promise<string | null> {
   if (!src) return null;
@@ -37,6 +39,7 @@ export function ContractsWorkspace() {
   const [personId, setPersonId] = useState(''), [kind, setKind] = useState<'CDD' | 'CDI'>('CDD');
   const [startDate, setStartDate] = useState(''), [endDate, setEndDate] = useState('');
   const [job, setJob] = useState(''), [location, setLocation] = useState('');
+  const [showContractFields, setShowContractFields] = useState(true);
   const [salary, setSalary] = useState(''), [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
   const [birthPlace, setBirthPlace] = useState('');
   const [signaturePlace, setSignaturePlace] = useState(''), [signatureDate, setSignatureDate] = useState('');
@@ -116,7 +119,7 @@ export function ContractsWorkspace() {
       const r=await fetchRedaction('/api/redaction/rh/contrats',{method:selected?'PATCH':'POST',headers:{'content-type':'application/json'},body:JSON.stringify(selected?{action:'update',id:selected.id,version:selected.version,contract:payload()}:payload())});
       const data=await r.json();if(!r.ok)throw new Error(data.error||'Enregistrement impossible.');
       await reload(selected?.id??data.id);toast.success('Brouillon enregistré sur le serveur.');
-    }catch(e){const message=e instanceof Error?e.message:'Enregistrement impossible.';setError(message);toast.error(message);}finally{setBusy(false);}
+    }catch(e){const message=e instanceof Error?e.message:'Enregistrement impossible.';setShowContractFields(true);setError(message);toast.error(message);}finally{setBusy(false);}
   }
   async function proposeCase() {
     if(!selected||selected.status!=='draft'||!approved||!authorized||!sign)return;
@@ -128,6 +131,15 @@ export function ContractsWorkspace() {
       const data=await r.json();if(!r.ok)throw new Error(data.error||'Transmission impossible.');
       await reload(selected.id);toast.success('Version figée et transmise au collaborateur lié.');
     }catch(e){const message=e instanceof Error?e.message:'Transmission impossible.';setError(message);toast.error(message);}finally{setBusy(false);}
+  }
+  async function approveCase() {
+    if (!selected || selected.status !== 'pending_approval' || !window.confirm('Vous confirmez avoir contrôlé la signature, les consentements et les clauses avant d’approuver ce contrat ?')) return;
+    setBusy(true);setError('');
+    try {
+      const response=await fetchRedaction(`/api/redaction/rh/contrats/${selected.id}/approbation`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'approve',version:selected.version})});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||'Approbation impossible.');
+      await reload(selected.id);toast.success('Contrat approuvé. Sa prise d’effet dépend de la date contractuelle.');
+    }catch(e){const message=e instanceof Error?e.message:'Approbation impossible.';setError(message);toast.error(message);}finally{setBusy(false);}
   }
   async function archiveCase() {
     if(!selected||selected.status!=='draft'||!window.confirm('Archiver ce brouillon ?'))return;
@@ -179,7 +191,7 @@ export function ContractsWorkspace() {
     const textarea = clausesRef.current;
     if (!textarea || locked || busy) return;
     const result = formatContractSelection(clauses, textarea.selectionStart, textarea.selectionEnd, command);
-    if (result.value.length > 12000 || result.value.split('\n').length > 250) { setError('Corps du contrat limité à 12 000 caractères et 250 lignes.'); return; }
+    if (result.value.length > MAX_CONTRACT_CLAUSES || result.value.split('\n').length > 250) { setError('Corps du contrat limité à 15 000 caractères et 250 lignes.'); return; }
     setError(''); setClauses(result.value); setApproved(false); setSign(false);
     requestAnimationFrame(() => { textarea.focus(); textarea.setSelectionRange(result.start, result.end); });
   }
@@ -192,7 +204,7 @@ export function ContractsWorkspace() {
         const url=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=url;a.download=`contrat-${selected.kind.toLowerCase()}-${selected.id}.pdf`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
       }catch(e){setError(e instanceof Error?e.message:'Téléchargement impossible.');}finally{setBusy(false);}return;
     }
-    if (!person || !job.trim() || !location.trim() || !startDate || !clauses.trim() || !/^(?:[1-9]\d{0,11})(?:[.,]\d{1,2})?$/.test(salary) || (kind === 'CDD' && (!endDate || endDate <= startDate))) { setError('Complétez le dossier, les dates, le lieu, la rémunération et les clauses validées.'); return; }
+    if (!person || !job.trim() || !location.trim() || !startDate || !clauses.trim() || !/^(?:[1-9]\d{0,11})(?:[.,]\d{1,2})?$/.test(salary) || (kind === 'CDD' && (!endDate || endDate <= startDate))) { setShowContractFields(true); setError('Complétez le dossier, les dates, le lieu, la rémunération et les clauses validées.'); return; }
     if (!approved) { setError('La validation juridique des clauses est nécessaire avant la préparation du PDF.'); return; }
     if (sign && (!settings.directorName.trim() || !signature || !seal)) { setError('Configurez le nom, le sceau et la signature image du DG avant son visa.'); return; }
     setBusy(true);
@@ -228,6 +240,7 @@ export function ContractsWorkspace() {
     {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="min-w-0 space-y-5">
+        <button type="button" aria-expanded={showContractFields} aria-controls="contract-optional-fields" onClick={() => setShowContractFields(current => !current)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted">{showContractFields ? 'Masquer les champs du contrat' : 'Afficher les champs du contrat'}</button>
         <fieldset disabled={locked||busy} className="space-y-5 disabled:opacity-70">
           <section className="rounded-xl border p-4 sm:p-5">
             <h3 className="mb-4 text-base font-bold">01 · Informations du contrat</h3>
@@ -236,6 +249,8 @@ export function ContractsWorkspace() {
               <label className="text-sm font-medium">Type de contrat<select className={input} value={kind} onChange={e => { setKind(e.target.value as 'CDD' | 'CDI'); setApproved(false); setSign(false); }}><option value="CDD">CDD</option><option value="CDI">CDI</option></select></label>
               <label className="text-sm font-medium">Lieu de naissance<input className={input} value={birthPlace} maxLength={120} onChange={e => { setBirthPlace(e.target.value); setApproved(false); setSign(false); }} placeholder="À renseigner — distinct de la ville de résidence" /></label>
               <p className="self-center text-xs text-muted-foreground">Fiche d’identification : {profileLoading ? 'chargement…' : profile ? `Naissance : ${profile.birthDate || 'à compléter'} · Adresse : ${profile.address || 'à compléter'} · Téléphone : ${profile.phone || 'à compléter'}` : 'fiche indisponible. Complétez-la avant transmission.'}</p>
+            </div>
+            <div id="contract-optional-fields" className={showContractFields ? 'mt-4 grid gap-4 sm:grid-cols-2' : 'hidden'}>
               <label className="text-sm font-medium">Fonction<input className={input} value={job} maxLength={160} onChange={e => { setJob(e.target.value); setApproved(false); setSign(false); }} /></label>
               <label className="text-sm font-medium">Lieu d’affectation<input className={input} value={location} maxLength={180} onChange={e => { setLocation(e.target.value); setApproved(false); setSign(false); }} /></label>
               <label className="text-sm font-medium">Date de prise d’effet<input className={input} type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setApproved(false); setSign(false); }} /></label>
@@ -260,14 +275,15 @@ export function ContractsWorkspace() {
                 </div>
               </div>
             </div>
+            {!showContractFields && <p className="mt-3 text-xs text-muted-foreground">Fonction, lieu d’affectation, dates, rémunération et devise masqués à l’écran. Leurs valeurs sont conservées et restent soumises à validation avant transmission.</p>}
           </section>
           <section className="overflow-hidden rounded-xl border">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-4 sm:px-5"><h3 className="text-base font-bold">02 · Corps du contrat</h3><span className="text-xs tabular-nums text-muted-foreground">{clauses.length} / 12 000 caractères</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-4 sm:px-5"><h3 className="text-base font-bold">02 · Corps du contrat</h3><span className="text-xs tabular-nums text-muted-foreground">{clauses.length} / 15 000 caractères</span></div>
             <div role="toolbar" aria-label="Mise en forme du corps du contrat" className="flex flex-wrap items-center gap-1 border-b p-2 sm:px-4">
               {formats.map(item=><button key={item.command} type="button" title={item.title} aria-label={item.title} onMouseDown={e=>e.preventDefault()} onClick={()=>applyFormat(item.command)} className={`min-h-9 rounded-lg border px-2.5 text-sm hover:bg-muted ${item.command==='bold'?'font-bold':item.command==='italic'?'italic':''}`}>{item.label}</button>)}
             </div>
             <label className="block px-4 pt-3 text-sm font-medium sm:px-5" htmlFor="contract-body">Corps texte</label>
-            <textarea id="contract-body" ref={clausesRef} className="min-h-80 w-full resize-y bg-background px-4 py-3 font-mono text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-5" value={clauses} maxLength={12000} onChange={e => { setClauses(e.target.value); setApproved(false); setSign(false); }} placeholder="Saisissez les clauses vérifiées…" />
+            <textarea id="contract-body" ref={clausesRef} className="min-h-80 w-full resize-y bg-background px-4 py-3 font-mono text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-5" value={clauses} maxLength={MAX_CONTRACT_CLAUSES} onChange={e => { setClauses(e.target.value); setApproved(false); setSign(false); }} placeholder="Saisissez les clauses vérifiées…" />
           </section>
           <section className="space-y-3 rounded-xl border p-4 sm:p-5">
             <h3 className="text-base font-bold">03 · Validation et visa</h3>
@@ -281,11 +297,14 @@ export function ContractsWorkspace() {
           {!locked&&<button type="button" disabled={busy} onClick={()=>void saveDraft()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{selected?'Enregistrer les modifications':'Enregistrer le brouillon'}</button>}
           {!locked&&selected&&<button type="button" disabled={busy||!approved||!authorized||!sign} onClick={()=>void proposeCase()} className="rounded-xl border border-primary px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50">Transmettre pour accord</button>}
           <button type="button" disabled={busy} onClick={() => void exportPdf()} className="rounded-xl border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{busy ? 'Préparation…' : locked?'Télécharger la version figée':'Télécharger le projet PDF'}</button>
+          {selected?.status==='pending_approval'&&<button type="button" disabled={busy} onClick={()=>void approveCase()} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">Approuver le contrat signé</button>}
           {!locked&&selected&&<button type="button" disabled={busy} onClick={()=>void archiveCase()} className="rounded-xl border px-4 py-2.5 text-sm text-red-600 disabled:opacity-50">Archiver le brouillon</button>}
         </div>
         <Link href="/rh/documents" className="inline-block text-sm font-semibold text-primary underline">Déposer la version signée dans Documents RH</Link>
       </div>
       <aside className="space-y-5">
+        {selected?.status==='pending_approval'&&<div className="rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm text-blue-950"><h3 className="font-semibold">Signature soumise pour vérification</h3><p>Signataire : {selected.employeeSignature || '—'} · Mode : {selected.signatureMode==='text'?'texte':'image ou dessin'} · {selected.acceptedAt ? new Date(selected.acceptedAt).toLocaleString('fr-FR') : 'Date indisponible'}</p><p>Règles de l’entreprise : {selected.consentCompanyRules?'acceptées':'non confirmées'} · Conditions du travail : {selected.consentWorkRules?'acceptées':'non confirmées'}</p><p>Ouvrez le PDF signé et contrôlez les informations avant de cliquer sur Approuver.</p></div>}
+        {selected&&<div className="rounded-xl border bg-card p-4 text-sm"><strong>Évolution du contrat : {selected.status==='accepted'&&!selected.approvedAt?'Accord enregistré (historique)':contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).label}</strong><p className="mt-1 text-muted-foreground">Brouillon → Transmis → Signé → Approuvé → Prise d’effet / terme</p>{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder&&<p role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-amber-900">{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder}</p>}</div>}
         <ContractPdfPreview bytes={previewPdf} status={previewStatus} />
         <section className="rounded-xl border bg-muted/20 p-4">
           <div className="flex items-center justify-between gap-2"><h3 className="font-bold">Identité du document</h3><Link href="/rh/parametres" className="text-xs font-semibold text-primary underline">Configurer</Link></div>
@@ -299,7 +318,7 @@ export function ContractsWorkspace() {
           </dl>
         </section>
         <section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Dossiers enregistrés</h3>
-          <div className="mt-3 grid max-h-72 gap-2 overflow-auto">{cases.map(item=><button type="button" key={item.id} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id} className={`rounded-xl border p-3 text-left text-sm ${selected?.id===item.id?'border-primary bg-primary/10':'bg-card hover:border-primary/40'}`}><strong>{item.kind} · {item.firstName} {item.lastName}</strong><span className="mt-1 block text-xs text-muted-foreground">{item.jobTitle} · {item.status==='draft'?'Brouillon':item.status==='proposed'?'À examiner':'Accord enregistré'} · v{item.version}</span></button>)}</div>
+          <div className="mt-3 grid max-h-72 gap-2 overflow-auto">{cases.map(item=><button type="button" key={item.id} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id} className={`rounded-xl border p-3 text-left text-sm ${selected?.id===item.id?'border-primary bg-primary/10':'bg-card hover:border-primary/40'}`}><strong>{item.kind} · {item.firstName} {item.lastName}</strong><span className="mt-1 block text-xs text-muted-foreground">{item.jobTitle} · {item.status==='accepted'&&!item.approvedAt?'Accord enregistré (historique)':contractProgress(item.status,item.kind,item.startDate,item.endDate).label} · v{item.version}</span>{contractProgress(item.status,item.kind,item.startDate,item.endDate).reminder&&<span className="mt-2 block rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-900" role="alert">{contractProgress(item.status,item.kind,item.startDate,item.endDate).reminder}</span>}</button>)}</div>
           {!cases.length&&<p className="mt-3 text-sm text-muted-foreground">Aucun dossier.</p>}
         </section>
         <section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Modèles de clauses</h3>

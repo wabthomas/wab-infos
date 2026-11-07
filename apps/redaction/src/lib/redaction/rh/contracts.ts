@@ -1,3 +1,4 @@
+export const MAX_CONTRACT_CLAUSES = 15_000;
 export type ContractKind = 'CDD' | 'CDI';
 export type ContractDisplayOptions = { job: boolean; location: boolean; startDate: boolean; endDate: boolean; salary: boolean };
 export const DEFAULT_CONTRACT_DISPLAY: ContractDisplayOptions = { job: true, location: true, startDate: true, endDate: true, salary: true };
@@ -15,7 +16,7 @@ export function validateContractInput(raw: unknown): ContractInput | null {
   if (v.kind === 'CDD' ? !date(v.endDate) || v.endDate <= v.startDate : v.endDate !== null && v.endDate !== '') return null;
   if (v.currency !== 'CDF' && v.currency !== 'USD') return null;
   if (typeof v.salary !== 'string' || !/^(?:[1-9]\d{0,11})(?:[.,]\d{1,2})?$/.test(v.salary)) return null;
-  for (const [key, max] of [['jobTitle',160],['workLocation',180],['clauses',12000]] as const) {
+  for (const [key, max] of [['jobTitle',160],['workLocation',180],['clauses',MAX_CONTRACT_CLAUSES]] as const) {
     if (typeof v[key] !== 'string' || !v[key].trim() || v[key].length > max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(v[key])) return null;
   }
   if ((v.clauses as string).split('\n').length > 250) return null;

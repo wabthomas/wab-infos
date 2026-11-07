@@ -27,9 +27,27 @@ export function VisualSignature({ onChange, disabled }: { onChange: (png: string
     if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
     onChange(canvas.current?.toDataURL('image/png')??null);
   }
+  function upload(file: File | undefined) {
+    if (!file || !file.type.startsWith('image/') || file.size > 200_000) { clear(); return; }
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const el=canvas.current, ctx=el?.getContext('2d');
+      if (el && ctx && image.naturalWidth > 0 && image.naturalHeight > 0 && image.naturalWidth * image.naturalHeight <= 500_000) {
+        ctx.clearRect(0,0,el.width,el.height);
+        const ratio=Math.min(el.width/image.naturalWidth,el.height/image.naturalHeight);
+        const w=image.naturalWidth*ratio,h=image.naturalHeight*ratio;
+        ctx.drawImage(image,(el.width-w)/2,(el.height-h)/2,w,h);
+        setHasInk(true); onChange(el.toDataURL('image/png'));
+      } else clear();
+      URL.revokeObjectURL(url);
+    };
+    image.onerror=()=>{ URL.revokeObjectURL(url); clear(); };
+    image.src=url;
+  }
   function clear() {
     const el=canvas.current;if(el)el.getContext('2d')?.clearRect(0,0,el.width,el.height);
     setHasInk(false);onChange(null);
   }
-  return <div><p className="font-semibold">Dessinez vous-même votre signature dans le cadre :</p><canvas ref={canvas} width={560} height={160} role="img" aria-label="Zone de signature manuscrite, tactile ou à la souris" onPointerDown={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish} className="mt-2 h-40 w-full touch-none rounded-lg border border-amber-600 bg-white" style={{cursor:disabled?'not-allowed':'crosshair'}}/><button type="button" disabled={disabled||!hasInk} onClick={clear} className="mt-1 rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50">Effacer la signature</button></div>;
+  return <div><p className="font-semibold">Dessinez ou insérez votre signature dans le cadre :</p><canvas ref={canvas} width={560} height={160} role="img" aria-label="Zone de signature manuscrite, tactile ou à la souris" onPointerDown={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={finish} className="mt-2 h-40 w-full touch-none rounded-lg border border-amber-600 bg-white" style={{cursor:disabled?'not-allowed':'crosshair'}}/><label className="mt-2 block text-xs font-medium">Importer une image de signature (PNG ou JPEG, 200 Ko maximum)<input type="file" accept="image/png,image/jpeg" disabled={disabled} onChange={e=>{upload(e.target.files?.[0]);e.target.value='';}} className="mt-1 block w-full text-xs" /></label><button type="button" disabled={disabled||!hasInk} onClick={clear} className="mt-1 rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50">Effacer la signature</button></div>;
 }

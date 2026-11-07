@@ -1,5 +1,17 @@
 [
   {
+    "id": "rh-2026-11-contrat-signature-approbation",
+    "title": "Signature et suivi de vos contrats",
+    "body": "Lisez le contrat A4 en ligne, signez avec votre nom ou une image et confirmez séparément les conditions de travail et les règles de l’entreprise. La signature est ensuite soumise à l’administration : elle n’est pas une approbation automatique.",
+    "highlights": [
+      "Suivez les étapes Transmis, Signé et Approuvé dans Mes contrats.",
+      "Recevez une alerte à l’approche du terme de votre CDD ; le renouvellement exige une nouvelle décision.",
+      "La signature est visuelle et ne constitue pas une signature électronique qualifiée."
+    ],
+    "url": "/mon-rh/contrats",
+    "requiresContracts": true
+  },
+  {
     "id": "rh-2026-11-performances-youtube",
     "title": "Vos performances YouTube dans votre espace RH",
     "body": "Associez une vidéo de la chaîne officielle à une prestation. Après vérification de votre travail et de votre contribution par l’administration, consultez les vues, les J’aime et le nombre de commentaires dans votre tableau de bord.",
