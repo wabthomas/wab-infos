@@ -1,27 +1,31 @@
 import { jsPDF } from 'jspdf';
+import { contractPartyRole, type ContractParties } from './contract-parties';
 import { contractRuns, parseContractBlocks, type ContractBlock, type ContractRun } from './contract-format';
 
 export type ContractDocumentData = {
   kind: 'CDD' | 'CDI'; firstName: string; lastName: string; jobTitle: string; workLocation: string;
   startDate: string; endDate?: string | null; salary: string; currency: string; clauses: string;
-  employer: { companyName?: string; companyAddress?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string; logoPng?: string | null };
+  signaturePlace?: string | null; signatureDate?: string | null;
+  employer: { companyName?: string; companyAddress?: string; companyPhone?: string; companyEmail?: string; companyTaxId?: string; companyRegistration?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorAuthorized?: boolean; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string; logoPng?: string | null };
+  parties?: ContractParties | null;
   employeeSignature?: string | null; acceptedAt?: string | null; draft?: boolean; draftLabel?: string;
 };
 export type ContractDocumentAssets = { logo?: string | null; seal?: string | null; signature?: string | null; employeeSignatureImage?: string | null };
 
 type Piece = { text: string; style: ContractRun['style'] };
 type TextLine = Piece[];
-const MARGIN = 20;
-const WIDTH = 170;
-const BOTTOM = 267;
+type Prepared = { block: ContractBlock; marker: string; indent: number; size: number; lineHeight: number; before: number; after: number; lines: TextLine[]; height: number };
+const MARGIN = 20, WIDTH = 170, BOTTOM = 266;
+const INK = [34, 43, 58] as const;
+const MUTED = [91, 103, 122] as const;
+const BRAND = [196, 30, 58] as const; // Same crimson as the Rédaction UI.
+const BORDER = [217, 222, 229] as const;
 
 function font(doc: jsPDF, style: ContractRun['style']) {
   doc.setFont('helvetica', style === 'bold' ? 'bold' : style === 'italic' ? 'italic' : 'normal');
 }
-
 function wrap(doc: jsPDF, text: string, width: number, size: number, heading = false): TextLine[] {
-  const lines: TextLine[] = [[]];
-  let used = 0;
+  const lines: TextLine[] = [[]]; let used = 0;
   doc.setFontSize(size);
   for (const source of contractRuns(text)) {
     const run = heading && source.style === 'normal' ? { ...source, style: 'bold' as const } : source;
@@ -29,169 +33,284 @@ function wrap(doc: jsPDF, text: string, width: number, size: number, heading = f
       const space = /^\s+$/.test(token);
       if (space && used === 0) continue;
       font(doc, run.style);
-      const tokenText = space ? ' ' : token;
-      const tokenWidth = doc.getTextWidth(tokenText);
-      if (!space && used > 0 && used + tokenWidth > width) { lines.push([]); used = 0; }
-      if (space && used + tokenWidth > width) continue;
-      // Unbroken URLs or words must not escape the printable area.
-      if (!space && tokenWidth > width) {
-        for (const character of tokenText) {
+      const value = space ? ' ' : token;
+      const widthOfToken = doc.getTextWidth(value);
+      if (!space && used > 0 && used + widthOfToken > width) { lines.push([]); used = 0; }
+      if (space && used + widthOfToken > width) continue;
+      if (!space && widthOfToken > width) {
+        for (const character of value) {
           const charWidth = doc.getTextWidth(character);
           if (used + charWidth > width && used > 0) { lines.push([]); used = 0; }
-          lines[lines.length - 1].push({ text: character, style: run.style });
-          used += charWidth;
+          lines[lines.length - 1].push({ text: character, style: run.style }); used += charWidth;
         }
-      } else {
-        lines[lines.length - 1].push({ text: tokenText, style: run.style });
-        used += tokenWidth;
-      }
+      } else { lines[lines.length - 1].push({ text: value, style: run.style }); used += widthOfToken; }
     }
   }
   return lines;
 }
-
 function drawLine(doc: jsPDF, pieces: TextLine, x: number, y: number, size: number) {
   doc.setFontSize(size);
   for (const piece of pieces) {
-    font(doc, piece.style);
-    doc.text(piece.text, x, y);
+    font(doc, piece.style); doc.text(piece.text, x, y);
     const width = doc.getTextWidth(piece.text);
-    if (piece.style === 'underline') doc.line(x, y + 0.55, x + width, y + 0.55);
+    if (piece.style === 'underline') { doc.setDrawColor(...BRAND); doc.line(x, y + .55, x + width, y + .55); }
     x += width;
   }
 }
-
 function addImage(doc: jsPDF, image: string | null | undefined, x: number, y: number, w: number, h: number) {
   if (!image) return;
   try { doc.addImage(image, 'PNG', x, y, w, h); } catch { /* Invalid optional image: keep the document printable. */ }
 }
-
 function addContainedLogo(doc: jsPDF, image: string | null | undefined) {
   if (!image) return;
   try {
     const { width, height } = doc.getImageProperties(image);
     if (!width || !height) return;
-    const ratio = Math.min(29 / width, 21 / height);
-    doc.addImage(image, 'PNG', 20 + (29 - width * ratio) / 2, 15 + (21 - height * ratio) / 2, width * ratio, height * ratio);
-  } catch { /* Existing drafts remain printable even if an optional asset is invalid. */ }
+    const ratio = Math.min(28 / width, 18 / height);
+    doc.addImage(image, 'PNG', 20 + (28 - width * ratio) / 2, 11 + (18 - height * ratio) / 2, width * ratio, height * ratio);
+  } catch { /* Older snapshots can have no logo. */ }
+}
+function singleLine(doc: jsPDF, value: string, x: number, y: number, width: number, minSize: number, align: 'center' | 'left' | 'right' = 'left') {
+  if (!value) return;
+  while (doc.getTextWidth(value) > width && doc.getFontSize() > minSize) doc.setFontSize(Math.max(minSize, doc.getFontSize() - .25));
+  let line = value;
+  while (doc.getTextWidth(line) > width && line.length > 1) line = `${line.slice(0, -2)}…`;
+  doc.text(line, x, y, { align });
+}
+function displayDate(iso: string | null | undefined): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || '—';
+  const [year, month, day] = iso.split('-'); return `${day}/${month}/${year}`;
 }
 
-/** Shared A4 composition for the browser draft and the server's frozen version. */
+/** The browser draft and the server's frozen version share the exact same A4 layout. */
 export function buildContractDocument(data: ContractDocumentData, assets: ContractDocumentAssets = {}): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
-  let y = 19;
-  const nextPage = () => {
-    doc.addPage(); y = 20;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-    doc.text(`CONTRAT DE TRAVAIL ${data.kind} — SUITE`, MARGIN, y);
-    doc.setDrawColor(170); doc.line(MARGIN, y + 3, 190, y + 3);
-    y = 34;
-  };
-  const room = (height: number) => { if (y + height > BOTTOM) nextPage(); };
-
+  const company = data.employer.companyName || 'Employeur';
   const logo = assets.logo || data.employer.logoPng;
-  if (logo) { addContainedLogo(doc, logo); y += 2; }
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-  doc.text(data.employer.companyName || 'Employeur', 105, y, { align: 'center' });
+  let y = 0;
+  const pageHeader = (first: boolean) => {
+    addContainedLogo(doc, logo);
+    doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    singleLine(doc, company, logo ? 52 : MARGIN, 18, logo ? 100 : 130, 7.2);
+    doc.setTextColor(...MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6);
+    const subhead = data.employer.documentHeader || data.employer.companyAddress;
+    if (subhead) singleLine(doc, subhead, logo ? 52 : MARGIN, 24, logo ? 110 : 135, 6.2);
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND); doc.setFontSize(8);
+    doc.text(`CONTRAT ${data.kind}`, 190, 18, { align: 'right' });
+    doc.setDrawColor(...BRAND); doc.setLineWidth(.55); doc.line(MARGIN, 31, 190, 31);
+    y = first ? 43 : 40;
+  };
+  const nextPage = () => { doc.addPage(); pageHeader(false); };
+  const room = (height: number) => { if (y + height > BOTTOM) nextPage(); };
+  pageHeader(true);
+
+  doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+  doc.text(`CONTRAT DE TRAVAIL À DURÉE ${data.kind === 'CDD' ? 'DÉTERMINÉE' : 'INDÉTERMINÉE'}`, 105, y, { align: 'center', maxWidth: WIDTH });
   y += 5;
-  const header = [data.employer.companyAddress, data.employer.documentHeader].filter(Boolean).join(' · ');
-  if (header) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text(header, 105, y, { align: 'center', maxWidth: WIDTH }); y += 6; }
-  else y += 6;
-  if (logo) y = Math.max(y, 43);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text(`CONTRAT DE TRAVAIL À DURÉE ${data.kind === 'CDD' ? 'DÉTERMINÉE' : 'INDÉTERMINÉE'}`, 105, y, { align: 'center' });
-  y += 4;
-  doc.setDrawColor(70, 82, 99); doc.line(31, y, 179, y);
-  y += 9;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-  const details = [
-    `Employeur : ${data.employer.companyName || '—'}`, 
-    `Travailleur : ${data.firstName} ${data.lastName}`,
-    `Fonction : ${data.jobTitle}   |   Lieu : ${data.workLocation}`,
-    `Prise d'effet : ${data.startDate}${data.kind === 'CDD' && data.endDate ? `   |   Terme : ${data.endDate}` : ''}`,
-    `Rémunération : ${data.salary} ${data.currency}`,
-  ];
-  for (const detail of details) {
-    for (const line of doc.splitTextToSize(detail, WIDTH) as string[]) {
-      room(5.2); doc.text(line, MARGIN, y); y += 5.2;
+  doc.setTextColor(...BRAND); doc.setFontSize(9.4);
+  singleLine(doc, data.jobTitle.trim().toLocaleUpperCase('fr') || 'FONCTION À PRÉCISER', 105, y, WIDTH, 7.4, 'center');
+  y += 10;
+  if (data.parties) {
+    // The identity of BOTH parties is inside the left-rule information panel. Keep the
+    // concluding sentence outside it, on its own line, even when the panel moves page.
+    const party = data.parties;
+    const isWab = /^(?:world access to business|wab)(?:\b|[- ])/i.test(company.trim());
+    const employer = `${company}${isWab ? ', exploitant le média WAB-infos TV' : ''}, représenté par son ${data.employer.directorTitle?.trim() || 'Directeur Général'} ${data.employer.directorName?.trim() || '—'}${data.employer.directorAuthorized ? ', dûment habilité à cet effet' : ''}, ci-après dénommé « LA DIRECTION » ;`;
+    const passages = [
+      ['ENTRE LES SOUSSIGNÉS :', true],
+      [employer, false],
+      ['D’UNE PART ;', true],
+      [`ET Monsieur/Madame : ${data.firstName} ${data.lastName}`, false],
+      [`Né(e) à : ${party.birthPlace}     le : ${displayDate(party.birthDate)}`, false],
+      [`Adresse : ${party.address}`, false],
+      [`Téléphone : ${party.phone}`, false],
+      [`Ci-après dénommé(e) « ${contractPartyRole(data.jobTitle)} » ;`, false],
+      ['D’AUTRE PART ;', true],
+    ] as const;
+    const fontSize = 9.3, lineHeight = 4.75, gap = 1.3, inset = 5;
+    const lines = passages.map(([text, bold]) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(fontSize);
+      return { bold, lines: doc.splitTextToSize(text, WIDTH - inset * 2) as string[] };
+    });
+    const height = 7 + lines.reduce((total, entry) => total + entry.lines.length * lineHeight + gap + (entry.bold ? 1 : 0), 0);
+    room(height + 11);
+    const top = y - 4;
+    doc.setFillColor(249, 247, 248); doc.rect(MARGIN, top, WIDTH, height, 'F');
+    doc.setFillColor(...BRAND); doc.rect(MARGIN, top, .8, height, 'F');
+    for (const entry of lines) {
+      doc.setTextColor(...INK); doc.setFont('helvetica', entry.bold ? 'bold' : 'normal'); doc.setFontSize(fontSize);
+      for (const line of entry.lines) { doc.text(line, MARGIN + inset, y + 1); y += lineHeight; }
+      y += gap + (entry.bold ? 1 : 0);
     }
+    y = top + height + 7;
+    doc.setTextColor(...INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
+    doc.text('Il a été convenu et arrêté ce qui suit :', MARGIN, y);
+    y += 8;
+    const details = [
+      `Fonction : ${data.jobTitle}   |   Lieu : ${data.workLocation}`,
+      `Prise d'effet : ${displayDate(data.startDate)}${data.kind === 'CDD' ? `   |   Terme : ${displayDate(data.endDate)}` : ''}`,
+      `Rémunération déclarée : ${data.salary} ${data.currency}`,
+    ];
+    doc.setTextColor(...MUTED); doc.setFontSize(8.5);
+    for (const detail of details) {
+      const content = doc.splitTextToSize(detail, WIDTH) as string[];
+      room(content.length * 4.4);
+      for (const line of content) { doc.text(line, MARGIN, y); y += 4.4; }
+    }
+    y += 6;
+  } else {
+    // Legacy proposed documents have no identity snapshot. Retain their original layout.
+    const details = [
+      `Employeur : ${company}`,
+      `Collaborateur : ${data.firstName} ${data.lastName}`,
+      `Fonction : ${data.jobTitle}   |   Lieu : ${data.workLocation}`,
+      `Prise d'effet : ${displayDate(data.startDate)}${data.kind === 'CDD' ? `   |   Terme : ${displayDate(data.endDate)}` : ''}`,
+      `Rémunération déclarée : ${data.salary} ${data.currency}`,
+    ];
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
+    const detailLines = details.flatMap(detail => doc.splitTextToSize(detail, WIDTH - 12) as string[]);
+    const detailHeight = 5 + detailLines.length * 4.8;
+    room(detailHeight + 7);
+    doc.setFillColor(249, 247, 248); doc.rect(MARGIN, y - 4, WIDTH, detailHeight, 'F');
+    doc.setFillColor(...BRAND); doc.rect(MARGIN, y - 4, .8, detailHeight, 'F');
+    doc.setTextColor(...INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
+    for (const line of detailLines) { doc.text(line, MARGIN + 5, y + 1); y += 4.8; }
+    y += 9;
   }
-  y += 5;
-  doc.setDrawColor(205); doc.line(MARGIN, y - 2, 190, y - 2);
 
   const blocks = parseContractBlocks(data.clauses);
-  const prepared = blocks.map((block: ContractBlock) => {
-    const isHeading = block.kind === 'heading' || block.kind === 'article';
+  const prepared: Prepared[] = blocks.map(block => {
+    const isHeading = block.kind === 'heading' || block.kind === 'article' || block.kind === 'subheading';
     const isList = block.kind === 'bullet' || block.kind === 'number';
-    const marker = isList ? block.marker ?? '•' : '';
     const indent = isList ? 7 : 0;
-    const size = isHeading ? 10.5 : 10;
-    const lineHeight = isHeading ? 5.6 : 5.15;
-    const before = isHeading ? 3.5 : 0;
-    const after = isHeading ? 2.4 : isList ? 1.2 : 2.6;
-    return { block, marker, indent, size, lineHeight, before, after, lines: wrap(doc, block.text, WIDTH - indent, size, isHeading) };
+    const size = isHeading ? block.kind === 'subheading' ? 9.4 : 10.1 : 9.5;
+    const lineHeight = isHeading ? 5.1 : 4.95;
+    const before = isHeading ? block.kind === 'subheading' ? 2.4 : 3.8 : block.kind === 'table' ? 2 : 0;
+    const after = isHeading ? 2.1 : isList ? 1.1 : block.kind === 'table' ? 3 : 2.1;
+    const lines = block.kind === 'table' ? [] : wrap(doc, block.text, WIDTH - indent, size, isHeading);
+    const tableRows = block.rows ?? [];
+    const height = block.kind === 'table'
+      ? before + after + tableRows.reduce((sum, row) => sum + 3 + Math.max(...row.map(cell => wrap(doc, cell, WIDTH / row.length - 7, 8.6).length)) * 4.5, 0)
+      : before + lines.length * lineHeight + after;
+    return { block, marker: isList ? block.marker ?? '•' : '', indent, size, lineHeight, before, after, lines, height };
   });
-  prepared.forEach((part, index) => {
-    const { block, lines, before, after, indent, lineHeight, size } = part;
-    // Keep headings with the beginning of their article, and short blocks on one page.
-    const following = prepared[index + 1];
-    const withNext = block.kind === 'heading' || block.kind === 'article'
-      ? Math.min(2, following?.lines.length ?? 0) * (following?.lineHeight ?? 0) + (following?.before ?? 0) + 2
-      : 0;
-    const total = before + lines.length * lineHeight + after;
-    if (block.kind === 'heading' || block.kind === 'article') {
-      let groupHeight = 0;
-      for (let followingIndex = index; followingIndex < prepared.length; followingIndex++) {
-        const entry = prepared[followingIndex];
-        if (followingIndex > index && (entry.block.kind === 'heading' || entry.block.kind === 'article')) break;
-        groupHeight += entry.before + entry.lines.length * entry.lineHeight + entry.after;
+
+  const renderTable = (block: ContractBlock) => {
+    const rows = block.rows ?? [];
+    if (rows.length < 2) return;
+    const widths = rows[0].length === 2 ? [WIDTH * .65, WIDTH * .35] : rows[0].map(() => WIDTH / rows[0].length);
+    const headerHeight = 8;
+    const header = () => {
+      if (y + headerHeight + 9 > BOTTOM) nextPage();
+      doc.setFillColor(...BRAND); doc.rect(MARGIN, y, WIDTH, headerHeight, 'F');
+      let x = MARGIN;
+      rows[0].forEach((cell, i) => {
+        doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.4);
+        const line = (doc.splitTextToSize(contractRuns(cell).map(run => run.text).join(''), widths[i] - 6) as string[])[0] || '';
+        doc.text(line, x + 3, y + 5.3); x += widths[i];
+      });
+      y += headerHeight;
+    };
+    // A heading is repeated after a page break; rows never disappear or overlap the footer.
+    header();
+    rows.slice(1).forEach((row, rowIndex) => {
+      const lines = row.map((cell, i) => wrap(doc, cell, widths[i] - 6, 8.6));
+      const maximum = Math.max(...lines.map(cell => cell.length));
+      let offset = 0;
+      while (offset < maximum) {
+        const available = Math.floor((BOTTOM - y - 3) / 4.5);
+        if (available < 1) { nextPage(); header(); continue; }
+        const count = Math.min(maximum - offset, available);
+        const height = count * 4.5 + 3;
+        doc.setFillColor(rowIndex % 2 ? 249 : 255, rowIndex % 2 ? 247 : 255, rowIndex % 2 ? 248 : 255);
+        doc.setDrawColor(...BORDER); doc.setLineWidth(.18);
+        doc.rect(MARGIN, y, WIDTH, height, 'FD');
+        let x = MARGIN;
+        lines.forEach((cellLines, column) => {
+          if (column) doc.line(x, y, x, y + height);
+          doc.setTextColor(...INK);
+          cellLines.slice(offset, offset + count).forEach((line, n) => drawLine(doc, line, x + 3, y + 4.3 + n * 4.5, 8.6));
+          x += widths[column];
+        });
+        y += height; offset += count;
+        if (offset < maximum) { nextPage(); header(); }
       }
-      room(groupHeight <= 95 ? groupHeight : Math.min(total, 65) + withNext);
-    } else if (total <= 65) room(total);
+    });
+  };
+
+  prepared.forEach((part, index) => {
+    const { block, lines, before, after, indent, lineHeight, size, height } = part;
+    const isHeading = block.kind === 'heading' || block.kind === 'article' || block.kind === 'subheading';
+    if (isHeading) {
+      let groupHeight = 0;
+      for (let n = index; n < prepared.length; n++) {
+        const entry = prepared[n];
+        if (n > index && (entry.block.kind === 'article' || entry.block.kind === 'heading')) break;
+        groupHeight += entry.height;
+      }
+      const following = prepared[index + 1];
+      const keepWith = following ? Math.min(following.height, 12) : 0;
+      const lastSection = !prepared.slice(index + 1).some(part => part.block.kind === 'article' || part.block.kind === 'heading');
+      const tail = lastSection && groupHeight + 64 <= 125 ? groupHeight + 64 : groupHeight;
+      room(groupHeight <= 90 || tail > groupHeight ? tail : Math.min(height + keepWith, 70));
+    } else if (height <= 65) room(height);
     y += before;
+    if (block.kind === 'table') { renderTable(block); y += after; return; }
     lines.forEach((line, lineIndex) => {
-      // Do not leave a single line of a paragraph at the bottom of a page.
       if (y + lineHeight > BOTTOM || (lineIndex < lines.length - 1 && y + 2 * lineHeight > BOTTOM)) nextPage();
       if (lineIndex === 0 && part.marker) {
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(part.marker, MARGIN + 1, y);
+        doc.setTextColor(...BRAND); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text(part.marker, MARGIN + 1, y);
       }
+      if (block.kind === 'article' || block.kind === 'heading') doc.setTextColor(...BRAND);
+      else doc.setTextColor(...INK);
       drawLine(doc, line, MARGIN + indent, y, size);
       y += lineHeight;
     });
     y += after;
   });
 
-  // Reserve the complete signatures area as one indivisible block.
-  room(60);
-  y += 4;
-  doc.setDrawColor(145); doc.line(MARGIN, y, 190, y);
-  y += 6;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
-  doc.text('POUR L’EMPLOYEUR', MARGIN, y);
-  doc.text('LE TRAVAILLEUR', 112, y);
-  const imageY = y + 3;
-  addImage(doc, assets.seal, MARGIN + 5, imageY, 26, 26);
-  addImage(doc, assets.signature, MARGIN + 14, imageY + 1, Math.min(48, Number(data.employer.directorSignatureWidth || 190) / 4), Math.min(23, Number(data.employer.directorSignatureHeight || 92) / 4));
-  addImage(doc, assets.employeeSignatureImage, 114, imageY + 1, 53, 22);
-  y = imageY + 30;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-  doc.text(data.employer.directorName || 'Représentant', MARGIN, y);
-  doc.text(`${data.firstName} ${data.lastName}`, 112, y);
-  y += 5;
-  doc.text(data.employer.directorTitle || 'Direction', MARGIN, y);
-  if (data.employeeSignature && !assets.employeeSignatureImage) doc.text(data.employeeSignature, 112, y);
-  if (data.acceptedAt) {
-    y += 5; doc.setFontSize(8);
-    doc.text(`Acceptation enregistrée le ${new Date(data.acceptedAt).toLocaleDateString('fr-FR')}`, 112, y);
+  // Signature/date panel is kept together, rather than split onto a nearly empty page.
+  room(64); y += 3;
+  doc.setDrawColor(...BORDER); doc.setLineWidth(.25);
+  doc.setTextColor(...MUTED); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.4);
+  if (!data.parties && !data.signaturePlace && !data.signatureDate) {
+    // Proposed legacy contracts did not carry a signature location/date; preserve their old layout.
+    doc.text('Date de signature : …… / …… / …………', MARGIN, y);
+  } else {
+    const signatureLocation = data.signaturePlace?.trim();
+    const signatureDate = data.signatureDate ? displayDate(data.signatureDate) : '…… / …… / …………';
+    const signatureLine = `Fait à ${signatureLocation || '……………………'}, le ${signatureDate}`;
+    singleLine(doc, signatureLine, 190, y, WIDTH, 7.4, 'right');
   }
+  y += 5;
+  const boxY = y; const boxHeight = 47;
+  doc.rect(MARGIN, boxY, WIDTH, boxHeight); doc.line(105, boxY, 105, boxY + boxHeight);
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND); doc.setFontSize(8.7);
+  doc.text('POUR L’EMPLOYEUR', MARGIN + 3, boxY + 6); doc.text('LE TRAVAILLEUR', 108, boxY + 6);
+  const imageY = boxY + 8;
+  addImage(doc, assets.seal, MARGIN + 7, imageY, 25, 25);
+  addImage(doc, assets.signature, MARGIN + 16, imageY + 1, Math.min(46, Number(data.employer.directorSignatureWidth || 190) / 4), Math.min(22, Number(data.employer.directorSignatureHeight || 92) / 4));
+  addImage(doc, assets.employeeSignatureImage, 111, imageY + 1, 53, 21);
+  doc.setTextColor(...INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.9);
+  doc.text(data.employer.directorName || 'Représentant', MARGIN + 3, boxY + 36, { maxWidth: 79 });
+  doc.text(`${data.firstName} ${data.lastName}`, 108, boxY + 36, { maxWidth: 78 });
+  doc.setTextColor(...MUTED); doc.setFontSize(8);
+  doc.text(data.employer.directorTitle || 'Direction', MARGIN + 3, boxY + 41, { maxWidth: 79 });
+  if (data.acceptedAt) doc.text(`Accord visuel du collaborateur : ${new Date(data.acceptedAt).toLocaleDateString('fr-FR')}`, 108, boxY + 41, { maxWidth: 78 });
+  else if (data.employeeSignature && !assets.employeeSignatureImage) doc.text(data.employeeSignature, 108, boxY + 41, { maxWidth: 78 });
 
-  const count = doc.getNumberOfPages();
-  for (let page = 1; page <= count; page++) {
-    doc.setPage(page); doc.setDrawColor(210); doc.line(MARGIN, 277, 190, 277);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(95);
-    doc.text(data.employer.documentFooter || `${data.employer.companyName || 'Employeur'} · Contrat ${data.kind}`, MARGIN, 283, { maxWidth: 140 });
-    doc.text(`Page ${page} / ${count}`, 190, 283, { align: 'right' });
-    if (data.draft) { doc.setFont('helvetica', 'bold'); doc.setTextColor(158, 38, 70); doc.text(data.draftLabel || 'PROJET À RELIRE', 190, 11, { align: 'right' }); }
+  const pages = doc.getNumberOfPages();
+  for (let number = 1; number <= pages; number++) {
+    doc.setPage(number);
+    doc.setDrawColor(...BRAND); doc.setLineWidth(.35); doc.line(MARGIN, 276, 190, 276);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
+    const contact = [company, data.employer.companyPhone, data.employer.companyEmail].filter(Boolean).join('  ·  ');
+    singleLine(doc, contact, 105, 282, 153, 5.8, 'center');
+    const registration = [data.employer.companyRegistration && `RCCM : ${data.employer.companyRegistration}`, data.employer.companyTaxId && `ID : ${data.employer.companyTaxId}`, data.employer.companyAddress, data.employer.documentFooter].filter(Boolean).join('  ·  ');
+    if (registration) singleLine(doc, registration, 103, 286, 133, 5.8, 'center');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.text(`Page ${number} / ${pages}`, 190, 286, { align: 'right' });
+    if (data.draft) { doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND); doc.text(data.draftLabel || 'PROJET À RELIRE', 190, 10, { align: 'right' }); }
   }
   return doc;
 }
