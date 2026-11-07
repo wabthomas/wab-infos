@@ -1,6 +1,6 @@
 import 'server-only';
 
-export async function readContractBody(request: Request, limit = 40_000): Promise<unknown> {
+export async function readContractBody(request: Request, limit = 120_000): Promise<unknown> {
   if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) throw new Error('invalid content type');
   const reader = request.body?.getReader(); if (!reader) throw new Error('empty body');
   const chunks: Uint8Array[] = []; let size = 0;

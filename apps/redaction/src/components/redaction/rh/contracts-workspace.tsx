@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { contractPartiesFromProfile, type ContractProfile } from '@/lib/redaction/rh/contract-parties';
+import { MAX_CONTRACT_CLAUSES } from '@/lib/redaction/rh/contracts';
 import { contractProgress } from '@/lib/redaction/rh/contract-lifecycle';
 import { buildContractDocument } from '@/lib/redaction/rh/contract-document';
 import { formatContractSelection, type ContractFormatCommand } from '@/lib/redaction/rh/contract-format';
@@ -188,7 +189,7 @@ export function ContractsWorkspace() {
     const textarea = clausesRef.current;
     if (!textarea || locked || busy) return;
     const result = formatContractSelection(clauses, textarea.selectionStart, textarea.selectionEnd, command);
-    if (result.value.length > 12000 || result.value.split('\n').length > 250) { setError('Corps du contrat limité à 12 000 caractères et 250 lignes.'); return; }
+    if (result.value.length > MAX_CONTRACT_CLAUSES || result.value.split('\n').length > 250) { setError('Corps du contrat limité à 15 000 caractères et 250 lignes.'); return; }
     setError(''); setClauses(result.value); setApproved(false); setSign(false);
     requestAnimationFrame(() => { textarea.focus(); textarea.setSelectionRange(result.start, result.end); });
   }
@@ -258,12 +259,12 @@ export function ContractsWorkspace() {
             {!showContractFields && <p className="mt-3 text-xs text-muted-foreground">Fonction, lieu d’affectation, dates, rémunération et devise masqués à l’écran. Leurs valeurs sont conservées et restent soumises à validation avant transmission.</p>}
           </section>
           <section className="overflow-hidden rounded-xl border">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-4 sm:px-5"><h3 className="text-base font-bold">02 · Corps du contrat</h3><span className="text-xs tabular-nums text-muted-foreground">{clauses.length} / 12 000 caractères</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-4 sm:px-5"><h3 className="text-base font-bold">02 · Corps du contrat</h3><span className="text-xs tabular-nums text-muted-foreground">{clauses.length} / 15 000 caractères</span></div>
             <div role="toolbar" aria-label="Mise en forme du corps du contrat" className="flex flex-wrap items-center gap-1 border-b p-2 sm:px-4">
               {formats.map(item=><button key={item.command} type="button" title={item.title} aria-label={item.title} onMouseDown={e=>e.preventDefault()} onClick={()=>applyFormat(item.command)} className={`min-h-9 rounded-lg border px-2.5 text-sm hover:bg-muted ${item.command==='bold'?'font-bold':item.command==='italic'?'italic':''}`}>{item.label}</button>)}
             </div>
             <label className="block px-4 pt-3 text-sm font-medium sm:px-5" htmlFor="contract-body">Corps texte</label>
-            <textarea id="contract-body" ref={clausesRef} className="min-h-80 w-full resize-y bg-background px-4 py-3 font-mono text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-5" value={clauses} maxLength={12000} onChange={e => { setClauses(e.target.value); setApproved(false); setSign(false); }} placeholder="Saisissez les clauses vérifiées…" />
+            <textarea id="contract-body" ref={clausesRef} className="min-h-80 w-full resize-y bg-background px-4 py-3 font-mono text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-5" value={clauses} maxLength={MAX_CONTRACT_CLAUSES} onChange={e => { setClauses(e.target.value); setApproved(false); setSign(false); }} placeholder="Saisissez les clauses vérifiées…" />
           </section>
           <section className="space-y-3 rounded-xl border p-4 sm:p-5">
             <h3 className="text-base font-bold">03 · Validation et visa</h3>

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { getRhFlags } from '@/lib/redaction/rh/flags';
 import { requireRhPermission } from '@/lib/redaction/rh/authorization';
 import { db } from '@/lib/redaction/rh/database';
-import { isContractId, isContractDate } from '@/lib/redaction/rh/contracts';
+import { isContractId, isContractDate, MAX_CONTRACT_CLAUSES } from '@/lib/redaction/rh/contracts';
 import { readContractBody } from '@/lib/redaction/rh/contract-http';
 import { json, handleError, validOrigin } from '@/lib/redaction/rh/api';
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,7 @@ const select = `id,kind,title,clauses,signature_place AS "signaturePlace",to_cha
 const template = (raw: unknown) => {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const v = raw as Record<string,unknown>;
-  if ((v.kind!=='CDD'&&v.kind!=='CDI')||typeof v.title!=='string'||!v.title.trim()||v.title.length>120||typeof v.clauses!=='string'||!v.clauses.trim()||v.clauses.length>12000||v.clauses.split('\n').length>250||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(v.title+v.clauses)) return null;
+  if ((v.kind!=='CDD'&&v.kind!=='CDI')||typeof v.title!=='string'||!v.title.trim()||v.title.length>120||typeof v.clauses!=='string'||!v.clauses.trim()||v.clauses.length>MAX_CONTRACT_CLAUSES||v.clauses.split('\n').length>250||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(v.title+v.clauses)) return null;
   const signaturePlace = v.signaturePlace === undefined ? '' : v.signaturePlace;
   const signatureDate = v.signatureDate === undefined || v.signatureDate === '' ? null : v.signatureDate;
   if (typeof signaturePlace !== 'string' || signaturePlace.length > 120 || /[\u0000-\u001f\u007f]/.test(signaturePlace)
