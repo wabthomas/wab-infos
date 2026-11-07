@@ -16,7 +16,7 @@ import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/
 import { useToast } from '@/components/ui/toast';
 
 type ContractTemplate = { id:string;kind:'CDD'|'CDI';title:string;clauses:string;signaturePlace:string;signatureDate:string|null;version:number };
-type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses:string; birthPlace:string; signaturePlace:string; signatureDate:string|null; status:'draft'|'proposed'|'pending_approval'|'accepted'|'declined'; approvedAt:string|null; version:number; firstName:string;lastName:string; employeeSignature:string|null;signatureMode:string|null;consentCompanyRules:boolean;consentWorkRules:boolean;acceptedAt:string|null; displayOptions?:Partial<ContractDisplayOptions>|null };
+type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses?:string; birthPlace:string; signaturePlace:string; signatureDate:string|null; status:'draft'|'proposed'|'pending_approval'|'accepted'|'declined'; approvedAt:string|null; version:number; firstName:string;lastName:string; employeeSignature:string|null;signatureMode:string|null;consentCompanyRules:boolean;consentWorkRules:boolean;acceptedAt:string|null; displayOptions?:Partial<ContractDisplayOptions>|null };
 type Person = { id: string; firstName: string; lastName: string; jobTitle: string; startDate: string; archived: boolean };
 async function png(src: string | null, opacity = 1): Promise<string | null> {
   if (!src) return null;
@@ -50,6 +50,7 @@ export function ContractsWorkspace() {
   const [birthPlace, setBirthPlace] = useState('');
   const [signaturePlace, setSignaturePlace] = useState(''), [signatureDate, setSignatureDate] = useState('');
   const [displayOptions, setDisplayOptions] = useState<ContractDisplayOptions>(DEFAULT_CONTRACT_DISPLAY);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [profile, setProfile] = useState<ContractProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [clauses, setClauses] = useState(''), [approved, setApproved] = useState(false), [authorized, setAuthorized] = useState(false);
@@ -105,14 +106,26 @@ export function ContractsWorkspace() {
   }
   function applyTemplate(item:ContractTemplate) {
     if (clauses.trim() && clauses!==item.clauses && !window.confirm('Remplacer les clauses actuellement saisies par ce modèle ?')) return;
-    setSelectedTemplate(item);setTemplateTitle(item.title);setKind(item.kind);setClauses(item.clauses);setSignaturePlace(item.signaturePlace || '');setSignatureDate(item.signatureDate || '');setApproved(false);setSign(false);
+    setSelectedTemplate(item);setTemplateTitle(item.title);setKind(item.kind);setClauses(item.clauses ?? '');setSignaturePlace(item.signaturePlace || '');setSignatureDate(item.signatureDate || '');setApproved(false);setSign(false);
   }
   function payload() { return { collaboratorId:personId,kind,jobTitle:job,workLocation:location,startDate,endDate:kind==='CDD'?endDate:null,salary,currency,clauses,birthPlace,signaturePlace,signatureDate:signatureDate||null,displayOptions }; }
-  function choose(item:ContractCase, force = false) {
+  async function choose(item:ContractCase, force = false) {
     if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return;
+    if (item.clauses === undefined) {
+      setDetailLoading(true);
+      try {
+        const response = await fetchRedaction(`/api/redaction/rh/contrats?id=${encodeURIComponent(item.id)}`, { cache: 'no-store' });
+        const data = await response.json();
+        const full = (data.contracts as ContractCase[] | undefined)?.[0];
+        if (!response.ok || !full || full.clauses === undefined) throw new Error();
+        setDetailLoading(false);
+        await choose(full, true);
+      } catch { setDetailLoading(false); setError('Impossible de charger le contrat sélectionné.'); }
+      return;
+    }
     setSelectedTemplate(null);setTemplateTitle('');if (!force) setActiveTab('gestion');setBrowserLink(null);setSelected(item);setPersonId(item.collaboratorId);setKind(item.kind);setJob(item.jobTitle);setLocation(item.workLocation);setDisplayOptions({ ...DEFAULT_CONTRACT_DISPLAY, ...(item.displayOptions ?? {}) });
-    setStartDate(item.startDate);setEndDate(item.endDate??'');setSalary(item.salary);setCurrency(item.currency);setClauses(item.clauses);setBirthPlace(item.birthPlace || '');setSignaturePlace(item.signaturePlace || '');setSignatureDate(item.signatureDate || '');if (personId !== item.collaboratorId) { setProfile(null);setProfileLoading(true); }
-    setSavedSnapshot(JSON.stringify({ collaboratorId:item.collaboratorId,kind:item.kind,jobTitle:item.jobTitle,workLocation:item.workLocation,startDate:item.startDate,endDate:item.kind==='CDD'?item.endDate:null,salary:item.salary,currency:item.currency,clauses:item.clauses,birthPlace:item.birthPlace || '',signaturePlace:item.signaturePlace || '',signatureDate:item.signatureDate || null,displayOptions:{ ...DEFAULT_CONTRACT_DISPLAY, ...(item.displayOptions ?? {}) } }));
+    setStartDate(item.startDate);setEndDate(item.endDate??'');setSalary(item.salary);setCurrency(item.currency);setClauses(item.clauses ?? '');setBirthPlace(item.birthPlace || '');setSignaturePlace(item.signaturePlace || '');setSignatureDate(item.signatureDate || '');if (personId !== item.collaboratorId) { setProfile(null);setProfileLoading(true); }
+    setSavedSnapshot(JSON.stringify({ collaboratorId:item.collaboratorId,kind:item.kind,jobTitle:item.jobTitle,workLocation:item.workLocation,startDate:item.startDate,endDate:item.kind==='CDD'?item.endDate:null,salary:item.salary,currency:item.currency,clauses:item.clauses ?? '',birthPlace:item.birthPlace || '',signaturePlace:item.signaturePlace || '',signatureDate:item.signatureDate || null,displayOptions:{ ...DEFAULT_CONTRACT_DISPLAY, ...(item.displayOptions ?? {}) } }));
     setApproved(false);setAuthorized(false);setSign(false);setError('');
   }
   function newCase(force = false) { if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return; setSelectedTemplate(null);setTemplateTitle('');setActiveTab('redaction');setSelected(null);setPersonId('');setKind('CDD');setJob('');setLocation('');setStartDate('');setEndDate('');setSalary('');setCurrency('CDF');setClauses('');setBirthPlace('');setSignaturePlace('');setSignatureDate('');setProfile(null);setProfileLoading(false);setSavedSnapshot('');setApproved(false);setAuthorized(false);setSign(false);setError(''); }
@@ -292,6 +305,7 @@ export function ContractsWorkspace() {
       ))}
     </nav>
     {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {detailLoading && <p role="status" className="rounded-xl border border-primary/30 bg-primary/[0.04] p-3 text-sm text-primary">Chargement du contrat…</p>}
     <div className={activeTab==='redaction' ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'space-y-5'}>
       {activeTab==='redaction'&&<div className="min-w-0 space-y-5">
         <button type="button" aria-expanded={showContractFields} aria-controls="contract-optional-fields" onClick={() => setShowContractFields(current => !current)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted">{showContractFields ? 'Masquer les champs du contrat' : 'Afficher les champs du contrat'}</button>

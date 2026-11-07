@@ -3,6 +3,7 @@ import { requireRedactionUser, isRedactionSuperAdmin } from '@/lib/redaction/str
 import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
 import { db } from '@/lib/redaction/rh/database';
 import { ORGANIZATION_ASSET_KEYS, type OrganizationAssetKey } from '@/lib/redaction/rh/organization';
+import sharp from 'sharp';
 import { handleError, json, validOrigin } from '@/lib/redaction/rh/api';
 
 export const dynamic = 'force-dynamic';
@@ -29,13 +30,32 @@ function detectImage(bytes: Buffer): 'image/jpeg' | 'image/png' | 'image/webp' |
   return null;
 }
 
+async function decodeAsset(bytes: Buffer, mimeType: string): Promise<{ data: string; mimeType: string }> {
+  let output = bytes;
+  let type = mimeType;
+  try {
+    const image = sharp(bytes, { limitInputPixels: 80_000_000 });
+    const meta = await image.metadata();
+    if (bytes.length > 300_000 || (meta.width ?? 0) > 1400) {
+      const png = meta.format !== 'jpeg';
+      output = await image.resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+        .toFormat(png ? 'png' : 'jpeg', { quality: 86 }).toBuffer();
+      type = png ? 'image/png' : 'image/jpeg';
+    }
+  } catch { /* format inattendu : servir l'original */ }
+  return { data: `data:${type};base64,${output.toString('base64')}`, mimeType: type };
+}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ key: string }> }) {
   try {
     await authorizeReader();
     const key = await getKey(params);
     if (!key) return json({ error: 'Ressource inconnue.' }, 404);
-    const result = await db().query(`SELECT mime_type AS "mimeType",'data:'||mime_type||';base64,'||encode(file_bytes,'base64') AS data FROM redaction_rh.organization_assets WHERE asset_key=$1`, [key]);
-    return json({ asset: result.rows[0]?.data ?? null, mimeType: result.rows[0]?.mimeType ?? null });
+    const result = await db().query('SELECT mime_type AS "mimeType",file_bytes AS bytes FROM redaction_rh.organization_assets WHERE asset_key=$1', [key]);
+    const row = result.rows[0];
+    if (!row) return json({ asset: null, mimeType: null });
+    const { data, mimeType } = await decodeAsset(row.bytes as Buffer, row.mimeType as string);
+    return json({ asset: data, mimeType });
   } catch (error) { return handleError(error); }
 }
 

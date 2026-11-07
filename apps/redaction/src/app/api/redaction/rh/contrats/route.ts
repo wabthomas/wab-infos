@@ -12,7 +12,8 @@ import { DEFAULT_ORGANIZATION_SETTINGS } from '@/lib/redaction/rh/organization';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const projection = `k.id,k.collaborator_id AS "collaboratorId",k.kind,k.job_title AS "jobTitle",k.work_location AS "workLocation",to_char(k.start_date,'YYYY-MM-DD') AS "startDate",to_char(k.end_date,'YYYY-MM-DD') AS "endDate",k.salary::text,k.currency,k.clauses,k.birth_place AS "birthPlace",k.signature_place AS "signaturePlace",to_char(k.signature_date,'YYYY-MM-DD') AS "signatureDate",k.version,k.status,k.prepared_by AS "preparedBy",k.proposed_at AS "proposedAt",k.accepted_at AS "acceptedAt",k.approved_at AS "approvedAt",k.employee_signature AS "employeeSignature",k.display_options AS "displayOptions",k.signature_mode AS "signatureMode",k.consent_company_rules AS "consentCompanyRules",k.consent_work_rules AS "consentWorkRules",c.first_name AS "firstName",c.last_name AS "lastName"`;
+const detailProjection = `k.id,k.collaborator_id AS "collaboratorId",k.kind,k.job_title AS "jobTitle",k.work_location AS "workLocation",to_char(k.start_date,'YYYY-MM-DD') AS "startDate",to_char(k.end_date,'YYYY-MM-DD') AS "endDate",k.salary::text,k.currency,k.clauses,k.birth_place AS "birthPlace",k.signature_place AS "signaturePlace",to_char(k.signature_date,'YYYY-MM-DD') AS "signatureDate",k.version,k.status,k.prepared_by AS "preparedBy",k.proposed_at AS "proposedAt",k.accepted_at AS "acceptedAt",k.approved_at AS "approvedAt",k.employee_signature AS "employeeSignature",k.display_options AS "displayOptions",k.signature_mode AS "signatureMode",k.consent_company_rules AS "consentCompanyRules",k.consent_work_rules AS "consentWorkRules",c.first_name AS "firstName",c.last_name AS "lastName"`;
+const listProjection = detailProjection.replace(',k.clauses', '');
 
 export async function GET(request: Request) {
   try {
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
     if (!(await getRhFlags()).contractsEnabled) return json({ error: 'Contrats RH désactivés.' }, 503);
     const id = new URL(request.url).searchParams.get('id');
     if (id && !isContractId(id)) return json({ error: 'Contrat invalide.' }, 400);
-    const result = await db().query(`SELECT ${projection} FROM redaction_rh.contract_cases k JOIN redaction_rh.collaborators c ON c.id=k.collaborator_id WHERE k.status<>'archived' ${id ? 'AND k.id=$1' : ''} ORDER BY k.updated_at DESC,k.id DESC LIMIT ${id ? 1 : 200}`, id ? [id] : []);
+    const result = await db().query(`SELECT ${id ? detailProjection : listProjection} FROM redaction_rh.contract_cases k JOIN redaction_rh.collaborators c ON c.id=k.collaborator_id WHERE k.status<>'archived' ${id ? 'AND k.id=$1' : ''} ORDER BY k.updated_at DESC,k.id DESC LIMIT ${id ? 1 : 100}`, id ? [id] : []);
     return json({ contracts: result.rows });
   } catch (error) { return handleError(error); }
 }
