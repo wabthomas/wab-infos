@@ -37,6 +37,7 @@ export function ContractsWorkspace() {
   const [personId, setPersonId] = useState(''), [kind, setKind] = useState<'CDD' | 'CDI'>('CDD');
   const [startDate, setStartDate] = useState(''), [endDate, setEndDate] = useState('');
   const [job, setJob] = useState(''), [location, setLocation] = useState('');
+  const [showContractFields, setShowContractFields] = useState(true);
   const [salary, setSalary] = useState(''), [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
   const [birthPlace, setBirthPlace] = useState('');
   const [signaturePlace, setSignaturePlace] = useState(''), [signatureDate, setSignatureDate] = useState('');
@@ -115,7 +116,7 @@ export function ContractsWorkspace() {
       const r=await fetchRedaction('/api/redaction/rh/contrats',{method:selected?'PATCH':'POST',headers:{'content-type':'application/json'},body:JSON.stringify(selected?{action:'update',id:selected.id,version:selected.version,contract:payload()}:payload())});
       const data=await r.json();if(!r.ok)throw new Error(data.error||'Enregistrement impossible.');
       await reload(selected?.id??data.id);toast.success('Brouillon enregistré sur le serveur.');
-    }catch(e){const message=e instanceof Error?e.message:'Enregistrement impossible.';setError(message);toast.error(message);}finally{setBusy(false);}
+    }catch(e){const message=e instanceof Error?e.message:'Enregistrement impossible.';setShowContractFields(true);setError(message);toast.error(message);}finally{setBusy(false);}
   }
   async function proposeCase() {
     if(!selected||selected.status!=='draft'||!approved||!authorized||!sign)return;
@@ -200,7 +201,7 @@ export function ContractsWorkspace() {
         const url=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=url;a.download=`contrat-${selected.kind.toLowerCase()}-${selected.id}.pdf`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
       }catch(e){setError(e instanceof Error?e.message:'Téléchargement impossible.');}finally{setBusy(false);}return;
     }
-    if (!person || !job.trim() || !location.trim() || !startDate || !clauses.trim() || !/^(?:[1-9]\d{0,11})(?:[.,]\d{1,2})?$/.test(salary) || (kind === 'CDD' && (!endDate || endDate <= startDate))) { setError('Complétez le dossier, les dates, le lieu, la rémunération et les clauses validées.'); return; }
+    if (!person || !job.trim() || !location.trim() || !startDate || !clauses.trim() || !/^(?:[1-9]\d{0,11})(?:[.,]\d{1,2})?$/.test(salary) || (kind === 'CDD' && (!endDate || endDate <= startDate))) { setShowContractFields(true); setError('Complétez le dossier, les dates, le lieu, la rémunération et les clauses validées.'); return; }
     if (!approved) { setError('La validation juridique des clauses est nécessaire avant la préparation du PDF.'); return; }
     if (sign && (!settings.directorName.trim() || !signature || !seal)) { setError('Configurez le nom, le sceau et la signature image du DG avant son visa.'); return; }
     setBusy(true);
@@ -236,6 +237,7 @@ export function ContractsWorkspace() {
     {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
       <div className="min-w-0 space-y-5">
+        <button type="button" aria-expanded={showContractFields} aria-controls="contract-optional-fields" onClick={() => setShowContractFields(current => !current)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted">{showContractFields ? 'Masquer les champs du contrat' : 'Afficher les champs du contrat'}</button>
         <fieldset disabled={locked||busy} className="space-y-5 disabled:opacity-70">
           <section className="rounded-xl border p-4 sm:p-5">
             <h3 className="mb-4 text-base font-bold">01 · Informations du contrat</h3>
@@ -244,6 +246,8 @@ export function ContractsWorkspace() {
               <label className="text-sm font-medium">Type de contrat<select className={input} value={kind} onChange={e => { setKind(e.target.value as 'CDD' | 'CDI'); setApproved(false); setSign(false); }}><option value="CDD">CDD</option><option value="CDI">CDI</option></select></label>
               <label className="text-sm font-medium">Lieu de naissance<input className={input} value={birthPlace} maxLength={120} onChange={e => { setBirthPlace(e.target.value); setApproved(false); setSign(false); }} placeholder="À renseigner — distinct de la ville de résidence" /></label>
               <p className="self-center text-xs text-muted-foreground">Fiche d’identification : {profileLoading ? 'chargement…' : profile ? `Naissance : ${profile.birthDate || 'à compléter'} · Adresse : ${profile.address || 'à compléter'} · Téléphone : ${profile.phone || 'à compléter'}` : 'fiche indisponible. Complétez-la avant transmission.'}</p>
+            </div>
+            <div id="contract-optional-fields" className={showContractFields ? 'mt-4 grid gap-4 sm:grid-cols-2' : 'hidden'}>
               <label className="text-sm font-medium">Fonction<input className={input} value={job} maxLength={160} onChange={e => { setJob(e.target.value); setApproved(false); setSign(false); }} /></label>
               <label className="text-sm font-medium">Lieu d’affectation<input className={input} value={location} maxLength={180} onChange={e => { setLocation(e.target.value); setApproved(false); setSign(false); }} /></label>
               <label className="text-sm font-medium">Date de prise d’effet<input className={input} type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setApproved(false); setSign(false); }} /></label>
@@ -251,6 +255,7 @@ export function ContractsWorkspace() {
               <label className="text-sm font-medium">Rémunération<input className={input} inputMode="decimal" value={salary} onChange={e => { setSalary(e.target.value); setApproved(false); setSign(false); }} placeholder="Montant" /></label>
               <label className="text-sm font-medium">Devise<select className={input} value={currency} onChange={e => { setCurrency(e.target.value as 'CDF' | 'USD'); setApproved(false); setSign(false); }}><option>CDF</option><option>USD</option></select></label>
             </div>
+            {!showContractFields && <p className="mt-3 text-xs text-muted-foreground">Fonction, lieu d’affectation, dates, rémunération et devise masqués à l’écran. Leurs valeurs sont conservées et restent soumises à validation avant transmission.</p>}
           </section>
           <section className="overflow-hidden rounded-xl border">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-4 sm:px-5"><h3 className="text-base font-bold">02 · Corps du contrat</h3><span className="text-xs tabular-nums text-muted-foreground">{clauses.length} / 12 000 caractères</span></div>
