@@ -1435,6 +1435,20 @@ public class MainActivity extends AppCompatActivity {
 
         @android.webkit.JavascriptInterface
         public void stopRhVoice() { runOnUiThread(MainActivity.this::stopRhVoicePlayback); }
+        /** Un lien HTTPS temporaire ouvre le navigateur système, jamais un blob: WebView. */
+        @android.webkit.JavascriptInterface
+        public void openExternalUrl(String url) {
+            if (url == null) return;
+            Uri target = Uri.parse(url);
+            String host = target.getHost();
+            if (!"https".equalsIgnoreCase(target.getScheme()) || host == null ||
+                    !(host.equalsIgnoreCase("wab-infos.com") || host.toLowerCase(Locale.ROOT).endsWith(".wab-infos.com"))) return;
+            runOnUiThread(() -> {
+                try { startActivity(new Intent(Intent.ACTION_VIEW, target).addCategory(Intent.CATEGORY_BROWSABLE)); }
+                catch (Exception e) { Log.w("WabDocument", "Navigateur indisponible", e); }
+            });
+        }
+
         @android.webkit.JavascriptInterface
         public void share(String title, String text, String url) {
             runOnUiThread(() -> {

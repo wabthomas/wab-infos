@@ -1,4 +1,6 @@
 'use client';
+import { BrowserDocumentLink } from './browser-document-link';
+import { deliverRhDocument } from '@/lib/redaction/rh/browser-document';
 import { useRhNotice } from './use-rh-notice';
 import { useState, type FormEvent } from 'react';
 import { Download, FileSpreadsheet, LockKeyhole } from 'lucide-react';
@@ -8,19 +10,10 @@ import { parseReportFilter, type ReportType } from '@/lib/redaction/rh/reports';
 type ReportFormat = 'csv' | 'pdf';
 const reportLabels: Record<ReportType, string> = { collaborateurs: 'Collaborateurs', absences: 'Congés et absences', prestations: 'Prestations enregistrées', presence: 'Présence et pointages' };
 
-async function saveReportPdf(blob: Blob, filename: string) {
-  const file = new File([blob], filename, { type: 'application/pdf' });
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'Rapport RH' }); return; }
-    catch (error) { if (error instanceof DOMException && error.name === 'AbortError') return; }
-  }
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.hidden = true;
-  document.body.appendChild(anchor); anchor.click(); anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-}
+async function saveReportPdf(blob:Blob,filename:string):Promise<string|null> { return deliverRhDocument(blob,filename); }
 
 export function Reports({ today }: { today: string }) {
+  const [browserLink,setBrowserLink]=useState<string|null>(null);
   const [type, setType] = useState<ReportType>('collaborateurs');
   const [format, setFormat] = useState<ReportFormat>('csv');
   const [start, setStart] = useState(`${today.slice(0, 7)}-01`); const [end, setEnd] = useState(today);
@@ -36,10 +29,8 @@ export function Reports({ today }: { today: string }) {
       const response = await fetchRedaction(`/api/redaction/rh/rapports?${params}`, { method: 'POST', cache: 'no-store' });
       if (!response.ok) { const data = await response.json(); throw new Error(data.error || 'Export indisponible.'); }
       if (format === 'csv') {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        try { const anchor = document.createElement('a'); anchor.href = url; anchor.download = `rh-${type}.csv`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); }
-        finally { window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
+        const blob = new Blob([await response.arrayBuffer()], {type:'text/csv'});
+        setBrowserLink(await deliverRhDocument(blob,`rh-${type}.csv`));
       } else {
         const data = await response.json() as { headers: string[]; rows: unknown[][] };
         const { jsPDF } = await import('jspdf');
@@ -93,7 +84,7 @@ export function Reports({ today }: { today: string }) {
         }
         const totalPages = pdf.getNumberOfPages();
         for (let page = 1; page <= totalPages; page++) { pdf.setPage(page); pdf.setTextColor(130); pdf.setFontSize(7); pdf.text(`Lignes : ${data.rows.length} · Page ${page}/${totalPages}`, pageWidth - margin, pageHeight - 6, { align: 'right' }); }
-        await saveReportPdf(pdf.output('blob'), `rh-${type}-${start || today}.pdf`);
+        setBrowserLink(await saveReportPdf(pdf.output('blob'), `rh-${type}-${start || today}.pdf`));
       }
       setMessage(`Rapport ${format.toUpperCase()} généré. Conservez le fichier dans un emplacement sécurisé.`);
     } catch (err) { setError(err instanceof Error ? err.message : 'Export impossible.'); }
@@ -103,6 +94,7 @@ export function Reports({ today }: { today: string }) {
     <div className="flex items-start gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/[0.07] text-primary"><FileSpreadsheet className="h-5 w-5" /></span>
       <div><h3 className="font-semibold">Exporter un rapport</h3><p className="mt-1 text-sm leading-6 text-muted-foreground">Téléchargez ou imprimez un rapport RH en CSV ou en PDF. Chaque génération est journalisée.</p></div></div>
     <div className="flex gap-3 rounded-xl bg-amber-500/[0.08] p-4"><LockKeyhole className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" /><p className="text-xs leading-5 text-muted-foreground">Ces fichiers contiennent des informations personnelles. Chaque export est journalisé. Les rémunérations, références de paiement et descriptions d’activité sont exclus.</p></div>
+    <BrowserDocumentLink url={browserLink}/>
     {error && <p role="alert" className="rounded-xl bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}{message && <p role="status" className="text-sm text-primary">{message}</p>}
     <form onSubmit={submit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><label className="block text-sm font-medium">Rapport

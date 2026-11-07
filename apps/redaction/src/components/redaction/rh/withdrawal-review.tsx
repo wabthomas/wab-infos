@@ -570,7 +570,7 @@ export function WithdrawalReview({
       {receiptWithdrawal && selected && <div className="payment-receipt-modal fixed inset-0 z-[90] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setReceiptWithdrawal(null); }}>
         <section role="dialog" aria-modal="true" aria-label="Reçu du paiement" className="payment-receipt-modal-panel relative max-h-[94dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-background p-3 shadow-2xl sm:rounded-2xl sm:p-5">
           <button type="button" onClick={() => setReceiptWithdrawal(null)} aria-label="Fermer le reçu" className="print:hidden absolute right-3 top-3 z-[95] rounded-full border border-border bg-card p-2 text-muted-foreground"><X className="h-4 w-4" /></button>
-          <PaymentReceipt person={selected} withdrawal={receiptWithdrawal} collaboratorId={person} />
+          <PaymentReceipt person={selected} withdrawal={receiptWithdrawal} />
         </section>
       </div>}
     </div>

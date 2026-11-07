@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { BrowserDocumentLink } from './browser-document-link';
+import { deliverRhDocument } from '@/lib/redaction/rh/browser-document';
 import { contractPartiesFromProfile, type ContractProfile } from '@/lib/redaction/rh/contract-parties';
-import { MAX_CONTRACT_CLAUSES } from '@/lib/redaction/rh/contracts';
+import { DEFAULT_CONTRACT_DISPLAY, MAX_CONTRACT_CLAUSES, type ContractDisplayOptions } from '@/lib/redaction/rh/contracts';
 import { contractProgress } from '@/lib/redaction/rh/contract-lifecycle';
 import { buildContractDocument } from '@/lib/redaction/rh/contract-document';
 import { formatContractSelection, type ContractFormatCommand } from '@/lib/redaction/rh/contract-format';
@@ -10,7 +12,6 @@ import { ContractPdfPreview } from './contract-pdf-preview';
 import Link from 'next/link';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
-import { DEFAULT_CONTRACT_DISPLAY, type ContractDisplayOptions } from '@/lib/redaction/rh/contracts';
 import { useToast } from '@/components/ui/toast';
 
 type ContractTemplate = { id:string;kind:'CDD'|'CDI';title:string;clauses:string;signaturePlace:string;signatureDate:string|null;version:number };
@@ -40,6 +41,9 @@ export function ContractsWorkspace() {
   const [startDate, setStartDate] = useState(''), [endDate, setEndDate] = useState('');
   const [job, setJob] = useState(''), [location, setLocation] = useState('');
   const [showContractFields, setShowContractFields] = useState(true);
+  const [activeTab, setActiveTab] = useState<'gestion'|'redaction'|'configuration'>('gestion');
+  const [showPreview, setShowPreview] = useState(false);
+  const [browserLink,setBrowserLink] = useState<string|null>(null);
   const [salary, setSalary] = useState(''), [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
   const [birthPlace, setBirthPlace] = useState('');
   const [signaturePlace, setSignaturePlace] = useState(''), [signatureDate, setSignatureDate] = useState('');
@@ -49,12 +53,6 @@ export function ContractsWorkspace() {
   const [clauses, setClauses] = useState(''), [approved, setApproved] = useState(false), [authorized, setAuthorized] = useState(false);
   const [previewPdf, setPreviewPdf] = useState<Uint8Array | null>(null);
   const [previewStatus, setPreviewStatus] = useState('Sélectionnez un collaborateur et saisissez le corps du contrat.');
-  const [autoPreview, setAutoPreview] = useState(true);
-  const [previewNonce, setPreviewNonce] = useState(0);
-  const previewNonceRef = useRef(0);
-  useEffect(() => {
-    try { if (localStorage.getItem('rh-contract-auto-preview') === '0') setAutoPreview(false); } catch { /* stockage indisponible */ }
-  }, []);
   const clausesRef = useRef<HTMLTextAreaElement>(null);
   const [sign, setSign] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const person = people.find(p => p.id === personId);
@@ -110,12 +108,12 @@ export function ContractsWorkspace() {
   function payload() { return { collaboratorId:personId,kind,jobTitle:job,workLocation:location,startDate,endDate:kind==='CDD'?endDate:null,salary,currency,clauses,birthPlace,signaturePlace,signatureDate:signatureDate||null,displayOptions }; }
   function choose(item:ContractCase, force = false) {
     if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return;
-    setSelectedTemplate(null);setTemplateTitle('');setSelected(item);setPersonId(item.collaboratorId);setKind(item.kind);setJob(item.jobTitle);setLocation(item.workLocation);setDisplayOptions({ ...DEFAULT_CONTRACT_DISPLAY, ...(item.displayOptions ?? {}) });
+    setSelectedTemplate(null);setTemplateTitle('');if (!force) setActiveTab('gestion');setBrowserLink(null);setSelected(item);setPersonId(item.collaboratorId);setKind(item.kind);setJob(item.jobTitle);setLocation(item.workLocation);setDisplayOptions({ ...DEFAULT_CONTRACT_DISPLAY, ...(item.displayOptions ?? {}) });
     setStartDate(item.startDate);setEndDate(item.endDate??'');setSalary(item.salary);setCurrency(item.currency);setClauses(item.clauses);setBirthPlace(item.birthPlace || '');setSignaturePlace(item.signaturePlace || '');setSignatureDate(item.signatureDate || '');if (personId !== item.collaboratorId) { setProfile(null);setProfileLoading(true); }
     setSavedSnapshot(JSON.stringify({ collaboratorId:item.collaboratorId,kind:item.kind,jobTitle:item.jobTitle,workLocation:item.workLocation,startDate:item.startDate,endDate:item.kind==='CDD'?item.endDate:null,salary:item.salary,currency:item.currency,clauses:item.clauses,birthPlace:item.birthPlace || '',signaturePlace:item.signaturePlace || '',signatureDate:item.signatureDate || null,displayOptions:{ ...DEFAULT_CONTRACT_DISPLAY, ...(item.displayOptions ?? {}) } }));
     setApproved(false);setAuthorized(false);setSign(false);setError('');
   }
-  function newCase(force = false) { if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return; setSelectedTemplate(null);setTemplateTitle('');setSelected(null);setPersonId('');setKind('CDD');setJob('');setLocation('');setStartDate('');setEndDate('');setSalary('');setCurrency('CDF');setClauses('');setBirthPlace('');setSignaturePlace('');setSignatureDate('');setProfile(null);setProfileLoading(false);setSavedSnapshot('');setApproved(false);setAuthorized(false);setSign(false);setError(''); }
+  function newCase(force = false) { if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return; setSelectedTemplate(null);setTemplateTitle('');setActiveTab('redaction');setSelected(null);setPersonId('');setKind('CDD');setJob('');setLocation('');setStartDate('');setEndDate('');setSalary('');setCurrency('CDF');setClauses('');setBirthPlace('');setSignaturePlace('');setSignatureDate('');setProfile(null);setProfileLoading(false);setSavedSnapshot('');setApproved(false);setAuthorized(false);setSign(false);setError(''); }
   async function reload(id?:string) {
     const r=await fetchRedaction('/api/redaction/rh/contrats',{cache:'no-store'});const data=await r.json();if(!r.ok)throw new Error(data.error||'Lecture impossible.');
     setCases(data.contracts);if(id) {const found=(data.contracts as ContractCase[]).find(c=>c.id===id);if(found)choose(found,true);}
@@ -162,6 +160,7 @@ export function ContractsWorkspace() {
   useEffect(() => {
     let active = true;
     setPreviewPdf(null);
+    if (!showPreview) return () => { active = false; };
     if (selected && selected.status !== 'draft') {
       setPreviewStatus('Chargement de la version enregistrée…');
       void (async () => {
@@ -191,7 +190,7 @@ export function ContractsWorkspace() {
       return () => { active = false; window.clearTimeout(timer); };
     } else setPreviewStatus('Sélectionnez un collaborateur et saisissez le corps du contrat.');
     return () => { active = false; };
-  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, birthPlace, signaturePlace, signatureDate, authorized, displayOptions, parties?.birthDate, parties?.address, parties?.phone, profileLoading, settings, sign, seal, signature, logo, autoPreview, previewNonce]);
+  }, [showPreview, selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, birthPlace, signaturePlace, signatureDate, authorized, displayOptions, parties?.birthDate, parties?.address, parties?.phone, profileLoading, settings, sign, seal, signature, logo]);
 
   function applyFormat(command: ContractFormatCommand) {
     const textarea = clausesRef.current;
@@ -207,7 +206,7 @@ export function ContractsWorkspace() {
       setBusy(true);try {
         const r=await fetchRedaction(`/api/redaction/rh/contrats/${selected.id}/pdf`,{cache:'no-store'});
         if(!r.ok){const data=await r.json();throw new Error(data.error||'PDF indisponible.');}
-        const url=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=url;a.download=`contrat-${selected.kind.toLowerCase()}-${selected.id}.pdf`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+        setBrowserLink(await deliverRhDocument(await r.blob(),`contrat-${selected.kind.toLowerCase()}-${selected.id}.pdf`));
       }catch(e){setError(e instanceof Error?e.message:'Téléchargement impossible.');}finally{setBusy(false);}return;
     }
     if (!person || !job.trim() || !location.trim() || !startDate || !clauses.trim() || !/^(?:[1-9]\d{0,11})(?:[.,]\d{1,2})?$/.test(salary) || (kind === 'CDD' && (!endDate || endDate <= startDate))) { setShowContractFields(true); setError('Complétez le dossier, les dates, le lieu, la rémunération et les clauses validées.'); return; }
@@ -220,7 +219,7 @@ export function ContractsWorkspace() {
         startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties, signaturePlace, signatureDate, displayOptions,
         employer: { ...settings, directorAuthorized:authorized }, draft: true,
       }, { logo: await png(logo), seal: sign ? await png(seal, .85) : null, signature: sign ? await png(signature) : null });
-      pdf.save(`projet-contrat-${kind.toLowerCase()}-${person.lastName.replace(/[^a-zA-Z0-9-]/g,'-')}.pdf`);
+      setBrowserLink(await deliverRhDocument(pdf.output('blob'),`projet-contrat-${kind.toLowerCase()}-${person.lastName.replace(/[^a-zA-Z0-9-]/g,'-')}.pdf`));
       toast.success('Projet PDF prêt. Déposez la version signée dans Documents RH après contrôle.');
     } catch { setError('Génération PDF impossible.'); toast.error('Génération PDF impossible.'); }
     finally { setBusy(false); }
@@ -243,12 +242,13 @@ export function ContractsWorkspace() {
       <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Contrats RH · RDC</p><h2 className="mt-1 text-2xl font-bold">Contrat CDD / CDI</h2></div>
       <button type="button" className="rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-muted" onClick={()=>newCase()}>+ Nouveau contrat</button>
     </header>
+    <nav aria-label="Sections des contrats" className="flex flex-wrap gap-2 border-b pb-4">{([['gestion','Gestion'],['redaction','Rédaction'],['configuration','Configuration']] as const).map(([key,label])=><button key={key} type="button" aria-current={activeTab===key?'page':undefined} onClick={()=>setActiveTab(key)} className={`rounded-xl px-4 py-2.5 text-sm font-bold ${activeTab===key?'bg-primary text-primary-foreground':'border hover:bg-muted'}`}>{label}</button>)}</nav>
     {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-    <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
-      <div className="min-w-0 space-y-5">
+    <div className={activeTab==='redaction' ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'space-y-5'}>
+      {activeTab==='redaction'&&<div className="min-w-0 space-y-5">
         <button type="button" aria-expanded={showContractFields} aria-controls="contract-optional-fields" onClick={() => setShowContractFields(current => !current)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted">{showContractFields ? 'Masquer les champs du contrat' : 'Afficher les champs du contrat'}</button>
         <fieldset disabled={locked||busy} className="space-y-5 disabled:opacity-70">
-          <section className="rounded-xl border p-4 sm:p-5">
+          {showContractFields ? <section className="rounded-xl border p-4 sm:p-5">
             <h3 className="mb-4 text-base font-bold">01 · Informations du contrat</h3>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium">Collaborateur<select className={input} disabled={!!selected} value={personId} onChange={e => changePerson(e.target.value)}><option value="">Sélectionner…</option>{people.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}</select></label>
@@ -281,8 +281,7 @@ export function ContractsWorkspace() {
                 </div>
               </div>
             </div>
-            {!showContractFields && <p className="mt-3 text-xs text-muted-foreground">Fonction, lieu d’affectation, dates, rémunération et devise masqués à l’écran. Leurs valeurs sont conservées et restent soumises à validation avant transmission.</p>}
-          </section>
+          </section> : null}
           <section className="overflow-hidden rounded-xl border">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-4 sm:px-5"><h3 className="text-base font-bold">02 · Corps du contrat</h3><span className="text-xs tabular-nums text-muted-foreground">{clauses.length} / 15 000 caractères</span></div>
             <div role="toolbar" aria-label="Mise en forme du corps du contrat" className="flex flex-wrap items-center gap-1 border-b p-2 sm:px-4">
@@ -303,23 +302,16 @@ export function ContractsWorkspace() {
           {!locked&&<button type="button" disabled={busy} onClick={()=>void saveDraft()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{selected?'Enregistrer les modifications':'Enregistrer le brouillon'}</button>}
           {!locked&&selected&&<button type="button" disabled={busy||!approved||!authorized||!sign} onClick={()=>void proposeCase()} className="rounded-xl border border-primary px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50">Transmettre pour accord</button>}
           <button type="button" disabled={busy} onClick={() => void exportPdf()} className="rounded-xl border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{busy ? 'Préparation…' : locked?'Télécharger la version figée':'Télécharger le projet PDF'}</button>
-          {selected?.status==='pending_approval'&&<button type="button" disabled={busy} onClick={()=>void approveCase()} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">Approuver le contrat signé</button>}
           {!locked&&selected&&<button type="button" disabled={busy} onClick={()=>void archiveCase()} className="rounded-xl border px-4 py-2.5 text-sm text-red-600 disabled:opacity-50">Archiver le brouillon</button>}
         </div>
+        <BrowserDocumentLink url={browserLink}/>
         <Link href="/rh/documents" className="inline-block text-sm font-semibold text-primary underline">Déposer la version signée dans Documents RH</Link>
-      </div>
+      </div>}
       <aside className="space-y-5">
-        {selected?.status==='pending_approval'&&<div className="rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm text-blue-950"><h3 className="font-semibold">Signature soumise pour vérification</h3><p>Signataire : {selected.employeeSignature || '—'} · Mode : {selected.signatureMode==='text'?'texte':'image ou dessin'} · {selected.acceptedAt ? new Date(selected.acceptedAt).toLocaleString('fr-FR') : 'Date indisponible'}</p><p>Règles de l’entreprise : {selected.consentCompanyRules?'acceptées':'non confirmées'} · Conditions du travail : {selected.consentWorkRules?'acceptées':'non confirmées'}</p><p>Ouvrez le PDF signé et contrôlez les informations avant de cliquer sur Approuver.</p></div>}
-        {selected&&<div className="rounded-xl border bg-card p-4 text-sm"><strong>Évolution du contrat : {selected.status==='accepted'&&!selected.approvedAt?'Accord enregistré (historique)':contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).label}</strong><p className="mt-1 text-muted-foreground">Brouillon → Transmis → Signé → Approuvé → Prise d’effet / terme</p>{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder&&<p role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-amber-900">{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder}</p>}</div>}
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card px-3 py-2 text-sm">
-          <label className="inline-flex items-center gap-2 font-medium">
-            <input type="checkbox" checked={autoPreview} onChange={event => { const next = event.target.checked; setAutoPreview(next); try { localStorage.setItem('rh-contract-auto-preview', next ? '1' : '0'); } catch { /* stockage indisponible */ } }} />
-            Aperçu automatique
-          </label>
-          {!autoPreview && <button type="button" className="rounded-lg border px-3 py-1.5 text-xs font-semibold" onClick={() => setPreviewNonce(n => n + 1)}>Actualiser l’aperçu</button>}
-        </div>
-        <ContractPdfPreview bytes={previewPdf} status={previewStatus} />
-        <section className="rounded-xl border bg-muted/20 p-4">
+        {activeTab==='gestion'&&selected?.status==='pending_approval'&&<div className="rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm text-blue-950"><h3 className="font-semibold">Signature soumise pour vérification</h3><p>Signataire : {selected.employeeSignature || '—'} · Mode : {selected.signatureMode==='text'?'texte':'image ou dessin'} · {selected.acceptedAt ? new Date(selected.acceptedAt).toLocaleString('fr-FR') : 'Date indisponible'}</p><p>Règles de l’entreprise : {selected.consentCompanyRules?'acceptées':'non confirmées'} · Conditions du travail : {selected.consentWorkRules?'acceptées':'non confirmées'}</p><p>Ouvrez le PDF signé et contrôlez les informations avant de cliquer sur Approuver.</p></div>}
+        {activeTab==='gestion'&&selected&&<div className="rounded-xl border bg-card p-4 text-sm"><strong>Évolution du contrat : {selected.status==='accepted'&&!selected.approvedAt?'Accord enregistré (historique)':contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).label}</strong><p className="mt-1 text-muted-foreground">Brouillon → Transmis → Signé → Approuvé → Prise d’effet / terme</p>{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder&&<p role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-amber-900">{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder}</p>}</div>}
+        {(activeTab==='redaction'||activeTab==='gestion'&&selected?.status!=='draft')&&<div className="space-y-3"><button type="button" aria-expanded={showPreview} onClick={()=>setShowPreview(value=>!value)} className="rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-muted">{showPreview?'Masquer l’aperçu du contrat':'Afficher l’aperçu du contrat A4'}</button>{showPreview&&<ContractPdfPreview bytes={previewPdf} status={previewStatus}/>}</div>}
+        {activeTab==='configuration'&&<section className="rounded-xl border bg-muted/20 p-4">
           <div className="flex items-center justify-between gap-2"><h3 className="font-bold">Identité du document</h3><Link href="/rh/parametres" className="text-xs font-semibold text-primary underline">Configurer</Link></div>
           <div className="mt-3 flex items-center gap-3">{logo && <img src={logo} alt="Logo de l’entreprise" className="h-12 w-12 shrink-0 object-contain" />}<p className="font-semibold">{settings.companyName}</p></div>
           <dl className="mt-3 space-y-1.5 text-xs text-muted-foreground">
@@ -329,12 +321,13 @@ export function ContractsWorkspace() {
             {settings.companyRegistration && <div><dt className="inline font-semibold">RCCM : </dt><dd className="inline">{settings.companyRegistration}</dd></div>}
             {settings.documentFooter && <div><dt className="inline font-semibold">Pied de page : </dt><dd className="inline">{settings.documentFooter}</dd></div>}
           </dl>
-        </section>
-        <section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Dossiers enregistrés</h3>
+        </section>}
+        {activeTab==='gestion'&&<section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Dossiers enregistrés</h3>
           <div className="mt-3 grid max-h-72 gap-2 overflow-auto">{cases.map(item=><button type="button" key={item.id} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id} className={`rounded-xl border p-3 text-left text-sm ${selected?.id===item.id?'border-primary bg-primary/10':'bg-card hover:border-primary/40'}`}><strong>{item.kind} · {item.firstName} {item.lastName}</strong><span className="mt-1 block text-xs text-muted-foreground">{item.jobTitle} · {item.status==='accepted'&&!item.approvedAt?'Accord enregistré (historique)':contractProgress(item.status,item.kind,item.startDate,item.endDate).label} · v{item.version}</span>{contractProgress(item.status,item.kind,item.startDate,item.endDate).reminder&&<span className="mt-2 block rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-900" role="alert">{contractProgress(item.status,item.kind,item.startDate,item.endDate).reminder}</span>}</button>)}</div>
           {!cases.length&&<p className="mt-3 text-sm text-muted-foreground">Aucun dossier.</p>}
-        </section>
-        <section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Modèles de clauses</h3>
+          {selected&&<div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={()=>setActiveTab('redaction')} className="rounded-lg border px-3 py-2 text-sm font-semibold">{selected.status==='draft'?'Modifier le brouillon':'Consulter le contrat'}</button>{selected.status==='pending_approval'&&<button type="button" disabled={busy} onClick={()=>void approveCase()} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Approuver le contrat signé</button>}</div>}
+        </section>}
+        {activeTab==='configuration'&&<section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Modèles de clauses</h3>
           <select aria-label="Choisir un modèle contractuel" disabled={locked||busy} className={input} value={selectedTemplate?.id??''} onChange={e=>{const item=templates.find(t=>t.id===e.target.value);if(item)applyTemplate(item);else{setSelectedTemplate(null);setTemplateTitle('');}}}><option value="">Nouvelle trame</option>{templates.map(t=><option key={t.id} value={t.id}>{t.kind} · {t.title} (v{t.version})</option>)}</select>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-medium">Lieu de signature · « Fait à »<input className={input} value={signaturePlace} maxLength={120} disabled={locked||busy} placeholder="Goma" onChange={e=>{setSignaturePlace(e.target.value);setApproved(false);setSign(false);}} /></label>
@@ -343,7 +336,7 @@ export function ContractsWorkspace() {
           <p className="mt-2 text-xs text-muted-foreground">Ces valeurs sont copiées du modèle vers le dossier et figées à la transmission. Vérifiez la date réelle avant envoi.</p>
           <input className={input} aria-label="Nom du modèle contractuel" placeholder="Nom de la trame" maxLength={120} value={templateTitle} disabled={locked||busy} onChange={e=>setTemplateTitle(e.target.value)} />
           <div className="mt-3 flex flex-wrap gap-2"><button type="button" disabled={locked||busy||!templateTitle.trim()||!clauses.trim()} onClick={()=>void saveTemplate()} className="rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50">{selectedTemplate?'Mettre à jour':'Enregistrer la trame'}</button>{selectedTemplate&&<button type="button" disabled={locked||busy} onClick={()=>void archiveTemplate()} className="rounded-lg border px-3 py-2 text-sm text-red-600 disabled:opacity-50">Archiver</button>}</div>
-        </section>
+        </section>}
       </aside>
     </div>
   </div>;

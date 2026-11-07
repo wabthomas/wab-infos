@@ -14,6 +14,7 @@ export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: Params) {
+  let stage = 'identification';
   try {
     const principal = await requireRhPrincipal();
     if (!(await getRhFlags()).contractsEnabled) return json({ error: 'Contrats RH désactivés.' }, 503);
@@ -25,6 +26,7 @@ export async function POST(request: Request, { params }: Params) {
     const { action, consent, consentCompanyRules, consentWorkRules, signature, signatureMode, signatureImage, version } = raw as Record<string,unknown>;
     const declining = action === 'decline';
     if (!Number.isSafeInteger(version) || (declining ? consent !== false : consent !== true || consentCompanyRules !== true || consentWorkRules !== true || typeof signature !== 'string' || !signature.trim() || signature.length>120 || !['text','image'].includes(signatureMode as string) || (signatureMode === 'image' && (typeof signatureImage !== 'string' || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(signatureImage) || signatureImage.length>270_000)))) return json({ error: 'Réponse, accord ou signature personnelle invalide.' }, 400);
+    stage = 'chargement du contrat';
     const client = await db().connect();
     try {
       await client.query('BEGIN');
@@ -59,14 +61,17 @@ export async function POST(request: Request, { params }: Params) {
         }
       } catch { await client.query('ROLLBACK'); return json({ error: 'Saisissez votre nom ou fournissez une image de signature valide.' }, 400); }
       const accepted = new Date();
+      stage = 'génération du PDF signé';
       const pdf = await renderContractPdf({ kind:row.kind, firstName:row.party_snapshot?.firstName || row.first_name,lastName:row.party_snapshot?.lastName || row.last_name,jobTitle:row.job_title,workLocation:row.work_location,startDate:row.start_text,endDate:row.end_text,salary:row.salary.toString(),currency:row.currency,clauses:row.clauses,signaturePlace:row.signature_place,signatureDate:row.signature_date instanceof Date ? row.signature_date.toISOString().slice(0,10) : row.signature_date,parties:row.party_snapshot,employer:row.employer_snapshot,sealBytes:row.seal_bytes,signatureBytes:row.signature_bytes,employeeSignature:(signature as string).trim(),employeeSignatureBytes:visualSignature,acceptedAt:accepted.toISOString() });
       if (pdf.length > 5_000_000) { await client.query('ROLLBACK'); return json({ error: 'PDF trop volumineux ; contactez l’administration.' }, 413); }
+      stage = 'enregistrement de la signature';
       await client.query(`UPDATE redaction_rh.contract_cases SET status='pending_approval',consent_company_rules=true,consent_work_rules=true,consent_snapshot=$10,signature_mode=$9,employee_signature=$2,employee_signature_bytes=$8,employee_account_id=$3,employee_account_email=$4,accepted_at=$5,pdf_bytes=$6,pdf_sha256=$7,version=version+1,updated_at=now() WHERE id=$1`,[id,(signature as string).trim(),principal.id,principal.email,accepted,pdf,createHash('sha256').update(pdf).digest(),visualSignature,signatureMode,JSON.stringify({ consentContract:'J’ai lu ce contrat et je consens explicitement à enregistrer mon accord visuel sur cette version.', consentCompanyRules:'J’ai pris connaissance et j’accepte les règles et le règlement intérieur de l’entreprise qui m’ont été communiqués.', consentWorkRules:'J’ai lu et j’accepte les conditions de travail et les clauses de ce contrat.', confirmedAt:accepted.toISOString(), signatureMode })]);
       await client.query("INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,'sign')",[id,principal.email]);
+      stage = 'validation de la transaction';
       await client.query('COMMIT');
       await pushContractAlert([row.prepared_by], 'signed');
       return json({ ok:true, status:'pending_approval' });
     } catch (error) { await client.query('ROLLBACK').catch(() => undefined); throw error; }
     finally { client.release(); }
-  } catch (error) { return handleError(error); }
+  } catch (error) { console.error('[rh] signature de contrat : étape', stage); return handleError(error); }
 }

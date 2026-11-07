@@ -1,5 +1,7 @@
 'use client';
 
+import { BrowserDocumentLink } from './browser-document-link';
+import { deliverRhDocument } from '@/lib/redaction/rh/browser-document';
 import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Crop, Download, ImageDown, Maximize2, Printer, ShieldCheck } from 'lucide-react';
@@ -10,19 +12,7 @@ import { createOrganizationQr } from '@/lib/redaction/rh/organization-qr';
 import { renderServiceCardSheet, type PhotoCrop, type ServiceCardData } from '@/lib/redaction/rh/service-card-export';
 import { PressPhotoCrop } from './press-photo-crop';
 
-async function deliver(blob:Blob,filename:string) {
-  const file=new File([blob],filename,{type:blob.type});
-  if(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && navigator.share && navigator.canShare?.({files:[file]})) {
-    try {await navigator.share({files:[file],title:'Carte de service'});return;}
-    catch(error){if(error instanceof DOMException && error.name==='AbortError')return;}
-  }
-  const bridge=(window as unknown as {AndroidBridge?:{savePdf?:(data:string,name:string)=>void}}).AndroidBridge;
-  if(blob.type==='application/pdf' && bridge?.savePdf) {
-    const base64=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]??'');reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob);});
-    bridge.savePdf(base64,filename);return;
-  }
-  const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=filename;document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),30_000);
-}
+async function deliver(blob:Blob,filename:string):Promise<string|null> { return deliverRhDocument(blob,filename); }
 
 export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
   const endpoint=adminPersonId?`/api/redaction/rh/cartes/${adminPersonId}`:'/api/redaction/rh/mon-espace/carte-service';
@@ -34,6 +24,7 @@ export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
   const [companyQr,setCompanyQr]=useState('');
   const [logo,setLogo]=useState('/logo.png');
   const [loading,setLoading]=useState(true),[ready,setReady]=useState(false),[busy,setBusy]=useState(false);
+  const [browserLink,setBrowserLink]=useState<string|null>(null);
   const [preview,setPreview]=useState<string|null>(null),[error,setError]=useState(''),[zoomed,setZoomed]=useState(false);
   const [photoCrop,setPhotoCrop]=useState<PhotoCrop>({zoom:1,x:0,y:0}),[cropping,setCropping]=useState(false);
   const [logoOverride,setLogoOverride]=useState(''),[logoCrop,setLogoCrop]=useState<PhotoCrop|null>(null),[logoCropping,setLogoCropping]=useState(false);
@@ -134,10 +125,10 @@ export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
       if(type==='pdf'){
         const {jsPDF}=await import('jspdf');const pdf=new jsPDF({unit:'mm',format:'a4',compress:true});
         pdf.addImage(canvas.toDataURL('image/jpeg',.94),'JPEG',0,0,210,297,undefined,'FAST');
-        await deliver(pdf.output('blob'),`${filename(current)}.pdf`);
+        setBrowserLink(await deliver(pdf.output('blob'),`${filename(current)}.pdf`));
       } else {
         const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('PNG indisponible.')),'image/png'));
-        await deliver(blob,`${filename(current)}-300dpi.png`);
+        setBrowserLink(await deliver(blob,`${filename(current)}-300dpi.png`));
       }
     } catch(cause){setError(cause instanceof Error?cause.message:'Export impossible.');}
     finally{setBusy(false);}
@@ -151,7 +142,7 @@ export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
       if(mobile){
         const {jsPDF}=await import('jspdf');const pdf=new jsPDF({unit:'mm',format:'a4',compress:true});
         pdf.addImage(canvas.toDataURL('image/jpeg',.94),'JPEG',0,0,210,297,undefined,'FAST');
-        await deliver(pdf.output('blob'),`${filename(current)}.pdf`);
+        setBrowserLink(await deliver(pdf.output('blob'),`${filename(current)}.pdf`));
         setError('Ouvrez le PDF A4 partagé ou enregistré avec une application pouvant imprimer ; choisissez la taille réelle (100 %).');return;
       }
       const url=canvas.toDataURL('image/jpeg',.9);
@@ -171,6 +162,7 @@ export function ServiceCard({adminPersonId}:{adminPersonId?:string}) {
       <button type="button" disabled={busy||!preview} onClick={()=>void exportFile('pdf')} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Download className="h-4 w-4"/>Télécharger PDF</button>
       <button type="button" disabled={busy||!preview} onClick={()=>void exportFile('png')} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold disabled:opacity-50"><ImageDown className="h-4 w-4"/>Télécharger PNG HD (300 dpi)</button>
     </div>
+    <BrowserDocumentLink url={browserLink}/>
     {cropWarning&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 print:hidden">{cropWarning}</p>}
     {error && <p role="status" className={`rounded-lg border p-3 text-sm print:hidden ${error.includes('Ouvrez le PDF')?'border-primary/20 bg-primary/5 text-primary':'border-red-300 bg-red-50 text-red-900'}`}>{error}</p>}
     {preview ? <button type="button" onClick={()=>setZoomed(true)} className="mx-auto block w-full max-w-[210mm] text-left print:contents" aria-label="Agrandir la planche des cartes de service"><img className="service-card-print-page block h-auto w-full bg-white shadow-lg ring-1 ring-black/10 print:shadow-none print:ring-0" src={preview} alt={`Planche A4 recto-verso de la carte de ${card.firstName} ${card.lastName}`} /><span className="mt-2 flex items-center gap-2 text-xs text-muted-foreground print:hidden"><Maximize2 className="h-4 w-4"/>Toucher pour agrandir</span></button> : <div className="mx-auto flex aspect-[210/297] max-w-[210mm] items-center justify-center rounded-lg border bg-white p-5 text-center text-sm text-muted-foreground print:hidden">{error||'Préparation de l’aperçu A4…'}</div>}

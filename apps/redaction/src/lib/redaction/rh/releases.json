@@ -1,5 +1,17 @@
 [
   {
+    "id": "rh-2026-11-documents-navigateur",
+    "title": "Vos documents RH dans le navigateur",
+    "body": "Depuis l’application Android, ouvrez vos contrats et autres documents RH en PDF ou PNG dans le navigateur externe pour les enregistrer ou les imprimer. Le lien privé est valable dix minutes.",
+    "highlights": [
+      "Ouvrez le contrat A4 et conservez une copie du PDF.",
+      "Retrouvez l’impression des fiches et cartes RH depuis le navigateur.",
+      "Ne partagez pas le lien temporaire contenant votre document."
+    ],
+    "url": "/mon-rh/contrats",
+    "requiresContracts": true
+  },
+  {
     "id": "rh-2026-11-contrat-signature-approbation",
     "title": "Signature et suivi de vos contrats",
     "body": "Lisez le contrat A4 en ligne, signez avec votre nom ou une image et confirmez séparément les conditions de travail et les règles de l’entreprise. La signature est ensuite soumise à l’administration : elle n’est pas une approbation automatique.",
