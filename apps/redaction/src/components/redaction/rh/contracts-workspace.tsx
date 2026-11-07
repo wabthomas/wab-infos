@@ -154,7 +154,8 @@ export function ContractsWorkspace() {
     const textarea = clausesRef.current;
     if (!textarea || locked || busy) return;
     const result = formatContractSelection(clauses, textarea.selectionStart, textarea.selectionEnd, command);
-    setClauses(result.value); setApproved(false); setSign(false);
+    if (result.value.length > 12000 || result.value.split('\n').length > 250) { setError('Corps du contrat limité à 12 000 caractères et 250 lignes.'); return; }
+    setError(''); setClauses(result.value); setApproved(false); setSign(false);
     requestAnimationFrame(() => { textarea.focus(); textarea.setSelectionRange(result.start, result.end); });
   }
   async function exportPdf() {
@@ -185,6 +186,8 @@ export function ContractsWorkspace() {
   const input = 'mt-1 block w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm';
   const formats: { command: ContractFormatCommand; label: string; title: string }[] = [
     { command: 'article', label: 'Article', title: 'Titre d’article' },
+    { command: 'subheading', label: 'Sous-titre', title: 'Sous-titre ou rubrique' },
+    { command: 'table', label: '▦ Tableau', title: 'Insérer un tableau à deux colonnes' },
     { command: 'bold', label: 'G', title: 'Gras' },
     { command: 'italic', label: 'I', title: 'Italique' },
     { command: 'underline', label: 'S̲', title: 'Souligné' },
@@ -239,6 +242,17 @@ export function ContractsWorkspace() {
       </div>
       <aside className="space-y-5">
         <ContractPdfPreview bytes={previewPdf} status={previewStatus} />
+        <section className="rounded-xl border bg-muted/20 p-4">
+          <div className="flex items-center justify-between gap-2"><h3 className="font-bold">Identité du document</h3><Link href="/rh/parametres" className="text-xs font-semibold text-primary underline">Configurer</Link></div>
+          <div className="mt-3 flex items-center gap-3">{logo && <img src={logo} alt="Logo de l’entreprise" className="h-12 w-12 shrink-0 object-contain" />}<p className="font-semibold">{settings.companyName}</p></div>
+          <dl className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+            {settings.documentHeader && <div><dt className="inline font-semibold">En-tête : </dt><dd className="inline">{settings.documentHeader}</dd></div>}
+            {settings.companyPhone && <div><dt className="inline font-semibold">Téléphone : </dt><dd className="inline">{settings.companyPhone}</dd></div>}
+            {settings.companyEmail && <div><dt className="inline font-semibold">Courriel : </dt><dd className="inline">{settings.companyEmail}</dd></div>}
+            {settings.companyRegistration && <div><dt className="inline font-semibold">RCCM : </dt><dd className="inline">{settings.companyRegistration}</dd></div>}
+            {settings.documentFooter && <div><dt className="inline font-semibold">Pied de page : </dt><dd className="inline">{settings.documentFooter}</dd></div>}
+          </dl>
+        </section>
         <section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Dossiers enregistrés</h3>
           <div className="mt-3 grid max-h-72 gap-2 overflow-auto">{cases.map(item=><button type="button" key={item.id} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id} className={`rounded-xl border p-3 text-left text-sm ${selected?.id===item.id?'border-primary bg-primary/10':'bg-card hover:border-primary/40'}`}><strong>{item.kind} · {item.firstName} {item.lastName}</strong><span className="mt-1 block text-xs text-muted-foreground">{item.jobTitle} · {item.status==='draft'?'Brouillon':item.status==='proposed'?'À examiner':'Accord enregistré'} · v{item.version}</span></button>)}</div>
           {!cases.length&&<p className="mt-3 text-sm text-muted-foreground">Aucun dossier.</p>}
