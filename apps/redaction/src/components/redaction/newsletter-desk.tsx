@@ -453,24 +453,34 @@ export function NewsletterDesk() {
                         : '—'}
                     </td>
                     <td className="py-2.5">
-                      {row.status === 'active' ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {row.status === 'active' && (
+                          <button
+                            type="button"
+                            disabled={unsubscribingId === row.documentId}
+                            onClick={() => void unsubscribeRow(row)}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold hover:bg-muted disabled:opacity-60"
+                            title="Désinscrire et notifier"
+                          >
+                            {unsubscribingId === row.documentId ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <UserMinus className="h-3.5 w-3.5" />
+                            )}
+                            Désinscrire
+                          </button>
+                        )}
                         <button
                           type="button"
-                          disabled={unsubscribingId === row.documentId}
-                          onClick={() => void unsubscribeRow(row)}
-                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold hover:bg-muted disabled:opacity-60"
-                          title="Désinscrire et notifier"
+                          disabled={deletingId === row.documentId}
+                          onClick={() => void deleteRow(row)}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-300 px-2.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                          title="Supprimer définitivement de la liste"
                         >
-                          {unsubscribingId === row.documentId ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <UserMinus className="h-3.5 w-3.5" />
-                          )}
-                          Désinscrire
+                          {deletingId === row.documentId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          Supprimer
                         </button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))
