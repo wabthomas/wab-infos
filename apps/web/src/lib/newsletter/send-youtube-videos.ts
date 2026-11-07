@@ -59,6 +59,9 @@ export async function publishNewYoutubeVideoNewsletters(
   }
 
   const subscribers = await getActiveSubscribers();
+  if (subscribers.length > newsletterConfig.maxRecipientsPerRun) {
+    return { ok: false, skipped: true, reason: 'rate_limited', processed: [] };
+  }
   if (subscribers.length === 0) {
     return { ok: true, skipped: true, reason: 'no_subscribers', processed: [] };
   }

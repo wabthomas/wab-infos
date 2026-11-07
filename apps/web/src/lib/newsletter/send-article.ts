@@ -112,6 +112,9 @@ export async function sendArticleNewsletter(slug: string): Promise<SendArticleNe
   }
 
   const subscribers = await getActiveSubscribers();
+  if (subscribers.length > newsletterConfig.maxRecipientsPerRun) {
+    return { ok: false, skipped: true, reason: 'rate_limited', subscribers: subscribers.length };
+  }
   if (subscribers.length === 0) {
     return { ok: true, skipped: true, reason: 'no_subscribers', subscribers: 0 };
   }

@@ -23,8 +23,12 @@ export const newsletterConfig = {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
   },
-  smtpBatchDelayMs: Number(process.env.NEWSLETTER_SMTP_BATCH_DELAY_MS || 400),
-  smtpConcurrency: Number(process.env.NEWSLETTER_SMTP_CONCURRENCY || 2),
+  smtpBatchDelayMs: Number(process.env.NEWSLETTER_SMTP_BATCH_DELAY_MS || 600_000),
+  smtpConcurrency: Number(process.env.NEWSLETTER_SMTP_CONCURRENCY || 1),
+  smtpBatchSize: Number(process.env.NEWSLETTER_SMTP_BATCH_SIZE || 20),
+  smtpBatchWindowMs: Number(process.env.NEWSLETTER_SMTP_BATCH_WINDOW_MS || 600_000),
+  maxEmailsPerHour: Number(process.env.NEWSLETTER_MAX_PER_HOUR || 200),
+  maxRecipientsPerRun: Number(process.env.NEWSLETTER_MAX_PER_RUN || 20),
   brevoConcurrency: Number(process.env.NEWSLETTER_BREVO_CONCURRENCY || 5),
 };
 
