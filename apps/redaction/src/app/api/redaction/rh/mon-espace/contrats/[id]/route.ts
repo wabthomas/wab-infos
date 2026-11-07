@@ -44,12 +44,14 @@ export async function POST(request: Request, { params }: Params) {
       }
       const personName = `${row.party_snapshot?.firstName || row.first_name} ${row.party_snapshot?.lastName || row.last_name}`;
       const normalize = (value: string) => value.trim().replace(/\s+/g,' ').toLocaleLowerCase('fr');
+      const colorRow = await client.query("SELECT setting_value FROM redaction_rh.organization_settings WHERE setting_key='signatureColor'");
+      const signatureColor = /^#[0-9a-fA-F]{6}$/.test(colorRow.rows[0]?.setting_value || '') ? colorRow.rows[0].setting_value : '#1a3faa';
       if (normalize(signature as string) !== normalize(personName)) { await client.query('ROLLBACK'); return json({ error: 'Saisissez votre nom complet tel qu’il apparaît sur le contrat.' }, 400); }
       let visualSignature: Buffer;
       try {
         if (signatureMode === 'text') {
           const escaped = (signature as string).trim().replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&apos;' })[char]!);
-          visualSignature = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="160"><text x="16" y="100" fill="#1c2635" font-family="sans-serif" font-style="italic" font-size="35">${escaped}</text></svg>`)).png().toBuffer();
+          visualSignature = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="160"><text x="16" y="100" fill="${signatureColor}" font-family="sans-serif" font-style="italic" font-size="35">${escaped}</text></svg>`)).png().toBuffer();
         } else {
           visualSignature = Buffer.from((signatureImage as string).split(',')[1],'base64');
           if (visualSignature.length < 150 || visualSignature.length > 200_000) throw new Error('Image invalide');

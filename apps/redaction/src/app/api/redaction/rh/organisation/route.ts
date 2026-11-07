@@ -11,7 +11,7 @@ const keys = Object.keys(ORGANIZATION_SETTING_LABELS) as OrganizationSettingKey[
 const lengths: Record<OrganizationSettingKey, number> = {
   companyName: 160, companyAddress: 500, companyPhone: 100, companyEmail: 320,
   companyWebsite: 240, companyTaxId: 100, companyRegistration: 160,
-  directorName: 160, directorTitle: 100, directorSignatureWidth: 3, directorSignatureHeight: 3, documentHeader: 1200, documentFooter: 1200, attendanceEndTime: 5, communiqueReferenceMode: 9, communiqueReferenceFormat: 64,
+  directorName: 160, directorTitle: 100, directorSignatureWidth: 3, directorSignatureHeight: 3, documentHeader: 1200, documentFooter: 1200, attendanceEndTime: 5, signatureColor: 7, communiqueReferenceMode: 9, communiqueReferenceFormat: 64,
 };
 
 async function authorizeReader() {
@@ -51,6 +51,8 @@ export async function PATCH(request: Request) {
     if ((referenceMode !== undefined || referenceFormat !== undefined) && (referenceMode === undefined || referenceFormat === undefined || !validOfficialReferenceConfig(referenceMode, referenceFormat))) return json({ error: 'Format de référence invalide : utilisez {AAAA}, {MM} et exactement un {SEQ:6} (auto) ou {REF} (manuel).' }, 400);
     const email = normalized.find(([key]) => key === 'companyEmail')?.[1];
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'Adresse e-mail invalide.' }, 400);
+    const signatureColor = normalized.find(([key]) => key === 'signatureColor')?.[1];
+    if (signatureColor && !/^#[0-9a-fA-F]{6}$/.test(signatureColor)) return json({ error: 'Couleur de signature invalide (format #RRGGBB).' }, 400);
     const endTime = normalized.find(([key]) => key === 'attendanceEndTime')?.[1];
     if (endTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) return json({ error: 'Heure de sortie invalide (format HH:MM).' }, 400);
     const website = normalized.find(([key]) => key === 'companyWebsite')?.[1];
