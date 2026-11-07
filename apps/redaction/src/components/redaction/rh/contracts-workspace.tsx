@@ -10,6 +10,7 @@ import { buildContractDocument } from '@/lib/redaction/rh/contract-document';
 import { formatContractSelection, type ContractFormatCommand } from '@/lib/redaction/rh/contract-format';
 import { ContractPdfPreview } from './contract-pdf-preview';
 import Link from 'next/link';
+import { Archive, CheckCircle2, Clock3, Download, Eye, EyeOff, FilePlus2, FileText, PenLine, Plus, Save, Send, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { useToast } from '@/components/ui/toast';
@@ -42,6 +43,7 @@ export function ContractsWorkspace() {
   const [job, setJob] = useState(''), [location, setLocation] = useState('');
   const [showContractFields, setShowContractFields] = useState(true);
   const [activeTab, setActiveTab] = useState<'gestion'|'redaction'|'configuration'>('gestion');
+  const [contractQuery, setContractQuery] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [browserLink,setBrowserLink] = useState<string|null>(null);
   const [salary, setSalary] = useState(''), [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
@@ -237,19 +239,65 @@ export function ContractsWorkspace() {
     { command: 'number', label: '1. Liste', title: 'Liste numérotée' },
     { command: 'paragraph', label: '¶', title: 'Paragraphe normal' },
   ];
+  const statusTone = (status: ContractCase['status']) => status === 'accepted'
+    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+    : status === 'declined'
+      ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300'
+      : status === 'draft'
+        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+        : 'bg-sky-500/10 text-sky-700 dark:text-sky-300';
+  const visibleCases = cases.filter(item => `${item.firstName} ${item.lastName} ${item.kind} ${item.jobTitle}`.toLowerCase().includes(contractQuery.trim().toLowerCase()));
+  const stats = {
+    draft: cases.filter(item => item.status === 'draft').length,
+    pending: cases.filter(item => item.status === 'proposed' || item.status === 'pending_approval').length,
+    accepted: cases.filter(item => item.status === 'accepted').length,
+    declined: cases.filter(item => item.status === 'declined').length,
+  };
   return <div className="space-y-5 rounded-2xl border border-border bg-card p-4 sm:p-7">
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b pb-5">
-      <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Contrats RH · RDC</p><h2 className="mt-1 text-2xl font-bold">Contrat CDD / CDI</h2></div>
-      <button type="button" className="rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-muted" onClick={()=>newCase()}>+ Nouveau contrat</button>
+    <header className="overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/[0.10] via-card to-card">
+      <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
+        <div className="flex items-start gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20"><FileText className="h-6 w-6" /></span>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Contrats RH · RDC</p>
+            <h2 className="mt-1 font-display text-2xl font-bold">Contrat CDD / CDI</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Préparez, transmettez et suivez les contrats de l'équipe.</p>
+          </div>
+        </div>
+        <button type="button" className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-sm hover:opacity-90" onClick={() => newCase()}><FilePlus2 className="h-4 w-4" /> Nouveau contrat</button>
+      </div>
+      <div className="grid grid-cols-2 gap-px border-t border-primary/10 bg-primary/10 sm:grid-cols-4">
+        {([
+          ['Brouillons', stats.draft, 'bg-amber-500/10 text-amber-700 dark:text-amber-300'],
+          ['En cours', stats.pending, 'bg-sky-500/10 text-sky-700 dark:text-sky-300'],
+          ['Approuvés', stats.accepted, 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'],
+          ['Refusés', stats.declined, 'bg-rose-500/10 text-rose-700 dark:text-rose-300'],
+        ] as const).map(([label, value]) => (
+          <div key={label} className="bg-card px-5 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+            <p className="mt-0.5 font-display text-xl font-bold tabular-nums">{value}</p>
+          </div>
+        ))}
+      </div>
     </header>
-    <nav aria-label="Sections des contrats" className="flex flex-wrap gap-2 border-b pb-4">{([['gestion','Gestion'],['redaction','Rédaction'],['configuration','Configuration']] as const).map(([key,label])=><button key={key} type="button" aria-current={activeTab===key?'page':undefined} onClick={()=>setActiveTab(key)} className={`rounded-xl px-4 py-2.5 text-sm font-bold ${activeTab===key?'bg-primary text-primary-foreground':'border hover:bg-muted'}`}>{label}</button>)}</nav>
+    <nav aria-label="Sections des contrats" className="flex flex-wrap gap-2">
+      {([
+        ['gestion', 'Gestion', Users],
+        ['redaction', 'Rédaction', PenLine],
+        ['configuration', 'Configuration', Sparkles],
+      ] as const).map(([key, label, Icon]) => (
+        <button key={key} type="button" aria-current={activeTab === key ? 'page' : undefined} onClick={() => setActiveTab(key)} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${activeTab === key ? 'bg-primary text-primary-foreground shadow-sm' : 'border border-border bg-card hover:bg-muted'}`}>
+          <Icon className="h-4 w-4" /> {label}
+        </button>
+      ))}
+    </nav>
     {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <div className={activeTab==='redaction' ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]' : 'space-y-5'}>
       {activeTab==='redaction'&&<div className="min-w-0 space-y-5">
         <button type="button" aria-expanded={showContractFields} aria-controls="contract-optional-fields" onClick={() => setShowContractFields(current => !current)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted">{showContractFields ? 'Masquer les champs du contrat' : 'Afficher les champs du contrat'}</button>
         <fieldset disabled={locked||busy} className="space-y-5 disabled:opacity-70">
           {showContractFields ? <section className="rounded-xl border p-4 sm:p-5">
-            <h3 className="mb-4 text-base font-bold">01 · Informations du contrat</h3>
+            <div className="mb-4 flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileText className="h-4 w-4" /></span><h3 className="text-base font-bold">01 · Informations du contrat</h3></div>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium">Collaborateur<select className={input} disabled={!!selected} value={personId} onChange={e => changePerson(e.target.value)}><option value="">Sélectionner…</option>{people.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}</select></label>
               <label className="text-sm font-medium">Type de contrat<select className={input} value={kind} onChange={e => { setKind(e.target.value as 'CDD' | 'CDI'); setApproved(false); setSign(false); }}><option value="CDD">CDD</option><option value="CDI">CDI</option></select></label>
@@ -283,7 +331,7 @@ export function ContractsWorkspace() {
             </div>
           </section> : null}
           <section className="overflow-hidden rounded-xl border">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-4 sm:px-5"><h3 className="text-base font-bold">02 · Corps du contrat</h3><span className="text-xs tabular-nums text-muted-foreground">{clauses.length} / 15 000 caractères</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-4 sm:px-5"><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><PenLine className="h-4 w-4" /></span><h3 className="text-base font-bold">02 · Corps du contrat</h3></div><span className="text-xs tabular-nums text-muted-foreground">{clauses.length} / 15 000 caractères</span></div>
             <div role="toolbar" aria-label="Mise en forme du corps du contrat" className="flex flex-wrap items-center gap-1 border-b p-2 sm:px-4">
               {formats.map(item=><button key={item.command} type="button" title={item.title} aria-label={item.title} onMouseDown={e=>e.preventDefault()} onClick={()=>applyFormat(item.command)} className={`min-h-9 rounded-lg border px-2.5 text-sm hover:bg-muted ${item.command==='bold'?'font-bold':item.command==='italic'?'italic':''}`}>{item.label}</button>)}
             </div>
@@ -291,7 +339,7 @@ export function ContractsWorkspace() {
             <textarea id="contract-body" ref={clausesRef} className="min-h-80 w-full resize-y bg-background px-4 py-3 font-mono text-sm leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-5" value={clauses} maxLength={MAX_CONTRACT_CLAUSES} onChange={e => { setClauses(e.target.value); setApproved(false); setSign(false); }} placeholder="Saisissez les clauses vérifiées…" />
           </section>
           <section className="space-y-3 rounded-xl border p-4 sm:p-5">
-            <h3 className="text-base font-bold">03 · Validation et visa</h3>
+            <div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><ShieldCheck className="h-4 w-4" /></span><h3 className="text-base font-bold">03 · Validation et visa</h3></div>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={approved} onChange={e => { setApproved(e.target.checked); setSign(false); }} className="mt-1" /> Clauses, dates et montants validés pour ce contrat soumis au droit de la RDC.</label>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={authorized} onChange={e => { setAuthorized(e.target.checked); setSign(false); }} className="mt-1" /> J’ai vérifié l’habilitation du Directeur Général à représenter l’entreprise. La mention « dûment habilité à cet effet » sera alors imprimée sur le contrat.</label>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={sign} disabled={!approved || !authorized || !signature || !seal || !settings.directorName} onChange={e => setSign(e.target.checked)} className="mt-1" /> Après accord réel du DG, afficher son image de signature et le sceau.</label>
@@ -299,10 +347,10 @@ export function ContractsWorkspace() {
           </section>
         </fieldset>
         <div className="flex flex-wrap items-center gap-2 border-t pt-5">
-          {!locked&&<button type="button" disabled={busy} onClick={()=>void saveDraft()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{selected?'Enregistrer les modifications':'Enregistrer le brouillon'}</button>}
-          {!locked&&selected&&<button type="button" disabled={busy||!approved||!authorized||!sign} onClick={()=>void proposeCase()} className="rounded-xl border border-primary px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50">Transmettre pour accord</button>}
-          <button type="button" disabled={busy} onClick={() => void exportPdf()} className="rounded-xl border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{busy ? 'Préparation…' : locked?'Télécharger la version figée':'Télécharger le projet PDF'}</button>
-          {!locked&&selected&&<button type="button" disabled={busy} onClick={()=>void archiveCase()} className="rounded-xl border px-4 py-2.5 text-sm text-red-600 disabled:opacity-50">Archiver le brouillon</button>}
+          {!locked&&<button type="button" disabled={busy} onClick={()=>void saveDraft()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50"><Save className="h-4 w-4" />{selected?'Enregistrer les modifications':'Enregistrer le brouillon'}</button>}
+          {!locked&&selected&&<button type="button" disabled={busy||!approved||!authorized||!sign} onClick={()=>void proposeCase()} className="inline-flex items-center gap-2 rounded-xl border border-primary px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50"><Send className="h-4 w-4" />Transmettre pour accord</button>}
+          <button type="button" disabled={busy} onClick={() => void exportPdf()} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold disabled:opacity-50"><Download className="h-4 w-4" />{busy ? 'Préparation…' : locked?'Télécharger la version figée':'Télécharger le projet PDF'}</button>
+          {!locked&&selected&&<button type="button" disabled={busy} onClick={()=>void archiveCase()} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm text-red-600 disabled:opacity-50"><Archive className="h-4 w-4" />Archiver le brouillon</button>}
         </div>
         <BrowserDocumentLink url={browserLink}/>
         <Link href="/rh/documents" className="inline-block text-sm font-semibold text-primary underline">Déposer la version signée dans Documents RH</Link>
@@ -310,7 +358,7 @@ export function ContractsWorkspace() {
       <aside className="space-y-5">
         {activeTab==='gestion'&&selected?.status==='pending_approval'&&<div className="rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm text-blue-950"><h3 className="font-semibold">Signature soumise pour vérification</h3><p>Signataire : {selected.employeeSignature || '—'} · Mode : {selected.signatureMode==='text'?'texte':'image ou dessin'} · {selected.acceptedAt ? new Date(selected.acceptedAt).toLocaleString('fr-FR') : 'Date indisponible'}</p><p>Règles de l’entreprise : {selected.consentCompanyRules?'acceptées':'non confirmées'} · Conditions du travail : {selected.consentWorkRules?'acceptées':'non confirmées'}</p><p>Ouvrez le PDF signé et contrôlez les informations avant de cliquer sur Approuver.</p></div>}
         {activeTab==='gestion'&&selected&&<div className="rounded-xl border bg-card p-4 text-sm"><strong>Évolution du contrat : {selected.status==='accepted'&&!selected.approvedAt?'Accord enregistré (historique)':contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).label}</strong><p className="mt-1 text-muted-foreground">Brouillon → Transmis → Signé → Approuvé → Prise d’effet / terme</p>{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder&&<p role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-amber-900">{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder}</p>}</div>}
-        {(activeTab==='redaction'||activeTab==='gestion'&&selected?.status!=='draft')&&<div className="space-y-3"><button type="button" aria-expanded={showPreview} onClick={()=>setShowPreview(value=>!value)} className="rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-muted">{showPreview?'Masquer l’aperçu du contrat':'Afficher l’aperçu du contrat A4'}</button>{showPreview&&<ContractPdfPreview bytes={previewPdf} status={previewStatus}/>}</div>}
+        {(activeTab==='redaction'||activeTab==='gestion'&&selected?.status!=='draft')&&<div className="space-y-3"><button type="button" aria-expanded={showPreview} onClick={()=>setShowPreview(value=>!value)} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold hover:bg-muted">{showPreview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}{showPreview?'Masquer l’aperçu du contrat':'Afficher l’aperçu du contrat A4'}</button>{showPreview&&<ContractPdfPreview bytes={previewPdf} status={previewStatus}/>}</div>}
         {activeTab==='configuration'&&<section className="rounded-xl border bg-muted/20 p-4">
           <div className="flex items-center justify-between gap-2"><h3 className="font-bold">Identité du document</h3><Link href="/rh/parametres" className="text-xs font-semibold text-primary underline">Configurer</Link></div>
           <div className="mt-3 flex items-center gap-3">{logo && <img src={logo} alt="Logo de l’entreprise" className="h-12 w-12 shrink-0 object-contain" />}<p className="font-semibold">{settings.companyName}</p></div>
@@ -322,10 +370,62 @@ export function ContractsWorkspace() {
             {settings.documentFooter && <div><dt className="inline font-semibold">Pied de page : </dt><dd className="inline">{settings.documentFooter}</dd></div>}
           </dl>
         </section>}
-        {activeTab==='gestion'&&<section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Dossiers enregistrés</h3>
-          <div className="mt-3 grid max-h-72 gap-2 overflow-auto">{cases.map(item=><button type="button" key={item.id} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id} className={`rounded-xl border p-3 text-left text-sm ${selected?.id===item.id?'border-primary bg-primary/10':'bg-card hover:border-primary/40'}`}><strong>{item.kind} · {item.firstName} {item.lastName}</strong><span className="mt-1 block text-xs text-muted-foreground">{item.jobTitle} · {item.status==='accepted'&&!item.approvedAt?'Accord enregistré (historique)':contractProgress(item.status,item.kind,item.startDate,item.endDate).label} · v{item.version}</span>{contractProgress(item.status,item.kind,item.startDate,item.endDate).reminder&&<span className="mt-2 block rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-900" role="alert">{contractProgress(item.status,item.kind,item.startDate,item.endDate).reminder}</span>}</button>)}</div>
-          {!cases.length&&<p className="mt-3 text-sm text-muted-foreground">Aucun dossier.</p>}
-          {selected&&<div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={()=>setActiveTab('redaction')} className="rounded-lg border px-3 py-2 text-sm font-semibold">{selected.status==='draft'?'Modifier le brouillon':'Consulter le contrat'}</button>{selected.status==='pending_approval'&&<button type="button" disabled={busy} onClick={()=>void approveCase()} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Approuver le contrat signé</button>}</div>}
+        {activeTab==='gestion'&&<section className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 p-4 sm:px-5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><Users className="h-4 w-4" /></span>
+              <h3 className="font-bold">Dossiers de contrats</h3>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">{cases.length}</span>
+            </div>
+            <input value={contractQuery} onChange={event => setContractQuery(event.target.value)} placeholder="Rechercher un collaborateur, un type…" aria-label="Rechercher un contrat" className="min-h-9 w-full max-w-xs rounded-lg border border-border bg-background px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2.5 font-semibold">Collaborateur</th>
+                  <th className="px-4 py-2.5 font-semibold">Type</th>
+                  <th className="px-4 py-2.5 font-semibold">Période</th>
+                  <th className="px-4 py-2.5 font-semibold">Statut</th>
+                  <th className="px-4 py-2.5 font-semibold">Version</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {visibleCases.map(item => {
+                  const progress = contractProgress(item.status, item.kind, item.startDate, item.endDate);
+                  return <tr key={item.id} onClick={() => choose(item)} className={`cursor-pointer transition-colors ${selected?.id === item.id ? 'bg-primary/[0.07]' : 'hover:bg-muted/40'}`}>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold">{item.firstName} {item.lastName}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{item.jobTitle}</p>
+                    </td>
+                    <td className="px-4 py-3"><span className="rounded-md border border-border bg-background px-2 py-0.5 text-xs font-bold">{item.kind}</span></td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{item.startDate}{item.kind === 'CDD' && item.endDate ? ` → ${item.endDate}` : ''}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${statusTone(item.status)}`}>
+                        {item.status === 'accepted' ? <CheckCircle2 className="h-3 w-3" /> : item.status === 'draft' ? <FileText className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}
+                        {item.status === 'accepted' && !item.approvedAt ? 'Accord historique' : progress.label}
+                      </span>
+                      {progress.reminder && <p className="mt-1 max-w-52 text-[11px] font-semibold text-amber-700 dark:text-amber-300">{progress.reminder}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-semibold text-muted-foreground">v{item.version}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button type="button" onClick={event => { event.stopPropagation(); choose(item); setActiveTab(item.status === 'draft' ? 'redaction' : 'gestion'); }} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-muted">
+                        <PenLine className="h-3.5 w-3.5" /> {item.status === 'draft' ? 'Modifier' : 'Ouvrir'}
+                      </button>
+                    </td>
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>
+          {!cases.length&&<p className="p-5 text-sm text-muted-foreground">Aucun dossier de contrat pour le moment.</p>}
+          {cases.length>0&&!visibleCases.length&&<p className="p-5 text-sm text-muted-foreground">Aucun contrat ne correspond à cette recherche.</p>}
+          {selected&&<div className="flex flex-wrap items-center gap-2 border-t bg-muted/20 p-4">
+            <button type="button" onClick={()=>setActiveTab('redaction')} className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"><PenLine className="h-4 w-4" />{selected.status==='draft'?'Modifier le brouillon':'Consulter le contrat'}</button>
+            {selected.status==='pending_approval'&&<button type="button" disabled={busy} onClick={()=>void approveCase()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"><CheckCircle2 className="h-4 w-4" />Approuver le contrat signé</button>}
+            <Link href="/rh/documents" className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary underline">Documents RH</Link>
+          </div>}
         </section>}
         {activeTab==='configuration'&&<section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Modèles de clauses</h3>
           <select aria-label="Choisir un modèle contractuel" disabled={locked||busy} className={input} value={selectedTemplate?.id??''} onChange={e=>{const item=templates.find(t=>t.id===e.target.value);if(item)applyTemplate(item);else{setSelectedTemplate(null);setTemplateTitle('');}}}><option value="">Nouvelle trame</option>{templates.map(t=><option key={t.id} value={t.id}>{t.kind} · {t.title} (v{t.version})</option>)}</select>
