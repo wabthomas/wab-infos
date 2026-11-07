@@ -18,7 +18,7 @@ export default async function RhActivitiesPage() {
   return (
     <div className="space-y-5">
       {youtubePerformanceEnabled() && <YoutubePerformanceAdmin canManageBonus={capabilities.financeManage} />}
-      <SubmissionReview youtubeEnabled={youtubePerformanceEnabled()} />
+      <SubmissionReview today={today} youtubeEnabled={youtubePerformanceEnabled()} />
       <Activities initialMonth={today.slice(0, 7)} today={today} />
     </div>
   );

@@ -7,7 +7,7 @@ import type { YoutubePerformance } from '@/lib/redaction/rh/youtube-performance'
 import { validateSubmissionDecision, type Submission, type SubmissionStatus } from '@/lib/redaction/rh/submissions';
 
 const labels: Record<SubmissionStatus, string> = { pending: 'En attente', approved: 'Validée', rejected: 'Refusée', cancelled: 'Annulée' };
-export function SubmissionReview({ youtubeEnabled = false }: { youtubeEnabled?: boolean }) {
+export function SubmissionReview({ today = '', youtubeEnabled = false }: { today?: string; youtubeEnabled?: boolean }) {
   const [people, setPeople] = useState<Collaborator[]>([]); const [personId, setPersonId] = useState('');
   const [videos, setVideos] = useState<YoutubePerformance[]>([]);
   const [videosReady, setVideosReady] = useState(false);
@@ -16,6 +16,7 @@ export function SubmissionReview({ youtubeEnabled = false }: { youtubeEnabled?: 
   const [videoBusy, setVideoBusy] = useState(false), [videoError, setVideoError] = useState('');
   const [items, setItems] = useState<Submission[]>([]); const [notes, setNotes] = useState<Record<string, string>>({});
   const [error, setError] = useRhNotice('error'); const [message, setMessage] = useRhNotice('success');
+  const [adminDate, setAdminDate] = useState(today), [adminDescription, setAdminDescription] = useState(''), [adminBusy, setAdminBusy] = useState(false), [adminOpen, setAdminOpen] = useState(false);
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
   useEffect(() => {
     const refresh = () => setReload((n) => n + 1);
@@ -67,6 +68,23 @@ export function SubmissionReview({ youtubeEnabled = false }: { youtubeEnabled?: 
     } catch (cause) { setVideoError(cause instanceof Error ? cause.message : 'Association impossible.'); }
     finally { setVideoBusy(false); }
   }
+  async function declareForCollaborator(event: React.FormEvent) {
+    event.preventDefault();
+    if (!personId || !adminDescription.trim()) return;
+    setAdminBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetchRedaction('/api/redaction/rh/declarations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collaboratorId: personId, date: adminDate, description: adminDescription }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Déclaration impossible.');
+      setAdminDescription(''); setAdminOpen(false);
+      setMessage('Prestation déclarée par l’administration et validée d’office.');
+      setReload(n => n + 1); window.dispatchEvent(new Event('rh-submissions-changed'));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Déclaration impossible.'); }
+    finally { setAdminBusy(false); }
+  }
   async function decide(item: Submission, decision: 'approve' | 'reject') {
     const payload = validateSubmissionDecision({ decision, note: notes[item.id] ?? '' });
     if (!payload) { setError('Le motif est obligatoire pour un refus ; limitez la note à 500 caractères.'); return; }
@@ -85,12 +103,21 @@ export function SubmissionReview({ youtubeEnabled = false }: { youtubeEnabled?: 
     {videoError && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{videoError}</p>}
     {!youtubeEnabled && <p className="text-xs text-muted-foreground">Lien vidéo : module YouTube non activé.</p>}
     <label className="block text-sm font-medium">Collaborateur<select disabled={busy || videoBusy} value={personId} onChange={(e) => { setPersonId(e.target.value); setMessage(''); }} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"><option value="">Sélectionner…</option>{people.map((p) => <option key={p.id} value={p.id}>{p.firstName} {p.lastName} — {p.team}</option>)}</select></label>
+    {personId && <div className="rounded-lg border border-dashed border-primary/40 bg-primary/[0.03] p-3">
+      <button type="button" onClick={() => setAdminOpen(open => !open)} aria-expanded={adminOpen} className="text-sm font-semibold text-primary">+ Déclarer une prestation pour ce collaborateur (oubli)</button>
+      {adminOpen && <form onSubmit={declareForCollaborator} className="mt-3 grid gap-2 sm:grid-cols-[160px_1fr_auto]">
+        <label className="block text-sm font-medium">Date<input type="date" required max={today || undefined} value={adminDate} onChange={event => setAdminDate(event.target.value)} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <label className="block text-sm font-medium">Activités réalisées<input required maxLength={500} value={adminDescription} onChange={event => setAdminDescription(event.target.value)} placeholder="Décrivez la prestation constatée" className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <button type="submit" disabled={adminBusy} className="self-end rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{adminBusy ? 'Enregistrement…' : 'Déclarer et valider'}</button>
+      </form>}
+      {adminOpen && <p className="mt-2 text-xs text-muted-foreground">La déclaration portera la mention « Saisie par l’administration » et sera validée d’office dans l’historique du collaborateur.</p>}
+    </div>}
     {personId && (loading ? <p className="text-sm">Chargement…</p> : failed ? null : <div className="space-y-2">
       {items.length === 0 && <p className="text-sm text-muted-foreground">Aucune déclaration.</p>}
       {items.map((item) => {
         const linked = videos.find(video => video.submissionId === item.id);
         return <article key={item.id} className="rounded-lg border border-border p-3 text-sm">
-        <p className="font-semibold">{item.date} · {labels[item.status]}</p><p className="mt-1 text-muted-foreground">{item.description}</p>
+        <p className="flex flex-wrap items-center gap-2 font-semibold">{item.date} · {labels[item.status]}{item.source === 'admin' && <span className="rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-300">Saisie administration</span>}</p><p className="mt-1 text-muted-foreground">{item.description}</p>
         {item.decisionNote && <p className="mt-1">Motif : {item.decisionNote}</p>}
         {!youtubeEnabled && (item.status === 'pending' || item.status === 'approved') && <button type="button" disabled title="Activer d’abord le module YouTube RH" className="mt-3 rounded-lg border border-border px-3 py-2 font-semibold opacity-50">+ Ajouter le lien vidéo manquant · Non activé</button>}
         {youtubeEnabled && videosReady && (linked ? <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">

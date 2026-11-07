@@ -6,7 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 test('admin Prestations : lien YouTube proposé dans la déclaration non associée, sans validation automatique', async () => {
   const page = await readFile(new URL('../apps/redaction/src/app/(editor)/rh/prestations/page.tsx', import.meta.url), 'utf8');
   const review = await readFile(new URL('../apps/redaction/src/components/redaction/rh/submission-review.tsx', import.meta.url), 'utf8');
-  assert.match(page, /<SubmissionReview youtubeEnabled=\{youtubePerformanceEnabled\(\)\}/);
+  assert.match(page, /<SubmissionReview[^>]*youtubeEnabled=\{youtubePerformanceEnabled\(\)\}/);
   assert.match(review, /\+ Ajouter le lien vidéo manquant/);
   assert.match(review, /linked \? <div/);
   assert.match(review, /item\.status === 'pending' \|\| item\.status === 'approved'/);

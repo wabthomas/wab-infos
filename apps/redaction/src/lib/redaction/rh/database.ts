@@ -264,7 +264,7 @@ export async function cancelMyAbsence(principal: import('./principal').RhPrincip
   finally { client.release(); }
 }
 
-const submissionColumns = `id, to_char(activity_date, 'YYYY-MM-DD') AS date, description, status, decision_note AS "decisionNote", version`;
+const submissionColumns = `id, to_char(activity_date, 'YYYY-MM-DD') AS date, description, status, decision_note AS "decisionNote", version, source, created_by_email AS "createdByEmail"`;
 
 export async function listSubmissions(collaboratorId: string): Promise<import('./submissions').Submission[]> {
   const result = await db().query(`SELECT ${submissionColumns} FROM redaction_rh.activity_submissions WHERE collaborator_id=$1 ORDER BY created_at DESC, id LIMIT 500`, [collaboratorId]);
@@ -304,6 +304,27 @@ export async function createMySubmission(principal: import('./principal').RhPrin
     if (!created.rowCount) { await client.query('ROLLBACK'); return null; }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,submission_id) VALUES ($1,$2,$3,$4)', [principal.email, 'submission_create', id, created.rows[0].id]);
     await queueManagementEvent(client, 'prestation', created.rows[0].id);
+    await client.query('COMMIT');
+    return created.rows[0];
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+}
+
+export async function createAdminSubmission(actor: string, input: import('./submissions').AdminSubmissionInput): Promise<import('./submissions').Submission | null> {
+  const client = await db().connect();
+  try {
+    await client.query('BEGIN');
+    const person = await client.query('SELECT id FROM redaction_rh.collaborators WHERE id=$1 AND NOT archived FOR UPDATE', [input.collaboratorId]);
+    if (!person.rowCount) { await client.query('ROLLBACK'); return null; }
+    const existing = await client.query("SELECT 1 FROM redaction_rh.activity_submissions WHERE collaborator_id=$1 AND activity_date=$2 AND status<>'cancelled'", [input.collaboratorId, input.date]);
+    if (existing.rowCount) { await client.query('ROLLBACK'); return null; }
+    const created = await client.query(
+      "INSERT INTO redaction_rh.activity_submissions (id, collaborator_id, activity_date, description, status, decision_note, source, created_by_email) VALUES ($1,$2,$3,$4,'approved',$5,'admin',$6) RETURNING " + submissionColumns,
+      [randomUUID(), input.collaboratorId, input.date, input.description, 'Saisie par l’administration', actor],
+    );
+    await client.query("INSERT INTO redaction_rh.daily_activities (id,collaborator_id,activity_date,status,description) VALUES ($1,$2,$3,'effectuee',$4) ON CONFLICT (collaborator_id,activity_date) DO NOTHING", [randomUUID(), input.collaboratorId, input.date, input.description]);
+    await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,submission_id) VALUES ($1,$2,$3,$4)', [actor, 'submission_admin_create', input.collaboratorId, created.rows[0].id]);
+    await queueRhNotification(client, input.collaboratorId, 'prestation', created.rows[0].id, 1);
     await client.query('COMMIT');
     return created.rows[0];
   } catch (error) { await client.query('ROLLBACK'); throw error; }
