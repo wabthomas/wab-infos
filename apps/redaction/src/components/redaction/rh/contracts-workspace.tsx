@@ -49,6 +49,12 @@ export function ContractsWorkspace() {
   const [clauses, setClauses] = useState(''), [approved, setApproved] = useState(false), [authorized, setAuthorized] = useState(false);
   const [previewPdf, setPreviewPdf] = useState<Uint8Array | null>(null);
   const [previewStatus, setPreviewStatus] = useState('Sélectionnez un collaborateur et saisissez le corps du contrat.');
+  const [autoPreview, setAutoPreview] = useState(true);
+  const [previewNonce, setPreviewNonce] = useState(0);
+  const previewNonceRef = useRef(0);
+  useEffect(() => {
+    try { if (localStorage.getItem('rh-contract-auto-preview') === '0') setAutoPreview(false); } catch { /* stockage indisponible */ }
+  }, []);
   const clausesRef = useRef<HTMLTextAreaElement>(null);
   const [sign, setSign] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const person = people.find(p => p.id === personId);
@@ -106,7 +112,7 @@ export function ContractsWorkspace() {
     if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return;
     setSelectedTemplate(null);setTemplateTitle('');setSelected(item);setPersonId(item.collaboratorId);setKind(item.kind);setJob(item.jobTitle);setLocation(item.workLocation);setDisplayOptions({ ...DEFAULT_CONTRACT_DISPLAY, ...(item.displayOptions ?? {}) });
     setStartDate(item.startDate);setEndDate(item.endDate??'');setSalary(item.salary);setCurrency(item.currency);setClauses(item.clauses);setBirthPlace(item.birthPlace || '');setSignaturePlace(item.signaturePlace || '');setSignatureDate(item.signatureDate || '');if (personId !== item.collaboratorId) { setProfile(null);setProfileLoading(true); }
-    setSavedSnapshot(JSON.stringify({ collaboratorId:item.collaboratorId,kind:item.kind,jobTitle:item.jobTitle,workLocation:item.workLocation,startDate:item.startDate,endDate:item.kind==='CDD'?item.endDate:null,salary:item.salary,currency:item.currency,clauses:item.clauses,birthPlace:item.birthPlace || '',signaturePlace:item.signaturePlace || '',signatureDate:item.signatureDate || null }));
+    setSavedSnapshot(JSON.stringify({ collaboratorId:item.collaboratorId,kind:item.kind,jobTitle:item.jobTitle,workLocation:item.workLocation,startDate:item.startDate,endDate:item.kind==='CDD'?item.endDate:null,salary:item.salary,currency:item.currency,clauses:item.clauses,birthPlace:item.birthPlace || '',signaturePlace:item.signaturePlace || '',signatureDate:item.signatureDate || null,displayOptions:{ ...DEFAULT_CONTRACT_DISPLAY, ...(item.displayOptions ?? {}) } }));
     setApproved(false);setAuthorized(false);setSign(false);setError('');
   }
   function newCase(force = false) { if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return; setSelectedTemplate(null);setTemplateTitle('');setSelected(null);setPersonId('');setKind('CDD');setJob('');setLocation('');setStartDate('');setEndDate('');setSalary('');setCurrency('CDF');setClauses('');setBirthPlace('');setSignaturePlace('');setSignatureDate('');setProfile(null);setProfileLoading(false);setSavedSnapshot('');setApproved(false);setAuthorized(false);setSign(false);setError(''); }
@@ -185,7 +191,7 @@ export function ContractsWorkspace() {
       return () => { active = false; window.clearTimeout(timer); };
     } else setPreviewStatus('Sélectionnez un collaborateur et saisissez le corps du contrat.');
     return () => { active = false; };
-  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, birthPlace, signaturePlace, signatureDate, authorized, displayOptions, parties?.birthDate, parties?.address, parties?.phone, profileLoading, settings, sign, seal, signature, logo]);
+  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, birthPlace, signaturePlace, signatureDate, authorized, displayOptions, parties?.birthDate, parties?.address, parties?.phone, profileLoading, settings, sign, seal, signature, logo, autoPreview, previewNonce]);
 
   function applyFormat(command: ContractFormatCommand) {
     const textarea = clausesRef.current;
@@ -305,6 +311,13 @@ export function ContractsWorkspace() {
       <aside className="space-y-5">
         {selected?.status==='pending_approval'&&<div className="rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm text-blue-950"><h3 className="font-semibold">Signature soumise pour vérification</h3><p>Signataire : {selected.employeeSignature || '—'} · Mode : {selected.signatureMode==='text'?'texte':'image ou dessin'} · {selected.acceptedAt ? new Date(selected.acceptedAt).toLocaleString('fr-FR') : 'Date indisponible'}</p><p>Règles de l’entreprise : {selected.consentCompanyRules?'acceptées':'non confirmées'} · Conditions du travail : {selected.consentWorkRules?'acceptées':'non confirmées'}</p><p>Ouvrez le PDF signé et contrôlez les informations avant de cliquer sur Approuver.</p></div>}
         {selected&&<div className="rounded-xl border bg-card p-4 text-sm"><strong>Évolution du contrat : {selected.status==='accepted'&&!selected.approvedAt?'Accord enregistré (historique)':contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).label}</strong><p className="mt-1 text-muted-foreground">Brouillon → Transmis → Signé → Approuvé → Prise d’effet / terme</p>{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder&&<p role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-amber-900">{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder}</p>}</div>}
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card px-3 py-2 text-sm">
+          <label className="inline-flex items-center gap-2 font-medium">
+            <input type="checkbox" checked={autoPreview} onChange={event => { const next = event.target.checked; setAutoPreview(next); try { localStorage.setItem('rh-contract-auto-preview', next ? '1' : '0'); } catch { /* stockage indisponible */ } }} />
+            Aperçu automatique
+          </label>
+          {!autoPreview && <button type="button" className="rounded-lg border px-3 py-1.5 text-xs font-semibold" onClick={() => setPreviewNonce(n => n + 1)}>Actualiser l’aperçu</button>}
+        </div>
         <ContractPdfPreview bytes={previewPdf} status={previewStatus} />
         <section className="rounded-xl border bg-muted/20 p-4">
           <div className="flex items-center justify-between gap-2"><h3 className="font-bold">Identité du document</h3><Link href="/rh/parametres" className="text-xs font-semibold text-primary underline">Configurer</Link></div>
