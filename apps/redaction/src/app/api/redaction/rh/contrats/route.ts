@@ -5,7 +5,7 @@ import { requireRhPermission } from '@/lib/redaction/rh/authorization';
 import { db } from '@/lib/redaction/rh/database';
 import { json, handleError, validOrigin } from '@/lib/redaction/rh/api';
 import { readContractBody } from '@/lib/redaction/rh/contract-http';
-import { validateContractInput, isContractId } from '@/lib/redaction/rh/contracts';
+import { validateContractInput, contractInputError, isContractId } from '@/lib/redaction/rh/contracts';
 import { pushContractAlert } from '@/lib/redaction/rh/contract-alerts';
 import { contractPartiesFromProfile } from '@/lib/redaction/rh/contract-parties';
 import { DEFAULT_ORGANIZATION_SETTINGS } from '@/lib/redaction/rh/organization';
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     if (!validOrigin(request)) return json({ error: 'Origine non autorisée.' }, 403);
     let raw: unknown; try { raw = await readContractBody(request); } catch { return json({ error: 'Dossier trop long ou invalide.' }, 400); }
     const input = validateContractInput(raw);
-    if (!input) return json({ error: 'Vérifiez les champs CDD/CDI, dates, rémunération et clauses.' }, 400);
+    if (!input) return json({ error: contractInputError(raw) || 'Vérifiez les champs CDD/CDI, dates, rémunération et clauses.' }, 400);
     const client = await db().connect();
     try {
       await client.query('BEGIN');

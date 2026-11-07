@@ -15,7 +15,8 @@ export function validateContractInput(raw: unknown): ContractInput | null {
   if (!uuid(v.collaboratorId) || (v.kind !== 'CDD' && v.kind !== 'CDI') || !date(v.startDate)) return null;
   if (v.kind === 'CDD' ? !date(v.endDate) || v.endDate <= v.startDate : v.endDate !== null && v.endDate !== '') return null;
   if (v.currency !== 'CDF' && v.currency !== 'USD') return null;
-  if (typeof v.salary !== 'string' || !/^(?:[1-9]\d{0,11})(?:[.,]\d{1,2})?$/.test(v.salary)) return null;
+  const salary = typeof v.salary === 'string' ? v.salary.replace(/[\s\u00a0\u202f]/g, '').replace(',', '.') : '';
+  if (!/^(?:[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(salary)) return null;
   for (const [key, max] of [['jobTitle',160],['workLocation',180],['clauses',MAX_CONTRACT_CLAUSES]] as const) {
     if (typeof v[key] !== 'string' || !v[key].trim() || v[key].length > max || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(v[key])) return null;
   }
@@ -37,6 +38,30 @@ export function validateContractInput(raw: unknown): ContractInput | null {
       displayOptions[key] = value;
     }
   }
-  return { collaboratorId:v.collaboratorId,kind:v.kind,jobTitle:(v.jobTitle as string).trim(),workLocation:(v.workLocation as string).trim(),startDate:v.startDate,endDate:v.kind==='CDD' ? v.endDate as string : null,salary:v.salary.replace(',','.'),currency:v.currency,clauses:(v.clauses as string).trim(),birthPlace:birthPlace.trim(),signaturePlace:signaturePlace.trim(),signatureDate,displayOptions };
+  return { collaboratorId:v.collaboratorId,kind:v.kind,jobTitle:(v.jobTitle as string).trim(),workLocation:(v.workLocation as string).trim(),startDate:v.startDate,endDate:v.kind==='CDD' ? v.endDate as string : null,salary,currency:v.currency,clauses:(v.clauses as string).trim(),birthPlace:birthPlace.trim(),signaturePlace:signaturePlace.trim(),signatureDate,displayOptions };
 }
 export { uuid as isContractId, date as isContractDate };
+
+/** Message précis pour diagnostiquer un contrat refusé par la validation. */
+export function contractInputError(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return 'Données du contrat invalides.';
+  const v = raw as Record<string, unknown>;
+  if (!uuid(v.collaboratorId)) return 'Sélectionnez un collaborateur valide.';
+  if (v.kind !== 'CDD' && v.kind !== 'CDI') return 'Type de contrat invalide (CDD ou CDI).';
+  if (!date(v.startDate)) return 'Date de prise d’effet invalide.';
+  if (v.kind === 'CDD') {
+    if (!date(v.endDate)) return 'Date de fin requise pour un CDD.';
+    if ((v.endDate as string) <= (v.startDate as string)) return 'La date de fin doit être après la date de prise d’effet.';
+  } else if (v.endDate !== null && v.endDate !== '') return 'Un CDI ne doit pas avoir de date de fin.';
+  if (v.currency !== 'CDF' && v.currency !== 'USD') return 'Devise invalide (CDF ou USD).';
+  const salary = typeof v.salary === 'string' ? v.salary.replace(/[\s\u00a0\u202f]/g, '').replace(',', '.') : '';
+  if (!/^(?:[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(salary)) return 'Rémunération invalide : montant positif attendu (ex. 1 500 000 ou 1200,50).';
+  if (typeof v.jobTitle !== 'string' || !v.jobTitle.trim()) return 'La fonction est requise.';
+  if (typeof v.workLocation !== 'string' || !v.workLocation.trim()) return 'Le lieu d’affectation est requis.';
+  if (typeof v.clauses !== 'string' || !v.clauses.trim()) return 'Le corps du contrat (clauses) est requis.';
+  if (v.clauses.length > MAX_CONTRACT_CLAUSES) return `Les clauses dépassent ${MAX_CONTRACT_CLAUSES} caractères.`;
+  if (v.clauses.split('\n').length > 1000) return 'Le contrat contient trop de lignes.';
+  const signatureDate = v.signatureDate === undefined || v.signatureDate === '' ? null : v.signatureDate;
+  if (signatureDate !== null && !date(signatureDate)) return 'Date de signature invalide.';
+  return null;
+}
