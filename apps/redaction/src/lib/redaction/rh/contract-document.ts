@@ -5,7 +5,7 @@ import { contractRuns, parseContractBlocks, type ContractBlock, type ContractRun
 export type ContractDocumentData = {
   kind: 'CDD' | 'CDI'; firstName: string; lastName: string; jobTitle: string; workLocation: string;
   startDate: string; endDate?: string | null; salary: string; currency: string; clauses: string;
-  employer: { companyName?: string; companyAddress?: string; companyPhone?: string; companyEmail?: string; companyTaxId?: string; companyRegistration?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string; logoPng?: string | null };
+  employer: { companyName?: string; companyAddress?: string; companyPhone?: string; companyEmail?: string; companyTaxId?: string; companyRegistration?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorAuthorized?: boolean; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string; logoPng?: string | null };
   parties?: ContractParties | null;
   employeeSignature?: string | null; acceptedAt?: string | null; draft?: boolean; draftLabel?: string;
 };
@@ -109,45 +109,72 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
   doc.setTextColor(...BRAND); doc.setFontSize(9.4);
   singleLine(doc, data.jobTitle.trim().toLocaleUpperCase('fr') || 'FONCTION À PRÉCISER', 105, y, WIDTH, 7.4, 'center');
   y += 10;
-  const details = [
-    `Employeur : ${company}`,
-    `Collaborateur : ${data.firstName} ${data.lastName}`,
-    `Fonction : ${data.jobTitle}   |   Lieu : ${data.workLocation}`,
-    `Prise d'effet : ${displayDate(data.startDate)}${data.kind === 'CDD' ? `   |   Terme : ${displayDate(data.endDate)}` : ''}`,
-    `Rémunération déclarée : ${data.salary} ${data.currency}`,
-  ];
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
-  const detailLines = details.flatMap(detail => doc.splitTextToSize(detail, WIDTH - 12) as string[]);
-  const detailHeight = 5 + detailLines.length * 4.8;
-  room(detailHeight + 7);
-  doc.setFillColor(249, 247, 248); doc.rect(MARGIN, y - 4, WIDTH, detailHeight, 'F');
-  doc.setFillColor(...BRAND); doc.rect(MARGIN, y - 4, .8, detailHeight, 'F');
-  doc.setTextColor(...INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
-  for (const line of detailLines) { doc.text(line, MARGIN + 5, y + 1); y += 4.8; }
-  y += 9;
-
   if (data.parties) {
+    // The identity of BOTH parties is inside the left-rule information panel. Keep the
+    // concluding sentence outside it, on its own line, even when the panel moves page.
     const party = data.parties;
-    const director = `${data.employer.directorName || '—'}, ${data.employer.directorTitle || 'Directeur Général'}`;
+    const isWab = /^(?:world access to business|wab)(?:\b|[- ])/i.test(company.trim());
+    const employer = `${company}${isWab ? ', exploitant le média WAB-infos TV' : ''}, représenté par son ${data.employer.directorTitle?.trim() || 'Directeur Général'} ${data.employer.directorName?.trim() || '—'}${data.employer.directorAuthorized ? ', dûment habilité à cet effet' : ''}, ci-après dénommé « LA DIRECTION » ;`;
     const passages = [
       ['ENTRE LES SOUSSIGNÉS :', true],
-      [`${company}${/^(?:world access to business|wab)(?:\b|[- ])/i.test(company.trim()) ? ", exploitant le média WAB-infos TV" : ""}, représenté par ${director}.`, false],
+      [employer, false],
       ['D’UNE PART ;', true],
-      [`ET Monsieur/Madame ${data.firstName} ${data.lastName}, ${contractPartyRole(data.jobTitle)}.`, false],
-      [`Né(e) à ${party.birthPlace} le ${displayDate(party.birthDate)}.`, false],
-      [`Adresse : ${party.address}. Téléphone : ${party.phone}.`, false],
+      [`ET Monsieur/Madame : ${data.firstName} ${data.lastName}`, false],
+      [`Né(e) à : ${party.birthPlace}     le : ${displayDate(party.birthDate)}`, false],
+      [`Adresse : ${party.address}`, false],
+      [`Téléphone : ${party.phone}`, false],
+      [`Ci-après dénommé(e) « ${contractPartyRole(data.jobTitle)} » ;`, false],
       ['D’AUTRE PART ;', true],
-      ['Il a été convenu et arrêté ce qui suit :', false],
     ] as const;
-    for (const [text, bold] of passages) {
-      doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(9.3);
-      const lines = doc.splitTextToSize(text, WIDTH) as string[];
-      room(lines.length * 4.8 + (bold ? 3 : 1));
-      doc.setTextColor(...INK);
-      for (const line of lines) { doc.text(line, MARGIN, y); y += 4.8; }
-      y += bold ? 3 : 1;
+    const fontSize = 9.3, lineHeight = 4.75, gap = 1.3, inset = 5;
+    const lines = passages.map(([text, bold]) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(fontSize);
+      return { bold, lines: doc.splitTextToSize(text, WIDTH - inset * 2) as string[] };
+    });
+    const height = 7 + lines.reduce((total, entry) => total + entry.lines.length * lineHeight + gap + (entry.bold ? 1 : 0), 0);
+    room(height + 11);
+    const top = y - 4;
+    doc.setFillColor(249, 247, 248); doc.rect(MARGIN, top, WIDTH, height, 'F');
+    doc.setFillColor(...BRAND); doc.rect(MARGIN, top, .8, height, 'F');
+    for (const entry of lines) {
+      doc.setTextColor(...INK); doc.setFont('helvetica', entry.bold ? 'bold' : 'normal'); doc.setFontSize(fontSize);
+      for (const line of entry.lines) { doc.text(line, MARGIN + inset, y + 1); y += lineHeight; }
+      y += gap + (entry.bold ? 1 : 0);
     }
-    y += 3;
+    y = top + height + 7;
+    doc.setTextColor(...INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
+    doc.text('Il a été convenu et arrêté ce qui suit :', MARGIN, y);
+    y += 8;
+    const details = [
+      `Fonction : ${data.jobTitle}   |   Lieu : ${data.workLocation}`,
+      `Prise d'effet : ${displayDate(data.startDate)}${data.kind === 'CDD' ? `   |   Terme : ${displayDate(data.endDate)}` : ''}`,
+      `Rémunération déclarée : ${data.salary} ${data.currency}`,
+    ];
+    doc.setTextColor(...MUTED); doc.setFontSize(8.5);
+    for (const detail of details) {
+      const content = doc.splitTextToSize(detail, WIDTH) as string[];
+      room(content.length * 4.4);
+      for (const line of content) { doc.text(line, MARGIN, y); y += 4.4; }
+    }
+    y += 6;
+  } else {
+    // Legacy proposed documents have no identity snapshot. Retain their original layout.
+    const details = [
+      `Employeur : ${company}`,
+      `Collaborateur : ${data.firstName} ${data.lastName}`,
+      `Fonction : ${data.jobTitle}   |   Lieu : ${data.workLocation}`,
+      `Prise d'effet : ${displayDate(data.startDate)}${data.kind === 'CDD' ? `   |   Terme : ${displayDate(data.endDate)}` : ''}`,
+      `Rémunération déclarée : ${data.salary} ${data.currency}`,
+    ];
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
+    const detailLines = details.flatMap(detail => doc.splitTextToSize(detail, WIDTH - 12) as string[]);
+    const detailHeight = 5 + detailLines.length * 4.8;
+    room(detailHeight + 7);
+    doc.setFillColor(249, 247, 248); doc.rect(MARGIN, y - 4, WIDTH, detailHeight, 'F');
+    doc.setFillColor(...BRAND); doc.rect(MARGIN, y - 4, .8, detailHeight, 'F');
+    doc.setTextColor(...INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
+    for (const line of detailLines) { doc.text(line, MARGIN + 5, y + 1); y += 4.8; }
+    y += 9;
   }
 
   const blocks = parseContractBlocks(data.clauses);

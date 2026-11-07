@@ -56,7 +56,7 @@ export async function PATCH(request: Request) {
     if (!isContractId(v.id) || !Number.isSafeInteger(v.version) || Number(v.version)<1 || !['update','propose','archive'].includes(v.action as string)) return json({ error: 'Action ou version invalide.' }, 400);
     const input = v.action === 'update' ? validateContractInput(v.contract) : null;
     if (v.action === 'update' && !input) return json({ error: 'Données contractuelles invalides.' }, 400);
-    if (v.action === 'propose' && (v.legalApproved !== true || v.dgApproved !== true)) return json({ error: 'Validation juridique et accord réel du DG requis.' }, 400);
+    if (v.action === 'propose' && (v.legalApproved !== true || v.dgApproved !== true || v.directorAuthorized !== true)) return json({ error: 'Validation juridique, habilitation du DG vérifiée et accord réel du DG requis.' }, 400);
     const client = await db().connect();
     try {
       await client.query('BEGIN');
@@ -91,7 +91,7 @@ export async function PATCH(request: Request) {
         const parties = contractPartiesFromProfile(identity.rows[0] || null, row.birth_place);
         if (!parties || !row.first_name?.trim() || !row.last_name?.trim()) { await client.query('ROLLBACK'); return json({ error: 'Complétez la date de naissance, l’adresse et le téléphone dans la fiche d’identification, et le lieu de naissance dans le contrat avant transmission.' }, 409); }
         const partySnapshot = { ...parties, firstName:row.first_name.trim(), lastName:row.last_name.trim() };
-        const employerSnapshot = { ...settings, logoPng };
+        const employerSnapshot = { ...settings, logoPng, directorAuthorized: true };
         await client.query(`UPDATE redaction_rh.contract_cases SET status='proposed',legal_reviewed_by=$2,proposed_at=now(),proposed_account_id=$3,proposed_account_email=$4,employer_snapshot=$5,signature_bytes=$6,seal_bytes=$7,party_snapshot=$8,version=version+1,updated_at=now() WHERE id=$1`,[v.id,actor.email,link.rows[0].account_id,link.rows[0].account_email,JSON.stringify(employerSnapshot),asset['director-signature'],asset['company-seal'],JSON.stringify(partySnapshot)]);
       }
       await client.query('INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,$3)',[v.id,actor.email,v.action]);

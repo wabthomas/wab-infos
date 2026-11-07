@@ -40,7 +40,7 @@ export function ContractsWorkspace() {
   const [birthPlace, setBirthPlace] = useState('');
   const [profile, setProfile] = useState<ContractProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [clauses, setClauses] = useState(''), [approved, setApproved] = useState(false);
+  const [clauses, setClauses] = useState(''), [approved, setApproved] = useState(false), [authorized, setAuthorized] = useState(false);
   const [previewPdf, setPreviewPdf] = useState<Uint8Array | null>(null);
   const [previewStatus, setPreviewStatus] = useState('Sélectionnez un collaborateur et saisissez le corps du contrat.');
   const clausesRef = useRef<HTMLTextAreaElement>(null);
@@ -101,9 +101,9 @@ export function ContractsWorkspace() {
     setSelectedTemplate(null);setTemplateTitle('');setSelected(item);setPersonId(item.collaboratorId);setKind(item.kind);setJob(item.jobTitle);setLocation(item.workLocation);
     setStartDate(item.startDate);setEndDate(item.endDate??'');setSalary(item.salary);setCurrency(item.currency);setClauses(item.clauses);setBirthPlace(item.birthPlace || '');if (personId !== item.collaboratorId) { setProfile(null);setProfileLoading(true); }
     setSavedSnapshot(JSON.stringify({ collaboratorId:item.collaboratorId,kind:item.kind,jobTitle:item.jobTitle,workLocation:item.workLocation,startDate:item.startDate,endDate:item.kind==='CDD'?item.endDate:null,salary:item.salary,currency:item.currency,clauses:item.clauses,birthPlace:item.birthPlace || '' }));
-    setApproved(false);setSign(false);setError('');
+    setApproved(false);setAuthorized(false);setSign(false);setError('');
   }
-  function newCase(force = false) { if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return; setSelectedTemplate(null);setTemplateTitle('');setSelected(null);setPersonId('');setKind('CDD');setJob('');setLocation('');setStartDate('');setEndDate('');setSalary('');setCurrency('CDF');setClauses('');setBirthPlace('');setProfile(null);setProfileLoading(false);setSavedSnapshot('');setApproved(false);setSign(false);setError(''); }
+  function newCase(force = false) { if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return; setSelectedTemplate(null);setTemplateTitle('');setSelected(null);setPersonId('');setKind('CDD');setJob('');setLocation('');setStartDate('');setEndDate('');setSalary('');setCurrency('CDF');setClauses('');setBirthPlace('');setProfile(null);setProfileLoading(false);setSavedSnapshot('');setApproved(false);setAuthorized(false);setSign(false);setError(''); }
   async function reload(id?:string) {
     const r=await fetchRedaction('/api/redaction/rh/contrats',{cache:'no-store'});const data=await r.json();if(!r.ok)throw new Error(data.error||'Lecture impossible.');
     setCases(data.contracts);if(id) {const found=(data.contracts as ContractCase[]).find(c=>c.id===id);if(found)choose(found,true);}
@@ -116,11 +116,11 @@ export function ContractsWorkspace() {
     }catch(e){const message=e instanceof Error?e.message:'Enregistrement impossible.';setError(message);toast.error(message);}finally{setBusy(false);}
   }
   async function proposeCase() {
-    if(!selected||selected.status!=='draft'||!approved||!sign)return;
+    if(!selected||selected.status!=='draft'||!approved||!authorized||!sign)return;
     if(JSON.stringify(payload())!==savedSnapshot){setError('Enregistrez vos modifications avant transmission.');return;}
     if (!parties) { setError('Complétez la fiche d’identification (date de naissance, adresse et téléphone) et le lieu de naissance avant transmission.'); return; }
     setBusy(true);setError('');try {
-      const r=await fetchRedaction('/api/redaction/rh/contrats',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action:'propose',id:selected.id,version:selected.version,legalApproved:true,dgApproved:true})});
+      const r=await fetchRedaction('/api/redaction/rh/contrats',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action:'propose',id:selected.id,version:selected.version,legalApproved:true,dgApproved:true,directorAuthorized:authorized})});
       const data=await r.json();if(!r.ok)throw new Error(data.error||'Transmission impossible.');
       await reload(selected.id);toast.success('Version figée et transmise au collaborateur lié.');
     }catch(e){const message=e instanceof Error?e.message:'Transmission impossible.';setError(message);toast.error(message);}finally{setBusy(false);}
@@ -160,7 +160,7 @@ export function ContractsWorkspace() {
             const pdf = buildContractDocument({
               kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
               startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties,
-              employer: settings, draft: true,
+              employer: { ...settings, directorAuthorized:authorized }, draft: true,
             }, { logo: images[0], seal: images[1], signature: images[2] });
             if (active) setPreviewPdf(new Uint8Array(pdf.output('arraybuffer')));
           } catch { if (active) setPreviewStatus('Préparation de l’aperçu impossible.'); }
@@ -169,7 +169,7 @@ export function ContractsWorkspace() {
       return () => { active = false; window.clearTimeout(timer); };
     } else setPreviewStatus('Sélectionnez un collaborateur et saisissez le corps du contrat.');
     return () => { active = false; };
-  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, birthPlace, parties?.birthDate, parties?.address, parties?.phone, profileLoading, settings, sign, seal, signature, logo]);
+  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, birthPlace, authorized, parties?.birthDate, parties?.address, parties?.phone, profileLoading, settings, sign, seal, signature, logo]);
 
   function applyFormat(command: ContractFormatCommand) {
     const textarea = clausesRef.current;
@@ -196,7 +196,7 @@ export function ContractsWorkspace() {
       const pdf = buildContractDocument({
         kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
         startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties,
-        employer: settings, draft: true,
+        employer: { ...settings, directorAuthorized:authorized }, draft: true,
       }, { logo: await png(logo), seal: sign ? await png(seal, .22) : null, signature: sign ? await png(signature) : null });
       pdf.save(`projet-contrat-${kind.toLowerCase()}-${person.lastName.replace(/[^a-zA-Z0-9-]/g,'-')}.pdf`);
       toast.success('Projet PDF prêt. Déposez la version signée dans Documents RH après contrôle.');
@@ -251,13 +251,14 @@ export function ContractsWorkspace() {
           <section className="space-y-3 rounded-xl border p-4 sm:p-5">
             <h3 className="text-base font-bold">03 · Validation et visa</h3>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={approved} onChange={e => { setApproved(e.target.checked); setSign(false); }} className="mt-1" /> Clauses, dates et montants validés pour ce contrat soumis au droit de la RDC.</label>
-            <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={sign} disabled={!approved || !signature || !seal || !settings.directorName} onChange={e => setSign(e.target.checked)} className="mt-1" /> Après accord réel du DG, afficher son image de signature et le sceau.</label>
+            <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={authorized} onChange={e => { setAuthorized(e.target.checked); setSign(false); }} className="mt-1" /> J’ai vérifié l’habilitation du Directeur Général à représenter l’entreprise. La mention « dûment habilité à cet effet » sera alors imprimée sur le contrat.</label>
+            <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={sign} disabled={!approved || !authorized || !signature || !seal || !settings.directorName} onChange={e => setSign(e.target.checked)} className="mt-1" /> Après accord réel du DG, afficher son image de signature et le sceau.</label>
             <p className="text-xs text-muted-foreground">La signature image est uniquement visuelle. L’accord du collaborateur est recueilli par lui-même ; aucune signature électronique qualifiée n’est créée.</p>
           </section>
         </fieldset>
         <div className="flex flex-wrap items-center gap-2 border-t pt-5">
           {!locked&&<button type="button" disabled={busy} onClick={()=>void saveDraft()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{selected?'Enregistrer les modifications':'Enregistrer le brouillon'}</button>}
-          {!locked&&selected&&<button type="button" disabled={busy||!approved||!sign} onClick={()=>void proposeCase()} className="rounded-xl border border-primary px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50">Transmettre pour accord</button>}
+          {!locked&&selected&&<button type="button" disabled={busy||!approved||!authorized||!sign} onClick={()=>void proposeCase()} className="rounded-xl border border-primary px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50">Transmettre pour accord</button>}
           <button type="button" disabled={busy} onClick={() => void exportPdf()} className="rounded-xl border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{busy ? 'Préparation…' : locked?'Télécharger la version figée':'Télécharger le projet PDF'}</button>
           {!locked&&selected&&<button type="button" disabled={busy} onClick={()=>void archiveCase()} className="rounded-xl border px-4 py-2.5 text-sm text-red-600 disabled:opacity-50">Archiver le brouillon</button>}
         </div>

@@ -105,6 +105,28 @@ test('préambule : fiche et lieu de naissance distincts, deux parties et anciens
   assert.ok(content.includes('AUTRE PART'));
   assert.ok(content.includes('Goma'));
   assert.ok(!content.includes('Lubumbashi'));
+  assert.ok(content.indexOf('ENTRE LES SOUSSIGN') < content.indexOf('AUTRE PART'));
+  assert.ok(content.indexOf('AUTRE PART') < content.indexOf('Il a'));
+  assert.ok(!content.includes('dûment habilité'));
+  const authorized = buildContractDocument({ ...data('Clause test.'), parties, employer: { ...data('').employer, directorAuthorized:true } });
+  assert.ok(authorized.internal.pages.flat().join(' ').includes('dûment habilité'));
   const legacy = buildContractDocument(data('Clause test.'));
   assert.ok(!legacy.internal.pages.flat().join(' ').includes('ENTRE LES SOUSSIGN'));
+});
+
+test('préambule dans l’encadré à barre verticale, phrase de conclusion hors encadré', async () => {
+  const parties = { birthDate:'1997-03-14', birthPlace:'Goma', address:'Avenue 12, Kinshasa', phone:'+243 800 000 000' };
+  const pdf = buildContractDocument({ ...data('Clause test.'), parties, employer: { ...data('').employer, directorAuthorized:true } });
+  const viewer = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const document = await viewer.getDocument({ data:new Uint8Array(pdf.output('arraybuffer')), useSystemFonts:true }).promise;
+  try {
+    const page = await document.getPage(1);
+    const items = (await page.getTextContent()).items.filter(item => 'str' in item);
+    const inPanel = items.find(item => item.str.includes('ENTRE LES SOUSSIGN'));
+    const endPanel = items.find(item => item.str.includes('AUTRE PART'));
+    const belowPanel = items.find(item => item.str.includes('Il a été convenu'));
+    assert.ok(inPanel && endPanel && belowPanel);
+    assert.ok(inPanel.transform[4] > belowPanel.transform[4], 'Le texte des parties est en retrait à droite de la barre ; la phrase reprend la marge normale.');
+    assert.ok(endPanel.transform[5] > belowPanel.transform[5], 'La phrase est placée après la fin du bloc des parties.');
+  } finally { await document.destroy(); }
 });
