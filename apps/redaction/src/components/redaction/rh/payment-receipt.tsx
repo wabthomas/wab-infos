@@ -1,4 +1,6 @@
 'use client';
+import { BrowserDocumentLink } from './browser-document-link';
+import { deliverRhDocument, inNativeRhApp } from '@/lib/redaction/rh/browser-document';
 import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
@@ -32,17 +34,7 @@ function imageAsJpeg(source: string | null | undefined): Promise<string | null> 
   });
 }
 
-async function deliverPdf(blob: Blob, filename: string) {
-  const file = new File([blob], filename, { type: 'application/pdf' });
-  if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && navigator.share && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'Reçu RH' }); return; }
-    catch (error) { if (error instanceof DOMException && error.name === 'AbortError') return; }
-  }
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.hidden = true;
-  document.body.appendChild(anchor); anchor.click(); anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-}
+async function deliverPdf(blob:Blob,filename:string):Promise<string|null> { return deliverRhDocument(blob,filename); }
 
 export function PaymentReceipt({
   person,
@@ -51,6 +43,7 @@ export function PaymentReceipt({
   person: { firstName: string; lastName: string; jobTitle: string; team: string };
   withdrawal: Withdrawal;
 }) {
+  const [browserLink,setBrowserLink]=useState<string|null>(null);
   const [company, setCompany] = useState<OrganizationSettings>(DEFAULT_ORGANIZATION_SETTINGS);
   const [assets, setAssets] = useState<Record<string, string | null>>({});
   const [downloading, setDownloading] = useState(false);
@@ -74,6 +67,7 @@ export function PaymentReceipt({
   }, []);
 
   function printReceipt() {
+    if (inNativeRhApp()) { void downloadPdf();return; }
     const root = document.documentElement;
     root.dataset.rhPrintTarget = 'payment-receipt';
     const cleanup = () => { delete root.dataset.rhPrintTarget; };
@@ -90,7 +84,7 @@ export function PaymentReceipt({
         try {
           const { captureElementAsPdf } = await import('@/lib/redaction/rh/pdf-capture');
           const captured = await captureElementAsPdf(target, { fitPage: true });
-          await deliverPdf(captured, 'recu-rh-' + withdrawal.id.slice(0, 8) + '.pdf');
+          setBrowserLink(await deliverPdf(captured, 'recu-rh-' + withdrawal.id.slice(0, 8) + '.pdf'));
           setPdfMessage('PDF prêt.');
           return;
         } catch {}
@@ -129,7 +123,7 @@ export function PaymentReceipt({
       pdf.setTextColor(125); pdf.setFontSize(7); pdf.text(pdf.splitTextToSize(footer, width - margin * 2), margin, 270);
       pdf.text(`ID fiscal : ${company.companyTaxId || '—'} · RCCM : ${company.companyRegistration || '—'} · Réf. ${reference}`, margin, 286, { maxWidth: width - margin * 2 });
       const safeName = `${person.lastName}-${person.firstName}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-');
-      await deliverPdf(pdf.output('blob'), `recu-rh-${safeName}-${withdrawal.id.slice(0, 8)}.pdf`);
+      setBrowserLink(await deliverPdf(pdf.output('blob'), `recu-rh-${safeName}-${withdrawal.id.slice(0, 8)}.pdf`));
       setPdfMessage('PDF prêt à être enregistré ou partagé.');
     } catch (error) { setPdfMessage(error instanceof Error ? `PDF impossible : ${error.message}` : 'PDF impossible.'); }
     finally { setDownloading(false); }
@@ -140,6 +134,7 @@ export function PaymentReceipt({
       <button type="button" onClick={printReceipt} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold shadow-sm"><Printer className="h-4 w-4" /> Imprimer</button>
       <button type="button" disabled={downloading} onClick={() => void downloadPdf()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm disabled:opacity-50"><Download className="h-4 w-4" />{downloading ? 'Préparation…' : 'Télécharger PDF'}</button>
     </div>
+    <BrowserDocumentLink url={browserLink}/>
     {pdfMessage && <p role="status" className="print:hidden text-right text-xs text-primary">{pdfMessage}</p>}
 
     <article className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white text-[#171923] shadow-xl shadow-slate-900/5 print:break-inside-avoid print:rounded-none print:border-0 print:shadow-none">

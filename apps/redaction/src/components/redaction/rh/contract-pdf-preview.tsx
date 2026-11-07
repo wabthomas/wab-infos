@@ -5,7 +5,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { redactionPublicPath } from '@/lib/redaction/public-path';
 
 /** Renders the actual PDF, not an HTML approximation of its clauses. Only the visible A4 page is rasterized. */
-export function ContractPdfPreview({ bytes, status }: { bytes: Uint8Array | null; status: string }) {
+export function ContractPdfPreview({ bytes, status, browserHref }: { bytes: Uint8Array | null; status: string; browserHref?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
@@ -83,6 +83,6 @@ export function ContractPdfPreview({ bytes, status }: { bytes: Uint8Array | null
     {document && !error ? <div className="relative mx-auto w-full max-w-[210mm] bg-white shadow-lg ring-1 ring-black/10">
       <canvas ref={canvasRef} role="img" aria-label={`Page ${pageNumber} sur ${document.numPages} du contrat A4`} className="block h-auto w-full" />
       {rendering && <div className="absolute inset-0 grid place-items-center bg-white/75 text-sm text-slate-600">Préparation de la page…</div>}
-    </div> : <div className="mx-auto flex aspect-[210/297] max-w-[210mm] items-center justify-center rounded-lg border bg-white p-5 text-center text-sm text-slate-600">{error || status}</div>}
+    </div> : <div className="mx-auto flex aspect-[210/297] max-w-[210mm] flex-col items-center justify-center gap-4 rounded-lg border bg-white p-5 text-center text-sm text-slate-600">{error || status}{error && browserHref && <a href={browserHref} target="_blank" rel="noopener noreferrer" className="rounded-lg border px-3 py-2 text-primary">Afficher le PDF dans le navigateur</a>}</div>}
   </section>;
 }

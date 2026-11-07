@@ -9,6 +9,8 @@ import { formatOfficialReference, validManualReferenceCode, validOfficialReferen
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
 import { OFFICIAL_KINDS, type OfficialDocumentKind, type OfficialTemplate } from '@/lib/redaction/rh/official-documents';
 import { ADMINISTRATIVE_PRESETS, unresolvedAdministrativeFields, type AdministrativePreset } from '@/lib/redaction/rh/administrative-presets';
+import { BrowserDocumentLink } from './browser-document-link';
+import { inNativeRhApp } from '@/lib/redaction/rh/browser-document';
 import { downloadCanvas, downloadOfficialPdf, renderOfficialPage, OfficialPageOverflowError, type OfficialExport } from '@/lib/redaction/rh/official-export';
 
 const base = '/api/redaction/rh';
@@ -19,6 +21,7 @@ const emptyAssets: Assets = { 'company-logo': null, 'document-header': null, 'do
 
 export function OfficialDocuments() {
   const toast = useToast();
+  const [browserLink,setBrowserLink]=useState<string|null>(null);
   const [templates, setTemplates] = useState<OfficialTemplate[]>([]);
   const [selected, setSelected] = useState<OfficialTemplate | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<AdministrativePreset | null>(null);
@@ -148,8 +151,7 @@ export function OfficialDocuments() {
       const page = await renderOfficialPage(documentData());
       setOverflow(false);
       const filename = `${kind}-${new Date().toISOString().slice(0, 10)}`;
-      if (type === 'pdf') await downloadOfficialPdf(page, `${filename}.pdf`);
-      else downloadCanvas(page, `${filename}-300dpi.png`);
+      setBrowserLink(type === 'pdf' ? await downloadOfficialPdf(page, `${filename}.pdf`) : await downloadCanvas(page, `${filename}-300dpi.png`));
     } catch (cause) {
       const message = cause instanceof OfficialPageOverflowError ? cause.message : 'Export impossible sur cet appareil.';
       setError(message); setOverflow(cause instanceof OfficialPageOverflowError); toast.error(message);
@@ -181,7 +183,7 @@ export function OfficialDocuments() {
       const url = canvas.toDataURL('image/jpeg', 0.9);
       await new Promise<void>((resolve, reject) => { const img = new Image(); img.onload = () => resolve(); img.onerror = () => reject(new Error('Aperçu indisponible.')); img.src = url; });
       flushSync(() => { setPreview(url); setOverflow(false); });
-      window.print();
+      if (inNativeRhApp()) { const {jsPDF}=await import('jspdf');const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});pdf.addImage(canvas.toDataURL('image/jpeg',.93),'JPEG',0,0,210,297,undefined,'FAST');const {deliverRhDocument}=await import('@/lib/redaction/rh/browser-document');setBrowserLink(await deliverRhDocument(pdf.output('blob'),`${kind}-impression.pdf`,'print')); } else window.print();
     } catch (cause) {
       setError(cause instanceof OfficialPageOverflowError ? cause.message : 'Impression impossible sur cet appareil.');
       setOverflow(cause instanceof OfficialPageOverflowError);
@@ -319,6 +321,7 @@ export function OfficialDocuments() {
       </div>
     </div>
 
+    <BrowserDocumentLink url={browserLink}/>
     {overflow && <p role="alert" className="no-print rounded-xl border border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">Le document ne tient pas sur une seule page A4 lisible. Raccourcissez le texte ou l’entête ; aucun contenu ne sera tronqué à l’export ou à l’impression.</p>}
     {preview ? <img className="official-print-page mx-auto block h-auto w-full max-w-[210mm] bg-white shadow-lg ring-1 ring-black/10 print:shadow-none print:ring-0" src={preview} alt="Aperçu exact du document officiel sur une page A4" /> : <div className="no-print mx-auto flex aspect-[210/297] max-w-[210mm] items-center justify-center rounded-xl border bg-white p-6 text-center text-sm text-muted-foreground">{overflow ? 'Document trop long : réduisez son contenu pour afficher l’aperçu.' : 'Préparation de l’aperçu A4…'}</div>}
     {pendingChoice !== undefined && <div className="no-print fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onMouseDown={event => { if (event.target === event.currentTarget) setPendingChoice(undefined); }}>

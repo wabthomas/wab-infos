@@ -1,4 +1,6 @@
 'use client';
+import { BrowserDocumentLink } from './browser-document-link';
+import { deliverRhDocument, inNativeRhApp } from '@/lib/redaction/rh/browser-document';
 import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState, type ChangeEvent } from 'react';
@@ -14,35 +16,13 @@ import { Download, Printer, UserRoundPen, X, ImageDown, Maximize2 } from 'lucide
 type Person = { firstName: string; lastName: string; jobTitle: string; team: string; contractStatus: string; startDate: string | null };
 type PersonalDetails = { birthDate: string; startDate: string; phone: string; email: string; address: string; country: string; province: string; city: string; emergencyContact: string; specialty: string; languages: string };
 
-async function shareOrDownloadFile(blob: Blob, filename: string) {
-  const file = new File([blob], filename, { type: blob.type });
-  if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && navigator.share && navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Fiche d’identification' });
-      return;
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-    }
-  }
-  const androidBridge = (window as unknown as { AndroidBridge?: { savePdf?: (data: string, name: string) => void } }).AndroidBridge;
-  if (blob.type === 'application/pdf' && androidBridge?.savePdf) {
-    const base64 = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] ?? ''); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob); });
-    androidBridge.savePdf(base64, filename);
-    return;
-  }
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.style.display = 'none';
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+async function shareOrDownloadFile(blob: Blob, filename: string): Promise<string|null> {
+  return deliverRhDocument(blob,filename);
 }
 
 export function EmployeeIdCard({ person, adminPersonId, serviceCard }: { person: Person; adminPersonId?: string; serviceCard?: { issuedAt: string; active: boolean } | null }) {
   const searchParams = useSearchParams();
+  const [browserLink,setBrowserLink] = useState<string|null>(null);
   const [details, setDetails] = useState<PersonalDetails>({ birthDate: '', startDate: '', phone: '', email: '', address: '', country: COUNTRIES[0], province: 'Kinshasa', city: 'Kinshasa', emergencyContact: '', specialty: '', languages: '' });
   const [profileReady, setProfileReady] = useState(false);
   const [assetsReady, setAssetsReady] = useState(false);
@@ -185,10 +165,10 @@ export function EmployeeIdCard({ person, adminPersonId, serviceCard }: { person:
         const {jsPDF}=await import('jspdf');
         const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
         pdf.addImage(canvas.toDataURL('image/jpeg',.94),'JPEG',0,0,210,297,undefined,'FAST');
-        await shareOrDownloadFile(pdf.output('blob'),`${filename}.pdf`);
+        setBrowserLink(await shareOrDownloadFile(pdf.output('blob'),`${filename}.pdf`));
       } else {
         const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('PNG indisponible.')),'image/png'));
-        await shareOrDownloadFile(blob,`${filename}-300dpi.png`);
+        setBrowserLink(await shareOrDownloadFile(blob,`${filename}-300dpi.png`));
       }
       setMessage(`${type.toUpperCase()} A4 prêt. Vérifiez vos téléchargements ou choisissez « Enregistrer dans Fichiers ».`);
     } catch(error) { const message=error instanceof Error?error.message:'Export impossible sur cet appareil.';setOverflow(error instanceof IdPageOverflowError);setMessage(message); }
@@ -198,13 +178,13 @@ export function EmployeeIdCard({ person, adminPersonId, serviceCard }: { person:
     if (!ready) {setMessage('Attendez le chargement de la fiche complète avant l’impression.');return;}
     setDownloading(true);setMessage('');
     try {
-      const mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+      const mobile=inNativeRhApp() || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
       const canvas=await renderEmployeeIdPage(pageData(),mobile?3:1.5);
       if (mobile) {
         const {jsPDF}=await import('jspdf');
         const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
         pdf.addImage(canvas.toDataURL('image/jpeg',.94),'JPEG',0,0,210,297,undefined,'FAST');
-        await shareOrDownloadFile(pdf.output('blob'),`${filename}.pdf`);
+        setBrowserLink(await shareOrDownloadFile(pdf.output('blob'),`${filename}.pdf`));
         setMessage('Fiche PDF A4 prête : ouvrez-la depuis Fichiers pour imprimer ou choisissez Imprimer dans le partage.');
         return;
       }
@@ -224,6 +204,7 @@ export function EmployeeIdCard({ person, adminPersonId, serviceCard }: { person:
       <button type="button" disabled={downloading || !ready} onClick={() => void exportFile('png')} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold disabled:opacity-50"><ImageDown className="h-4 w-4" />Télécharger PNG HD (300 dpi)</button>
     </div>
     {serviceCard && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">Carte de service déjà émise le {serviceCard.issuedAt}{serviceCard.active ? ' · active' : ' · expirée ou révoquée'}</p>}
+    <BrowserDocumentLink url={browserLink}/>
     {message && !editing && <p role="status" className="rounded-xl border border-primary/15 bg-primary/[0.06] px-4 py-2.5 text-sm text-primary print:hidden">{message}</p>}
     {editing && !adminPersonId && <div className="fixed inset-0 z-[85] flex items-end bg-black/55 print:hidden sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setEditing(false); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="employee-profile-form-title" className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl border border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6">

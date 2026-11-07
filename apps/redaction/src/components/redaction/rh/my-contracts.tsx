@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { FileSignature, Download, CheckCircle2 } from 'lucide-react';
-import { fetchRedaction } from '@/lib/redaction/public-path';
+import { fetchRedaction, redactionPublicPath } from '@/lib/redaction/public-path';
+import { BrowserDocumentLink } from './browser-document-link';
+import { deliverRhDocument, inNativeRhApp } from '@/lib/redaction/rh/browser-document';
 import { ContractPdfPreview } from './contract-pdf-preview';
 import { VisualSignature } from './visual-signature';
 import { contractProgress } from '@/lib/redaction/rh/contract-lifecycle';
@@ -11,6 +13,7 @@ type Contract = { id:string; kind:'CDD'|'CDI'; companyName:string; firstName:str
 export function MyContracts() {
   const toast = useToast();
   const [items,setItems] = useState<Contract[]>([]);
+  const [browserLink,setBrowserLink] = useState<{id:string;url:string}|null>(null);
   const [previewId,setPreviewId] = useState(''), [previewBytes,setPreviewBytes] = useState<Uint8Array|null>(null), [previewLoading,setPreviewLoading] = useState(false);
   const [error,setError] = useState(''), [busy,setBusy] = useState(''), [loading,setLoading] = useState(true);
   const [signatureMode,setSignatureMode] = useState<Record<string,'text'|'image'>>({});
@@ -23,6 +26,7 @@ export function MyContracts() {
   }
   useEffect(()=>{ let active=true; fetchRedaction('/api/redaction/rh/mon-espace/contrats',{cache:'no-store'}).then(async r=>{const data=await r.json();if(!r.ok)throw new Error(data.error||'Contrats indisponibles.');if(active)setItems(data.contracts);}).catch(e=>{if(active)setError(e instanceof Error?e.message:'Lecture impossible.');}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
   async function preview(id:string) {
+    if (inNativeRhApp()) { await download(id); return; }
     if (previewId === id) { setPreviewId('');setPreviewBytes(null);return; }
     setPreviewId(id);setPreviewBytes(null);setPreviewLoading(true);setError('');
     try {
@@ -37,8 +41,8 @@ export function MyContracts() {
     try {
       const r=await fetchRedaction(`/api/redaction/rh/mon-espace/contrats/${id}/pdf`,{cache:'no-store'});
       if(!r.ok) {const data=await r.json();throw new Error(data.error||'PDF indisponible.');}
-      const url=URL.createObjectURL(await r.blob());
-      const a=document.createElement('a');a.href=url;a.download=`contrat-rh-${id}.pdf`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      const url=await deliverRhDocument(await r.blob(),`contrat-rh-${id}.pdf`);
+      setBrowserLink(url?{id,url}:null);
     } catch(e){const message=e instanceof Error?e.message:'Téléchargement impossible.';setError(message);toast.error(message);}finally{setBusy('');}
   }
   async function decline(item:Contract) {
@@ -71,7 +75,8 @@ export function MyContracts() {
       <p className="text-sm">{item.firstName} {item.lastName} · {item.workLocation}<br/>Prise d’effet : {item.startDate}{item.kind==='CDD'&&` · Fin indiquée : ${item.endDate}`}<br/>Rémunération déclarée : {item.salary} {item.currency} (périodicité dans les clauses)</p>
       <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl border bg-muted/30 p-4 text-sm leading-6" aria-label="Clauses du contrat">{item.clauses}</div>
       <button type="button" disabled={!!busy} onClick={()=>void preview(item.id)} className="mr-2 min-h-10 rounded-xl border border-primary px-4 py-2 text-sm font-semibold text-primary">{previewId===item.id?'Fermer le contrat A4':'Ouvrir le contrat A4 en ligne'}</button>
-      {previewId===item.id&&<ContractPdfPreview bytes={previewBytes} status={previewLoading?'Chargement du document…':'Chargement impossible.'}/>}
+      {previewId===item.id&&<ContractPdfPreview bytes={previewBytes} status={previewLoading?'Chargement du document…':'Chargement impossible.'} browserHref={redactionPublicPath(`/api/redaction/rh/mon-espace/contrats/${item.id}/pdf`)}/>}
+      {browserLink?.id===item.id&&<BrowserDocumentLink url={browserLink.url}/>}
       <button type="button" disabled={!!busy} onClick={()=>void download(item.id)} className="inline-flex min-h-10 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-50"><Download className="h-4 w-4"/>Télécharger {item.status==='accepted'?'l’exemplaire approuvé':item.status==='pending_approval'?'le contrat signé':'le projet PDF'}</button>
       {item.status==='proposed'&&<div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
         <p className="font-bold">Lisez intégralement les clauses et le PDF avant de donner votre accord.</p>

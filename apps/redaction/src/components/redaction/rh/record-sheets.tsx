@@ -47,6 +47,9 @@ export function RecordSheets({ type: fixedType, admin = false, allowPayments = t
       if(!linkResponse.ok)throw new Error(linkData.error||'Lien PDF indisponible.');
       const url=new URL(redactionPublicPath(`/api/redaction/rh/fiches-exports/lien/${linkData.token}`),window.location.href).href;
       setBrowserUrl(url);
+      const native=(window as unknown as {AndroidBridge?:NativePdfBridge}).AndroidBridge;
+      if(native?.openExternalUrl) native.openExternalUrl(url);
+      else if(native?.openExternal) native.openExternal(url);
       if(action==='download' && !(window as unknown as {AndroidBridge?:NativePdfBridge}).AndroidBridge){
         const local=URL.createObjectURL(blob);const anchor=document.createElement('a');anchor.href=local;anchor.download=`fiche-rh-${type}-${start}-${end}.pdf`;document.body.append(anchor);anchor.click();anchor.remove();window.setTimeout(()=>URL.revokeObjectURL(local),60_000);
         setMessage('Fiche téléchargée. Elle peut également être ouverte dans le navigateur ci-dessous.');

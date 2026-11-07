@@ -1,4 +1,6 @@
 'use client';
+import { BrowserDocumentLink } from './browser-document-link';
+import { deliverRhDocument } from '@/lib/redaction/rh/browser-document';
 import { useRhNotice } from './use-rh-notice';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Download, FileLock2, Upload } from 'lucide-react';
@@ -8,14 +10,14 @@ import type { DocumentCategory, DocumentMeta } from '@/lib/redaction/rh/document
 
 const categoryLabel: Record<DocumentCategory, string> = { contrat: 'Contrat', attestation: 'Attestation', autre: 'Autre' };
 const extensions = { pdf: 'pdf', jpeg: 'jpg', png: 'png' } as const;
-async function downloadDocument(path: string, type: DocumentMeta['fileType']) {
+async function downloadDocument(path: string, type: DocumentMeta['fileType']):Promise<string|null> {
   const response = await fetchRedaction(path, { cache: 'no-store' });
   if (!response.ok) throw new Error('Téléchargement impossible ou accès retiré.');
-  const url = URL.createObjectURL(await response.blob());
-  try { const a = document.createElement('a'); a.href = url; a.download = `document-rh.${extensions[type]}`; document.body.appendChild(a); a.click(); a.remove(); }
-  finally { window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
+  return deliverRhDocument(await response.blob(),`document-rh.${extensions[type]}`);
 }
+
 export function Documents({ enabled }: { enabled: boolean }) {
+  const [browserLink,setBrowserLink]=useState<string|null>(null);
   const [people, setPeople] = useState<Collaborator[]>([]); const [person, setPerson] = useState('');
   const [docs, setDocs] = useState<DocumentMeta[]>([]); const [title, setTitle] = useState(''); const [category, setCategory] = useState<DocumentCategory>('contrat'); const [share, setShare] = useState(false); const [file, setFile] = useState<File | null>(null); const [fileKey, setFileKey] = useState(0);
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false); const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
@@ -53,11 +55,12 @@ export function Documents({ enabled }: { enabled: boolean }) {
     try { const r = await fetchRedaction('/api/redaction/rh/documents', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: doc.id, version: doc.version, action: 'archive' }) }); const data = await r.json(); if (!r.ok) throw new Error(data.error || 'Archivage impossible.'); setMessage('Document archivé.'); setReload((n) => n + 1); }
     catch (e) { setError(e instanceof Error ? e.message : 'Archivage impossible.'); } finally { setBusy(false); }
   }
-  async function download(doc: DocumentMeta) { setBusy(true); setError(''); try { await downloadDocument(`/api/redaction/rh/documents/${doc.id}`, doc.fileType); } catch (e) { setError(e instanceof Error ? e.message : 'Téléchargement impossible.'); } finally { setBusy(false); } }
+  async function download(doc: DocumentMeta) { setBusy(true); setError(''); try { setBrowserLink(await downloadDocument(`/api/redaction/rh/documents/${doc.id}`, doc.fileType)); } catch (e) { setError(e instanceof Error ? e.message : 'Téléchargement impossible.'); } finally { setBusy(false); } }
   return <section className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
     <div className="flex items-start gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/[0.07] text-primary"><FileLock2 className="h-5 w-5" /></span><div><h3 className="font-semibold">Documents privés</h3><p className="mt-1 text-sm text-muted-foreground">Contrats et attestations, hors de la bibliothèque publique du CMS.</p></div></div>
     {!enabled ? <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-muted-foreground">Fonction désactivée par défaut. Configurez le stockage privé et effectuez les vérifications indiquées dans le guide.</p> : <>
       <p className="rounded-xl bg-amber-500/10 p-3 text-xs leading-5 text-muted-foreground">Réservé aux super-administrateurs. Partagez uniquement après vérification de l’identité du compte lié. Pas de données médicales. Les fichiers ne sont pas analysés par antivirus.</p>
+      <BrowserDocumentLink url={browserLink}/>
       {error && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}{message && <p role="status" className="text-sm text-primary">{message}</p>}
       <label className="block text-sm font-medium">Collaborateur<select disabled={busy} value={person} onChange={(e) => { setPerson(e.target.value); setMessage(''); }} className="mt-1.5 block w-full rounded-xl border border-border bg-background px-3 py-2.5"><option value="">Sélectionner…</option>{people.map((p) => <option key={p.id} value={p.id}>{p.firstName} {p.lastName} — {p.team}</option>)}</select></label>
       {person && (loading ? <p className="text-sm text-muted-foreground">Chargement…</p> : failed ? null : <>
@@ -72,10 +75,12 @@ export function Documents({ enabled }: { enabled: boolean }) {
   </section>;
 }
 export function MyDocuments() {
+  const [browserLink,setBrowserLink]=useState<string|null>(null);
   const [docs, setDocs] = useState<DocumentMeta[]>([]); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useRhNotice('error');
   useEffect(() => { const controller = new AbortController(); fetchRedaction('/api/redaction/rh/mon-espace/documents', { cache: 'no-store', signal: controller.signal }).then(async (r) => { if (!r.ok) throw new Error(); const data = await r.json(); setDocs(data.documents); }).catch(() => { if (!controller.signal.aborted) setError('Impossible de charger vos documents.'); }).finally(() => { if (!controller.signal.aborted) setLoading(false); }); return () => controller.abort(); }, []);
-  async function download(doc: DocumentMeta) { setBusy(true); setError(''); try { await downloadDocument(`/api/redaction/rh/mon-espace/documents/${doc.id}`, doc.fileType); } catch (e) { setError(e instanceof Error ? e.message : 'Téléchargement impossible.'); } finally { setBusy(false); } }
+  async function download(doc: DocumentMeta) { setBusy(true); setError(''); try { setBrowserLink(await downloadDocument(`/api/redaction/rh/mon-espace/documents/${doc.id}`, doc.fileType)); } catch (e) { setError(e instanceof Error ? e.message : 'Téléchargement impossible.'); } finally { setBusy(false); } }
   return <section className="space-y-3 rounded-xl border border-border bg-card p-5"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/[0.07] text-primary"><FileLock2 className="h-5 w-5" /></span><div><h2 className="font-semibold">Mes documents</h2><p className="text-xs text-muted-foreground">Documents partagés avec votre compte.</p></div></div>
+    <BrowserDocumentLink url={browserLink}/>
     {error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}{loading ? <p className="text-sm">Chargement…</p> : !error && docs.length === 0 ? <p className="text-sm text-muted-foreground">Aucun document partagé.</p> : null}
     {docs.map((doc) => <article key={doc.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-3 text-sm"><div><p className="font-semibold">{doc.title}</p><p className="mt-1 text-xs text-muted-foreground">{categoryLabel[doc.category]} · {doc.fileType.toUpperCase()} · {Math.ceil(doc.size / 1024)} Ko</p></div><button type="button" disabled={busy} onClick={() => void download(doc)} className="inline-flex items-center gap-1 text-xs font-semibold text-primary underline"><Download className="h-3.5 w-3.5" /> Télécharger</button></article>)}
     {docs.length === 500 && <p className="text-xs text-muted-foreground">Les 500 documents les plus récents sont affichés.</p>}

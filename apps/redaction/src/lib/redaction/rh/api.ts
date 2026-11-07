@@ -10,8 +10,13 @@ export const json = (data: unknown, status = 200) => NextResponse.json(data, { s
 export function handleError(error: unknown) {
   if (error instanceof RhForbidden) return json({ error: 'Accès RH non autorisé.' }, 403);
   if (error instanceof RedactionAuthError) return json({ error: 'Accès non autorisé.' }, error.message.includes('administrateurs') ? 403 : 401);
-  // Ne jamais retourner les erreurs de base de données ou les informations personnelles.
-  return json({ error: 'Service RH indisponible. Vérifiez sa configuration.' }, 503);
+  // Aucun détail personnel ni SQL n'est exposé au client ; code/contrainte dans les journaux serveur pour diagnostic.
+  const dbError = error as { code?: string; constraint?: string } | null;
+  if (dbError?.code) console.error('[rh] échec base', { code: dbError.code, constraint: dbError.constraint });
+  else console.error('[rh] échec service', error instanceof Error ? error.name : 'inconnu');
+  if (dbError?.code === '42703' || dbError?.code === '42P01' || (dbError?.code === '23514' && dbError.constraint?.startsWith('contract_')) || dbError?.code === '22001')
+    return json({ error: 'Base RH incompatible avec cette version. Vérifiez les migrations des contrats dans les journaux du serveur.' }, 503);
+  return json({ error: 'Service RH indisponible. Réessayez ou contactez l’administration avec l’heure de l’incident.' }, 503);
 }
 
 export function validOrigin(request: Request): boolean {

@@ -1,4 +1,5 @@
 'use client';
+import { deliverRhDocument } from './browser-document';
 
 import type { OfficialDocumentKind } from './official-documents';
 import type { OrganizationSettings } from './organization';
@@ -191,14 +192,14 @@ export async function renderOfficialPage(doc: OfficialExport, scale = S): Promis
   return canvas;
 }
 
-export function downloadCanvas(canvas: HTMLCanvasElement, filename: string) {
-  const anchor = document.createElement('a'); anchor.href = canvas.toDataURL('image/png'); anchor.download = filename;
-  document.body.append(anchor); anchor.click(); anchor.remove();
+export async function downloadCanvas(canvas: HTMLCanvasElement, filename: string):Promise<string|null> {
+  const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('PNG indisponible.')),'image/png'));
+  return deliverRhDocument(blob,filename);
 }
 
-export async function downloadOfficialPdf(page: HTMLCanvasElement, filename: string) {
+export async function downloadOfficialPdf(page: HTMLCanvasElement, filename: string):Promise<string|null> {
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
   pdf.addImage(page.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-  pdf.save(filename);
+  return deliverRhDocument(pdf.output('blob'),filename);
 }
