@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { db } from './database';
 export type RhFeatureKey = 'rhEnabled'|'financeEnabled'|'withdrawalsEnabled'|'documentsEnabled'|'contractsEnabled'|'disputesEnabled'|'notificationsEnabled'|'rolesEnabled'|'serviceCardsEnabled'|'chatEnabled'|'paymentSheetsVisible';
 export const RH_FEATURE_LABELS: Record<RhFeatureKey,string> = {rhEnabled:'Espace RH',financeEnabled:'Rémunérations',withdrawalsEnabled:'Retraits',documentsEnabled:'Documents RH',contractsEnabled:'Contrats CDD/CDI',disputesEnabled:'Contestations',notificationsEnabled:'Notifications RH',rolesEnabled:'Rôles RH délégués',serviceCardsEnabled:'Cartes de service',chatEnabled:'Chat RH',paymentSheetsVisible:'Fiche de paiement du collaborateur'};
@@ -16,7 +17,7 @@ const ENV_DEFAULTS: Record<RhFeatureKey,boolean> = {
   paymentSheetsVisible: true,
 };
 /** Base env + surcharges DB; l'UI d'admin peut modifier ces états sans redéploiement. */
-export async function getRhFlags(): Promise<Record<RhFeatureKey,boolean>> {
+export const getRhFlags = cache(async (): Promise<Record<RhFeatureKey,boolean>> => {
   try {
     const result = await db().query('SELECT feature_key,enabled FROM redaction_rh.feature_settings');
     const values = {...ENV_DEFAULTS};
@@ -24,4 +25,4 @@ export async function getRhFlags(): Promise<Record<RhFeatureKey,boolean>> {
     values.withdrawalsEnabled = values.withdrawalsEnabled && values.financeEnabled;
     return values;
   } catch { return {...ENV_DEFAULTS, withdrawalsEnabled: ENV_DEFAULTS.withdrawalsEnabled && ENV_DEFAULTS.financeEnabled, paymentSheetsVisible: false}; }
-}
+});

@@ -4,6 +4,7 @@ import { useRhNotice } from './use-rh-notice';
 import { useEffect, useState, type FormEvent } from 'react';
 import { CircleCheck, CircleX, CalendarOff } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { loadCollaborators } from '@/lib/redaction/rh/collaborators-client';
 import { daysToReview, isValidMonth, validateActivity, type Activity, type ActivityStatus } from '@/lib/redaction/rh/activities';
 import type { Absence } from '@/lib/redaction/rh/absences';
 import type { Collaborator } from '@/lib/redaction/rh/collaborator';
@@ -34,11 +35,9 @@ export function Activities({ initialMonth, today }: { initialMonth: string; toda
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchRedaction('/api/redaction/rh/collaborateurs', { cache: 'no-store', signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error();
-        const data = await response.json();
-        const active = data.collaborators.filter((p: Collaborator) => !p.archived);
+    loadCollaborators()
+      .then((list) => {
+        const active = list.filter((p: Collaborator) => !p.archived);
         setPeople(active);
         setPersonId((current) => active.some((p: Collaborator) => p.id === current) ? current : '');
       })

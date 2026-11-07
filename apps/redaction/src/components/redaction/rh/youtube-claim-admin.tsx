@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { loadCollaborators } from '@/lib/redaction/rh/collaborators-client';
 import type { Collaborator } from '@/lib/redaction/rh/collaborator';
 import type { Submission } from '@/lib/redaction/rh/submissions';
 
@@ -16,8 +17,7 @@ export function YoutubeClaimAdmin({ linkedSubmissionIds, onAdded }: { linkedSubm
   const [message, setMessage] = useState('');
   useEffect(() => {
     const controller = new AbortController();
-    fetchRedaction('/api/redaction/rh/collaborateurs', { cache: 'no-store', signal: controller.signal })
-      .then(async response => { if (!response.ok) throw new Error(); setPeople((await response.json()).collaborators.filter((p: Collaborator) => !p.archived)); })
+    loadCollaborators().then(list => { setPeople(list.filter((p: Collaborator) => !p.archived)); })
       .catch(() => { if (!controller.signal.aborted) setError('Liste des collaborateurs indisponible.'); });
     return () => controller.abort();
   }, []);

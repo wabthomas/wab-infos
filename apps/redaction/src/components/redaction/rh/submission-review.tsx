@@ -2,6 +2,7 @@
 import { useRhNotice } from './use-rh-notice';
 import { useEffect, useState } from 'react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { loadCollaborators } from '@/lib/redaction/rh/collaborators-client';
 import type { Collaborator } from '@/lib/redaction/rh/collaborator';
 import type { YoutubePerformance } from '@/lib/redaction/rh/youtube-performance';
 import { validateSubmissionDecision, type Submission, type SubmissionStatus } from '@/lib/redaction/rh/submissions';
@@ -25,8 +26,8 @@ export function SubmissionReview({ today = '', youtubeEnabled = false }: { today
   }, []);
   useEffect(() => {
     const controller = new AbortController();
-    fetchRedaction('/api/redaction/rh/collaborateurs', { cache: 'no-store', signal: controller.signal })
-      .then(async (r) => { if (!r.ok) throw new Error(); const data = await r.json(); const active = data.collaborators.filter((p: Collaborator) => !p.archived); setPeople(active); setPersonId((current) => active.some((p: Collaborator) => p.id === current) ? current : ''); })
+    loadCollaborators()
+      .then((list) => { const active = list.filter((p: Collaborator) => !p.archived); setPeople(active); setPersonId((current) => active.some((p: Collaborator) => p.id === current) ? current : ''); })
       .catch(() => { if (!controller.signal.aborted) setError('Impossible de charger les collaborateurs.'); });
     return () => controller.abort();
   }, [reload]);

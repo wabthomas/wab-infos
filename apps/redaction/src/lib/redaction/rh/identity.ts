@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { getRedactionJwt, requireRedactionUser, RedactionAuthError } from '@/lib/redaction/strapi-editor';
 import { getStrapiUrl } from '@/lib/redaction/config';
 import { parseRhPrincipal, type RhPrincipal } from './principal';
@@ -6,7 +7,7 @@ import { getRhFlags } from './flags';
 
 /** Seuls les comptes Users & Permissions sont pris en charge pour le moment.
  * Le JWT est revérifié et le blocage, la confirmation, l'id et l'e-mail contrôlés. */
-export async function requireRhPrincipal(): Promise<RhPrincipal> {
+export const requireRhPrincipal = cache(async (): Promise<RhPrincipal> => {
   const user = await requireRedactionUser();
   const jwt = await getRedactionJwt();
   if (!jwt) throw new RedactionAuthError('Non connecté');
@@ -16,7 +17,7 @@ export async function requireRhPrincipal(): Promise<RhPrincipal> {
   if (!principal || principal.id !== user.id || principal.email !== user.email.toLowerCase()) throw new RedactionAuthError('Compte RH indisponible');
   if (!(await getRhFlags()).rhEnabled) throw new RedactionAuthError('Espace RH désactivé');
   return principal;
-}
+});
 
 /** Recherche uniquement à la demande d'un administrateur, via un jeton serveur. */
 export async function lookupRhAccount(id: number): Promise<(RhPrincipal & { username: string }) | null> {
