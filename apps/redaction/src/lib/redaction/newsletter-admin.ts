@@ -564,3 +564,27 @@ export async function cleanupSubscribersWithoutMx(): Promise<{
     domains: [...domains].sort(),
   };
 }
+
+export async function deleteNewsletterSubscriber(documentId: string): Promise<{ email: string }> {
+  const id = documentId.trim();
+  if (!id) throw new Error('Abonné introuvable.');
+  const existing = await strapi<{ data?: { documentId?: string; email?: string } | null }>(
+    `/subscribers/${encodeURIComponent(id)}?fields[0]=email`
+  );
+  if (existing.status === 401 || existing.status === 403) {
+    throw new Error('Le jeton API n’a pas le droit de supprimer les abonnés.');
+  }
+  const email = existing.data?.data?.email?.trim() || '';
+  const removed = await strapi<unknown>(`/subscribers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (removed.status === 401 || removed.status === 403) {
+    throw new Error('Le jeton API n’a pas le droit de supprimer les abonnés.');
+  }
+  if (removed.status === 404) {
+    const already = await strapi<unknown>(`/subscribers/${encodeURIComponent(id)}`);
+    if (already.status === 404) return { email };
+  }
+  if (removed.status !== 200 && removed.status !== 204) {
+    throw new Error(`Suppression impossible (Strapi ${removed.status}).`);
+  }
+  return { email };
+}

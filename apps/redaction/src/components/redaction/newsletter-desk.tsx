@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Loader2, Mail, Send, Upload, UserMinus } from 'lucide-react';
+import { Loader2, Mail, Send, Trash2, Upload, UserMinus } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { readApiJsonResponse } from '@/lib/redaction/api-response';
 import { useToast } from '@/components/ui/toast';
@@ -19,6 +19,7 @@ export function NewsletterDesk() {
   const [testing, setTesting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [unsubscribingId, setUnsubscribingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [settings, setSettings] = useState<NewsletterSettingsView | null>(null);
   const [password, setPassword] = useState('');
   const [testTo, setTestTo] = useState('');
@@ -154,6 +155,30 @@ export function NewsletterDesk() {
       toast.error('Désinscription', error instanceof Error ? error.message : 'Erreur');
     } finally {
       setUnsubscribingId(null);
+    }
+  }
+
+  async function deleteRow(row: NewsletterSubscriberRow) {
+    const ok = window.confirm(
+      `Supprimer définitivement ${row.email} de la liste ?\n\nAucun e-mail ne sera envoyé et l'abonné ne pourra plus être réactivé sans réimport.`
+    );
+    if (!ok) return;
+    setDeletingId(row.documentId);
+    try {
+      const response = await fetchRedaction('/api/redaction/newsletter/subscribers', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentId: row.documentId }),
+      });
+      const data = await readApiJsonResponse<{ email?: string; deleted?: boolean; error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || 'Suppression impossible');
+      toast.success('Supprimé', data.email || row.email);
+      const nextPage = rows.length === 1 && page > 1 ? page - 1 : page;
+      await loadList(nextPage, query);
+    } catch (error) {
+      toast.error('Suppression', error instanceof Error ? error.message : 'Erreur');
+    } finally {
+      setDeletingId(null);
     }
   }
 

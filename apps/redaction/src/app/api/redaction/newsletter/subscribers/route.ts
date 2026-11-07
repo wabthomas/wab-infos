@@ -1,6 +1,6 @@
 import { requireEditorialUser } from '@/lib/redaction/editorial-access';
 import { NextResponse } from 'next/server';
-import { addNewsletterSubscribers, listNewsletterSubscribers } from '@/lib/redaction/newsletter-admin';
+import { addNewsletterSubscribers, listNewsletterSubscribers, deleteNewsletterSubscriber } from '@/lib/redaction/newsletter-admin';
 import {
   isRedactionSuperAdmin,
   RedactionAuthError,
@@ -48,6 +48,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
     const message = error instanceof Error ? error.message : 'Import impossible';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const forbidden = await requireAdmin();
+    if (forbidden) return forbidden;
+    const body = (await request.json()) as { documentId?: string };
+    const documentId = body.documentId?.trim();
+    if (!documentId) return NextResponse.json({ error: 'Abonné introuvable.' }, { status: 400 });
+    const result = await deleteNewsletterSubscriber(documentId);
+    return NextResponse.json({ deleted: true, email: result.email });
+  } catch (error) {
+    if (error instanceof RedactionAuthError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    const message = error instanceof Error ? error.message : 'Suppression impossible';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
