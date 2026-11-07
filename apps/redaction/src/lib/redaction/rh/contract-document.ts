@@ -8,7 +8,7 @@ export type ContractDocumentData = {
   signaturePlace?: string | null; signatureDate?: string | null;
   employer: { companyName?: string; companyAddress?: string; companyPhone?: string; companyEmail?: string; companyTaxId?: string; companyRegistration?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorAuthorized?: boolean; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string; logoPng?: string | null };
   parties?: ContractParties | null;
-  employeeSignature?: string | null; acceptedAt?: string | null; draft?: boolean; draftLabel?: string;
+  employeeSignature?: string | null; acceptedAt?: string | null; approvedAt?: string | null; draft?: boolean; draftLabel?: string;
 };
 export type ContractDocumentAssets = { logo?: string | null; seal?: string | null; signature?: string | null; employeeSignatureImage?: string | null };
 
@@ -297,7 +297,7 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
   doc.text(`${data.firstName} ${data.lastName}`, 108, boxY + 36, { maxWidth: 78 });
   doc.setTextColor(...MUTED); doc.setFontSize(8);
   doc.text(data.employer.directorTitle || 'Direction', MARGIN + 3, boxY + 41, { maxWidth: 79 });
-  if (data.acceptedAt) doc.text(`Accord visuel du collaborateur : ${new Date(data.acceptedAt).toLocaleDateString('fr-FR')}`, 108, boxY + 41, { maxWidth: 78 });
+  if (data.acceptedAt) doc.text(`Signature du collaborateur : ${new Date(data.acceptedAt).toLocaleDateString('fr-FR')}`, 108, boxY + 41, { maxWidth: 78 });
   else if (data.employeeSignature && !assets.employeeSignatureImage) doc.text(data.employeeSignature, 108, boxY + 41, { maxWidth: 78 });
 
   const pages = doc.getNumberOfPages();
@@ -310,7 +310,13 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
     const registration = [data.employer.companyRegistration && `RCCM : ${data.employer.companyRegistration}`, data.employer.companyTaxId && `ID : ${data.employer.companyTaxId}`, data.employer.companyAddress, data.employer.documentFooter].filter(Boolean).join('  ·  ');
     if (registration) singleLine(doc, registration, 103, 286, 133, 5.8, 'center');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.text(`Page ${number} / ${pages}`, 190, 286, { align: 'right' });
-    if (data.draft) { doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND); doc.text(data.draftLabel || 'PROJET À RELIRE', 190, 10, { align: 'right' }); }
+    if (data.draft || data.approvedAt) {
+      doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND);
+      doc.text(data.approvedAt ? `APPROUVÉ · ${new Date(data.approvedAt).toLocaleDateString('fr-FR')}` : data.draftLabel || 'PROJET À RELIRE', 190, 10, { align:'right' });
+    } else if (data.employeeSignature) {
+      doc.setFont('helvetica', 'bold'); doc.setTextColor(...BRAND);
+      doc.text('SIGNÉ · EN ATTENTE D’APPROBATION', 190, 10, { align:'right' });
+    }
   }
   return doc;
 }

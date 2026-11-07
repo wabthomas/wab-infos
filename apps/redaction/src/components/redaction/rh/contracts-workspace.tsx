@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { contractPartiesFromProfile, type ContractProfile } from '@/lib/redaction/rh/contract-parties';
+import { contractProgress } from '@/lib/redaction/rh/contract-lifecycle';
 import { buildContractDocument } from '@/lib/redaction/rh/contract-document';
 import { formatContractSelection, type ContractFormatCommand } from '@/lib/redaction/rh/contract-format';
 import { ContractPdfPreview } from './contract-pdf-preview';
@@ -11,7 +12,7 @@ import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/
 import { useToast } from '@/components/ui/toast';
 
 type ContractTemplate = { id:string;kind:'CDD'|'CDI';title:string;clauses:string;signaturePlace:string;signatureDate:string|null;version:number };
-type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses:string; birthPlace:string; signaturePlace:string; signatureDate:string|null; status:'draft'|'proposed'|'accepted'; version:number; firstName:string;lastName:string; employeeSignature:string|null };
+type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses:string; birthPlace:string; signaturePlace:string; signatureDate:string|null; status:'draft'|'proposed'|'pending_approval'|'accepted'|'declined'; approvedAt:string|null; version:number; firstName:string;lastName:string; employeeSignature:string|null;signatureMode:string|null;consentCompanyRules:boolean;consentWorkRules:boolean;acceptedAt:string|null };
 type Person = { id: string; firstName: string; lastName: string; jobTitle: string; startDate: string; archived: boolean };
 async function png(src: string | null, opacity = 1): Promise<string | null> {
   if (!src) return null;
@@ -126,6 +127,15 @@ export function ContractsWorkspace() {
       const data=await r.json();if(!r.ok)throw new Error(data.error||'Transmission impossible.');
       await reload(selected.id);toast.success('Version figée et transmise au collaborateur lié.');
     }catch(e){const message=e instanceof Error?e.message:'Transmission impossible.';setError(message);toast.error(message);}finally{setBusy(false);}
+  }
+  async function approveCase() {
+    if (!selected || selected.status !== 'pending_approval' || !window.confirm('Vous confirmez avoir contrôlé la signature, les consentements et les clauses avant d’approuver ce contrat ?')) return;
+    setBusy(true);setError('');
+    try {
+      const response=await fetchRedaction(`/api/redaction/rh/contrats/${selected.id}/approbation`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'approve',version:selected.version})});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||'Approbation impossible.');
+      await reload(selected.id);toast.success('Contrat approuvé. Sa prise d’effet dépend de la date contractuelle.');
+    }catch(e){const message=e instanceof Error?e.message:'Approbation impossible.';setError(message);toast.error(message);}finally{setBusy(false);}
   }
   async function archiveCase() {
     if(!selected||selected.status!=='draft'||!window.confirm('Archiver ce brouillon ?'))return;
@@ -262,11 +272,14 @@ export function ContractsWorkspace() {
           {!locked&&<button type="button" disabled={busy} onClick={()=>void saveDraft()} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{selected?'Enregistrer les modifications':'Enregistrer le brouillon'}</button>}
           {!locked&&selected&&<button type="button" disabled={busy||!approved||!authorized||!sign} onClick={()=>void proposeCase()} className="rounded-xl border border-primary px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50">Transmettre pour accord</button>}
           <button type="button" disabled={busy} onClick={() => void exportPdf()} className="rounded-xl border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{busy ? 'Préparation…' : locked?'Télécharger la version figée':'Télécharger le projet PDF'}</button>
+          {selected?.status==='pending_approval'&&<button type="button" disabled={busy} onClick={()=>void approveCase()} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">Approuver le contrat signé</button>}
           {!locked&&selected&&<button type="button" disabled={busy} onClick={()=>void archiveCase()} className="rounded-xl border px-4 py-2.5 text-sm text-red-600 disabled:opacity-50">Archiver le brouillon</button>}
         </div>
         <Link href="/rh/documents" className="inline-block text-sm font-semibold text-primary underline">Déposer la version signée dans Documents RH</Link>
       </div>
       <aside className="space-y-5">
+        {selected?.status==='pending_approval'&&<div className="rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm text-blue-950"><h3 className="font-semibold">Signature soumise pour vérification</h3><p>Signataire : {selected.employeeSignature || '—'} · Mode : {selected.signatureMode==='text'?'texte':'image ou dessin'} · {selected.acceptedAt ? new Date(selected.acceptedAt).toLocaleString('fr-FR') : 'Date indisponible'}</p><p>Règles de l’entreprise : {selected.consentCompanyRules?'acceptées':'non confirmées'} · Conditions du travail : {selected.consentWorkRules?'acceptées':'non confirmées'}</p><p>Ouvrez le PDF signé et contrôlez les informations avant de cliquer sur Approuver.</p></div>}
+        {selected&&<div className="rounded-xl border bg-card p-4 text-sm"><strong>Évolution du contrat : {selected.status==='accepted'&&!selected.approvedAt?'Accord enregistré (historique)':contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).label}</strong><p className="mt-1 text-muted-foreground">Brouillon → Transmis → Signé → Approuvé → Prise d’effet / terme</p>{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder&&<p role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-amber-900">{contractProgress(selected.status,selected.kind,selected.startDate,selected.endDate).reminder}</p>}</div>}
         <ContractPdfPreview bytes={previewPdf} status={previewStatus} />
         <section className="rounded-xl border bg-muted/20 p-4">
           <div className="flex items-center justify-between gap-2"><h3 className="font-bold">Identité du document</h3><Link href="/rh/parametres" className="text-xs font-semibold text-primary underline">Configurer</Link></div>
@@ -280,7 +293,7 @@ export function ContractsWorkspace() {
           </dl>
         </section>
         <section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Dossiers enregistrés</h3>
-          <div className="mt-3 grid max-h-72 gap-2 overflow-auto">{cases.map(item=><button type="button" key={item.id} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id} className={`rounded-xl border p-3 text-left text-sm ${selected?.id===item.id?'border-primary bg-primary/10':'bg-card hover:border-primary/40'}`}><strong>{item.kind} · {item.firstName} {item.lastName}</strong><span className="mt-1 block text-xs text-muted-foreground">{item.jobTitle} · {item.status==='draft'?'Brouillon':item.status==='proposed'?'À examiner':'Accord enregistré'} · v{item.version}</span></button>)}</div>
+          <div className="mt-3 grid max-h-72 gap-2 overflow-auto">{cases.map(item=><button type="button" key={item.id} onClick={()=>choose(item)} aria-pressed={selected?.id===item.id} className={`rounded-xl border p-3 text-left text-sm ${selected?.id===item.id?'border-primary bg-primary/10':'bg-card hover:border-primary/40'}`}><strong>{item.kind} · {item.firstName} {item.lastName}</strong><span className="mt-1 block text-xs text-muted-foreground">{item.jobTitle} · {item.status==='accepted'&&!item.approvedAt?'Accord enregistré (historique)':contractProgress(item.status,item.kind,item.startDate,item.endDate).label} · v{item.version}</span>{contractProgress(item.status,item.kind,item.startDate,item.endDate).reminder&&<span className="mt-2 block rounded-lg bg-amber-50 p-2 text-xs font-semibold text-amber-900" role="alert">{contractProgress(item.status,item.kind,item.startDate,item.endDate).reminder}</span>}</button>)}</div>
           {!cases.length&&<p className="mt-3 text-sm text-muted-foreground">Aucun dossier.</p>}
         </section>
         <section className="rounded-xl border bg-muted/20 p-4"><h3 className="font-bold">Modèles de clauses</h3>

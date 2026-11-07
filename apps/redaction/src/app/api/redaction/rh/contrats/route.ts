@@ -6,12 +6,13 @@ import { db } from '@/lib/redaction/rh/database';
 import { json, handleError, validOrigin } from '@/lib/redaction/rh/api';
 import { readContractBody } from '@/lib/redaction/rh/contract-http';
 import { validateContractInput, isContractId } from '@/lib/redaction/rh/contracts';
+import { pushContractAlert } from '@/lib/redaction/rh/contract-alerts';
 import { contractPartiesFromProfile } from '@/lib/redaction/rh/contract-parties';
 import { DEFAULT_ORGANIZATION_SETTINGS } from '@/lib/redaction/rh/organization';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const projection = `k.id,k.collaborator_id AS "collaboratorId",k.kind,k.job_title AS "jobTitle",k.work_location AS "workLocation",to_char(k.start_date,'YYYY-MM-DD') AS "startDate",to_char(k.end_date,'YYYY-MM-DD') AS "endDate",k.salary::text,k.currency,k.clauses,k.birth_place AS "birthPlace",k.signature_place AS "signaturePlace",to_char(k.signature_date,'YYYY-MM-DD') AS "signatureDate",k.version,k.status,k.prepared_by AS "preparedBy",k.proposed_at AS "proposedAt",k.accepted_at AS "acceptedAt",k.employee_signature AS "employeeSignature",c.first_name AS "firstName",c.last_name AS "lastName"`;
+const projection = `k.id,k.collaborator_id AS "collaboratorId",k.kind,k.job_title AS "jobTitle",k.work_location AS "workLocation",to_char(k.start_date,'YYYY-MM-DD') AS "startDate",to_char(k.end_date,'YYYY-MM-DD') AS "endDate",k.salary::text,k.currency,k.clauses,k.birth_place AS "birthPlace",k.signature_place AS "signaturePlace",to_char(k.signature_date,'YYYY-MM-DD') AS "signatureDate",k.version,k.status,k.prepared_by AS "preparedBy",k.proposed_at AS "proposedAt",k.accepted_at AS "acceptedAt",k.approved_at AS "approvedAt",k.employee_signature AS "employeeSignature",k.signature_mode AS "signatureMode",k.consent_company_rules AS "consentCompanyRules",k.consent_work_rules AS "consentWorkRules",c.first_name AS "firstName",c.last_name AS "lastName"`;
 
 export async function GET(request: Request) {
   try {
@@ -64,6 +65,7 @@ export async function PATCH(request: Request) {
       const row = locked.rows[0];
       if (!row || row.status !== 'draft' || row.archived || row.version !== v.version) { await client.query('ROLLBACK'); return json({ error: 'Brouillon modifié, déjà transmis ou indisponible.' }, 409); }
       if (v.action === 'update' && input!.collaboratorId !== row.collaborator_id) { await client.query('ROLLBACK'); return json({ error: 'Changer de collaborateur nécessite un nouveau contrat.' }, 409); }
+      let proposedEmail: string | null = null;
       if (v.action === 'update') {
         await client.query(`UPDATE redaction_rh.contract_cases SET kind=$2,job_title=$3,work_location=$4,start_date=$5,end_date=$6,salary=$7,currency=$8,clauses=$9,birth_place=$10,signature_place=$11,signature_date=$12,version=version+1,updated_at=now() WHERE id=$1`,[v.id,input!.kind,input!.jobTitle,input!.workLocation,input!.startDate,input!.endDate,input!.salary,input!.currency,input!.clauses,input!.birthPlace,input!.signaturePlace,input!.signatureDate]);
       } else if (v.action === 'archive') {
@@ -72,6 +74,7 @@ export async function PATCH(request: Request) {
         if (!row.signature_place?.trim() || !row.signature_date) { await client.query('ROLLBACK'); return json({ error: 'Configurez le lieu et la date de signature du modèle puis enregistrez le contrat avant transmission.' }, 409); }
         const link = await client.query('SELECT account_id,account_email FROM redaction_rh.account_links WHERE collaborator_id=$1',[row.collaborator_id]);
         if (!link.rowCount || link.rows[0].account_id === actor.id) { await client.query('ROLLBACK'); return json({ error: 'Liaison collaborateur distincte obligatoire avant transmission.' }, 409); }
+        proposedEmail = link.rows[0].account_email;
         const settings = { ...DEFAULT_ORGANIZATION_SETTINGS };
         const saved = await client.query('SELECT setting_key,setting_value FROM redaction_rh.organization_settings');
         for (const item of saved.rows) if (Object.hasOwn(settings,item.setting_key)) (settings as Record<string,string>)[item.setting_key] = item.setting_value;
@@ -96,7 +99,9 @@ export async function PATCH(request: Request) {
         await client.query(`UPDATE redaction_rh.contract_cases SET status='proposed',legal_reviewed_by=$2,proposed_at=now(),proposed_account_id=$3,proposed_account_email=$4,employer_snapshot=$5,signature_bytes=$6,seal_bytes=$7,party_snapshot=$8,version=version+1,updated_at=now() WHERE id=$1`,[v.id,actor.email,link.rows[0].account_id,link.rows[0].account_email,JSON.stringify(employerSnapshot),asset['director-signature'],asset['company-seal'],JSON.stringify(partySnapshot)]);
       }
       await client.query('INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,$3)',[v.id,actor.email,v.action]);
-      await client.query('COMMIT'); return json({ ok: true });
+      await client.query('COMMIT');
+      if (v.action === 'propose') await pushContractAlert([proposedEmail], 'proposed');
+      return json({ ok: true });
     } catch (error) { await client.query('ROLLBACK').catch(() => undefined); throw error; }
     finally { client.release(); }
   } catch (error) { return handleError(error); }

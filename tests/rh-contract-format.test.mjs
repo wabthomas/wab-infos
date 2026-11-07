@@ -143,3 +143,14 @@ test('ligne de signature : lieu/date du modèle à droite, conservés dans le PD
     assert.ok(line.transform[4] > page.view[2] / 2, 'La ligne commence dans la moitié droite de la page A4.');
   } finally { await document.destroy(); }
 });
+
+test('PDF signé soumis ≠ PDF approuvé : mention seulement après décision RH', () => {
+  const signed={ ...data('Clause vérifiée.'),employeeSignature:'Personne Exemple',acceptedAt:'2026-11-07T12:00:00.000Z' };
+  const pending=buildContractDocument(signed).internal.pages.flat().join(' ');
+  assert.ok(pending.includes('EN ATTENTE'));
+  assert.ok(!pending.includes('APPROUV'));
+  const approved=buildContractDocument({ ...signed,approvedAt:'2026-11-08T12:00:00.000Z' }).internal.pages.flat().join(' ');
+  assert.ok(approved.includes('APPROUV'));
+  const draft=buildContractDocument(data('Clause vérifiée.')).internal.pages.flat().join(' ');
+  assert.ok(!draft.includes('APPROUV'));
+});

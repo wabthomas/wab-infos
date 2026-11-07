@@ -1,3 +1,4 @@
+import { pushContractAlert } from '@/lib/redaction/rh/contract-alerts';
 import { getRhFlags } from '@/lib/redaction/rh/flags';
 import sharp from 'sharp';
 import { createHash } from 'node:crypto';
@@ -21,9 +22,9 @@ export async function POST(request: Request, { params }: Params) {
     if (!isContractId(id)) return json({ error: 'Contrat invalide.' }, 400);
     let raw: unknown; try { raw = await readContractBody(request, 300_000); } catch { return json({ error: 'Réponse invalide.' }, 400); }
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return json({ error: 'Réponse invalide.' }, 400);
-    const { action, consent, signature, signatureImage, version } = raw as Record<string,unknown>;
+    const { action, consent, consentCompanyRules, consentWorkRules, signature, signatureMode, signatureImage, version } = raw as Record<string,unknown>;
     const declining = action === 'decline';
-    if (!Number.isSafeInteger(version) || (declining ? consent !== false : consent !== true || typeof signature !== 'string' || !signature.trim() || signature.length>120 || typeof signatureImage !== 'string' || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(signatureImage) || signatureImage.length>270_000)) return json({ error: 'Réponse, accord ou signature personnelle invalide.' }, 400);
+    if (!Number.isSafeInteger(version) || (declining ? consent !== false : consent !== true || consentCompanyRules !== true || consentWorkRules !== true || typeof signature !== 'string' || !signature.trim() || signature.length>120 || !['text','image'].includes(signatureMode as string) || (signatureMode === 'image' && (typeof signatureImage !== 'string' || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(signatureImage) || signatureImage.length>270_000)))) return json({ error: 'Réponse, accord ou signature personnelle invalide.' }, 400);
     const client = await db().connect();
     try {
       await client.query('BEGIN');
@@ -39,26 +40,32 @@ export async function POST(request: Request, { params }: Params) {
         await client.query("INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,'decline')",[id,principal.email]);
         await client.query('COMMIT'); return json({ ok:true });
       }
-      const personName = `${row.first_name} ${row.last_name}`;
+      const personName = `${row.party_snapshot?.firstName || row.first_name} ${row.party_snapshot?.lastName || row.last_name}`;
       const normalize = (value: string) => value.trim().replace(/\s+/g,' ').toLocaleLowerCase('fr');
       if (normalize(signature as string) !== normalize(personName)) { await client.query('ROLLBACK'); return json({ error: 'Saisissez votre nom complet tel qu’il apparaît sur le contrat.' }, 400); }
       let visualSignature: Buffer;
       try {
-        visualSignature = Buffer.from((signatureImage as string).split(',')[1],'base64');
-        if (visualSignature.length < 150 || visualSignature.length > 200_000) throw new Error('Image invalide');
-        const image = sharp(visualSignature,{limitInputPixels:500_000});
-        const meta = await image.metadata();
-        if (meta.format!=='png' || !meta.hasAlpha || !meta.width || !meta.height || meta.width<100 || meta.height<40 || meta.width>1200 || meta.height>400) throw new Error('Image invalide');
-        if ((await image.stats()).channels[3]?.max < 50) throw new Error('Signature vide');
-        visualSignature = await image.resize(600,200,{fit:'inside',withoutEnlargement:true}).png().toBuffer();
-      } catch { await client.query('ROLLBACK'); return json({ error: 'Dessinez votre signature dans la zone prévue.' }, 400); }
+        if (signatureMode === 'text') {
+          const escaped = (signature as string).trim().replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&apos;' })[char]!);
+          visualSignature = await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="160"><text x="16" y="100" fill="#1c2635" font-family="sans-serif" font-style="italic" font-size="35">${escaped}</text></svg>`)).png().toBuffer();
+        } else {
+          visualSignature = Buffer.from((signatureImage as string).split(',')[1],'base64');
+          if (visualSignature.length < 150 || visualSignature.length > 200_000) throw new Error('Image invalide');
+          const image = sharp(visualSignature,{limitInputPixels:500_000});
+          const meta = await image.metadata();
+          if (meta.format!=='png' || !meta.hasAlpha || !meta.width || !meta.height || meta.width<100 || meta.height<40 || meta.width>1200 || meta.height>400) throw new Error('Image invalide');
+          if ((await image.stats()).channels[3]?.max < 50) throw new Error('Signature vide');
+          visualSignature = await image.resize(600,200,{fit:'inside',withoutEnlargement:true}).png().toBuffer();
+        }
+      } catch { await client.query('ROLLBACK'); return json({ error: 'Saisissez votre nom ou fournissez une image de signature valide.' }, 400); }
       const accepted = new Date();
       const pdf = await renderContractPdf({ kind:row.kind, firstName:row.party_snapshot?.firstName || row.first_name,lastName:row.party_snapshot?.lastName || row.last_name,jobTitle:row.job_title,workLocation:row.work_location,startDate:row.start_text,endDate:row.end_text,salary:row.salary.toString(),currency:row.currency,clauses:row.clauses,signaturePlace:row.signature_place,signatureDate:row.signature_date instanceof Date ? row.signature_date.toISOString().slice(0,10) : row.signature_date,parties:row.party_snapshot,employer:row.employer_snapshot,sealBytes:row.seal_bytes,signatureBytes:row.signature_bytes,employeeSignature:(signature as string).trim(),employeeSignatureBytes:visualSignature,acceptedAt:accepted.toISOString() });
       if (pdf.length > 5_000_000) { await client.query('ROLLBACK'); return json({ error: 'PDF trop volumineux ; contactez l’administration.' }, 413); }
-      await client.query(`UPDATE redaction_rh.contract_cases SET status='accepted',employee_signature=$2,employee_signature_bytes=$8,employee_account_id=$3,employee_account_email=$4,accepted_at=$5,pdf_bytes=$6,pdf_sha256=$7,version=version+1,updated_at=now() WHERE id=$1`,[id,(signature as string).trim(),principal.id,principal.email,accepted,pdf,createHash('sha256').update(pdf).digest(),visualSignature]);
-      await client.query("INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,'accept')",[id,principal.email]);
+      await client.query(`UPDATE redaction_rh.contract_cases SET status='pending_approval',consent_company_rules=true,consent_work_rules=true,consent_snapshot=$10,signature_mode=$9,employee_signature=$2,employee_signature_bytes=$8,employee_account_id=$3,employee_account_email=$4,accepted_at=$5,pdf_bytes=$6,pdf_sha256=$7,version=version+1,updated_at=now() WHERE id=$1`,[id,(signature as string).trim(),principal.id,principal.email,accepted,pdf,createHash('sha256').update(pdf).digest(),visualSignature,signatureMode,JSON.stringify({ consentContract:'J’ai lu ce contrat et je consens explicitement à enregistrer mon accord visuel sur cette version.', consentCompanyRules:'J’ai pris connaissance et j’accepte les règles et le règlement intérieur de l’entreprise qui m’ont été communiqués.', consentWorkRules:'J’ai lu et j’accepte les conditions de travail et les clauses de ce contrat.', confirmedAt:accepted.toISOString(), signatureMode })]);
+      await client.query("INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,'sign')",[id,principal.email]);
       await client.query('COMMIT');
-      return json({ ok:true });
+      await pushContractAlert([row.prepared_by], 'signed');
+      return json({ ok:true, status:'pending_approval' });
     } catch (error) { await client.query('ROLLBACK').catch(() => undefined); throw error; }
     finally { client.release(); }
   } catch (error) { return handleError(error); }
