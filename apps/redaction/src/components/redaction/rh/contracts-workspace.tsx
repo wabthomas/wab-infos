@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { contractPartiesFromProfile, type ContractProfile } from '@/lib/redaction/rh/contract-parties';
 import { buildContractDocument } from '@/lib/redaction/rh/contract-document';
 import { formatContractSelection, type ContractFormatCommand } from '@/lib/redaction/rh/contract-format';
 import { ContractPdfPreview } from './contract-pdf-preview';
@@ -10,7 +11,7 @@ import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/
 import { useToast } from '@/components/ui/toast';
 
 type ContractTemplate = { id:string;kind:'CDD'|'CDI';title:string;clauses:string;version:number };
-type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses:string; status:'draft'|'proposed'|'accepted'; version:number; firstName:string;lastName:string; employeeSignature:string|null };
+type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses:string; birthPlace:string; status:'draft'|'proposed'|'accepted'; version:number; firstName:string;lastName:string; employeeSignature:string|null };
 type Person = { id: string; firstName: string; lastName: string; jobTitle: string; startDate: string; archived: boolean };
 async function png(src: string | null, opacity = 1): Promise<string | null> {
   if (!src) return null;
@@ -36,6 +37,9 @@ export function ContractsWorkspace() {
   const [startDate, setStartDate] = useState(''), [endDate, setEndDate] = useState('');
   const [job, setJob] = useState(''), [location, setLocation] = useState('');
   const [salary, setSalary] = useState(''), [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
+  const [birthPlace, setBirthPlace] = useState('');
+  const [profile, setProfile] = useState<ContractProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [clauses, setClauses] = useState(''), [approved, setApproved] = useState(false);
   const [previewPdf, setPreviewPdf] = useState<Uint8Array | null>(null);
   const [previewStatus, setPreviewStatus] = useState('Sélectionnez un collaborateur et saisissez le corps du contrat.');
@@ -55,6 +59,22 @@ export function ContractsWorkspace() {
     }
     void load(); return () => { active = false; };
   }, []);
+  useEffect(() => {
+    if (!personId) return;
+    let active = true;
+    // Never reuse another collaborator's identity during asynchronous selection changes.
+    void (async () => {
+      try {
+        const response = await fetchRedaction(`/api/redaction/rh/contrats/profil?collaboratorId=${encodeURIComponent(personId)}`, { cache:'no-store' });
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        if (active) setProfile(data.profile);
+      } catch { if (active) setProfile(null); }
+      finally { if (active) setProfileLoading(false); }
+    })();
+    return () => { active = false; };
+  }, [personId]);
+  const parties = profileLoading ? null : contractPartiesFromProfile(profile, birthPlace);
   async function saveTemplate() {
     if(!templateTitle.trim()||!clauses.trim()){setError('Indiquez le nom et les clauses du modèle.');return;}
     setBusy(true);setError('');try {
@@ -75,15 +95,15 @@ export function ContractsWorkspace() {
     if (clauses.trim() && clauses!==item.clauses && !window.confirm('Remplacer les clauses actuellement saisies par ce modèle ?')) return;
     setSelectedTemplate(item);setTemplateTitle(item.title);setKind(item.kind);setClauses(item.clauses);setApproved(false);setSign(false);
   }
-  function payload() { return { collaboratorId:personId,kind,jobTitle:job,workLocation:location,startDate,endDate:kind==='CDD'?endDate:null,salary,currency,clauses }; }
+  function payload() { return { collaboratorId:personId,kind,jobTitle:job,workLocation:location,startDate,endDate:kind==='CDD'?endDate:null,salary,currency,clauses,birthPlace }; }
   function choose(item:ContractCase, force = false) {
     if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return;
     setSelectedTemplate(null);setTemplateTitle('');setSelected(item);setPersonId(item.collaboratorId);setKind(item.kind);setJob(item.jobTitle);setLocation(item.workLocation);
-    setStartDate(item.startDate);setEndDate(item.endDate??'');setSalary(item.salary);setCurrency(item.currency);setClauses(item.clauses);
-    setSavedSnapshot(JSON.stringify({ collaboratorId:item.collaboratorId,kind:item.kind,jobTitle:item.jobTitle,workLocation:item.workLocation,startDate:item.startDate,endDate:item.kind==='CDD'?item.endDate:null,salary:item.salary,currency:item.currency,clauses:item.clauses }));
+    setStartDate(item.startDate);setEndDate(item.endDate??'');setSalary(item.salary);setCurrency(item.currency);setClauses(item.clauses);setBirthPlace(item.birthPlace || '');if (personId !== item.collaboratorId) { setProfile(null);setProfileLoading(true); }
+    setSavedSnapshot(JSON.stringify({ collaboratorId:item.collaboratorId,kind:item.kind,jobTitle:item.jobTitle,workLocation:item.workLocation,startDate:item.startDate,endDate:item.kind==='CDD'?item.endDate:null,salary:item.salary,currency:item.currency,clauses:item.clauses,birthPlace:item.birthPlace || '' }));
     setApproved(false);setSign(false);setError('');
   }
-  function newCase(force = false) { if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return; setSelectedTemplate(null);setTemplateTitle('');setSelected(null);setPersonId('');setKind('CDD');setJob('');setLocation('');setStartDate('');setEndDate('');setSalary('');setCurrency('CDF');setClauses('');setSavedSnapshot('');setApproved(false);setSign(false);setError(''); }
+  function newCase(force = false) { if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return; setSelectedTemplate(null);setTemplateTitle('');setSelected(null);setPersonId('');setKind('CDD');setJob('');setLocation('');setStartDate('');setEndDate('');setSalary('');setCurrency('CDF');setClauses('');setBirthPlace('');setProfile(null);setProfileLoading(false);setSavedSnapshot('');setApproved(false);setSign(false);setError(''); }
   async function reload(id?:string) {
     const r=await fetchRedaction('/api/redaction/rh/contrats',{cache:'no-store'});const data=await r.json();if(!r.ok)throw new Error(data.error||'Lecture impossible.');
     setCases(data.contracts);if(id) {const found=(data.contracts as ContractCase[]).find(c=>c.id===id);if(found)choose(found,true);}
@@ -98,6 +118,7 @@ export function ContractsWorkspace() {
   async function proposeCase() {
     if(!selected||selected.status!=='draft'||!approved||!sign)return;
     if(JSON.stringify(payload())!==savedSnapshot){setError('Enregistrez vos modifications avant transmission.');return;}
+    if (!parties) { setError('Complétez la fiche d’identification (date de naissance, adresse et téléphone) et le lieu de naissance avant transmission.'); return; }
     setBusy(true);setError('');try {
       const r=await fetchRedaction('/api/redaction/rh/contrats',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action:'propose',id:selected.id,version:selected.version,legalApproved:true,dgApproved:true})});
       const data=await r.json();if(!r.ok)throw new Error(data.error||'Transmission impossible.');
@@ -114,7 +135,7 @@ export function ContractsWorkspace() {
   }
   function changePerson(id: string) {
     const next = people.find(p => p.id === id);
-    setPersonId(id); setJob(next?.jobTitle || ''); setStartDate(next?.startDate || ''); setApproved(false); setSign(false);
+    setProfile(null);setProfileLoading(Boolean(id));setBirthPlace('');setPersonId(id); setJob(next?.jobTitle || ''); setStartDate(next?.startDate || ''); setApproved(false); setSign(false);
   }
   useEffect(() => {
     let active = true;
@@ -138,7 +159,7 @@ export function ContractsWorkspace() {
             if (!active) return;
             const pdf = buildContractDocument({
               kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
-              startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses,
+              startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties,
               employer: settings, draft: true,
             }, { logo: images[0], seal: images[1], signature: images[2] });
             if (active) setPreviewPdf(new Uint8Array(pdf.output('arraybuffer')));
@@ -148,7 +169,7 @@ export function ContractsWorkspace() {
       return () => { active = false; window.clearTimeout(timer); };
     } else setPreviewStatus('Sélectionnez un collaborateur et saisissez le corps du contrat.');
     return () => { active = false; };
-  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, settings, sign, seal, signature, logo]);
+  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, birthPlace, parties?.birthDate, parties?.address, parties?.phone, profileLoading, settings, sign, seal, signature, logo]);
 
   function applyFormat(command: ContractFormatCommand) {
     const textarea = clausesRef.current;
@@ -174,7 +195,7 @@ export function ContractsWorkspace() {
     try {
       const pdf = buildContractDocument({
         kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
-        startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses,
+        startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties,
         employer: settings, draft: true,
       }, { logo: await png(logo), seal: sign ? await png(seal, .22) : null, signature: sign ? await png(signature) : null });
       pdf.save(`projet-contrat-${kind.toLowerCase()}-${person.lastName.replace(/[^a-zA-Z0-9-]/g,'-')}.pdf`);
@@ -209,6 +230,8 @@ export function ContractsWorkspace() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium">Collaborateur<select className={input} disabled={!!selected} value={personId} onChange={e => changePerson(e.target.value)}><option value="">Sélectionner…</option>{people.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}</select></label>
               <label className="text-sm font-medium">Type de contrat<select className={input} value={kind} onChange={e => { setKind(e.target.value as 'CDD' | 'CDI'); setApproved(false); setSign(false); }}><option value="CDD">CDD</option><option value="CDI">CDI</option></select></label>
+              <label className="text-sm font-medium">Lieu de naissance<input className={input} value={birthPlace} maxLength={120} onChange={e => { setBirthPlace(e.target.value); setApproved(false); setSign(false); }} placeholder="À renseigner — distinct de la ville de résidence" /></label>
+              <p className="self-center text-xs text-muted-foreground">Fiche d’identification : {profileLoading ? 'chargement…' : profile ? `Naissance : ${profile.birthDate || 'à compléter'} · Adresse : ${profile.address || 'à compléter'} · Téléphone : ${profile.phone || 'à compléter'}` : 'fiche indisponible. Complétez-la avant transmission.'}</p>
               <label className="text-sm font-medium">Fonction<input className={input} value={job} maxLength={160} onChange={e => { setJob(e.target.value); setApproved(false); setSign(false); }} /></label>
               <label className="text-sm font-medium">Lieu d’affectation<input className={input} value={location} maxLength={180} onChange={e => { setLocation(e.target.value); setApproved(false); setSign(false); }} /></label>
               <label className="text-sm font-medium">Date de prise d’effet<input className={input} type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setApproved(false); setSign(false); }} /></label>

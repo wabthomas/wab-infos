@@ -7,7 +7,9 @@ const person = '6eb981c5-f9ea-41f0-9e2c-e26a75ec1ca0';
 const input = { collaboratorId: person,kind:'CDD',jobTitle:'Rédacteur',workLocation:'Kinshasa',startDate:'2026-11-04',endDate:'2027-11-04',salary:'100.00',currency:'CDF',clauses:'Clauses préalablement vérifiées par un juriste.' };
 
 test('CDD et CDI : dates réelles, champs et rémunération', () => {
-  assert.deepEqual(validateContractInput(input),input);
+  assert.deepEqual(validateContractInput(input),{...input,birthPlace:''});
+  assert.equal(validateContractInput({...input,birthPlace:'Goma'})?.birthPlace,'Goma');
+  assert.equal(validateContractInput({...input,birthPlace:'Goma\nFaux'}),null);
   assert.equal(validateContractInput({...input,endDate:'2026-11-04'}),null);
   assert.equal(validateContractInput({...input,endDate:'2026-02-30'}),null);
   assert.equal(validateContractInput({...input,kind:'CDI',endDate:'2027-11-04'}),null);
@@ -87,4 +89,24 @@ if(count<2)process.exit(3);
 console.log(count);`;
   const run=spawnSync(process.execPath,['--conditions=react-server','--import','tsx','--input-type=module','-e',script],{cwd:new URL('../',import.meta.url).pathname,encoding:'utf8',timeout:30000});
   assert.equal(run.status,0,run.stderr||run.stdout);
+});
+
+test('migration additive : identité figée et lieu de naissance sans modifier les dossiers anciens', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec('CREATE SCHEMA redaction_rh; CREATE TABLE redaction_rh.collaborators(id uuid PRIMARY KEY);');
+    await db.query('INSERT INTO redaction_rh.collaborators(id) VALUES($1)',[person]);
+    await db.exec(await readFile(new URL('../docs/sql/rh-contract-workflow.sql',import.meta.url),'utf8'));
+    const id='a127e83b-6e6f-42c0-8b4e-3f9eb7a1f2a0';
+    await db.query(`INSERT INTO redaction_rh.contract_cases(id,collaborator_id,kind,job_title,work_location,start_date,salary,currency,clauses,prepared_by)
+      VALUES($1,$2,'CDI','Journaliste','Kinshasa','2026-11-04',100,'CDF','Clause','admin@example.test')`,[id,person]);
+    await db.exec(await readFile(new URL('../docs/sql/rh-contract-parties.sql',import.meta.url),'utf8'));
+    const old = await db.query('SELECT birth_place,party_snapshot FROM redaction_rh.contract_cases WHERE id=$1',[id]);
+    assert.equal(old.rows[0].birth_place,'');
+    assert.equal(old.rows[0].party_snapshot,null);
+    const snapshot = { birthDate:'1995-05-16',birthPlace:'Goma',address:'Rue 10',phone:'081234',firstName:'Prénom',lastName:'Nom' };
+    await db.query('UPDATE redaction_rh.contract_cases SET birth_place=$2,party_snapshot=$3 WHERE id=$1',[id,'Goma',JSON.stringify(snapshot)]);
+    const stored = await db.query('SELECT party_snapshot FROM redaction_rh.contract_cases WHERE id=$1',[id]);
+    assert.deepEqual(stored.rows[0].party_snapshot,snapshot);
+  } finally { await db.close(); }
 });

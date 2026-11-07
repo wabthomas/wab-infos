@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS redaction_rh.contract_cases (
   salary numeric(15,2) NOT NULL CHECK(salary>0),
   currency varchar(3) NOT NULL CHECK(currency IN ('CDF','USD')),
   clauses text NOT NULL CHECK(length(clauses) BETWEEN 1 AND 12000),
+  birth_place varchar(120) NOT NULL DEFAULT '',
+  party_snapshot jsonb,
   version integer NOT NULL DEFAULT 1 CHECK(version>0),
   status varchar(12) NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','proposed','accepted','declined','archived')),
   prepared_by varchar(320) NOT NULL,

@@ -6,11 +6,12 @@ import { db } from '@/lib/redaction/rh/database';
 import { json, handleError, validOrigin } from '@/lib/redaction/rh/api';
 import { readContractBody } from '@/lib/redaction/rh/contract-http';
 import { validateContractInput, isContractId } from '@/lib/redaction/rh/contracts';
+import { contractPartiesFromProfile } from '@/lib/redaction/rh/contract-parties';
 import { DEFAULT_ORGANIZATION_SETTINGS } from '@/lib/redaction/rh/organization';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const projection = `k.id,k.collaborator_id AS "collaboratorId",k.kind,k.job_title AS "jobTitle",k.work_location AS "workLocation",to_char(k.start_date,'YYYY-MM-DD') AS "startDate",to_char(k.end_date,'YYYY-MM-DD') AS "endDate",k.salary::text,k.currency,k.clauses,k.version,k.status,k.prepared_by AS "preparedBy",k.proposed_at AS "proposedAt",k.accepted_at AS "acceptedAt",k.employee_signature AS "employeeSignature",c.first_name AS "firstName",c.last_name AS "lastName"`;
+const projection = `k.id,k.collaborator_id AS "collaboratorId",k.kind,k.job_title AS "jobTitle",k.work_location AS "workLocation",to_char(k.start_date,'YYYY-MM-DD') AS "startDate",to_char(k.end_date,'YYYY-MM-DD') AS "endDate",k.salary::text,k.currency,k.clauses,k.birth_place AS "birthPlace",k.version,k.status,k.prepared_by AS "preparedBy",k.proposed_at AS "proposedAt",k.accepted_at AS "acceptedAt",k.employee_signature AS "employeeSignature",c.first_name AS "firstName",c.last_name AS "lastName"`;
 
 export async function GET(request: Request) {
   try {
@@ -34,8 +35,8 @@ export async function POST(request: Request) {
     const client = await db().connect();
     try {
       await client.query('BEGIN');
-      const result = await client.query(`INSERT INTO redaction_rh.contract_cases(id,collaborator_id,kind,job_title,work_location,start_date,end_date,salary,currency,clauses,prepared_by)
-        SELECT $1,id,$3,$4,$5,$6,$7,$8,$9,$10,$11 FROM redaction_rh.collaborators WHERE id=$2 AND NOT archived RETURNING id`,[randomUUID(),input.collaboratorId,input.kind,input.jobTitle,input.workLocation,input.startDate,input.endDate,input.salary,input.currency,input.clauses,actor.email]);
+      const result = await client.query(`INSERT INTO redaction_rh.contract_cases(id,collaborator_id,kind,job_title,work_location,start_date,end_date,salary,currency,clauses,birth_place,prepared_by)
+        SELECT $1,id,$3,$4,$5,$6,$7,$8,$9,$10,$12,$11 FROM redaction_rh.collaborators WHERE id=$2 AND NOT archived RETURNING id`,[randomUUID(),input.collaboratorId,input.kind,input.jobTitle,input.workLocation,input.startDate,input.endDate,input.salary,input.currency,input.clauses,actor.email,input.birthPlace]);
       if (!result.rowCount) { await client.query('ROLLBACK'); return json({ error: 'Dossier collaborateur introuvable.' }, 409); }
       await client.query("INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,'create')",[result.rows[0].id,actor.email]);
       await client.query('COMMIT'); return json({ id: result.rows[0].id }, 201);
@@ -59,12 +60,12 @@ export async function PATCH(request: Request) {
     const client = await db().connect();
     try {
       await client.query('BEGIN');
-      const locked = await client.query(`SELECT k.collaborator_id,k.status,k.version,c.archived FROM redaction_rh.contract_cases k JOIN redaction_rh.collaborators c ON c.id=k.collaborator_id WHERE k.id=$1 FOR UPDATE OF k,c`,[v.id]);
+      const locked = await client.query(`SELECT k.collaborator_id,k.status,k.version,k.birth_place,c.first_name,c.last_name,c.archived FROM redaction_rh.contract_cases k JOIN redaction_rh.collaborators c ON c.id=k.collaborator_id WHERE k.id=$1 FOR UPDATE OF k,c`,[v.id]);
       const row = locked.rows[0];
       if (!row || row.status !== 'draft' || row.archived || row.version !== v.version) { await client.query('ROLLBACK'); return json({ error: 'Brouillon modifié, déjà transmis ou indisponible.' }, 409); }
       if (v.action === 'update' && input!.collaboratorId !== row.collaborator_id) { await client.query('ROLLBACK'); return json({ error: 'Changer de collaborateur nécessite un nouveau contrat.' }, 409); }
       if (v.action === 'update') {
-        await client.query(`UPDATE redaction_rh.contract_cases SET kind=$2,job_title=$3,work_location=$4,start_date=$5,end_date=$6,salary=$7,currency=$8,clauses=$9,version=version+1,updated_at=now() WHERE id=$1`,[v.id,input!.kind,input!.jobTitle,input!.workLocation,input!.startDate,input!.endDate,input!.salary,input!.currency,input!.clauses]);
+        await client.query(`UPDATE redaction_rh.contract_cases SET kind=$2,job_title=$3,work_location=$4,start_date=$5,end_date=$6,salary=$7,currency=$8,clauses=$9,birth_place=$10,version=version+1,updated_at=now() WHERE id=$1`,[v.id,input!.kind,input!.jobTitle,input!.workLocation,input!.startDate,input!.endDate,input!.salary,input!.currency,input!.clauses,input!.birthPlace]);
       } else if (v.action === 'archive') {
         await client.query("UPDATE redaction_rh.contract_cases SET status='archived',version=version+1,updated_at=now() WHERE id=$1",[v.id]);
       } else {
@@ -85,8 +86,13 @@ export async function PATCH(request: Request) {
             logoPng = `data:image/png;base64,${bytes.toString('base64')}`;
           } catch { await client.query('ROLLBACK'); return json({ error: 'Le logo de l’entreprise ne peut pas être intégré au contrat.' }, 409); }
         }
+        const identity = await client.query(`SELECT to_char(p.birth_date,'YYYY-MM-DD') AS "birthDate",p.address,p.phone,p.city
+          FROM redaction_rh.employee_profiles p WHERE p.collaborator_id=$1`,[row.collaborator_id]);
+        const parties = contractPartiesFromProfile(identity.rows[0] || null, row.birth_place);
+        if (!parties || !row.first_name?.trim() || !row.last_name?.trim()) { await client.query('ROLLBACK'); return json({ error: 'Complétez la date de naissance, l’adresse et le téléphone dans la fiche d’identification, et le lieu de naissance dans le contrat avant transmission.' }, 409); }
+        const partySnapshot = { ...parties, firstName:row.first_name.trim(), lastName:row.last_name.trim() };
         const employerSnapshot = { ...settings, logoPng };
-        await client.query(`UPDATE redaction_rh.contract_cases SET status='proposed',legal_reviewed_by=$2,proposed_at=now(),proposed_account_id=$3,proposed_account_email=$4,employer_snapshot=$5,signature_bytes=$6,seal_bytes=$7,version=version+1,updated_at=now() WHERE id=$1`,[v.id,actor.email,link.rows[0].account_id,link.rows[0].account_email,JSON.stringify(employerSnapshot),asset['director-signature'],asset['company-seal']]);
+        await client.query(`UPDATE redaction_rh.contract_cases SET status='proposed',legal_reviewed_by=$2,proposed_at=now(),proposed_account_id=$3,proposed_account_email=$4,employer_snapshot=$5,signature_bytes=$6,seal_bytes=$7,party_snapshot=$8,version=version+1,updated_at=now() WHERE id=$1`,[v.id,actor.email,link.rows[0].account_id,link.rows[0].account_email,JSON.stringify(employerSnapshot),asset['director-signature'],asset['company-seal'],JSON.stringify(partySnapshot)]);
       }
       await client.query('INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,$3)',[v.id,actor.email,v.action]);
       await client.query('COMMIT'); return json({ ok: true });

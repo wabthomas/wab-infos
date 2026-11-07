@@ -1,10 +1,12 @@
 import { jsPDF } from 'jspdf';
+import { contractPartyRole, type ContractParties } from './contract-parties';
 import { contractRuns, parseContractBlocks, type ContractBlock, type ContractRun } from './contract-format';
 
 export type ContractDocumentData = {
   kind: 'CDD' | 'CDI'; firstName: string; lastName: string; jobTitle: string; workLocation: string;
   startDate: string; endDate?: string | null; salary: string; currency: string; clauses: string;
   employer: { companyName?: string; companyAddress?: string; companyPhone?: string; companyEmail?: string; companyTaxId?: string; companyRegistration?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string; logoPng?: string | null };
+  parties?: ContractParties | null;
   employeeSignature?: string | null; acceptedAt?: string | null; draft?: boolean; draftLabel?: string;
 };
 export type ContractDocumentAssets = { logo?: string | null; seal?: string | null; signature?: string | null; employeeSignatureImage?: string | null };
@@ -123,6 +125,30 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
   doc.setTextColor(...INK); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
   for (const line of detailLines) { doc.text(line, MARGIN + 5, y + 1); y += 4.8; }
   y += 9;
+
+  if (data.parties) {
+    const party = data.parties;
+    const director = `${data.employer.directorName || '—'}, ${data.employer.directorTitle || 'Directeur Général'}`;
+    const passages = [
+      ['ENTRE LES SOUSSIGNÉS :', true],
+      [`${company}${/^(?:world access to business|wab)(?:\b|[- ])/i.test(company.trim()) ? ", exploitant le média WAB-infos TV" : ""}, représenté par ${director}.`, false],
+      ['D’UNE PART ;', true],
+      [`ET Monsieur/Madame ${data.firstName} ${data.lastName}, ${contractPartyRole(data.jobTitle)}.`, false],
+      [`Né(e) à ${party.birthPlace} le ${displayDate(party.birthDate)}.`, false],
+      [`Adresse : ${party.address}. Téléphone : ${party.phone}.`, false],
+      ['D’AUTRE PART ;', true],
+      ['Il a été convenu et arrêté ce qui suit :', false],
+    ] as const;
+    for (const [text, bold] of passages) {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(9.3);
+      const lines = doc.splitTextToSize(text, WIDTH) as string[];
+      room(lines.length * 4.8 + (bold ? 3 : 1));
+      doc.setTextColor(...INK);
+      for (const line of lines) { doc.text(line, MARGIN, y); y += 4.8; }
+      y += bold ? 3 : 1;
+    }
+    y += 3;
+  }
 
   const blocks = parseContractBlocks(data.clauses);
   const prepared: Prepared[] = blocks.map(block => {

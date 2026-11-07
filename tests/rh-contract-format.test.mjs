@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseContractBlocks, contractRuns, formatContractSelection } from '../apps/redaction/src/lib/redaction/rh/contract-format.ts';
+import { contractPartiesFromProfile } from '../apps/redaction/src/lib/redaction/rh/contract-parties.ts';
 import { buildContractDocument } from '../apps/redaction/src/lib/redaction/rh/contract-document.ts';
 
 const data = clauses => ({ kind:'CDD', firstName:'Personne',lastName:'Exemple',jobTitle:'Rédaction',workLocation:'Ville',startDate:'2026-01-01',endDate:'2026-12-31',salary:'100',currency:'CDF',clauses,employer:{companyName:'Entreprise Exemple',directorName:'Direction Exemple',directorTitle:'Direction'} });
@@ -88,4 +89,22 @@ test('PDF A4 partagé : blancs répétés condensés, marqueurs cachés et signa
     assert.ok(page.includes(`Page ${index+1} / ${pages.length}`));
     assert.ok(page.includes('(Entreprise Exemple)')); // Corporate letterhead on every A4 page.
   }
+});
+
+test('préambule : fiche et lieu de naissance distincts, deux parties et anciens contrats', () => {
+  const profile = { birthDate:'1995-05-16',address:'Avenue des Écoles, Kinshasa',phone:'+243 812345678',city:'Lubumbashi' };
+  assert.equal(contractPartiesFromProfile(profile,''),null);
+  assert.equal(contractPartiesFromProfile({...profile,address:null},'Goma'),null);
+  assert.equal(contractPartiesFromProfile({...profile,birthDate:null},'Goma'),null);
+  const parties = contractPartiesFromProfile(profile,'Goma');
+  assert.equal(parties.birthPlace,'Goma');
+  const current = buildContractDocument({ ...data('Clause test.'), parties });
+  const content = current.internal.pages.flat().join(' ');
+  assert.ok(content.includes('ENTRE LES SOUSSIGN'));
+  assert.ok(content.includes('UNE PART'));
+  assert.ok(content.includes('AUTRE PART'));
+  assert.ok(content.includes('Goma'));
+  assert.ok(!content.includes('Lubumbashi'));
+  const legacy = buildContractDocument(data('Clause test.'));
+  assert.ok(!legacy.internal.pages.flat().join(' ').includes('ENTRE LES SOUSSIGN'));
 });
