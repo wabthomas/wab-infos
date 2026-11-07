@@ -1,5 +1,7 @@
 export type ContractKind = 'CDD' | 'CDI';
-export type ContractInput = { collaboratorId: string; kind: ContractKind; jobTitle: string; workLocation: string; startDate: string; endDate: string | null; salary: string; currency: 'CDF' | 'USD'; clauses: string; birthPlace: string; signaturePlace: string; signatureDate: string | null };
+export type ContractDisplayOptions = { job: boolean; location: boolean; startDate: boolean; endDate: boolean; salary: boolean };
+export const DEFAULT_CONTRACT_DISPLAY: ContractDisplayOptions = { job: true, location: true, startDate: true, endDate: true, salary: true };
+export type ContractInput = { collaboratorId: string; kind: ContractKind; jobTitle: string; workLocation: string; startDate: string; endDate: string | null; salary: string; currency: 'CDF' | 'USD'; clauses: string; birthPlace: string; signaturePlace: string; signatureDate: string | null; displayOptions: ContractDisplayOptions };
 const uuid = (s: unknown): s is string => typeof s === 'string' && /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(s);
 function date(s: unknown): s is string {
   if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
@@ -23,6 +25,17 @@ export function validateContractInput(raw: unknown): ContractInput | null {
   const signatureDate = v.signatureDate === undefined || v.signatureDate === '' ? null : v.signatureDate;
   if (typeof signaturePlace !== 'string' || signaturePlace.length > 120 || /[\u0000-\u001f\u007f]/.test(signaturePlace)
     || (signatureDate !== null && !date(signatureDate))) return null;
-  return { collaboratorId:v.collaboratorId,kind:v.kind,jobTitle:(v.jobTitle as string).trim(),workLocation:(v.workLocation as string).trim(),startDate:v.startDate,endDate:v.kind==='CDD' ? v.endDate as string : null,salary:v.salary.replace(',','.'),currency:v.currency,clauses:(v.clauses as string).trim(),birthPlace:birthPlace.trim(),signaturePlace:signaturePlace.trim(),signatureDate };
+  const rawDisplay = v.displayOptions;
+  const displayOptions: ContractDisplayOptions = { ...DEFAULT_CONTRACT_DISPLAY };
+  if (rawDisplay !== undefined) {
+    if (!rawDisplay || typeof rawDisplay !== 'object' || Array.isArray(rawDisplay)) return null;
+    for (const key of Object.keys(DEFAULT_CONTRACT_DISPLAY) as (keyof ContractDisplayOptions)[]) {
+      const value = (rawDisplay as Record<string, unknown>)[key];
+      if (value === undefined) continue;
+      if (typeof value !== 'boolean') return null;
+      displayOptions[key] = value;
+    }
+  }
+  return { collaboratorId:v.collaboratorId,kind:v.kind,jobTitle:(v.jobTitle as string).trim(),workLocation:(v.workLocation as string).trim(),startDate:v.startDate,endDate:v.kind==='CDD' ? v.endDate as string : null,salary:v.salary.replace(',','.'),currency:v.currency,clauses:(v.clauses as string).trim(),birthPlace:birthPlace.trim(),signaturePlace:signaturePlace.trim(),signatureDate,displayOptions };
 }
 export { uuid as isContractId, date as isContractDate };

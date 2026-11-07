@@ -8,10 +8,11 @@ import { ContractPdfPreview } from './contract-pdf-preview';
 import Link from 'next/link';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
+import { DEFAULT_CONTRACT_DISPLAY, type ContractDisplayOptions } from '@/lib/redaction/rh/contracts';
 import { useToast } from '@/components/ui/toast';
 
 type ContractTemplate = { id:string;kind:'CDD'|'CDI';title:string;clauses:string;signaturePlace:string;signatureDate:string|null;version:number };
-type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses:string; birthPlace:string; signaturePlace:string; signatureDate:string|null; status:'draft'|'proposed'|'accepted'; version:number; firstName:string;lastName:string; employeeSignature:string|null };
+type ContractCase = { id: string; collaboratorId: string; kind: 'CDD'|'CDI'; jobTitle:string; workLocation:string; startDate:string; endDate:string|null; salary:string; currency:'CDF'|'USD'; clauses:string; birthPlace:string; signaturePlace:string; signatureDate:string|null; status:'draft'|'proposed'|'accepted'; version:number; firstName:string;lastName:string; employeeSignature:string|null; displayOptions?:Partial<ContractDisplayOptions>|null };
 type Person = { id: string; firstName: string; lastName: string; jobTitle: string; startDate: string; archived: boolean };
 async function png(src: string | null, opacity = 1): Promise<string | null> {
   if (!src) return null;
@@ -39,6 +40,7 @@ export function ContractsWorkspace() {
   const [salary, setSalary] = useState(''), [currency, setCurrency] = useState<'CDF' | 'USD'>('CDF');
   const [birthPlace, setBirthPlace] = useState('');
   const [signaturePlace, setSignaturePlace] = useState(''), [signatureDate, setSignatureDate] = useState('');
+  const [displayOptions, setDisplayOptions] = useState<ContractDisplayOptions>(DEFAULT_CONTRACT_DISPLAY);
   const [profile, setProfile] = useState<ContractProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [clauses, setClauses] = useState(''), [approved, setApproved] = useState(false), [authorized, setAuthorized] = useState(false);
@@ -96,10 +98,10 @@ export function ContractsWorkspace() {
     if (clauses.trim() && clauses!==item.clauses && !window.confirm('Remplacer les clauses actuellement saisies par ce modèle ?')) return;
     setSelectedTemplate(item);setTemplateTitle(item.title);setKind(item.kind);setClauses(item.clauses);setSignaturePlace(item.signaturePlace || '');setSignatureDate(item.signatureDate || '');setApproved(false);setSign(false);
   }
-  function payload() { return { collaboratorId:personId,kind,jobTitle:job,workLocation:location,startDate,endDate:kind==='CDD'?endDate:null,salary,currency,clauses,birthPlace,signaturePlace,signatureDate:signatureDate||null }; }
+  function payload() { return { collaboratorId:personId,kind,jobTitle:job,workLocation:location,startDate,endDate:kind==='CDD'?endDate:null,salary,currency,clauses,birthPlace,signaturePlace,signatureDate:signatureDate||null,displayOptions }; }
   function choose(item:ContractCase, force = false) {
     if (!force && (selected || clauses.trim() || salary.trim()) && JSON.stringify(payload()) !== savedSnapshot && !window.confirm('Quitter ce brouillon sans enregistrer les dernières modifications ?')) return;
-    setSelectedTemplate(null);setTemplateTitle('');setSelected(item);setPersonId(item.collaboratorId);setKind(item.kind);setJob(item.jobTitle);setLocation(item.workLocation);
+    setSelectedTemplate(null);setTemplateTitle('');setSelected(item);setPersonId(item.collaboratorId);setKind(item.kind);setJob(item.jobTitle);setLocation(item.workLocation);setDisplayOptions({ ...DEFAULT_CONTRACT_DISPLAY, ...(item.displayOptions ?? {}) });
     setStartDate(item.startDate);setEndDate(item.endDate??'');setSalary(item.salary);setCurrency(item.currency);setClauses(item.clauses);setBirthPlace(item.birthPlace || '');setSignaturePlace(item.signaturePlace || '');setSignatureDate(item.signatureDate || '');if (personId !== item.collaboratorId) { setProfile(null);setProfileLoading(true); }
     setSavedSnapshot(JSON.stringify({ collaboratorId:item.collaboratorId,kind:item.kind,jobTitle:item.jobTitle,workLocation:item.workLocation,startDate:item.startDate,endDate:item.kind==='CDD'?item.endDate:null,salary:item.salary,currency:item.currency,clauses:item.clauses,birthPlace:item.birthPlace || '',signaturePlace:item.signaturePlace || '',signatureDate:item.signatureDate || null }));
     setApproved(false);setAuthorized(false);setSign(false);setError('');
@@ -161,7 +163,7 @@ export function ContractsWorkspace() {
             if (!active) return;
             const pdf = buildContractDocument({
               kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
-              startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties, signaturePlace, signatureDate,
+              startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties, signaturePlace, signatureDate, displayOptions,
               employer: { ...settings, directorAuthorized:authorized }, draft: true,
             }, { logo: images[0], seal: images[1], signature: images[2] });
             if (active) setPreviewPdf(new Uint8Array(pdf.output('arraybuffer')));
@@ -171,7 +173,7 @@ export function ContractsWorkspace() {
       return () => { active = false; window.clearTimeout(timer); };
     } else setPreviewStatus('Sélectionnez un collaborateur et saisissez le corps du contrat.');
     return () => { active = false; };
-  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, birthPlace, signaturePlace, signatureDate, authorized, parties?.birthDate, parties?.address, parties?.phone, profileLoading, settings, sign, seal, signature, logo]);
+  }, [selected?.id, selected?.status, selected?.version, person?.firstName, person?.lastName, kind, job, location, startDate, endDate, salary, currency, clauses, birthPlace, signaturePlace, signatureDate, authorized, displayOptions, parties?.birthDate, parties?.address, parties?.phone, profileLoading, settings, sign, seal, signature, logo]);
 
   function applyFormat(command: ContractFormatCommand) {
     const textarea = clausesRef.current;
@@ -197,7 +199,7 @@ export function ContractsWorkspace() {
     try {
       const pdf = buildContractDocument({
         kind, firstName: person.firstName, lastName: person.lastName, jobTitle: job.trim(), workLocation: location.trim(),
-        startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties, signaturePlace, signatureDate,
+        startDate, endDate: kind === 'CDD' ? endDate : null, salary: salary.replace(',', '.'), currency, clauses, parties, signaturePlace, signatureDate, displayOptions,
         employer: { ...settings, directorAuthorized:authorized }, draft: true,
       }, { logo: await png(logo), seal: sign ? await png(seal, .22) : null, signature: sign ? await png(signature) : null });
       pdf.save(`projet-contrat-${kind.toLowerCase()}-${person.lastName.replace(/[^a-zA-Z0-9-]/g,'-')}.pdf`);
@@ -240,6 +242,23 @@ export function ContractsWorkspace() {
               {kind === 'CDD' && <label className="text-sm font-medium">Date de fin<input className={input} type="date" value={endDate} min={startDate} onChange={e => { setEndDate(e.target.value); setApproved(false); setSign(false); }} /></label>}
               <label className="text-sm font-medium">Rémunération<input className={input} inputMode="decimal" value={salary} onChange={e => { setSalary(e.target.value); setApproved(false); setSign(false); }} placeholder="Montant" /></label>
               <label className="text-sm font-medium">Devise<select className={input} value={currency} onChange={e => { setCurrency(e.target.value as 'CDF' | 'USD'); setApproved(false); setSign(false); }}><option>CDF</option><option>USD</option></select></label>
+              <div className="rounded-lg border bg-muted/30 p-3 sm:col-span-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Afficher sur le contrat</p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                  {([
+                    ['job', 'Fonction'],
+                    ['location', 'Lieu d’affectation'],
+                    ['startDate', 'Date de prise d’effet'],
+                    ['endDate', 'Date de fin'],
+                    ['salary', 'Rémunération (montant et devise)'],
+                  ] as const).map(([key, label]) => (
+                    <label key={key} className="inline-flex items-center gap-2">
+                      <input type="checkbox" checked={displayOptions[key]} onChange={e => { setDisplayOptions(v => ({ ...v, [key]: e.target.checked })); setApproved(false); setSign(false); }} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
           <section className="overflow-hidden rounded-xl border">

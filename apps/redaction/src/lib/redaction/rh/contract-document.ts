@@ -6,6 +6,7 @@ export type ContractDocumentData = {
   kind: 'CDD' | 'CDI'; firstName: string; lastName: string; jobTitle: string; workLocation: string;
   startDate: string; endDate?: string | null; salary: string; currency: string; clauses: string;
   signaturePlace?: string | null; signatureDate?: string | null;
+  displayOptions?: { job: boolean; location: boolean; startDate: boolean; endDate: boolean; salary: boolean };
   employer: { companyName?: string; companyAddress?: string; companyPhone?: string; companyEmail?: string; companyTaxId?: string; companyRegistration?: string; documentHeader?: string; documentFooter?: string; directorName?: string; directorTitle?: string; directorAuthorized?: boolean; directorSignatureWidth?: number | string; directorSignatureHeight?: number | string; logoPng?: string | null };
   parties?: ContractParties | null;
   employeeSignature?: string | null; acceptedAt?: string | null; draft?: boolean; draftLabel?: string;
@@ -108,7 +109,8 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
   doc.text(`CONTRAT DE TRAVAIL À DURÉE ${data.kind === 'CDD' ? 'DÉTERMINÉE' : 'INDÉTERMINÉE'}`, 105, y, { align: 'center', maxWidth: WIDTH });
   y += 5;
   doc.setTextColor(...BRAND); doc.setFontSize(9.4);
-  singleLine(doc, data.jobTitle.trim().toLocaleUpperCase('fr') || 'FONCTION À PRÉCISER', 105, y, WIDTH, 7.4, 'center');
+  const show = data.displayOptions ?? { job: true, location: true, startDate: true, endDate: true, salary: true };
+  if (show.job !== false) singleLine(doc, data.jobTitle.trim().toLocaleUpperCase('fr') || 'FONCTION À PRÉCISER', 105, y, WIDTH, 7.4, 'center');
   y += 10;
   if (data.parties) {
     // The identity of BOTH parties is inside the left-rule information panel. Keep the
@@ -147,9 +149,13 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
     doc.text('Il a été convenu et arrêté ce qui suit :', MARGIN, y);
     y += 8;
     const details = [
-      `Fonction : ${data.jobTitle}   |   Lieu : ${data.workLocation}`,
-      `Prise d'effet : ${displayDate(data.startDate)}${data.kind === 'CDD' ? `   |   Terme : ${displayDate(data.endDate)}` : ''}`,
-      `Rémunération déclarée : ${data.salary} ${data.currency}`,
+      show.job !== false || show.location !== false
+        ? [show.job !== false ? `Fonction : ${data.jobTitle}` : '', show.location !== false ? `Lieu : ${data.workLocation}` : ''].filter(Boolean).join('   |   ')
+        : '',
+      show.startDate !== false || (data.kind === 'CDD' && show.endDate !== false)
+        ? [show.startDate !== false ? `Prise d'effet : ${displayDate(data.startDate)}` : '', data.kind === 'CDD' && show.endDate !== false ? `Terme : ${displayDate(data.endDate)}` : ''].filter(Boolean).join('   |   ')
+        : '',
+      show.salary !== false ? `Rémunération déclarée : ${data.salary} ${data.currency}` : '',
     ];
     doc.setTextColor(...MUTED); doc.setFontSize(8.5);
     for (const detail of details) {
@@ -163,9 +169,13 @@ export function buildContractDocument(data: ContractDocumentData, assets: Contra
     const details = [
       `Employeur : ${company}`,
       `Collaborateur : ${data.firstName} ${data.lastName}`,
-      `Fonction : ${data.jobTitle}   |   Lieu : ${data.workLocation}`,
-      `Prise d'effet : ${displayDate(data.startDate)}${data.kind === 'CDD' ? `   |   Terme : ${displayDate(data.endDate)}` : ''}`,
-      `Rémunération déclarée : ${data.salary} ${data.currency}`,
+      show.job !== false || show.location !== false
+        ? [show.job !== false ? `Fonction : ${data.jobTitle}` : '', show.location !== false ? `Lieu : ${data.workLocation}` : ''].filter(Boolean).join('   |   ')
+        : '',
+      show.startDate !== false || (data.kind === 'CDD' && show.endDate !== false)
+        ? [show.startDate !== false ? `Prise d'effet : ${displayDate(data.startDate)}` : '', data.kind === 'CDD' && show.endDate !== false ? `Terme : ${displayDate(data.endDate)}` : ''].filter(Boolean).join('   |   ')
+        : '',
+      show.salary !== false ? `Rémunération déclarée : ${data.salary} ${data.currency}` : '',
     ];
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.3);
     const detailLines = details.flatMap(detail => doc.splitTextToSize(detail, WIDTH - 12) as string[]);

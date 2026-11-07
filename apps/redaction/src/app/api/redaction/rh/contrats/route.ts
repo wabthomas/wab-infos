@@ -11,7 +11,7 @@ import { DEFAULT_ORGANIZATION_SETTINGS } from '@/lib/redaction/rh/organization';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const projection = `k.id,k.collaborator_id AS "collaboratorId",k.kind,k.job_title AS "jobTitle",k.work_location AS "workLocation",to_char(k.start_date,'YYYY-MM-DD') AS "startDate",to_char(k.end_date,'YYYY-MM-DD') AS "endDate",k.salary::text,k.currency,k.clauses,k.birth_place AS "birthPlace",k.signature_place AS "signaturePlace",to_char(k.signature_date,'YYYY-MM-DD') AS "signatureDate",k.version,k.status,k.prepared_by AS "preparedBy",k.proposed_at AS "proposedAt",k.accepted_at AS "acceptedAt",k.employee_signature AS "employeeSignature",c.first_name AS "firstName",c.last_name AS "lastName"`;
+const projection = `k.id,k.collaborator_id AS "collaboratorId",k.kind,k.job_title AS "jobTitle",k.work_location AS "workLocation",to_char(k.start_date,'YYYY-MM-DD') AS "startDate",to_char(k.end_date,'YYYY-MM-DD') AS "endDate",k.salary::text,k.currency,k.clauses,k.birth_place AS "birthPlace",k.signature_place AS "signaturePlace",to_char(k.signature_date,'YYYY-MM-DD') AS "signatureDate",k.version,k.status,k.prepared_by AS "preparedBy",k.proposed_at AS "proposedAt",k.accepted_at AS "acceptedAt",k.employee_signature AS "employeeSignature",k.display_options AS "displayOptions",c.first_name AS "firstName",c.last_name AS "lastName"`;
 
 export async function GET(request: Request) {
   try {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     try {
       await client.query('BEGIN');
       const result = await client.query(`INSERT INTO redaction_rh.contract_cases(id,collaborator_id,kind,job_title,work_location,start_date,end_date,salary,currency,clauses,birth_place,signature_place,signature_date,prepared_by)
-        SELECT $1,id,$3,$4,$5,$6,$7,$8,$9,$10,$12,$13,$14,$11 FROM redaction_rh.collaborators WHERE id=$2 AND NOT archived RETURNING id`,[randomUUID(),input.collaboratorId,input.kind,input.jobTitle,input.workLocation,input.startDate,input.endDate,input.salary,input.currency,input.clauses,actor.email,input.birthPlace,input.signaturePlace,input.signatureDate]);
+        SELECT $1,id,$3,$4,$5,$6,$7,$8,$9,$10,$12,$13,$14,$11 FROM redaction_rh.collaborators WHERE id=$2 AND NOT archived RETURNING id`,[randomUUID(),input.collaboratorId,input.kind,input.jobTitle,input.workLocation,input.startDate,input.endDate,input.salary,input.currency,input.clauses,actor.email,input.birthPlace,input.signaturePlace,input.signatureDate,JSON.stringify(input.displayOptions)]);
       if (!result.rowCount) { await client.query('ROLLBACK'); return json({ error: 'Dossier collaborateur introuvable.' }, 409); }
       await client.query("INSERT INTO redaction_rh.contract_case_events(contract_id,actor_email,action) VALUES($1,$2,'create')",[result.rows[0].id,actor.email]);
       await client.query('COMMIT'); return json({ id: result.rows[0].id }, 201);
@@ -65,7 +65,7 @@ export async function PATCH(request: Request) {
       if (!row || row.status !== 'draft' || row.archived || row.version !== v.version) { await client.query('ROLLBACK'); return json({ error: 'Brouillon modifié, déjà transmis ou indisponible.' }, 409); }
       if (v.action === 'update' && input!.collaboratorId !== row.collaborator_id) { await client.query('ROLLBACK'); return json({ error: 'Changer de collaborateur nécessite un nouveau contrat.' }, 409); }
       if (v.action === 'update') {
-        await client.query(`UPDATE redaction_rh.contract_cases SET kind=$2,job_title=$3,work_location=$4,start_date=$5,end_date=$6,salary=$7,currency=$8,clauses=$9,birth_place=$10,signature_place=$11,signature_date=$12,version=version+1,updated_at=now() WHERE id=$1`,[v.id,input!.kind,input!.jobTitle,input!.workLocation,input!.startDate,input!.endDate,input!.salary,input!.currency,input!.clauses,input!.birthPlace,input!.signaturePlace,input!.signatureDate]);
+        await client.query(`UPDATE redaction_rh.contract_cases SET kind=$2,job_title=$3,work_location=$4,start_date=$5,end_date=$6,salary=$7,currency=$8,clauses=$9,birth_place=$10,signature_place=$11,signature_date=$12,display_options=$13,version=version+1,updated_at=now() WHERE id=$1`,[v.id,input!.kind,input!.jobTitle,input!.workLocation,input!.startDate,input!.endDate,input!.salary,input!.currency,input!.clauses,input!.birthPlace,input!.signaturePlace,input!.signatureDate,JSON.stringify(input!.displayOptions)]);
       } else if (v.action === 'archive') {
         await client.query("UPDATE redaction_rh.contract_cases SET status='archived',version=version+1,updated_at=now() WHERE id=$1",[v.id]);
       } else {
