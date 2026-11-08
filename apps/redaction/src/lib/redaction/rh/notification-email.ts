@@ -1,6 +1,6 @@
 import 'server-only';
 import nodemailer from 'nodemailer';
-import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import { getEmailSettingsForSend } from './email-settings';
 
 type NotificationPayload = { title: string; body: string; url: string };
 
@@ -51,27 +51,33 @@ function builder(payload: NotificationPayload) {
   return { title, html, text, link };
 }
 
-/** Miroir e-mail des notifications RH : SMTP N0C dédié, sinon Brevo (jamais la newsletter). */
+/** Miroir e-mail des notifications RH : SMTP RH (Paramètres RH), sinon Brevo. */
 export async function sendRhNotificationEmail(to: string, payload: NotificationPayload): Promise<boolean> {
   if (process.env.RH_NOTIFICATION_EMAILS_ENABLED === 'false') return false;
   const email = to.trim().toLowerCase();
   if (!email) return false;
   const { title, html, text } = builder(payload);
-  const senderEmail = process.env.RH_SMTP_FROM?.trim()
-    || process.env.RH_NOTIFICATION_SENDER_EMAIL?.trim()
-    || 'redaction@wab-infos.com';
-  const senderName = process.env.RH_NOTIFICATION_SENDER_NAME?.trim() || 'Wab-infos RH';
 
-  const transport = smtpTransport();
-  if (transport) {
+  const settings = await getEmailSettingsForSend();
+  if (settings) {
     try {
+      const transport = nodemailer.createTransport({
+        host: settings.host,
+        port: settings.port,
+        secure: settings.secure,
+        auth: settings.username ? { user: settings.username, pass: settings.password } : undefined,
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 15_000,
+        greetingTimeout: 15_000,
+        socketTimeout: 25_000,
+      });
       await transport.sendMail({
-        from: { name: senderName, address: senderEmail },
+        from: { name: settings.fromName, address: settings.fromEmail },
         to: email,
         subject: title,
         html,
         text,
-        replyTo: process.env.RH_SMTP_REPLY_TO?.trim() || senderEmail,
+        replyTo: settings.replyTo || settings.fromEmail,
         headers: { 'X-Auto-Response-Suppress': 'All', 'Auto-Submitted': 'auto-generated' },
       });
       return true;
@@ -83,6 +89,8 @@ export async function sendRhNotificationEmail(to: string, payload: NotificationP
 
   const apiKey = process.env.BREVO_API_KEY?.trim();
   if (!apiKey) return false;
+  const senderEmail = process.env.RH_NOTIFICATION_SENDER_EMAIL?.trim() || 'newsletter@wab-infos.com';
+  const senderName = process.env.RH_NOTIFICATION_SENDER_NAME?.trim() || 'Wab-infos RH';
   try {
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',

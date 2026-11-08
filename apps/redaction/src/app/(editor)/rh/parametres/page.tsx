@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { Building2, Settings2, ShieldCheck } from 'lucide-react';
 import { OrganizationSettings } from '@/components/redaction/rh/organization-settings';
 import { AnnouncementSettings } from '@/components/redaction/rh/announcement-settings';
+import { RhEmailSettings } from '@/components/redaction/rh/rh-email-settings';
 import { FeatureSettings } from '@/components/redaction/rh/feature-settings';
 import { RoleManager } from '@/components/redaction/rh/role-manager';
 import { RhVoiceAdminTest } from '@/components/redaction/rh/rh-voice-admin-test';
@@ -21,6 +22,7 @@ export default async function RhSettingsPage() {
       <div className="mt-4 flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-xs leading-5 text-amber-900 dark:text-amber-200"><ShieldCheck className="h-4 w-4 shrink-0" />Ces réglages sont réservés aux super-administrateurs RH et ne sont pas modifiables par les collaborateurs.</div>
     </div>
     <OrganizationSettings />
+    <RhEmailSettings />
     <AnnouncementSettings />
     <RhVoiceAdminTest />
     <FeatureSettings />
