@@ -1,6 +1,7 @@
 import 'server-only';
 import nodemailer from 'nodemailer';
 import { db } from './database';
+import { loadRhEmailBrand, renderRhNotificationEmail } from './email-template';
 
 export interface EmailSettingsView {
   enabled: boolean;
@@ -200,12 +201,20 @@ export async function sendEmailSettingsTest(to: string): Promise<{ ok: boolean; 
       greetingTimeout: 15_000,
       socketTimeout: 25_000,
     });
+    const brand = await loadRhEmailBrand();
+    const { html, text } = renderRhNotificationEmail({
+      title: 'Test de configuration SMTP',
+      body: 'Ce message confirme que le serveur SMTP des notifications RH est correctement configuré et que ce modèle e-mail est bien appliqué.',
+      link: `${brand.siteUrl}/rh/parametres`,
+      brand,
+      preheader: 'Test SMTP RH réussi.',
+    });
     await transport.sendMail({
       from: { name: settings.fromName, address: settings.fromEmail },
       to,
       subject: 'Test SMTP RH — Wab-infos',
-      text: 'Ce message confirme que le SMTP des notifications RH est correctement configuré.',
-      html: '<p>Ce message confirme que le <strong>SMTP des notifications RH</strong> est correctement configuré.</p>',
+      text,
+      html,
       replyTo: settings.replyTo || settings.fromEmail,
     });
     return { ok: true };

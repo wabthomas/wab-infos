@@ -1,6 +1,7 @@
 import 'server-only';
 import nodemailer from 'nodemailer';
 import { getEmailSettingsForSend } from './email-settings';
+import { loadRhEmailBrand, renderRhNotificationEmail } from './email-template';
 
 type NotificationPayload = { title: string; body: string; url: string };
 
@@ -9,46 +10,15 @@ function absoluteUrl(path: string): string {
   return path.startsWith('http') ? path : `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[char]!));
-}
-
-function smtpTransport() {
-  const host = process.env.RH_SMTP_HOST?.trim();
-  if (!host) return null;
-  const transport = nodemailer.createTransport({
-    host,
-    port: Number(process.env.RH_SMTP_PORT || 465),
-    secure: process.env.RH_SMTP_SECURE !== 'false',
-    auth: process.env.RH_SMTP_USER?.trim() ? {
-      user: process.env.RH_SMTP_USER.trim(),
-      pass: process.env.RH_SMTP_PASS || '',
-    } : undefined,
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 15_000,
-    greetingTimeout: 15_000,
-    socketTimeout: 25_000,
+async function build(payload: NotificationPayload) {
+  const brand = await loadRhEmailBrand();
+  return renderRhNotificationEmail({
+    title: payload.title,
+    body: payload.body,
+    link: absoluteUrl(payload.url),
+    brand,
+    preheader: payload.body,
   });
-  return transport;
-}
-
-function builder(payload: NotificationPayload) {
-  const link = absoluteUrl(payload.url);
-  const title = payload.title.slice(0, 140);
-  const body = payload.body.slice(0, 500);
-  const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px"><tr><td align="center">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e7eb">
-  <tr><td style="background:#c41e3a;color:#ffffff;padding:18px 24px;font-size:15px;font-weight:bold">Wab-infos · Espace RH</td></tr>
-  <tr><td style="padding:24px">
-    <h1 style="margin:0 0 10px;font-size:19px;line-height:1.3">${escapeHtml(title)}</h1>
-    <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">${escapeHtml(body)}</p>
-    <p style="margin:0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#c41e3a;color:#ffffff;text-decoration:none;padding:11px 18px;border-radius:9px;font-size:14px;font-weight:bold">Ouvrir Mon espace RH</a></p>
-  </td></tr>
-  <tr><td style="padding:14px 24px;background:#f9fafb;color:#6b7280;font-size:11px;line-height:1.5">Notification automatique de votre espace RH. Aucun montant ni donnée bancaire n'est envoyé par e-mail.</td></tr>
-  </table></td></tr></table></body></html>`;
-  const text = `${title}\n\n${body}\n\nOuvrir Mon espace RH : ${link}\n\nNotification automatique de votre espace RH.`;
-  return { title, html, text, link };
 }
 
 /** Miroir e-mail des notifications RH : SMTP RH (Paramètres RH), sinon Brevo. */
@@ -56,7 +26,8 @@ export async function sendRhNotificationEmail(to: string, payload: NotificationP
   if (process.env.RH_NOTIFICATION_EMAILS_ENABLED === 'false') return false;
   const email = to.trim().toLowerCase();
   if (!email) return false;
-  const { title, html, text } = builder(payload);
+  const { html, text } = await build(payload);
+  const title = payload.title.slice(0, 140);
 
   const settings = await getEmailSettingsForSend();
   if (settings) {
