@@ -7,6 +7,7 @@ import { isSubscriberActive } from '@/lib/newsletter/subscribers';
 import { renderArticleNewsletterHtml, renderArticleNewsletterText, buildArticleNewsletterSubject, type ArticleNewsletterData } from '@/lib/newsletter/article-template';
 import { renderVideoNewsletterHtml, renderVideoNewsletterText, buildVideoNewsletterSubject, type VideoNewsletterData } from '@/lib/newsletter/video-template';
 import { getArticlePath } from '@/config/site';
+import { orderRecipients, recipientRank } from '@/lib/newsletter/recipient-priority';
 import { getArticleForNewsletter } from '@/lib/newsletter/subscribers';
 import { getStrapiMediaAbsoluteUrl } from '@/lib/utils';
 
@@ -73,7 +74,7 @@ export async function enqueueArticleNewsletter(input: {
     if (file.items.some(item => !item.completedAt && item.kind === 'article' && item.articleSlug === input.slug)) return 0;
     file.items.push({
       id: randomUUID(), kind: 'article', createdAt: new Date().toISOString(),
-      articleSlug: input.slug, recipients: input.recipients, cursor: 0, sent: 0, failed: 0,
+      articleSlug: input.slug, recipients: orderRecipients(input.recipients.filter(recipient => recipientRank(recipient.email) < 3)), cursor: 0, sent: 0, failed: 0,
     });
     await writeQueue(file);
     return input.recipients.length;
@@ -89,7 +90,7 @@ export async function enqueueYoutubeNewsletter(input: {
     if (file.items.some(item => !item.completedAt && item.kind === 'youtube' && item.video?.videoUrl === input.video.videoUrl)) return 0;
     file.items.push({
       id: randomUUID(), kind: 'youtube', createdAt: new Date().toISOString(),
-      video: input.video, recipients: input.recipients, cursor: 0, sent: 0, failed: 0,
+      video: input.video, recipients: orderRecipients(input.recipients.filter(recipient => recipientRank(recipient.email) < 3)), cursor: 0, sent: 0, failed: 0,
     });
     await writeQueue(file);
     return input.recipients.length;
