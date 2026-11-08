@@ -101,14 +101,17 @@ export async function resolveSmtpSettings(): Promise<ResolvedSmtpSettings | null
 }
 
 export async function isMailReady(): Promise<boolean> {
-  if (await resolveSmtpSettings()) return true;
-  return Boolean(newsletterConfig.enabled && newsletterConfig.brevoApiKey);
+  const delivery = await resolveNewsletterDelivery();
+  if (delivery.provider === 'brevo') return Boolean(newsletterConfig.enabled && delivery.brevoApiKey);
+  if (delivery.provider === 'smtp') return Boolean(delivery.smtp);
+  return false;
 }
 
 export interface NewsletterDeliverySettings {
   provider: 'smtp' | 'brevo';
   smtp: ResolvedSmtpSettings | null;
   brevoApiKey: string;
+  relay: 'brevo' | 'planet' | null;
 }
 
 let deliveryCache: { at: number; value: NewsletterDeliverySettings } | null = null;
@@ -127,7 +130,8 @@ export async function resolveNewsletterDelivery(): Promise<NewsletterDeliverySet
         ? 'brevo'
         : 'smtp';
   const brevoApiKey = stored?.brevoApiKey?.trim() || newsletterConfig.brevoApiKey;
-  const value: NewsletterDeliverySettings = { provider, smtp, brevoApiKey };
+  const relay: 'brevo' | 'planet' | null = smtp ? ((smtp.host || '').toLowerCase().includes('smtp-relay.brevo.com') ? 'brevo' : 'planet') : null;
+  const value: NewsletterDeliverySettings = { provider, relay, smtp, brevoApiKey };
   deliveryCache = { at: Date.now(), value };
   return value;
 }

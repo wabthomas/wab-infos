@@ -79,7 +79,8 @@ export async function sendBatchEmails(
   }
 
   const delivery = await resolveNewsletterDelivery();
-  const provider = delivery.provider === 'brevo' && delivery.brevoApiKey ? 'brevo' : delivery.smtp ? 'smtp' : delivery.provider;
+  const brevoRelay = delivery.provider === 'smtp' && delivery.relay === 'brevo';
+  const provider = (delivery.provider === 'brevo' && delivery.brevoApiKey) || brevoRelay ? 'brevo' : delivery.smtp ? 'smtp' : delivery.provider;
   if (provider === 'brevo') assertBrevoQuota(emails.length);
   else assertSmtpQuota(emails.length);
   const concurrency =

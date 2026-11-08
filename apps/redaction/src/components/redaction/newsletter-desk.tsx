@@ -284,7 +284,7 @@ export function NewsletterDesk() {
           <span className="text-xs font-semibold text-muted-foreground">Fournisseur d’envoi</span>
           <select className={inputClass} value={settings.provider} onChange={(event) => patch({ provider: event.target.value as 'smtp' | 'brevo' })}>
             <option value="brevo">Brevo (API — newsletter)</option>
-            <option value="smtp">SMTP N0C</option>
+            <option value="smtp">SMTP (N0C ou relais Brevo)</option>
           </select>
         </label>
         {settings.provider === 'brevo' && <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/[0.04] p-3">
@@ -296,6 +296,7 @@ export function NewsletterDesk() {
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold text-muted-foreground">Serveur SMTP</span>
+            <span className="block text-[11px] text-muted-foreground">Relais Brevo : smtp-relay.brevo.com · port 587 · mot de passe = clé SMTP xsmtpsib-…</span>
             <input className={inputClass} value={settings.smtpHost} onChange={(event) => patch({ smtpHost: event.target.value })} />
           </label>
           <label className="block space-y-1.5">

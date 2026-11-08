@@ -14,7 +14,7 @@ import { getStrapiMediaAbsoluteUrl } from '@/lib/utils';
 
 export const NEWSLETTER_BATCH_SIZE = Math.max(1, newsletterConfig.maxRecipientsPerRun);
 const QUEUE_WINDOW_MS = Math.max(60_000, newsletterConfig.smtpBatchWindowMs);
-const isBrevo = async () => { const delivery = await resolveNewsletterDelivery(); return delivery.provider === 'brevo' && Boolean(delivery.brevoApiKey); };
+const isBrevo = async () => { const delivery = await resolveNewsletterDelivery(); return (delivery.provider === 'brevo' && Boolean(delivery.brevoApiKey)) || (delivery.provider === 'smtp' && delivery.relay === 'brevo'); };
 const queueWindowMs = async () => ((await isBrevo()) ? Math.max(30_000, newsletterConfig.brevoBatchWindowMs) : QUEUE_WINDOW_MS);
 const queueBatchSize = async () => ((await isBrevo()) ? Math.max(1, newsletterConfig.brevoBatchSize) : NEWSLETTER_BATCH_SIZE);
 function todayKinshasa(): string {
