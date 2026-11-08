@@ -18,13 +18,17 @@ export function isDisposableEmail(email: string): boolean {
 }
 
 /** 0 = prioritaire, 2 = adresse de rôle (en dernier), 3 = jetable (exclue). */
+const GMAIL_DOMAINS = new Set(['gmail.com', 'googlemail.com']);
+
 export function recipientRank(email: string): number {
   const normalized = email.trim().toLowerCase();
   const [local, domain] = normalized.split('@');
   if (!local || !domain) return 3;
   if (DISPOSABLE_DOMAINS.has(domain)) return 3;
   if (ROLE_LOCAL_PARTS.has(local.split('+')[0])) return 2;
-  return 0;
+  // Gmail d'abord : meilleure réputation et traitement rapide des lots.
+  if (GMAIL_DOMAINS.has(domain)) return 0;
+  return 1;
 }
 
 export function orderRecipients<T extends { email: string }>(recipients: T[]): T[] {

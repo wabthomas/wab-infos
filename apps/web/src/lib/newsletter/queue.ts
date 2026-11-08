@@ -120,6 +120,7 @@ export async function drainNewsletterQueue(): Promise<{ sent: number; failed: nu
     if ((file.daySent ?? 0) >= dailyLimit) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'daily_limit' };
 
     const item = pending[0];
+    if (item.cursor === 0) item.recipients = orderRecipients(item.recipients);
     const allowed = Math.min(await queueBatchSize(), Math.max(0, dailyLimit - (file.daySent ?? 0)));
     if (allowed <= 0) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'daily_limit' };
     const slice = item.recipients.slice(item.cursor, item.cursor + allowed);
