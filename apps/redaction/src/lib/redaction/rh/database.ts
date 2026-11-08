@@ -32,7 +32,16 @@ async function queueRhNotification(client: PoolClient, collaboratorId: string, t
 async function pushRhDecisionForCollaborator(collaboratorId: string, type: import('./notifications').RhNotificationType): Promise<void> {
   try {
     const result = await db().query('SELECT account_email FROM redaction_rh.account_links WHERE collaborator_id=$1', [collaboratorId]);
-    await pushRhDecision(result.rows[0]?.account_email ?? null, type);
+    const email = result.rows[0]?.account_email ?? null;
+    const [{ rhNotificationPush }, { sendRhNotificationEmail }] = await Promise.all([
+      import('./notifications'),
+      import('./notification-email'),
+    ]);
+    const payload = rhNotificationPush(type);
+    await Promise.allSettled([
+      pushRhDecision(email, type),
+      email ? sendRhNotificationEmail(email, payload) : Promise.resolve(false),
+    ]);
   } catch { /* best-effort */ }
 }
 /** Push best-effort aux gestionnaires RH (rh_manager / finance_manager) après création d'une demande. */
