@@ -22,6 +22,8 @@ interface StoredSettings {
   senderEmail?: string | null;
   senderName?: string | null;
   replyTo?: string | null;
+  provider?: 'smtp' | 'brevo' | null;
+  brevoApiKey?: string | null;
 }
 
 function token(): string {
@@ -63,6 +65,8 @@ function envFallback(): Omit<NewsletterSettingsView, 'smtpPassSet' | 'source'> &
     senderEmail: process.env.NEWSLETTER_SENDER_EMAIL?.trim() || 'newsletter@wab-infos.com',
     senderName: process.env.NEWSLETTER_SENDER_NAME?.trim() || 'Wab-infos',
     replyTo: process.env.NEWSLETTER_REPLY_TO?.trim() || 'redaction@wab-infos.com',
+    provider: process.env.NEWSLETTER_PROVIDER === 'brevo' ? 'brevo' : 'smtp',
+    brevoApiKeySet: Boolean(process.env.BREVO_API_KEY),
   };
 }
 
@@ -73,6 +77,8 @@ export async function getNewsletterSettings(): Promise<NewsletterSettingsView> {
   if (!stored) {
     return {
       enabled: fallback.enabled,
+      provider: process.env.NEWSLETTER_PROVIDER === 'brevo' ? 'brevo' : 'smtp',
+      brevoApiKeySet: Boolean(process.env.BREVO_API_KEY),
       smtpHost: fallback.smtpHost,
       smtpPort: fallback.smtpPort,
       smtpSecure: fallback.smtpSecure,
@@ -88,6 +94,8 @@ export async function getNewsletterSettings(): Promise<NewsletterSettingsView> {
   const pass = stored.smtpPass?.trim() || fallback.smtpPass;
   return {
     enabled: stored.enabled ?? true,
+    provider: stored.provider === 'brevo' ? 'brevo' : 'smtp',
+    brevoApiKeySet: Boolean(stored.brevoApiKey?.trim() || process.env.BREVO_API_KEY),
     smtpHost: stored.smtpHost?.trim() || fallback.smtpHost,
     smtpPort: stored.smtpPort && stored.smtpPort > 0 ? stored.smtpPort : fallback.smtpPort,
     smtpSecure: stored.smtpSecure ?? fallback.smtpSecure,
@@ -112,6 +120,8 @@ function strapiErrorMessage(status: number, raw: string): string {
 }
 
 export async function saveNewsletterSettings(input: {
+  provider: 'smtp' | 'brevo';
+  brevoApiKey?: string;
   enabled: boolean;
   smtpHost: string;
   smtpPort: number;
@@ -131,8 +141,13 @@ export async function saveNewsletterSettings(input: {
   }
 
   const previousPass = current.status === 200 ? current.data?.data?.smtpPass?.trim() || '' : '';
+  const previousBrevoKey = current.status === 200 ? current.data?.data?.brevoApiKey?.trim() || '' : '';
+  const nextBrevoKey = input.brevoApiKey?.trim() || previousBrevoKey || process.env.BREVO_API_KEY?.trim() || '';
+  if (input.provider === 'brevo' && !nextBrevoKey) throw new Error('Clé API Brevo requise pour ce mode d’envoi.');
   const nextPass = input.smtpPass?.trim() || previousPass;
   const payload = {
+    provider: input.provider,
+    brevoApiKey: nextBrevoKey,
     enabled: input.enabled,
     smtpHost: input.smtpHost.trim(),
     smtpPort: input.smtpPort,
@@ -191,6 +206,26 @@ async function resolveSmtpTransporter() {
 export async function sendNewsletterTest(to: string): Promise<void> {
   const email = to.trim().toLowerCase();
   if (!EMAIL_PATTERN.test(email)) throw new Error('Adresse de test invalide.');
+  const settingsView = await getNewsletterSettings();
+  if (settingsView.provider === 'brevo') {
+    const stored = await strapi<{ data?: { brevoApiKey?: string } | null }>('/newsletter-setting');
+    const key = stored.data?.data?.brevoApiKey?.trim() || process.env.BREVO_API_KEY?.trim() || '';
+    if (!key) throw new Error('Clé API Brevo manquante : enregistrez-la dans E-mails.');
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sender: { name: settingsView.senderName || 'Wab-infos', email: settingsView.senderEmail },
+        to: [{ email }],
+        subject: 'Test newsletter — Wab-infos',
+        htmlContent: `<div style="padding:24px;font-family:Arial,sans-serif;color:#18181b"><h1 style="font-size:20px">Test Brevo réussi</h1><p>Ceci est un e-mail de test envoyé depuis la rédaction Wab-infos. Le fournisseur Brevo est correctement configuré.</p></div>`,
+        textContent: 'Ceci est un e-mail de test envoyé depuis la rédaction Wab-infos. La configuration Brevo fonctionne.',
+      }),
+    });
+    if (!response.ok) throw new Error(`Brevo API ${response.status}: ${(await response.text()).slice(0, 160)}`);
+    return;
+  }
+
 
   const { view, transporter } = await resolveSmtpTransporter();
 

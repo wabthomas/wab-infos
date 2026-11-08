@@ -48,21 +48,26 @@ export async function PUT(request: Request) {
       senderEmail?: string;
       senderName?: string;
       replyTo?: string;
+      provider?: 'smtp' | 'brevo';
+      brevoApiKey?: string;
     };
 
+    const provider = body.provider === 'brevo' ? 'brevo' : 'smtp';
     const smtpHost = body.smtpHost?.trim() || '';
     const smtpUser = body.smtpUser?.trim() || '';
     const senderEmail = body.senderEmail?.trim() || '';
     const smtpPort = Number(body.smtpPort);
-    if (!smtpHost || !smtpUser || !senderEmail || !Number.isFinite(smtpPort) || smtpPort <= 0) {
+    if (!senderEmail || (provider === 'smtp' && (!smtpHost || !smtpUser || !Number.isFinite(smtpPort) || smtpPort <= 0))) {
       return NextResponse.json(
-        { error: 'Hôte, port, utilisateur et expéditeur sont requis.' },
+        { error: provider === 'brevo' ? 'Adresse expéditrice requise.' : 'Hôte, port, utilisateur et expéditeur sont requis.' },
         { status: 400 }
       );
     }
 
     const settings = await saveNewsletterSettings({
       enabled: body.enabled !== false,
+      provider,
+      brevoApiKey: body.brevoApiKey,
       smtpHost,
       smtpPort,
       smtpSecure: body.smtpSecure !== false,

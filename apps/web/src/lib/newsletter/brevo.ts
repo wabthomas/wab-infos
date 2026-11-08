@@ -1,8 +1,9 @@
 import { newsletterConfig } from '@/lib/newsletter/config';
 import type { SendEmailOptions } from '@/lib/newsletter/types';
 
-export async function sendViaBrevo(options: SendEmailOptions): Promise<void> {
-  const { brevoApiKey, senderEmail, senderName } = newsletterConfig;
+export async function sendViaBrevo(options: SendEmailOptions, apiKey?: string): Promise<void> {
+  const { brevoApiKey: envKey, senderEmail, senderName } = newsletterConfig;
+  const brevoApiKey = apiKey?.trim() || envKey;
 
   if (!brevoApiKey) {
     throw new Error('BREVO_API_KEY non configurée.');

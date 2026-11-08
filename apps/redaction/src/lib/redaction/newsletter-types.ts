@@ -8,6 +8,8 @@ export interface NewsletterSettingsView {
   senderName: string;
   replyTo: string;
   smtpPassSet: boolean;
+  provider: 'smtp' | 'brevo';
+  brevoApiKeySet: boolean;
   source: 'cms' | 'env' | 'none';
 }
 

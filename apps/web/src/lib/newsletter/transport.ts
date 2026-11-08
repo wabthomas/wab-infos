@@ -1,5 +1,5 @@
-import { newsletterConfig, resolveNewsletterProvider } from '@/lib/newsletter/config';
-import { isMailReady, resolveSmtpSettings } from '@/lib/newsletter/stored-settings';
+import { newsletterConfig } from '@/lib/newsletter/config';
+import { isMailReady, resolveNewsletterDelivery } from '@/lib/newsletter/stored-settings';
 import { sendViaBrevo } from '@/lib/newsletter/brevo';
 import { sendViaSmtp } from '@/lib/newsletter/smtp';
 import type { BatchSendResult, SendEmailOptions } from '@/lib/newsletter/types';
@@ -55,18 +55,19 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function sendTransactionalEmail(options: SendEmailOptions): Promise<void> {
-  if (await resolveSmtpSettings()) {
+  const delivery = await resolveNewsletterDelivery();
+  if (delivery.provider === 'brevo' && delivery.brevoApiKey) {
+    await sendViaBrevo(options, delivery.brevoApiKey);
+    return;
+  }
+  if (delivery.smtp) {
     await sendViaSmtp(options);
     return;
   }
-
-  if (resolveNewsletterProvider() === 'brevo') {
-    await sendViaBrevo(options);
-    return;
-  }
-
   throw new Error('Aucun transport e-mail configuré (SMTP ou Brevo).');
 }
+
+
 
 /** Envoi par lots avec débit limité (SMTP mutualisé) */
 export async function sendBatchEmails(
@@ -77,8 +78,10 @@ export async function sendBatchEmails(
     throw new Error('Newsletter non configurée.');
   }
 
-  const smtp = await resolveSmtpSettings();
-  const provider = smtp ? 'smtp' : resolveNewsletterProvider();
+  const delivery = await resolveNewsletterDelivery();
+  const provider = delivery.provider === 'brevo' && delivery.brevoApiKey ? 'brevo' : delivery.smtp ? 'smtp' : delivery.provider;
+  if (provider === 'brevo') assertBrevoQuota(emails.length);
+  else assertSmtpQuota(emails.length);
   const concurrency =
     provider === 'smtp'
       ? Math.max(1, newsletterConfig.smtpConcurrency)

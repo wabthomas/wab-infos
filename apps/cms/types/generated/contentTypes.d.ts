@@ -792,6 +792,7 @@ export interface ApiNewsletterSettingNewsletterSetting
     draftAndPublish: false;
   };
   attributes: {
+    brevoApiKey: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -802,6 +803,8 @@ export interface ApiNewsletterSettingNewsletterSetting
       'api::newsletter-setting.newsletter-setting'
     > &
       Schema.Attribute.Private;
+    provider: Schema.Attribute.Enumeration<['smtp', 'brevo']> &
+      Schema.Attribute.DefaultTo<'smtp'>;
     publishedAt: Schema.Attribute.DateTime;
     replyTo: Schema.Attribute.String &
       Schema.Attribute.DefaultTo<'redaction@wab-infos.com'>;

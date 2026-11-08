@@ -22,6 +22,8 @@ interface StoredNewsletterSettings {
   senderEmail?: string | null;
   senderName?: string | null;
   replyTo?: string | null;
+  provider?: 'smtp' | 'brevo' | null;
+  brevoApiKey?: string | null;
 }
 
 let cache: { at: number; value: ResolvedSmtpSettings | null } | null = null;
@@ -101,4 +103,31 @@ export async function resolveSmtpSettings(): Promise<ResolvedSmtpSettings | null
 export async function isMailReady(): Promise<boolean> {
   if (await resolveSmtpSettings()) return true;
   return Boolean(newsletterConfig.enabled && newsletterConfig.brevoApiKey);
+}
+
+export interface NewsletterDeliverySettings {
+  provider: 'smtp' | 'brevo';
+  smtp: ResolvedSmtpSettings | null;
+  brevoApiKey: string;
+}
+
+let deliveryCache: { at: number; value: NewsletterDeliverySettings } | null = null;
+
+/** Priorité : réglage enregistré dans E-mails (Strapi), puis variable d'environnement. */
+export async function resolveNewsletterDelivery(): Promise<NewsletterDeliverySettings> {
+  if (deliveryCache && Date.now() - deliveryCache.at < 30_000) return deliveryCache.value;
+  const stored = await fetchStoredSettings();
+  const smtp = await resolveSmtpSettings();
+  const envProvider = process.env.NEWSLETTER_PROVIDER?.trim().toLowerCase();
+  const provider: 'smtp' | 'brevo' = stored?.provider === 'brevo'
+    ? 'brevo'
+    : stored?.provider === 'smtp'
+      ? 'smtp'
+      : envProvider === 'brevo'
+        ? 'brevo'
+        : 'smtp';
+  const brevoApiKey = stored?.brevoApiKey?.trim() || newsletterConfig.brevoApiKey;
+  const value: NewsletterDeliverySettings = { provider, smtp, brevoApiKey };
+  deliveryCache = { at: Date.now(), value };
+  return value;
 }

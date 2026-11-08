@@ -44,6 +44,17 @@
     "replyTo": {
       "type": "string",
       "default": "redaction@wab-infos.com"
+    },
+    "provider": {
+      "type": "enumeration",
+      "enum": [
+        "smtp",
+        "brevo"
+      ],
+      "default": "smtp"
+    },
+    "brevoApiKey": {
+      "type": "string"
     }
   }
 }

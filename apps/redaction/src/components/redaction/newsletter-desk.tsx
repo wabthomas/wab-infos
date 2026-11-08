@@ -24,6 +24,7 @@ export function NewsletterDesk() {
   const [cleanup, setCleanup] = useState<{ checked: number; valid: number; deleted: number; duplicates: number; suspicious: Array<{ email: string; reasons: string[] }>; invalid: Array<{ email: string; reasons: string[] }>; deleteErrors: string[] } | null>(null);
   const [settings, setSettings] = useState<NewsletterSettingsView | null>(null);
   const [password, setPassword] = useState('');
+  const [brevoKey, setBrevoKey] = useState('');
   const [testTo, setTestTo] = useState('');
   const [singleEmail, setSingleEmail] = useState('');
   const [importText, setImportText] = useState('');
@@ -83,7 +84,7 @@ export function NewsletterDesk() {
       const response = await fetchRedaction('/api/redaction/newsletter', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...settings, smtpPass: password }),
+        body: JSON.stringify({ ...settings, smtpPass: password, brevoApiKey: brevoKey }),
       });
       const data = await readApiJsonResponse<{ settings?: NewsletterSettingsView; error?: string }>(
         response
@@ -279,6 +280,18 @@ export function NewsletterDesk() {
           />
           Envois activés
         </label>
+        <label className="block space-y-1.5">
+          <span className="text-xs font-semibold text-muted-foreground">Fournisseur d’envoi</span>
+          <select className={inputClass} value={settings.provider} onChange={(event) => patch({ provider: event.target.value as 'smtp' | 'brevo' })}>
+            <option value="brevo">Brevo (API — newsletter)</option>
+            <option value="smtp">SMTP N0C</option>
+          </select>
+        </label>
+        {settings.provider === 'brevo' && <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/[0.04] p-3">
+          <p className="text-sm font-semibold">Clé API Brevo</p>
+          <input className={inputClass} type="password" autoComplete="new-password" value={brevoKey} placeholder={settings.brevoApiKeySet ? 'Clé enregistrée — laisser vide pour conserver' : 'xkeysib-…'} onChange={(event) => setBrevoKey(event.target.value)} />
+          <p className="text-xs text-muted-foreground">Brevo reste dédié aux actualités et vidéos. {settings.brevoApiKeySet ? 'Une clé est déjà enregistrée.' : 'Aucune clé enregistrée.'}</p>
+        </div>}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1.5">

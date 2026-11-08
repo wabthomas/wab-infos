@@ -7,15 +7,16 @@ import { isSubscriberActive } from '@/lib/newsletter/subscribers';
 import { renderArticleNewsletterHtml, renderArticleNewsletterText, buildArticleNewsletterSubject, type ArticleNewsletterData } from '@/lib/newsletter/article-template';
 import { renderVideoNewsletterHtml, renderVideoNewsletterText, buildVideoNewsletterSubject, type VideoNewsletterData } from '@/lib/newsletter/video-template';
 import { getArticlePath } from '@/config/site';
+import { resolveNewsletterDelivery } from '@/lib/newsletter/stored-settings';
 import { orderRecipients, recipientRank } from '@/lib/newsletter/recipient-priority';
 import { getArticleForNewsletter } from '@/lib/newsletter/subscribers';
 import { getStrapiMediaAbsoluteUrl } from '@/lib/utils';
 
 export const NEWSLETTER_BATCH_SIZE = Math.max(1, newsletterConfig.maxRecipientsPerRun);
 const QUEUE_WINDOW_MS = Math.max(60_000, newsletterConfig.smtpBatchWindowMs);
-const isBrevo = () => process.env.NEWSLETTER_PROVIDER === 'brevo' && Boolean(newsletterConfig.brevoApiKey);
-const queueWindowMs = () => (isBrevo() ? Math.max(30_000, newsletterConfig.brevoBatchWindowMs) : QUEUE_WINDOW_MS);
-const queueBatchSize = () => (isBrevo() ? Math.max(1, newsletterConfig.brevoBatchSize) : NEWSLETTER_BATCH_SIZE);
+const isBrevo = async () => { const delivery = await resolveNewsletterDelivery(); return delivery.provider === 'brevo' && Boolean(delivery.brevoApiKey); };
+const queueWindowMs = async () => ((await isBrevo()) ? Math.max(30_000, newsletterConfig.brevoBatchWindowMs) : QUEUE_WINDOW_MS);
+const queueBatchSize = async () => ((await isBrevo()) ? Math.max(1, newsletterConfig.brevoBatchSize) : NEWSLETTER_BATCH_SIZE);
 function todayKinshasa(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Kinshasa' });
 }
@@ -112,14 +113,14 @@ export async function drainNewsletterQueue(): Promise<{ sent: number; failed: nu
     const pending = file.items.filter(item => !item.completedAt && item.cursor < item.recipients.length);
     if (!pending.length) return { sent: 0, failed: 0, remaining: 0, skipped: 'empty' };
     const last = file.lastSentAt ? Date.parse(file.lastSentAt) : 0;
-    if (last && Date.now() - last < queueWindowMs()) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'window' };
+    if (last && Date.now() - last < await queueWindowMs()) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'window' };
     const day = todayKinshasa();
     if (file.day !== day) { file.day = day; file.daySent = 0; }
-    const dailyLimit = isBrevo() ? newsletterConfig.brevoDailyLimit : Number.POSITIVE_INFINITY;
+    const dailyLimit = (await isBrevo()) ? newsletterConfig.brevoDailyLimit : Number.POSITIVE_INFINITY;
     if ((file.daySent ?? 0) >= dailyLimit) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'daily_limit' };
 
     const item = pending[0];
-    const allowed = Math.min(queueBatchSize(), Math.max(0, dailyLimit - (file.daySent ?? 0)));
+    const allowed = Math.min(await queueBatchSize(), Math.max(0, dailyLimit - (file.daySent ?? 0)));
     if (allowed <= 0) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'daily_limit' };
     const slice = item.recipients.slice(item.cursor, item.cursor + allowed);
     const articlePayload = item.kind === 'article' && item.articleSlug ? await getArticle(item.articleSlug) : null;
