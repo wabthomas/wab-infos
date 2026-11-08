@@ -23,8 +23,9 @@ export function rhNotificationMessage(type: RhNotificationType): string {
     case 'prestation':
       return 'Votre déclaration de prestation a été traitée.';
     case 'remuneration':
+      return 'Votre rémunération a été validée. Ouvrez Mon espace RH pour la consulter.';
     case 'retrait':
-      return 'Une information RH a été mise à jour.';
+      return 'Votre retrait a été traité. Ouvrez Mon espace RH pour le détail.';
     case 'service_card':
       return 'Votre carte de service est disponible dans votre espace RH.';
     case 'attendance_correction':
@@ -32,7 +33,7 @@ export function rhNotificationMessage(type: RhNotificationType): string {
     case 'dispute':
       return 'Votre contestation a reçu une réponse.';
     case 'historical':
-      return 'Votre ancien paiement a été traité.';
+      return 'Ouvrez Mon espace RH pour consulter votre ancien paiement.';
   }
 }
 
@@ -41,12 +42,12 @@ export function rhNotificationPush(type: RhNotificationType): { title: string; b
   const titles: Record<RhNotificationType, string> = {
     absence: 'Demande d’absence traitée',
     prestation: 'Déclaration traitée',
-    remuneration: 'Rémunération mise à jour',
-    retrait: 'Demande de retrait mise à jour',
+    remuneration: 'Salaire disponible',
+    retrait: 'Retrait traité',
     service_card: 'Votre carte de service est disponible',
     attendance_correction: 'Correction de pointage traitée',
     dispute: 'Contestation traitée',
-    historical: 'Ancien paiement traité',
+    historical: 'Paiement historique réglé',
   };
   const url =
     type === 'service_card'
@@ -57,7 +58,11 @@ export function rhNotificationPush(type: RhNotificationType): { title: string; b
           ? '/mon-rh/contestations'
           : type === 'historical'
             ? '/mon-rh/paiements-anciens'
-            : '/mon-rh/notifications';
+            : type === 'remuneration'
+              ? '/mon-rh/remunerations'
+              : type === 'retrait'
+                ? '/mon-rh/retraits'
+                : '/mon-rh/notifications';
   return { title: titles[type], body: rhNotificationMessage(type), url };
 }
 
@@ -78,7 +83,7 @@ export function rhManagerPush(type: RhManagerEventType): { title: string; body: 
     },
     retrait: {
       title: 'Nouvelle demande de retrait',
-      body: 'Une demande de retrait attend votre traitement.',
+      body: 'Un collaborateur a demandé un retrait. Ouvrez RH → Retraits.',
       url: '/rh/retraits',
     },
     contestation: {
