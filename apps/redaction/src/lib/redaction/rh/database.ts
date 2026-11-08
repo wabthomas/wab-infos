@@ -18,7 +18,7 @@ export function db(): Pool {
 }
 async function runtimeFlag(key:string, fallback:boolean):Promise<boolean>{try{const result=await db().query('SELECT enabled FROM redaction_rh.feature_settings WHERE feature_key=$1',[key]);return result.rowCount?result.rows[0].enabled:fallback;}catch{return fallback;}}
 /** Un événement et sa notification sont enregistrés ensemble, sans données sensibles. */
-async function queueRhNotification(client: PoolClient, collaboratorId: string, type: import('./notifications').RhNotificationType, sourceId: string, sourceVersion: number): Promise<void> {
+export async function queueRhNotification(client: PoolClient, collaboratorId: string, type: import('./notifications').RhNotificationType, sourceId: string, sourceVersion: number): Promise<void> {
   if (!(await runtimeFlag('notificationsEnabled', process.env.REDACTION_RH_NOTIFICATIONS_ENABLED === 'true'))) return;
   await client.query(`INSERT INTO redaction_rh.notifications (id,collaborator_id,account_id,account_email,event_type,source_id,source_version)
     SELECT $1,l.collaborator_id,l.account_id,l.account_email,$3,$4,$5 FROM redaction_rh.account_links l
@@ -50,8 +50,9 @@ async function pushRhManagers(type: import('./notifications').RhManagerEventType
   try {
     const rows = await db().query(`SELECT DISTINCT l.account_email AS email FROM redaction_rh.role_grants g JOIN redaction_rh.account_links l ON l.collaborator_id=g.collaborator_id WHERE g.role IN ('rh_manager','finance_manager') AND l.account_email IS NOT NULL`);
     if (!rows.rowCount) return;
-    const [{ rhManagerPush }, { notifyCollaboratorByEmail }] = await Promise.all([import('./notifications'), import('../web-push')]);
-    await Promise.all(rows.rows.map((row) => notifyCollaboratorByEmail(row.email, rhManagerPush(type))));
+    const [{ rhManagerPush }, { notifyCollaboratorByEmail }, { sendRhNotificationEmail }] = await Promise.all([import('./notifications'), import('../web-push'), import('./notification-email')]);
+    const message = rhManagerPush(type);
+    await Promise.all(rows.rows.flatMap((row) => [notifyCollaboratorByEmail(row.email, message), sendRhNotificationEmail(row.email, message)]));
   } catch (error) {
     console.warn(`[rh] manager push ${type}: ${error instanceof Error ? error.message : 'erreur inconnue'}`);
   }
@@ -207,10 +208,9 @@ export async function decideAbsence(id: string, version: number, decision: impor
     const result = await client.query(`UPDATE redaction_rh.absence_requests SET status=$1, decision_note=$2, version=version+1, updated_at=now() WHERE id=$3 AND version=$4 AND status=$5 RETURNING ${absenceColumns}`, [status, note, id, version, current]);
     if (!result.rows[0]) { await client.query('ROLLBACK'); return null; }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,absence_id) VALUES ($1,$2,$3,$4)', [actor, `absence_${decision}`, result.rows[0].collaboratorId, id]);
-    await queueRhNotification(client, result.rows[0].collaboratorId, 'absence', id, result.rows[0].version);
+    await queueRhNotification(client, result.rows[0].collaboratorId, result.rows[0].status === 'approved' ? 'absence_approved' : 'absence_rejected', id, result.rows[0].version);
     const link = await client.query('SELECT account_email FROM redaction_rh.account_links WHERE collaborator_id=$1', [result.rows[0].collaboratorId]);
     await client.query('COMMIT');
-    await pushRhDecision(link.rows[0]?.account_email ?? null, 'absence');
     return result.rows[0];
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
@@ -378,7 +378,8 @@ export async function decideSubmission(submissionId: string, version: number, de
     }
     await client.query(`UPDATE redaction_rh.activity_submissions SET status=$1,decision_note=$2,version=version+1,updated_at=now() WHERE id=$3`, [decision === 'approve' ? 'approved' : 'rejected', note, submissionId]);
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,submission_id,activity_id) VALUES ($1,$2,$3,$4,$5)', [actor, `submission_${decision}`, collaboratorId, submissionId, activityId]);
-    await queueRhNotification(client, collaboratorId, 'prestation', submissionId, version + 1);
+    const submissionType = decision === 'approve' ? 'prestation_approved' : 'prestation_rejected';
+    await queueRhNotification(client, collaboratorId, submissionType, submissionId, version + 1);
     await client.query('COMMIT');
     return true;
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -553,7 +554,6 @@ export async function decideWithdrawal(id: string, version: number, decision: im
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,withdrawal_id) VALUES ($1,$2,$3,$4)', [actor, `withdrawal_${decision.action}`, personId, id]);
     await queueRhNotification(client, personId, 'retrait', id, version + 1);
     await client.query('COMMIT');
-    await pushRhDecision(link.rows[0]?.account_email ?? null, 'retrait');
     return true;
   } catch (error) { await client.query('ROLLBACK'); if ((error as { code?: string }).code === '23505') return false; throw error; }
   finally { client.release(); }
@@ -657,6 +657,7 @@ export async function createDocument(input: { collaboratorId: string; title: str
     if (input.share) await client.query('INSERT INTO redaction_rh.document_shares (document_id,collaborator_id,account_id,account_email) VALUES ($1,$2,$3,$4)', [id, input.collaboratorId, link!.rows[0].account_id, link!.rows[0].account_email]);
     const result = await client.query(`SELECT ${documentCols} FROM redaction_rh.documents WHERE id=$1`, [id]);
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,document_id) VALUES ($1,$2,$3,$4)', [actor, 'document_create', input.collaboratorId, id]);
+    if (input.share) await queueRhNotification(client, input.collaboratorId, 'document_available', id, 1);
     await client.query('COMMIT'); return result.rows[0];
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
@@ -796,6 +797,7 @@ export async function createMyDispute(principal: import('./principal').RhPrincip
     }
     await client.query('INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id,dispute_id) VALUES ($1,$2,$3,$4)',[principal.email,'dispute_create',id,result.rows[0].id]);
     await queueManagementEvent(client, 'contestation', result.rows[0].id);
+    await queueRhNotification(client, id, 'dispute_created', result.rows[0].id, 1);
     await client.query('COMMIT'); return result.rows[0];
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }

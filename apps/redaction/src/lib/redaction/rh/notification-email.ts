@@ -1,4 +1,6 @@
 import 'server-only';
+import nodemailer from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 type NotificationPayload = { title: string; body: string; url: string };
 
@@ -11,27 +13,33 @@ function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[char]!));
 }
 
-/** Miroir e-mail des notifications RH : mêmes textes que le push, aucun montant. */
-export async function sendRhNotificationEmail(to: string, payload: NotificationPayload): Promise<boolean> {
-  if (process.env.RH_NOTIFICATION_EMAILS_ENABLED === 'false') return false;
-  const apiKey = process.env.BREVO_API_KEY?.trim();
-  const email = to.trim().toLowerCase();
-  if (!apiKey || !email) return false;
+function smtpTransport() {
+  const host = process.env.RH_SMTP_HOST?.trim();
+  if (!host) return null;
+  const transport = nodemailer.createTransport({
+    host,
+    port: Number(process.env.RH_SMTP_PORT || 465),
+    secure: process.env.RH_SMTP_SECURE !== 'false',
+    auth: process.env.RH_SMTP_USER?.trim() ? {
+      user: process.env.RH_SMTP_USER.trim(),
+      pass: process.env.RH_SMTP_PASS || '',
+    } : undefined,
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 25_000,
+  });
+  return transport;
+}
 
-  const senderEmail = process.env.RH_NOTIFICATION_SENDER_EMAIL?.trim()
-    || process.env.NEWSLETTER_SENDER_EMAIL?.trim()
-    || 'newsletter@wab-infos.com';
-  const senderName = process.env.RH_NOTIFICATION_SENDER_NAME?.trim()
-    || process.env.NEWSLETTER_SENDER_NAME?.trim()
-    || 'Wab-infos';
+function builder(payload: NotificationPayload) {
   const link = absoluteUrl(payload.url);
   const title = payload.title.slice(0, 140);
   const body = payload.body.slice(0, 500);
-
   const html = `<!doctype html><html lang="fr"><body style="margin:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:24px 12px"><tr><td align="center">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e7eb">
-  <tr><td style="background:#c41e3a;color:#ffffff;padding:18px 24px;font-size:15px;font-weight:bold">${escapeHtml(senderName)} · Espace RH</td></tr>
+  <tr><td style="background:#c41e3a;color:#ffffff;padding:18px 24px;font-size:15px;font-weight:bold">Wab-infos · Espace RH</td></tr>
   <tr><td style="padding:24px">
     <h1 style="margin:0 0 10px;font-size:19px;line-height:1.3">${escapeHtml(title)}</h1>
     <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#374151">${escapeHtml(body)}</p>
@@ -39,9 +47,42 @@ export async function sendRhNotificationEmail(to: string, payload: NotificationP
   </td></tr>
   <tr><td style="padding:14px 24px;background:#f9fafb;color:#6b7280;font-size:11px;line-height:1.5">Notification automatique de votre espace RH. Aucun montant ni donnée bancaire n'est envoyé par e-mail.</td></tr>
   </table></td></tr></table></body></html>`;
-
   const text = `${title}\n\n${body}\n\nOuvrir Mon espace RH : ${link}\n\nNotification automatique de votre espace RH.`;
+  return { title, html, text, link };
+}
 
+/** Miroir e-mail des notifications RH : SMTP N0C dédié, sinon Brevo (jamais la newsletter). */
+export async function sendRhNotificationEmail(to: string, payload: NotificationPayload): Promise<boolean> {
+  if (process.env.RH_NOTIFICATION_EMAILS_ENABLED === 'false') return false;
+  const email = to.trim().toLowerCase();
+  if (!email) return false;
+  const { title, html, text } = builder(payload);
+  const senderEmail = process.env.RH_SMTP_FROM?.trim()
+    || process.env.RH_NOTIFICATION_SENDER_EMAIL?.trim()
+    || 'redaction@wab-infos.com';
+  const senderName = process.env.RH_NOTIFICATION_SENDER_NAME?.trim() || 'Wab-infos RH';
+
+  const transport = smtpTransport();
+  if (transport) {
+    try {
+      await transport.sendMail({
+        from: { name: senderName, address: senderEmail },
+        to: email,
+        subject: title,
+        html,
+        text,
+        replyTo: process.env.RH_SMTP_REPLY_TO?.trim() || senderEmail,
+        headers: { 'X-Auto-Response-Suppress': 'All', 'Auto-Submitted': 'auto-generated' },
+      });
+      return true;
+    } catch (error) {
+      console.warn('[rh] e-mail notification SMTP indisponible', error instanceof Error ? error.message : 'erreur inconnue');
+      return false;
+    }
+  }
+
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  if (!apiKey) return false;
   try {
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',

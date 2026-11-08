@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { db } from './database';
+import { db, queueRhNotification } from './database';
 import { getRhFlags } from './flags';
 import type { RhPrincipal } from './principal';
 import type { Attendance, AttendanceCorrection, AttendanceCorrectionInput } from './attendance';
@@ -45,6 +45,7 @@ export async function createMyAttendanceCorrection(principal: RhPrincipal, input
       VALUES ($1,$2,$3,$4,$5,$6,'employee',$7) RETURNING ${correctionColumns}`,
       [randomUUID(), person, input.workDate, input.checkIn, input.checkOut, input.reason, principal.email]);
     await client.query(`INSERT INTO redaction_rh.audit_log (actor_email,action,collaborator_id) VALUES ($1,'attendance_correction_request',$2)`, [principal.email, person]);
+    await queueRhNotification(client, person, 'attendance_correction_requested', result.rows[0].id, 1);
     await client.query('COMMIT');
     return result.rows[0];
   } catch (error) { await client.query('ROLLBACK'); throw error; }

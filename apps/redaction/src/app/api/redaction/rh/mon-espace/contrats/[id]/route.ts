@@ -72,6 +72,7 @@ export async function POST(request: Request, { params }: Params) {
       stage = 'validation de la transaction';
       await client.query('COMMIT');
       await pushContractAlert([row.prepared_by], 'signed');
+        await pushContractAlert([principal.email], 'signedEmployee');
       return json({ ok:true, status:'pending_approval' });
     } catch (error) { await client.query('ROLLBACK').catch(() => undefined); throw error; }
     finally { client.release(); }

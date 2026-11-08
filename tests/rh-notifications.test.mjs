@@ -1,10 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { rhNotificationMessage } from '../apps/redaction/src/lib/redaction/rh/notifications.ts';
-test('messages génériques sans montant, date ou motif financier', () => {
+test('messages de notification distincts et sans montant', () => {
   const remuneration = rhNotificationMessage('remuneration');
-  assert.equal(remuneration, rhNotificationMessage('retrait'));
-  assert.doesNotMatch(remuneration, /salaire|paiement|retrait|CDF|USD|\d/i);
+  const retrait = rhNotificationMessage('retrait');
+  assert.notEqual(remuneration, retrait);
+  assert.match(remuneration, /rémunération/i);
+  assert.match(retrait, /retrait/i);
+  assert.doesNotMatch(remuneration, /CDF|USD|\d/i);
   assert.match(rhNotificationMessage('absence'), /demande/);
   assert.match(rhNotificationMessage('prestation'), /déclaration/);
 });
