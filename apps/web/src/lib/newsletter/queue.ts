@@ -12,6 +12,12 @@ import { getStrapiMediaAbsoluteUrl } from '@/lib/utils';
 
 export const NEWSLETTER_BATCH_SIZE = Math.max(1, newsletterConfig.maxRecipientsPerRun);
 const QUEUE_WINDOW_MS = Math.max(60_000, newsletterConfig.smtpBatchWindowMs);
+const isBrevo = () => process.env.NEWSLETTER_PROVIDER === 'brevo' && Boolean(newsletterConfig.brevoApiKey);
+const queueWindowMs = () => (isBrevo() ? Math.max(30_000, newsletterConfig.brevoBatchWindowMs) : QUEUE_WINDOW_MS);
+const queueBatchSize = () => (isBrevo() ? Math.max(1, newsletterConfig.brevoBatchSize) : NEWSLETTER_BATCH_SIZE);
+function todayKinshasa(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Kinshasa' });
+}
 
 type Recipient = { email: string; unsubscribeUrl: string };
 type QueueItem = {
@@ -27,7 +33,7 @@ type QueueItem = {
   completedAt?: string;
   attempts?: number;
 };
-type QueueFile = { lastSentAt?: string; items: QueueItem[] };
+type QueueFile = { lastSentAt?: string; day?: string; daySent?: number; items: QueueItem[] };
 
 const queuePath = process.env.NEWSLETTER_QUEUE_FILE
   || path.resolve(process.cwd(), '../../.data/newsletter-queue.json');
@@ -105,10 +111,16 @@ export async function drainNewsletterQueue(): Promise<{ sent: number; failed: nu
     const pending = file.items.filter(item => !item.completedAt && item.cursor < item.recipients.length);
     if (!pending.length) return { sent: 0, failed: 0, remaining: 0, skipped: 'empty' };
     const last = file.lastSentAt ? Date.parse(file.lastSentAt) : 0;
-    if (last && Date.now() - last < QUEUE_WINDOW_MS) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'window' };
+    if (last && Date.now() - last < queueWindowMs()) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'window' };
+    const day = todayKinshasa();
+    if (file.day !== day) { file.day = day; file.daySent = 0; }
+    const dailyLimit = isBrevo() ? newsletterConfig.brevoDailyLimit : Number.POSITIVE_INFINITY;
+    if ((file.daySent ?? 0) >= dailyLimit) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'daily_limit' };
 
     const item = pending[0];
-    const slice = item.recipients.slice(item.cursor, item.cursor + NEWSLETTER_BATCH_SIZE);
+    const allowed = Math.min(queueBatchSize(), Math.max(0, dailyLimit - (file.daySent ?? 0)));
+    if (allowed <= 0) return { sent: 0, failed: 0, remaining: pending.length, skipped: 'daily_limit' };
+    const slice = item.recipients.slice(item.cursor, item.cursor + allowed);
     const articlePayload = item.kind === 'article' && item.articleSlug ? await getArticle(item.articleSlug) : null;
     if (item.kind === 'article' && !articlePayload) throw new Error('Article newsletter introuvable.');
     const emails = slice.map((recipient) => {
@@ -138,6 +150,7 @@ export async function drainNewsletterQueue(): Promise<{ sent: number; failed: nu
     }
     item.cursor += slice.length;
     item.sent += result.sent;
+    file.daySent = (file.daySent ?? 0) + slice.length;
     const remaining = item.recipients.length - item.cursor;
     if (remaining <= 0) item.completedAt = new Date().toISOString();
     await writeQueue(file);

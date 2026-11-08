@@ -29,6 +29,9 @@ export const newsletterConfig = {
   smtpBatchWindowMs: Number(process.env.NEWSLETTER_SMTP_BATCH_WINDOW_MS || 600_000),
   maxEmailsPerHour: Number(process.env.NEWSLETTER_MAX_PER_HOUR || 200),
   maxRecipientsPerRun: Number(process.env.NEWSLETTER_MAX_PER_RUN || 20),
+  brevoDailyLimit: Number(process.env.NEWSLETTER_BREVO_DAILY_LIMIT || 300),
+  brevoBatchSize: Number(process.env.NEWSLETTER_BREVO_BATCH_SIZE || 100),
+  brevoBatchWindowMs: Number(process.env.NEWSLETTER_BREVO_BATCH_WINDOW_MS || 60_000),
   brevoConcurrency: Number(process.env.NEWSLETTER_BREVO_CONCURRENCY || 5),
 };
 

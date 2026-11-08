@@ -30,6 +30,20 @@ function assertSmtpQuota(count: number) {
   }
 }
 
+const brevoSent = { day: '', count: 0 };
+function assertBrevoQuota(count: number) {
+  const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Kinshasa' });
+  if (brevoSent.day !== day) { brevoSent.day = day; brevoSent.count = 0; }
+  if (brevoSent.count + count > newsletterConfig.brevoDailyLimit) {
+    throw new Error(`Quota Brevo gratuit atteint (${newsletterConfig.brevoDailyLimit}/jour). Les envois reprendront demain.`);
+  }
+}
+function recordBrevoSend(count: number) {
+  const day = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Kinshasa' });
+  if (brevoSent.day !== day) { brevoSent.day = day; brevoSent.count = 0; }
+  brevoSent.count += count;
+}
+
 function recordSmtpSend(count: number) {
   const now = Date.now();
   for (let i = 0; i < count; i += 1) sendWindow.push(now);
@@ -96,6 +110,7 @@ export async function sendBatchEmails(
     }
   }
 
-  if (sent + failed + skipped > 0) recordSmtpSend(sent + failed + skipped);
+  if (provider === 'brevo') recordBrevoSend(sent + failed + skipped);
+  else if (sent + failed + skipped > 0) recordSmtpSend(sent + failed + skipped);
   return { sent, failed, skipped };
 }
