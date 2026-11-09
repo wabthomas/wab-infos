@@ -67,16 +67,26 @@ export function PaymentReceipt({
   }, []);
 
   function printReceipt() {
-    if (inNativeRhApp()) { void downloadPdf();return; }
-    const root = document.documentElement;
-    root.dataset.rhPrintTarget = 'payment-receipt';
-    const cleanup = () => { delete root.dataset.rhPrintTarget; };
-    window.addEventListener('afterprint', cleanup, { once: true });
-    window.print();
-    window.setTimeout(cleanup, 15_000);
+    // Print the same one-page PDF as the download; printing the modal's DOM
+    // also prints its scrollable shell and creates extra blank pages.
+    const tab = inNativeRhApp() ? null : window.open('about:blank', '_blank');
+    if (tab) tab.document.body.textContent = 'Préparation du reçu PDF A4…';
+    void downloadPdf(tab);
   }
 
-  async function downloadPdf() {
+  async function publishPdf(blob: Blob, filename: string, printTab: Window | null) {
+    if (printTab && !printTab.closed) {
+      const url = URL.createObjectURL(blob);
+      printTab.location.replace(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 300_000);
+      setPdfMessage('Reçu A4 ouvert dans le navigateur : utilisez Imprimer dans le lecteur PDF.');
+    } else {
+      setBrowserLink(await deliverPdf(blob, filename));
+      setPdfMessage('PDF A4 prêt à enregistrer ou imprimer.');
+    }
+  }
+
+  async function downloadPdf(printTab: Window | null = null) {
     setDownloading(true); setPdfMessage('');
     try {
       const target = document.querySelector('.payment-receipt-document article') as HTMLElement | null;
@@ -84,8 +94,7 @@ export function PaymentReceipt({
         try {
           const { captureElementAsPdf } = await import('@/lib/redaction/rh/pdf-capture');
           const captured = await captureElementAsPdf(target, { fitPage: true });
-          setBrowserLink(await deliverPdf(captured, 'recu-rh-' + withdrawal.id.slice(0, 8) + '.pdf'));
-          setPdfMessage('PDF prêt.');
+          await publishPdf(captured, 'recu-rh-' + withdrawal.id.slice(0, 8) + '.pdf', printTab);
           return;
         } catch {}
       }
@@ -115,7 +124,7 @@ export function PaymentReceipt({
       if (withdrawal.decisionNote) { y += 21; line('Note RH', withdrawal.decisionNote, margin, y, width - margin * 2); }
       y = Math.max(y + 28, 190);
       if (seal) pdf.addImage(seal, 'JPEG', width / 2 - 14, y, 28, 28, undefined, 'FAST');
-      if (directorSignature) pdf.addImage(directorSignature, 'JPEG', width / 2 - 22, y + 13, 44, 14, undefined, 'FAST');
+      if (directorSignature) pdf.addImage(directorSignature, 'JPEG', width / 2 - 28, y + 4, 56, 20, undefined, 'FAST');
       pdf.setTextColor(100); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7);
       pdf.text(company.directorName || 'Direction générale', width / 2, y + 33, { align: 'center' });
       pdf.text(company.directorTitle, width / 2, y + 37, { align: 'center' });
@@ -123,15 +132,14 @@ export function PaymentReceipt({
       pdf.setTextColor(125); pdf.setFontSize(7); pdf.text(pdf.splitTextToSize(footer, width - margin * 2), margin, 270);
       pdf.text(`ID fiscal : ${company.companyTaxId || '—'} · RCCM : ${company.companyRegistration || '—'} · Réf. ${reference}`, margin, 286, { maxWidth: width - margin * 2 });
       const safeName = `${person.lastName}-${person.firstName}`.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-');
-      setBrowserLink(await deliverPdf(pdf.output('blob'), `recu-rh-${safeName}-${withdrawal.id.slice(0, 8)}.pdf`));
-      setPdfMessage('PDF prêt à être enregistré ou partagé.');
-    } catch (error) { setPdfMessage(error instanceof Error ? `PDF impossible : ${error.message}` : 'PDF impossible.'); }
+      await publishPdf(pdf.output('blob'), `recu-rh-${safeName}-${withdrawal.id.slice(0, 8)}.pdf`, printTab);
+    } catch (error) { printTab?.close(); setPdfMessage(error instanceof Error ? `PDF impossible : ${error.message}` : 'PDF impossible.'); }
     finally { setDownloading(false); }
   }
 
   return <div className="payment-receipt-document mx-auto max-w-3xl space-y-4 p-3 sm:p-5 print:max-w-none print:p-0">
     <div className="flex flex-wrap justify-end gap-2 print:hidden">
-      <button type="button" onClick={printReceipt} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold shadow-sm"><Printer className="h-4 w-4" /> Imprimer</button>
+      <button type="button" disabled={downloading} onClick={printReceipt} className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold shadow-sm disabled:opacity-50"><Printer className="h-4 w-4" /> Imprimer</button>
       <button type="button" disabled={downloading} onClick={() => void downloadPdf()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm disabled:opacity-50"><Download className="h-4 w-4" />{downloading ? 'Préparation…' : 'Télécharger PDF'}</button>
     </div>
     <BrowserDocumentLink url={browserLink}/>
@@ -171,7 +179,7 @@ export function PaymentReceipt({
 
         <div className="grid grid-cols-2 gap-5 border-t border-slate-200 pt-5 sm:grid-cols-3 sm:gap-8">
           <div className="flex min-h-24 flex-col justify-end"><p className="text-xs font-semibold text-slate-600">Signature du bénéficiaire</p><div className="mt-8 border-t border-slate-300 pt-1 text-[10px] text-slate-400">Nom et signature</div></div>
-          <div className="flex flex-col items-center justify-end text-center"><div className="relative flex h-24 w-24 items-center justify-center">{assets['company-seal'] || assets['rh-seal'] ? <img src={(assets['company-seal'] || assets['rh-seal'])!} alt="Sceau officiel" className="absolute inset-0 h-full w-full object-contain" /> : <span className="grid h-20 w-20 place-items-center rounded-full border border-dashed border-slate-300 text-slate-400"><ShieldCheck className="h-7 w-7" /></span>}{assets['director-signature'] && <img src={assets['director-signature']!} alt="Signature du Directeur général" className="absolute inset-x-0 bottom-1 z-10 mx-auto h-10 max-w-[90%] object-contain" />}</div><p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{company.directorName || 'Direction générale'}</p><p className="text-[9px] text-slate-400">{company.directorTitle}</p></div>
+          <div className="flex flex-col items-center justify-end text-center"><div className="relative flex h-24 w-24 items-center justify-center">{assets['company-seal'] || assets['rh-seal'] ? <img src={(assets['company-seal'] || assets['rh-seal'])!} alt="Sceau officiel" className="absolute inset-0 h-full w-full object-contain" /> : <span className="grid h-20 w-20 place-items-center rounded-full border border-dashed border-slate-300 text-slate-400"><ShieldCheck className="h-7 w-7" /></span>}{assets['director-signature'] && <img src={assets['director-signature']!} alt="Signature du Directeur général" className="absolute left-1/2 top-1/2 z-10 h-16 w-40 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain" />}</div><p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{company.directorName || 'Direction générale'}</p><p className="text-[9px] text-slate-400">{company.directorTitle}</p></div>
           <div className="col-span-2 flex min-h-24 flex-col justify-end sm:col-span-1"><p className="text-xs font-semibold text-slate-600">Validation des ressources humaines</p><div className="mt-8 border-t border-slate-300 pt-1 text-[10px] text-slate-400">Nom, date et signature</div></div>
         </div>
 
