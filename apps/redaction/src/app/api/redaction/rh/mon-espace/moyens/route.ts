@@ -1,5 +1,5 @@
 import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
-import { createMyPayoutMethod, listMyPayoutMethods, setMyPayoutMethodActive } from '@/lib/redaction/rh/extras-db';
+import { createMyPayoutMethod, listMyPayoutMethods, setMyPayoutMethodActive, PayoutMethodDuplicateError } from '@/lib/redaction/rh/extras-db';
 import { isPayoutId, validatePayoutMethod } from '@/lib/redaction/rh/payouts';
 import { handleError, json, readBody, validOrigin } from '@/lib/redaction/rh/api';
 
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     if (!method) return json({ error: 'Aucun dossier RH actif lié à ce compte.' }, 403);
     return json({ method });
   } catch (error) {
+    if (error instanceof PayoutMethodDuplicateError) return json({ error: error.message }, 409);
     return handleError(error);
   }
 }

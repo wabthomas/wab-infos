@@ -35,6 +35,8 @@ export async function listMyPayoutMethods(principal: RhPrincipal): Promise<Payou
   }
 }
 
+export class PayoutMethodDuplicateError extends Error {}
+
 export async function createMyPayoutMethod(principal: RhPrincipal, input: PayoutMethodInput): Promise<PayoutMethod | null> {
   const client = await db().connect();
   try {
