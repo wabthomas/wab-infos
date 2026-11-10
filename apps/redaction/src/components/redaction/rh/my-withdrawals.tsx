@@ -110,7 +110,8 @@ export function MyWithdrawals({
     const visual = window.visualViewport;
     if (!visual) return;
     const resize = () => {
-      setViewport({top: `${Math.max(0, visual.offsetTop)}px`, height: `${Math.max(120, visual.height)}px`});
+      const height = Math.max(120, Math.min(visual.height, window.innerHeight) - nativeInsetRef.current);
+      setViewport({top: `${Math.max(0, visual.offsetTop)}px`, height: `${height}px`});
       requestAnimationFrame(() => {
         const content = contentRef.current, focused = document.activeElement;
         if (!content || !(focused instanceof HTMLElement) || !content.contains(focused)) return;
@@ -119,9 +120,17 @@ export function MyWithdrawals({
       });
     };
     resize();
+    const onNativeInset = (event: Event) => {
+      const detail = (event as CustomEvent<{ inset?: number }>).detail;
+      nativeInsetRef.current = Math.max(0, Number(detail?.inset) || 0);
+      resize();
+    };
     visual.addEventListener('resize', resize);
     visual.addEventListener('scroll', resize);
-    return () => { visual.removeEventListener('resize', resize); visual.removeEventListener('scroll', resize); };
+    visual.addEventListener('resize', resize);
+    visual.addEventListener('scroll', resize);
+    window.addEventListener('wab-keyboard-inset', onNativeInset);
+    return () => { visual.removeEventListener('resize', resize); visual.removeEventListener('scroll', resize); window.removeEventListener('wab-keyboard-inset', onNativeInset); };
   }, [requestOpen, submitted]);
 
   useEffect(() => {

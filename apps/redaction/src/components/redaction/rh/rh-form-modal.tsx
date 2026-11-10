@@ -9,6 +9,7 @@ export function RhFormModal({ open, busy = false, onClose, children, width = 'ma
 }) {
   const [mounted, setMounted] = useState(false);
   const [viewport, setViewport] = useState({ top: '0px', height: '100dvh' });
+  const nativeInsetRef = useRef(0);
   const layer = useRef<HTMLDivElement>(null);
   const busyRef = useRef(busy);
   const closeRef = useRef(onClose);
