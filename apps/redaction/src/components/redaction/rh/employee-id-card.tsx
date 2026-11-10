@@ -1,5 +1,6 @@
 'use client';
 import { BrowserDocumentLink } from './browser-document-link';
+import { RhFormModal } from './rh-form-modal';
 import { deliverRhDocument, inNativeRhApp } from '@/lib/redaction/rh/browser-document';
 import { useRhNotice } from './use-rh-notice';
 
@@ -206,8 +207,8 @@ export function EmployeeIdCard({ person, adminPersonId, serviceCard }: { person:
     {serviceCard && <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">Carte de service déjà émise le {serviceCard.issuedAt}{serviceCard.active ? ' · active' : ' · expirée ou révoquée'}</p>}
     <BrowserDocumentLink url={browserLink}/>
     {message && !editing && <p role="status" className="rounded-xl border border-primary/15 bg-primary/[0.06] px-4 py-2.5 text-sm text-primary print:hidden">{message}</p>}
-    {editing && !adminPersonId && <div className="fixed inset-0 z-[85] flex items-end bg-black/55 print:hidden sm:items-center sm:justify-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setEditing(false); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="employee-profile-form-title" className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-t-3xl border border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6">
+    {!adminPersonId && <RhFormModal open={editing} busy={saving} onClose={() => setEditing(false)} width="max-w-3xl">
+      <section role="dialog" aria-modal="true" aria-labelledby="employee-profile-form-title" className="min-h-0 w-full overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
         <header className="sticky top-0 z-10 -mx-4 -mt-4 mb-4 flex items-center justify-between border-b border-border bg-card/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:-mt-6 sm:px-6">
           <div><p className="text-[10px] font-bold uppercase tracking-widest text-primary">Mon espace RH</p><h2 id="employee-profile-form-title" className="mt-0.5 font-display text-lg font-bold">Compléter ma fiche</h2></div>
           <button type="button" onClick={() => setEditing(false)} aria-label="Fermer le formulaire" className="rounded-full border border-border p-2 text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /></button>
@@ -226,11 +227,10 @@ export function EmployeeIdCard({ person, adminPersonId, serviceCard }: { person:
           <label className="text-sm font-medium sm:col-span-2">Photo (JPG, PNG ou WebP, 2 Mo max)<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadPhoto} className="mt-1 block w-full rounded-lg border border-border bg-background p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary-foreground" /></label>
           <label className="text-sm font-medium sm:col-span-2">Signature (nom à afficher)<input maxLength={120} value={signature} onChange={(event) => setSignature(event.target.value)} placeholder="Saisir votre signature" className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5" /></label>
           {message && <p role="status" className="rounded-lg bg-primary/[0.06] p-3 text-sm text-primary sm:col-span-2">{message}</p>}
-          <p className="text-xs leading-5 text-muted-foreground sm:col-span-2">Les informations personnelles sont enregistrées dans votre dossier RH. Les données administratives restent gérées par l’administration.</p>
           <button type="submit" disabled={saving} className="sticky bottom-0 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg disabled:opacity-50 sm:col-span-2">{saving ? 'Enregistrement…' : 'Enregistrer mes informations'}</button>
         </form>
       </section>
-    </div>}
+    </RhFormModal>}
     {overflow && <p role="alert" className="rounded-xl border border-amber-400 bg-amber-50 p-4 text-sm text-amber-950 print:hidden">La fiche ne tient pas sur une seule page A4 lisible. Aucun champ ne sera tronqué : raccourcissez les valeurs trop longues ou les textes de l’entreprise.</p>}
     {preview ? <button type="button" onClick={() => setZoomed(true)} className="mx-auto block w-full max-w-[210mm] text-left print:contents" aria-label="Agrandir la fiche d’identification A4"><img className="employee-id-print-page block h-auto w-full bg-white shadow-lg ring-1 ring-black/10 print:shadow-none print:ring-0" src={preview} alt={`Fiche d’identification A4 de ${person.firstName} ${person.lastName}`} /><span className="mt-2 flex items-center gap-2 text-xs text-muted-foreground print:hidden"><Maximize2 className="h-4 w-4"/>Toucher pour agrandir la fiche</span></button> : <div className="mx-auto flex aspect-[210/297] max-w-[210mm] items-center justify-center rounded-xl border bg-white p-6 text-center text-sm text-muted-foreground print:hidden">{renderProblem || 'Préparation de l’aperçu A4…'}</div>}
     <dl className="sr-only">{groups.flatMap(group=>group.fields.map(field=><div key={`${group.title}-${field.label}`}><dt>{field.label}</dt><dd>{field.value||'Non renseigné'}</dd></div>))}</dl>

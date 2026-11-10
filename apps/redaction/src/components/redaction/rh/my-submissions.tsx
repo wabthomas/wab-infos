@@ -2,7 +2,7 @@
 import { useRhNotice } from './use-rh-notice';
 import { YoutubeClaims } from './youtube-claims';
 import { RhActionVoiceToggle, useRhActionVoice } from './rh-action-voice';
-import { CircleCheck, CircleHelp } from 'lucide-react';
+import { CircleCheck, CircleHelp, X } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { PersonalHistoryControls } from './personal-history-controls';
@@ -34,6 +34,7 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
   const [formOpen, setFormOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   useEffect(() => setMounted(true), []);
@@ -62,7 +63,7 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
     const viewport = window.visualViewport;
     if (!viewport) return;
     const keepFocusedFieldVisible = () => {
-      const form = formRef.current;
+      const form = contentRef.current;
       const field = document.activeElement;
       if (!form || !(field instanceof HTMLElement) || !form.contains(field)) return;
       const bounds = form.getBoundingClientRect();
@@ -171,15 +172,20 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
     {queued.filter((op) => op.kind === 'prestation').map((op) => <p key={op.id} role="status" className="rounded-lg bg-amber-500/10 p-3 text-sm">{op.date} · {op.description} — en attente d’envoi</p>)}
     <button ref={triggerRef} type="button" disabled={busy} aria-haspopup="dialog" aria-expanded={formOpen} onClick={() => { setError(''); setFormOpen(true); }} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">+ Nouvelle prestation</button>
     {formOpen && mounted && createPortal(<div style={{ '--rh-viewport-top': visibleViewport.top, '--rh-viewport-height': visibleViewport.height } as React.CSSProperties} className="fixed inset-x-0 top-[var(--rh-viewport-top)] z-[120] flex h-[var(--rh-viewport-height)] items-end justify-center bg-black/60 sm:items-center sm:p-4" onMouseDown={(event) => { if (!busy && event.target === event.currentTarget) setFormOpen(false); }}>
-      <form ref={formRef} role="dialog" aria-modal="true" aria-labelledby="new-prestation-title" onFocusCapture={(event) => { const field = event.target; window.setTimeout(() => { if (document.activeElement !== field) return; const form = formRef.current; if (!form) return; const bounds = form.getBoundingClientRect(); const focus = field.getBoundingClientRect(); if (focus.bottom > bounds.bottom - 72) form.scrollTop += focus.bottom - (bounds.bottom - 72); }, 300); }} onSubmit={submit} className="max-h-full w-full space-y-3 overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-lg sm:rounded-2xl sm:pb-5">
-        <div className="flex items-center justify-between"><h3 id="new-prestation-title" className="font-semibold">Nouvelle Prestation</h3><button ref={closeRef} type="button" disabled={busy} onClick={() => setFormOpen(false)} className="rounded-full px-3 py-1 text-sm font-semibold text-muted-foreground">Fermer</button></div>
+      <form ref={formRef} role="dialog" aria-modal="true" aria-labelledby="new-prestation-title" onSubmit={submit} className="flex max-h-full w-full min-h-0 flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl sm:max-h-[calc(100%-2rem)] sm:max-w-lg sm:rounded-3xl">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5 py-4"><h3 id="new-prestation-title" className="font-display text-lg font-bold">Nouvelle Prestation</h3><button ref={closeRef} type="button" disabled={busy} aria-label="Fermer le formulaire" onClick={() => setFormOpen(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border text-foreground hover:bg-muted"><X className="h-5 w-5" /></button></header>
+        <div ref={contentRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5" onFocusCapture={event => { const field = event.target; window.setTimeout(() => { if (document.activeElement !== field) return; const content = contentRef.current; if (!content) return; const bounds = content.getBoundingClientRect(), focus = field.getBoundingClientRect(); if (focus.bottom > bounds.bottom - 12) content.scrollTop += focus.bottom - bounds.bottom + 12; }, 300); }}>
         {error && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
         <label className="block text-sm font-medium">Date<input type="date" required disabled={!!linkedSubmissionId} min="1900-01-01" max={localToday} value={date} onChange={(e) => { setDate(e.target.value); videoRequestRef.current = null; }} className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
         <label className="block text-sm font-medium">Activités réalisées<textarea required disabled={!!linkedSubmissionId} rows={3} maxLength={500} value={description} onChange={(e) => { setDescription(e.target.value.replace(/[\r\n]+/g, ' ')); videoRequestRef.current = null; }} className="mt-1 block w-full resize-y rounded-lg border border-border bg-background px-3 py-2" /></label>
         <label className="block text-sm font-medium">Lien de la vidéo YouTube (facultatif){!youtubeEnabled && <span className="ml-2 text-xs text-muted-foreground">Non activé</span>}<input type="url" disabled={!youtubeEnabled || busy} maxLength={300} value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 disabled:opacity-60" /></label>
         {youtubeEnabled && <label className="block text-sm font-medium">Votre rôle dans la vidéo<input required={!!videoUrl.trim()} disabled={busy} maxLength={80} value={videoRole} onChange={e => setVideoRole(e.target.value)} placeholder="Journaliste, présentateur, monteur…" className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2" /></label>}
-        <button type="submit" disabled={busy} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{busy ? 'Envoi…' : linkedSubmissionId ? 'Réessayer le lien vidéo' : 'Envoyer la déclaration'}</button>
-        {linkedSubmissionId && <button type="button" onClick={() => { setLinkedSubmissionId(null); videoRequestRef.current = null; setDate(''); setDescription(''); setVideoRole(''); setVideoUrl(''); setError(''); setMessage('Prestation enregistrée.'); setFormOpen(false); }} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold">Terminer sans vidéo</button>}
+        </div>
+        <footer className="flex shrink-0 flex-col gap-2 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row-reverse sm:px-5">
+          <button type="submit" disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50 sm:w-auto">{busy ? 'Envoi…' : linkedSubmissionId ? 'Réessayer le lien vidéo' : 'Envoyer la déclaration'}</button>
+        {linkedSubmissionId && <button type="button" onClick={() => { setLinkedSubmissionId(null); videoRequestRef.current = null; setDate(''); setDescription(''); setVideoRole(''); setVideoUrl(''); setError(''); setMessage('Prestation enregistrée.'); setFormOpen(false); }} className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold sm:w-auto">Terminer sans vidéo</button>}
+          {!linkedSubmissionId && <button type="button" disabled={busy} onClick={() => setFormOpen(false)} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-semibold sm:w-auto">Annuler</button>}
+        </footer>
       </form></div>, document.body)}
     {youtubeEnabled && <YoutubeClaims submissions={items} refreshKey={reload} />}
     <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold">{expanded ? 'Toutes mes prestations' : 'Prestations de la semaine'}</h3>

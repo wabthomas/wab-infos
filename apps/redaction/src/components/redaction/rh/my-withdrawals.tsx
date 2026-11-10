@@ -4,7 +4,7 @@ import { useRhNotice } from './use-rh-notice';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowDownUp, Banknote, CheckCircle2, Clock3, Landmark, Loader2, PlusCircle, Smartphone, Wallet, X, Send } from 'lucide-react';
+import { ArrowDownUp, Banknote, CheckCircle2, Clock3, Landmark, Loader2, PlusCircle, Smartphone, Wallet, WalletCards, X, Send } from 'lucide-react';
 import { MyPaymentHistory } from './my-payment-history';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
@@ -156,6 +156,13 @@ export function MyWithdrawals({
     return () => controller.abort();
   }, [enabled, reload]);
 
+  useEffect(() => {
+    const refresh = () => { void fetchRedaction('/api/redaction/rh/mon-espace/moyens', { cache: 'no-store' })
+      .then(async response => { if (response.ok) setMethods((await response.json()).methods ?? []); }).catch(() => undefined); };
+    window.addEventListener('rh-payouts-changed', refresh);
+    return () => window.removeEventListener('rh-payouts-changed', refresh);
+  }, []);
+
   async function send(methodName: 'POST' | 'PATCH', body: unknown) {
     setBusy(true);
     setError('');
@@ -301,8 +308,9 @@ export function MyWithdrawals({
             aria-expanded={requestOpen}
             className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 ${available === null ? 'bg-white/20 text-white/60' : 'bg-white text-[#191923] hover:opacity-90'}`}
           >
-            <PlusCircle className="h-3.5 w-3.5" /> {requestOpen ? 'Fermer' : 'Nouvelle demande'}
+            <PlusCircle className="h-3.5 w-3.5" /> {requestOpen ? 'Fermer' : "Retirer de l'argent"}
           </button>
+          <button type="button" onClick={() => window.dispatchEvent(new Event('rh-open-payout-methods'))} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20"><WalletCards className="h-4 w-4 shrink-0" aria-hidden="true" />Moyen de Paiement</button>
         </div>
       </section>
 

@@ -18,8 +18,8 @@ export default async function MyWithdrawalsPage({
   const currency: RhCurrency | undefined = requested === 'USD' ? 'USD' : requested === 'CDF' ? 'CDF' : undefined;
   return (
     <div className="space-y-5">
-      <PayoutMethods />
       <MyWithdrawals enabled={flags.withdrawalsEnabled} initialCurrency={currency} />
+      <PayoutMethods />
       {flags.paymentSheetsVisible && <RecordSheets type="paiements" />}
       <MyAdjustments />
     </div>
