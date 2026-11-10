@@ -3,7 +3,8 @@ import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
 import { MOBILE_MONEY_PROVIDERS as logoProviders } from '@/lib/redaction/rh/payouts';
-import { PlusCircle } from 'lucide-react';
+import { Landmark, PlusCircle, WalletCards, X, Loader2 } from 'lucide-react';
+import { RhFormModal } from './rh-form-modal';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import {
   MOBILE_MONEY_PROVIDERS,
@@ -63,10 +64,12 @@ export function PayoutMethods() {
   }
 
   useEffect(() => {
+    const openPanel = () => setPanelOpen(true);
+    window.addEventListener('rh-open-payout-methods', openPanel);
     void load();
     const refresh = () => void load();
     window.addEventListener('rh-payouts-changed', refresh);
-    return () => window.removeEventListener('rh-payouts-changed', refresh);
+    return () => { window.removeEventListener('rh-payouts-changed', refresh); window.removeEventListener('rh-open-payout-methods', openPanel); };
   }, []);
 
   async function add(event: React.FormEvent<HTMLFormElement>) {
@@ -133,15 +136,14 @@ export function PayoutMethods() {
   }
 
   return (
-    <div className="space-y-4">
-      <button type="button" aria-expanded={panelOpen} aria-haspopup="dialog" onClick={() => setPanelOpen(true)} className="flex w-full items-center justify-between rounded-xl border border-border bg-card p-4 text-left text-sm font-bold sm:hidden">Moyens de paiement <span className="text-xs text-primary">Ouvrir · {methods.length}</span></button>
-      <div className={`${panelOpen ? 'fixed inset-0 z-[80] flex items-end bg-black/60' : 'hidden'} sm:static sm:block sm:bg-transparent`} onMouseDown={(event) => { if (event.target === event.currentTarget && !formOpen) setPanelOpen(false); }}>
-      <section role={panelOpen ? 'dialog' : undefined} aria-modal={panelOpen || undefined} aria-label={panelOpen ? 'Moyens de paiement' : undefined} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-h-none sm:rounded-2xl sm:p-5">
+    <>
+      <RhFormModal open={panelOpen && !formOpen} busy={busy} onClose={() => setPanelOpen(false)} width="max-w-2xl">
+      <section role="dialog" aria-modal="true" aria-labelledby="payout-methods-title" className="min-h-0 w-full overflow-y-auto overscroll-contain p-5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-bold">Moyens de paiement</h2>
-          <button type="button" aria-haspopup="dialog" aria-expanded={formOpen} onClick={() => setFormOpen(true)} className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">+ Ajouter un moyen</button>
+          <h2 id="payout-methods-title" className="flex items-center gap-2 font-display text-lg font-bold"><WalletCards className="h-5 w-5 text-primary" aria-hidden="true" /> Moyen de paiement</h2>
+          <button type="button" aria-label="Fermer les moyens de paiement" onClick={() => setPanelOpen(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border hover:bg-muted"><X className="h-5 w-5" /></button>
         </div>
-        <button type="button" onClick={() => setPanelOpen(false)} className="mt-2 text-xs font-semibold text-muted-foreground underline sm:hidden">Fermer les moyens</button>
+        <button type="button" aria-haspopup="dialog" aria-expanded={formOpen} onClick={() => setFormOpen(true)} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground"><PlusCircle className="h-4 w-4" /> Ajouter un moyen</button>
         {error && <p role="alert" className="mt-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
         {message && <p role="status" className="mt-3 text-sm text-primary">{message}</p>}
 
@@ -205,12 +207,14 @@ export function PayoutMethods() {
             ))
           )}
         </div>
-      </section></div>
+      </section>
+      </RhFormModal>
 
-      {formOpen && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 sm:items-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setFormOpen(false); }}>
-        <form role="dialog" aria-modal="true" aria-labelledby="add-payout-title" onSubmit={add} className="max-h-[92dvh] w-full max-w-lg space-y-3 overflow-y-auto rounded-t-2xl border border-border bg-card p-5 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl">
-        <div className="flex items-center justify-between gap-3"><h3 id="add-payout-title" className="text-sm font-bold">Ajouter un moyen de paiement</h3><button type="button" disabled={busy} onClick={() => setFormOpen(false)} aria-label="Fermer" className="rounded-full border border-border px-3 py-1 text-xs">Fermer</button></div>
-        <div className="grid gap-3 sm:grid-cols-2">
+      <RhFormModal open={formOpen} busy={busy} onClose={() => setFormOpen(false)}>
+        <form role="dialog" aria-modal="true" aria-labelledby="add-payout-title" onSubmit={add} className="flex min-h-0 w-full flex-col">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border p-5 sm:px-6"><h3 id="add-payout-title" className="flex items-center gap-2 font-display text-lg font-bold"><Landmark className="h-5 w-5 text-primary" /> Ajouter un moyen</h3><button type="button" disabled={busy} onClick={() => setFormOpen(false)} aria-label="Fermer" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border hover:bg-muted"><X className="h-5 w-5" /></button></header>
+        {error && <p role="alert" className="mx-5 mt-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
+        <div className="grid min-h-0 gap-4 overflow-y-auto overscroll-contain p-5 sm:grid-cols-2 sm:p-6">
           <label className="text-sm">
             Type
             <select
@@ -278,14 +282,12 @@ export function PayoutMethods() {
             </select>
           </label>
         </div>
-        <button
-          type="submit"
-          disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-        >
-          <PlusCircle className="h-4 w-4" /> Ajouter
-        </button>
-        </form></div>}
-    </div>
+        <footer className="flex shrink-0 flex-col gap-2 border-t border-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row-reverse sm:px-6">
+          <button type="submit" disabled={busy} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-50 sm:w-auto">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />} Ajouter</button>
+          <button type="button" disabled={busy} onClick={() => setFormOpen(false)} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-semibold text-foreground sm:w-auto"><X className="h-4 w-4" /> Annuler</button>
+        </footer>
+        </form>
+      </RhFormModal>
+    </>
   );
 }
