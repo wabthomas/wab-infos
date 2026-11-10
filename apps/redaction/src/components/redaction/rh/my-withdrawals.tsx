@@ -2,8 +2,9 @@
 import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowDownUp, CheckCircle2, Clock3, Loader2, PlusCircle, X, Send } from 'lucide-react';
+import { ArrowDownUp, Banknote, CheckCircle2, Clock3, Landmark, Loader2, PlusCircle, Smartphone, Wallet, X, Send } from 'lucide-react';
 import { MyPaymentHistory } from './my-payment-history';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
@@ -38,6 +39,7 @@ const methodsList = {
   especes: 'Espèces',
   autre: 'Autre',
 } as const;
+const methodIcons = { mobile_money: Smartphone, virement: Landmark, especes: Banknote, autre: Wallet } as const;
 
 type WithdrawalFilter = 'all' | 'pending' | 'settled' | 'cancelled';
 const historyFilters: ReadonlyArray<{ value: WithdrawalFilter; label: string; statuses: readonly string[] }> = [
@@ -75,6 +77,51 @@ export function MyWithdrawals({
   const [message, setMessage] = useRhNotice('success');
   const [filter, setFilter] = useState<WithdrawalFilter>('all');
   const key = useRef<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const [viewport, setViewport] = useState({ top: '0px', height: '100dvh' });
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!requestOpen && !submitted) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const frame = requestAnimationFrame(() => (requestOpen ? closeRef.current : document.getElementById('withdrawal-success-close'))?.focus());
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busyRef.current) { event.preventDefault(); setRequestOpen(false); setSubmitted(null); }
+      if (event.key !== 'Tab') return;
+      const dialog = document.querySelector<HTMLElement>('#withdrawal-request-dialog, #withdrawal-success-dialog');
+      const focusable = dialog?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled)');
+      if (!focusable?.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (!dialog?.contains(document.activeElement)) { event.preventDefault(); first.focus(); return; }
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('keydown', keydown); document.body.style.overflow = previous; requestAnimationFrame(() => triggerRef.current?.focus()); };
+  }, [requestOpen, submitted]);
+  useEffect(() => {
+    if (!requestOpen && !submitted) return;
+    const visual = window.visualViewport;
+    if (!visual) return;
+    const resize = () => {
+      setViewport({top: `${Math.max(0, visual.offsetTop)}px`, height: `${Math.max(120, visual.height)}px`});
+      requestAnimationFrame(() => {
+        const content = contentRef.current, focused = document.activeElement;
+        if (!content || !(focused instanceof HTMLElement) || !content.contains(focused)) return;
+        const field = focused.getBoundingClientRect(), bounds = content.getBoundingClientRect();
+        if (field.bottom > bounds.bottom - 12) content.scrollTop += field.bottom - bounds.bottom + 12;
+      });
+    };
+    resize();
+    visual.addEventListener('resize', resize);
+    visual.addEventListener('scroll', resize);
+    return () => { visual.removeEventListener('resize', resize); visual.removeEventListener('scroll', resize); };
+  }, [requestOpen, submitted]);
 
   useEffect(() => {
     if (!enabled) {
@@ -248,6 +295,7 @@ export function MyWithdrawals({
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <button
             type="button"
+            ref={triggerRef}
             onClick={() => { setError(''); setRequestOpen(open => !open); }}
             disabled={available === null}
             aria-expanded={requestOpen}
@@ -258,7 +306,7 @@ export function MyWithdrawals({
         </div>
       </section>
 
-      {error && (
+      {error && !requestOpen && (
         <p role="alert" className="rounded-xl bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">
           {error}
         </p>
@@ -356,11 +404,11 @@ export function MyWithdrawals({
       </section>
 
       <MyPaymentHistory refresh={reload} />
-      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien n’apparaît pas ? Déclarez-le pour vérification</Link>
+      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Déclarer un paiement ancien</Link>
 
-      {submitted && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget) setSubmitted(null); }}>
-        <section role="dialog" aria-modal="true" aria-labelledby="withdrawal-success-title" aria-describedby="withdrawal-success-description" onKeyDown={event => { if (event.key === 'Escape') setSubmitted(null); }} className="relative w-full max-w-md rounded-t-3xl border border-border bg-card p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-2xl sm:rounded-3xl sm:p-8">
-          <button type="button" aria-label="Fermer" onClick={() => setSubmitted(null)} className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-muted"><X className="h-5 w-5" /></button>
+      {submitted && mounted && createPortal(<div style={{ '--rh-viewport-top': viewport.top, '--rh-viewport-height': viewport.height } as React.CSSProperties} className="fixed inset-x-0 top-[var(--rh-viewport-top)] z-[150] flex h-[var(--rh-viewport-height)] items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget) setSubmitted(null); }}>
+        <section id="withdrawal-success-dialog" role="dialog" aria-modal="true" aria-labelledby="withdrawal-success-title" aria-describedby="withdrawal-success-description" onKeyDown={event => { if (event.key === 'Escape') setSubmitted(null); }} className="relative w-full max-w-md rounded-t-3xl border border-border bg-card p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-2xl sm:rounded-3xl sm:p-8">
+          <button id="withdrawal-success-close" type="button" aria-label="Fermer" onClick={() => setSubmitted(null)} className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-muted"><X className="h-5 w-5" /></button>
           <div className="relative mx-auto mb-5 grid h-24 w-24 place-items-center rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">
             <span className="absolute inset-1 rounded-full border-2 border-dashed border-amber-500/45 motion-safe:animate-spin motion-reduce:animate-none" aria-hidden="true" />
             <Clock3 className="h-11 w-11" aria-hidden="true" />
@@ -371,18 +419,18 @@ export function MyWithdrawals({
           <p className="mt-2 text-xs text-muted-foreground">Suivi : {withdrawalRef(submitted)}</p>
           <button type="button" autoFocus onClick={() => setSubmitted(null)} className="mt-6 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">Voir mes demandes</button>
         </section>
-      </div>}
+      </div>, document.body)}
 
-      {requestOpen && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/65 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}>
-        <form role="dialog" aria-modal="true" aria-labelledby="withdrawal-request-title" id="nouvelle-demande"
+      {requestOpen && mounted && createPortal(<div style={{ '--rh-viewport-top': viewport.top, '--rh-viewport-height': viewport.height } as React.CSSProperties} className="fixed inset-x-0 top-[var(--rh-viewport-top)] z-[150] flex h-[var(--rh-viewport-height)] items-end justify-center bg-black/65 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}>
+        <form role="dialog" aria-modal="true" aria-labelledby="withdrawal-request-title" id="withdrawal-request-dialog"
           onSubmit={submit} onKeyDown={event => { if (event.key === 'Escape' && !busy) setRequestOpen(false); }}
-          className="flex max-h-[94dvh] w-full max-w-lg min-h-0 flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl sm:rounded-3xl"
+          className="flex max-h-full w-full max-w-lg min-h-0 flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl sm:max-h-[calc(100%-2rem)] sm:rounded-3xl"
         >
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5 py-4 sm:px-6">
-            <div className="min-w-0"><h2 id="withdrawal-request-title" className="font-display text-lg font-bold">Demander un retrait</h2><p className="text-xs text-muted-foreground">Solde disponible : {available ?? '—'}</p></div>
-            <button type="button" autoFocus disabled={busy} aria-label="Fermer le formulaire" onClick={() => setRequestOpen(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border text-foreground hover:bg-muted disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
+            <div className="flex min-w-0 items-center gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Wallet className="h-6 w-6" aria-hidden="true" /></span><div className="min-w-0"><h2 id="withdrawal-request-title" className="font-display text-lg font-bold">Nouveau retrait</h2><p className="truncate text-xs text-muted-foreground">Disponible : {available ?? '—'}</p></div></div>
+            <button ref={closeRef} type="button" disabled={busy} aria-label="Fermer le formulaire" onClick={() => setRequestOpen(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border text-foreground hover:bg-muted disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
           </div>
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+          <div ref={contentRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
             {error && <p role="alert" className="rounded-xl bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
             <div className="grid min-w-0 gap-4 sm:grid-cols-2">
               <label className="min-w-0 text-sm font-semibold">Montant
@@ -396,13 +444,20 @@ export function MyWithdrawals({
                   <option value="CDF">CDF</option><option value="USD">USD</option>
                 </select>
               </label>
-              <label className="min-w-0 text-sm font-semibold">Moyen de paiement
-                <select disabled={busy} value={method} onChange={event => { setMethod(event.target.value as WithdrawalMethod); setPayoutMethodId(''); key.current = null; }}
-                  className="mt-2 block min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                  {Object.entries(methodsList).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </label>
-              {payoutKindForWithdrawal(method) && <label className="min-w-0 text-sm font-semibold">Destination
+              <fieldset className="min-w-0 sm:col-span-2">
+                <legend className="text-sm font-semibold">Moyen de paiement</legend>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {(Object.entries(methodsList) as [WithdrawalMethod, string][]).map(([value, label]) => {
+                    const Icon = methodIcons[value];
+                    return <button key={value} type="button" disabled={busy} aria-pressed={method === value}
+                      onClick={() => { setMethod(value); setPayoutMethodId(''); key.current = null; }}
+                      className={`flex min-h-14 min-w-0 items-center gap-2 rounded-xl border px-3 text-left text-sm font-semibold transition-colors disabled:opacity-50 ${method === value ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-background text-foreground hover:bg-muted'}`}>
+                      <Icon className="h-5 w-5 shrink-0" aria-hidden="true" /><span className="min-w-0 break-words">{label}</span>
+                    </button>;
+                  })}
+                </div>
+              </fieldset>
+              {payoutKindForWithdrawal(method) && <label className="min-w-0 text-sm font-semibold sm:col-span-2">Destination
                 <select disabled={busy} value={payoutMethodId} onChange={event => { setPayoutMethodId(event.target.value); key.current = null; }}
                   className="mt-2 block min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary">
                   <option value="">Non précisée</option>
@@ -422,7 +477,7 @@ export function MyWithdrawals({
             </button>
           </div>
         </form>
-      </div>}
+      </div>, document.body)}
     </div>
   );
 }

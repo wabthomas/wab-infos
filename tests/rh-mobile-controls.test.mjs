@@ -30,7 +30,11 @@ test('popup retrait : actions lisibles, adaptatives et fermeture après succès'
   assert.match(component, /setRequestOpen\(false\)/);
   assert.match(component, /<X className="h-4 w-4 shrink-0"[^>]*\/><span>Annuler<\/span>/);
   assert.match(component, /flex shrink-0 flex-col gap-2 border-t/);
-  assert.match(component, /max-h-\[94dvh\]/);
+  assert.match(component, /createPortal\(<div/);
+  assert.match(component, /--rh-viewport-height/);
+  assert.match(component, /visual\.addEventListener\('resize', resize\)/);
+  assert.match(component, /aria-pressed=\{method === value\}/);
+  assert.match(component, /<span className="min-w-0 break-words">\{label\}<\/span>/);
   assert.doesNotMatch(component, /Aucun transfert automatique|Chaque demande porte un numéro de suivi|Un solde initial doit être établi par l’administrateur/);
 });
 
