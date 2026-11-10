@@ -1,11 +1,12 @@
 import { paymentHistorySql } from './payment-history-sql';
+import { adminPayoutDestinationSql } from './withdrawal-destination-sql';
 import type { HistoryQuery } from './personal-history';
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import type { Collaborator, CollaboratorInput } from './collaborator';
 import { nextAbsenceStatus, type AbsenceStatus } from './absences';
-import { mayReviewWithdrawal } from './withdrawals';
+import { mayReviewWithdrawal, payoutKindForWithdrawal } from './withdrawals';
 import { availableAfterAdjustment } from './adjustments';
 import { maskAccount, providerLabel, type PayoutMethod, type PayoutMethodInput } from './payouts';
 import type { Attendance } from './attendance';
@@ -416,11 +417,13 @@ export async function listMyPayments(principal: import('./principal').RhPrincipa
   return { payments: result.rows.slice(0, query.limit), hasMore: result.rows.length > query.limit };
 }
 
-export async function adminWithdrawalView(collaboratorId: string): Promise<{ balances: import('./withdrawals').Balance[]; withdrawals: import('./withdrawals').Withdrawal[] }> {
+export async function adminWithdrawalView(collaboratorId: string, revealDestination = false): Promise<{ balances: import('./withdrawals').Balance[]; withdrawals: import('./withdrawals').AdminWithdrawal[] }> {
   const client = await db().connect();
   try {
     await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-    const [balances, withdrawals] = await Promise.all([client.query(balanceSql, [collaboratorId]), client.query(`SELECT ${withdrawalCols} FROM redaction_rh.withdrawals WHERE collaborator_id=$1 ORDER BY created_at DESC,id LIMIT 500`, [collaboratorId])]);
+    // The full account number is returned only for finance managers; viewers keep the masked snapshot.
+    const destination = revealDestination ? adminPayoutDestinationSql : '';
+    const [balances, withdrawals] = await Promise.all([client.query(balanceSql, [collaboratorId]), client.query(`SELECT ${withdrawalCols}${destination} FROM redaction_rh.withdrawals w WHERE w.collaborator_id=$1 ORDER BY w.created_at DESC,w.id LIMIT 500`, [collaboratorId])]);
     await client.query('COMMIT'); return { balances: balances.rows.map(addAvailable), withdrawals: withdrawals.rows };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
@@ -438,7 +441,7 @@ export async function createMyWithdrawal(principal: import('./principal').RhPrin
     let payoutLabel: string | null = null;
     if (input.payoutMethodId) {
       const payout = await client.query('SELECT kind,provider,account_number,currency FROM redaction_rh.payout_methods WHERE id=$1 AND collaborator_id=$2 AND active', [input.payoutMethodId, collaboratorId]);
-      if (!payout.rowCount || payout.rows[0].currency !== input.currency) { await client.query('ROLLBACK'); return null; }
+      if (!payout.rowCount || payout.rows[0].currency !== input.currency || payout.rows[0].kind !== payoutKindForWithdrawal(input.method)) { await client.query('ROLLBACK'); return null; }
       payoutMethodId = input.payoutMethodId;
       payoutLabel = `${providerLabel(payout.rows[0].kind, payout.rows[0].provider)} · ${maskAccount(payout.rows[0].account_number)}`;
     }

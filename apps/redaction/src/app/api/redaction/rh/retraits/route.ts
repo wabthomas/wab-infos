@@ -1,4 +1,4 @@
-import { requireRhPermission } from '@/lib/redaction/rh/authorization';
+import { requireRhPermission, getRhCapabilities } from '@/lib/redaction/rh/authorization';
 import { adminWithdrawalView, decideWithdrawal } from '@/lib/redaction/rh/database';
 import { isUuid, kinshasaToday } from '@/lib/redaction/rh/activities';
 import { validateWithdrawalDecision } from '@/lib/redaction/rh/withdrawals';
@@ -7,11 +7,11 @@ import { getRhFlags } from '@/lib/redaction/rh/flags';
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
-await requireRhPermission('finance_read');
+    await requireRhPermission('finance_read');
     if (!(await getRhFlags()).withdrawalsEnabled) return json({ error: 'Retraits désactivés.' }, 503);
     const id = new URL(request.url).searchParams.get('collaboratorId');
     if (!isUuid(id)) return json({ error: 'Collaborateur invalide.' }, 400);
-    return json(await adminWithdrawalView(id));
+    return json(await adminWithdrawalView(id, (await getRhCapabilities()).financeManage));
   } catch (error) { return handleError(error); }
 }
 export async function PATCH(request: Request) {

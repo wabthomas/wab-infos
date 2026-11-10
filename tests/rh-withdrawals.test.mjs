@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateWithdrawal, validateWithdrawalDecision, mayReviewWithdrawal } from '../apps/redaction/src/lib/redaction/rh/withdrawals.ts';
+import { validateWithdrawal, validateWithdrawalDecision, mayReviewWithdrawal, payoutKindForWithdrawal } from '../apps/redaction/src/lib/redaction/rh/withdrawals.ts';
 const key = '01234567-89ab-cdef-0123-456789abcdef';
 test('montant strict, positif, devise et moyen autorisés', () => {
   const v = { key, currency: 'CDF', amount: '12,30', method: 'mobile_money' };
@@ -18,4 +18,11 @@ test('aucun traitement de son propre retrait ou sans lien identifiable', () => {
   assert.equal(mayReviewWithdrawal('admin@example.com', 'alice@example.com', null), false);
   assert.equal(mayReviewWithdrawal('admin@example.com', 'alice@example.com', 'ADMIN@example.com'), false);
   assert.equal(mayReviewWithdrawal('autre@example.com', 'alice@example.com', 'alice@example.com'), true);
+});
+
+test('une destination enregistrée correspond au canal choisi et aucun compte n’est requis pour espèces', () => {
+  assert.equal(payoutKindForWithdrawal('mobile_money'), 'mobile_money');
+  assert.equal(payoutKindForWithdrawal('virement'), 'bank');
+  assert.equal(payoutKindForWithdrawal('especes'), null);
+  assert.equal(payoutKindForWithdrawal('autre'), null);
 });

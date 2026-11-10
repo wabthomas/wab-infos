@@ -3,13 +3,14 @@ import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { ArrowDownUp, CheckCircle2, Clock3, Loader2, PlusCircle, WalletCards } from 'lucide-react';
+import { ArrowDownUp, CheckCircle2, Clock3, Loader2, PlusCircle, WalletCards, X } from 'lucide-react';
 import { MyPaymentHistory } from './my-payment-history';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
 import { repairLegacyMojibake } from '@/lib/redaction/rh/repair-text';
 import {
   validateWithdrawal,
+  payoutKindForWithdrawal,
   type Balance,
   type Withdrawal,
   type WithdrawalMethod,
@@ -66,6 +67,7 @@ export function MyWithdrawals({
   const [method, setMethod] = useState<WithdrawalMethod>('mobile_money');
   const [loading, setLoading] = useState(true);
   const [requestOpen, setRequestOpen] = useState(false);
+  const [submitted, setSubmitted] = useState<Withdrawal | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
@@ -123,8 +125,9 @@ export function MyWithdrawals({
         key.current = null;
         setAmount('');
         setRequestOpen(false);
+        setSubmitted(data.withdrawal as Withdrawal);
       }
-      setMessage(methodName === 'POST' ? 'Demande enregistrée.' : 'Demande annulée.');
+      setMessage(methodName === 'POST' ? 'Demande envoyée, en attente de traitement.' : 'Demande annulée.');
       setReload((n) => n + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Opération impossible.');
@@ -139,6 +142,10 @@ export function MyWithdrawals({
     const payload = { key: key.current, currency, amount, method, ...(payoutMethodId ? { payoutMethodId } : {}) };
     if (!validateWithdrawal(payload)) {
       setError('Vérifiez le montant et la devise.');
+      return;
+    }
+    if (payoutMethodId && !methods.some(entry => entry.id === payoutMethodId && entry.active && entry.currency === currency && entry.kind === payoutKindForWithdrawal(method))) {
+      setError('La destination sélectionnée ne correspond pas au moyen de paiement.');
       return;
     }
     void send('POST', payload);
@@ -357,6 +364,21 @@ export function MyWithdrawals({
       <MyPaymentHistory refresh={reload} />
       <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien n’apparaît pas ? Déclarez-le pour vérification</Link>
 
+      {submitted && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget) setSubmitted(null); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="withdrawal-success-title" aria-describedby="withdrawal-success-description" onKeyDown={event => { if (event.key === 'Escape') setSubmitted(null); }} className="relative w-full max-w-md rounded-t-3xl border border-border bg-card p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-2xl sm:rounded-3xl sm:p-8">
+          <button type="button" aria-label="Fermer" onClick={() => setSubmitted(null)} className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-muted"><X className="h-5 w-5" /></button>
+          <div className="relative mx-auto mb-5 grid h-24 w-24 place-items-center rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">
+            <span className="absolute inset-1 rounded-full border-2 border-dashed border-amber-500/45 motion-safe:animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            <Clock3 className="h-11 w-11" aria-hidden="true" />
+          </div>
+          <h2 id="withdrawal-success-title" className="font-display text-xl font-bold">Demande de retrait envoyée</h2>
+          <p id="withdrawal-success-description" className="mt-3 text-sm leading-6 text-muted-foreground">Votre demande de {formatMinorUnits(BigInt(submitted.amountMinor), submitted.currency)} a bien été enregistrée. Elle est en attente de vérification puis de paiement par l’administration.</p>
+          <p className="mt-4 rounded-xl bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-900 dark:text-amber-300">En attente de paiement · aucun versement n’a encore été effectué.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Suivi : {withdrawalRef(submitted)}</p>
+          <button type="button" autoFocus onClick={() => setSubmitted(null)} className="mt-6 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">Voir mes demandes</button>
+        </section>
+      </div>}
+
       {requestOpen && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}>
       <form role="dialog" aria-modal="true" aria-labelledby="withdrawal-request-title"
         id="nouvelle-demande"
@@ -410,6 +432,7 @@ export function MyWithdrawals({
               value={method}
               onChange={(event) => {
                 setMethod(event.target.value as WithdrawalMethod);
+                setPayoutMethodId('');
                 key.current = null;
               }}
               className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
@@ -434,7 +457,7 @@ export function MyWithdrawals({
             >
               <option value="">Non précisée</option>
               {methods
-                .filter((entry) => entry.active && entry.currency === currency)
+                .filter((entry) => entry.active && entry.currency === currency && entry.kind === payoutKindForWithdrawal(method))
                 .map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {repairLegacyMojibake(entry.provider)} · {repairLegacyMojibake(entry.accountName)} · {entry.accountNumber.slice(-4).padStart(4, '•')}

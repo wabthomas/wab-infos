@@ -4,6 +4,11 @@ export type WithdrawalMethod = 'mobile_money' | 'virement' | 'especes' | 'autre'
 export type WithdrawalStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'paid';
 export type Balance = { currency: RhCurrency; opening: string | null; throughMonth: string | null; validated: string; adjustmentCredits: string; adjustmentDebits: string; reserved: string; paid: string; available: string | null };
 export interface Withdrawal { id: string; currency: RhCurrency; amountMinor: string; method: WithdrawalMethod; status: WithdrawalStatus; decisionNote: string; paymentDate: string | null; paymentReference: string | null; payoutMethodId: string | null; payoutLabel: string | null; version: number }
+export interface AdminWithdrawal extends Withdrawal { payoutDestination?: { kind: 'mobile_money' | 'bank'; provider: string; accountName: string; accountNumber: string; currency: RhCurrency } | null }
+/** Destination liée au canal sélectionné, jamais à un autre type de paiement. */
+export function payoutKindForWithdrawal(method: WithdrawalMethod): 'mobile_money' | 'bank' | null {
+  return method === 'mobile_money' ? 'mobile_money' : method === 'virement' ? 'bank' : null;
+}
 export interface WithdrawalInput { key: string; currency: RhCurrency; amountMinor: string; method: WithdrawalMethod; payoutMethodId?: string }
 export function validateWithdrawal(value: unknown): WithdrawalInput | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
