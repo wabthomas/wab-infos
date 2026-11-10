@@ -3,7 +3,7 @@ import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
 import { MOBILE_MONEY_PROVIDERS as logoProviders } from '@/lib/redaction/rh/payouts';
-import { PlusCircle, ShieldCheck } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import {
   MOBILE_MONEY_PROVIDERS,
@@ -67,11 +67,6 @@ export function PayoutMethods() {
     const refresh = () => void load();
     window.addEventListener('rh-payouts-changed', refresh);
     return () => window.removeEventListener('rh-payouts-changed', refresh);
-  }, []);
-  useEffect(() => {
-    const open = () => setPanelOpen(true);
-    window.addEventListener('rh-open-payouts', open);
-    return () => window.removeEventListener('rh-open-payouts', open);
   }, []);
 
   async function add(event: React.FormEvent<HTMLFormElement>) {
@@ -138,7 +133,8 @@ export function PayoutMethods() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4">
+      <button type="button" aria-expanded={panelOpen} aria-haspopup="dialog" onClick={() => setPanelOpen(true)} className="flex w-full items-center justify-between rounded-xl border border-border bg-card p-4 text-left text-sm font-bold sm:hidden">Moyens de paiement <span className="text-xs text-primary">Ouvrir · {methods.length}</span></button>
       <div className={`${panelOpen ? 'fixed inset-0 z-[80] flex items-end bg-black/60' : 'hidden'} sm:static sm:block sm:bg-transparent`} onMouseDown={(event) => { if (event.target === event.currentTarget && !formOpen) setPanelOpen(false); }}>
       <section role={panelOpen ? 'dialog' : undefined} aria-modal={panelOpen || undefined} aria-label={panelOpen ? 'Moyens de paiement' : undefined} className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-h-none sm:rounded-2xl sm:p-5">
         <div className="flex items-center justify-between gap-3">
@@ -165,9 +161,6 @@ export function PayoutMethods() {
               {entry.currency} {entry.enabled ? 'activée' : 'désactivée'}
             </button>
           ))}
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-[11px] text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5" /> Les numéros sont masqués à l’affichage
-          </span>
         </div>
 
         <div className="mt-4 space-y-2">

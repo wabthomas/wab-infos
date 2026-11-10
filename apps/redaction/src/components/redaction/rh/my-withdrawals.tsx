@@ -2,13 +2,16 @@
 import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { ArrowDownUp, CheckCircle2, Clock3, Loader2, PlusCircle, WalletCards } from 'lucide-react';
+import { ArrowDownUp, Banknote, CheckCircle2, Clock3, Landmark, Loader2, PlusCircle, Smartphone, Wallet, X, Send } from 'lucide-react';
 import { MyPaymentHistory } from './my-payment-history';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
+import { repairLegacyMojibake } from '@/lib/redaction/rh/repair-text';
 import {
   validateWithdrawal,
+  payoutKindForWithdrawal,
   type Balance,
   type Withdrawal,
   type WithdrawalMethod,
@@ -36,6 +39,7 @@ const methodsList = {
   especes: 'Espèces',
   autre: 'Autre',
 } as const;
+const methodIcons = { mobile_money: Smartphone, virement: Landmark, especes: Banknote, autre: Wallet } as const;
 
 type WithdrawalFilter = 'all' | 'pending' | 'settled' | 'cancelled';
 const historyFilters: ReadonlyArray<{ value: WithdrawalFilter; label: string; statuses: readonly string[] }> = [
@@ -65,28 +69,7 @@ export function MyWithdrawals({
   const [method, setMethod] = useState<WithdrawalMethod>('mobile_money');
   const [loading, setLoading] = useState(true);
   const [requestOpen, setRequestOpen] = useState(false);
-  const [viewportBox, setViewportBox] = useState<{ top: number; height: number } | null>(null);
-  useEffect(() => {
-    if (!requestOpen) { setViewportBox(null); return; }
-    const visual = window.visualViewport;
-    const update = () => {
-      setViewportBox({ top: visual?.offsetTop ?? 0, height: visual?.height ?? window.innerHeight });
-    };
-    update();
-    window.addEventListener('resize', update);
-    visual?.addEventListener('resize', update);
-    visual?.addEventListener('scroll', update);
-    return () => {
-      window.removeEventListener('resize', update);
-      visual?.removeEventListener('resize', update);
-      visual?.removeEventListener('scroll', update);
-    };
-  }, [requestOpen]);
-  useEffect(() => {
-    const open = () => setRequestOpen(true);
-    window.addEventListener('rh-open-withdraw', open);
-    return () => window.removeEventListener('rh-open-withdraw', open);
-  }, []);
+  const [submitted, setSubmitted] = useState<Withdrawal | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
@@ -94,6 +77,52 @@ export function MyWithdrawals({
   const [message, setMessage] = useRhNotice('success');
   const [filter, setFilter] = useState<WithdrawalFilter>('all');
   const key = useRef<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const nativeInsetRef = useRef(0);
+  const [viewport, setViewport] = useState({ top: '0px', height: '100dvh' });
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!requestOpen && !submitted) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const frame = requestAnimationFrame(() => (requestOpen ? closeRef.current : document.getElementById('withdrawal-success-close'))?.focus());
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busyRef.current) { event.preventDefault(); setRequestOpen(false); setSubmitted(null); }
+      if (event.key !== 'Tab') return;
+      const dialog = document.querySelector<HTMLElement>('#withdrawal-request-dialog, #withdrawal-success-dialog');
+      const focusable = dialog?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled)');
+      if (!focusable?.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (!dialog?.contains(document.activeElement)) { event.preventDefault(); first.focus(); return; }
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('keydown', keydown); document.body.style.overflow = previous; requestAnimationFrame(() => triggerRef.current?.focus()); };
+  }, [requestOpen, submitted]);
+  useEffect(() => {
+    if (!requestOpen && !submitted) return;
+    const visual = window.visualViewport;
+    if (!visual) return;
+    const resize = () => {
+      setViewport({top: `${Math.max(0, visual.offsetTop)}px`, height: `${Math.max(120, visual.height)}px`});
+      requestAnimationFrame(() => {
+        const content = contentRef.current, focused = document.activeElement;
+        if (!content || !(focused instanceof HTMLElement) || !content.contains(focused)) return;
+        const field = focused.getBoundingClientRect(), bounds = content.getBoundingClientRect();
+        if (field.bottom > bounds.bottom - 12) content.scrollTop += field.bottom - bounds.bottom + 12;
+      });
+    };
+    resize();
+    visual.addEventListener('resize', resize);
+    visual.addEventListener('scroll', resize);
+    return () => { visual.removeEventListener('resize', resize); visual.removeEventListener('scroll', resize); };
+  }, [requestOpen, submitted]);
 
   useEffect(() => {
     if (!enabled) {
@@ -143,8 +172,10 @@ export function MyWithdrawals({
       if (methodName === 'POST') {
         key.current = null;
         setAmount('');
+        setRequestOpen(false);
+        setSubmitted(data.withdrawal as Withdrawal);
       }
-      setMessage(methodName === 'POST' ? 'Demande enregistrée.' : 'Demande annulée.');
+      setMessage(methodName === 'POST' ? 'Demande envoyée, en attente de traitement.' : 'Demande annulée.');
       setReload((n) => n + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Opération impossible.');
@@ -159,6 +190,10 @@ export function MyWithdrawals({
     const payload = { key: key.current, currency, amount, method, ...(payoutMethodId ? { payoutMethodId } : {}) };
     if (!validateWithdrawal(payload)) {
       setError('Vérifiez le montant et la devise.');
+      return;
+    }
+    if (payoutMethodId && !methods.some(entry => entry.id === payoutMethodId && entry.active && entry.currency === currency && entry.kind === payoutKindForWithdrawal(method))) {
+      setError('La destination sélectionnée ne correspond pas au moyen de paiement.');
       return;
     }
     void send('POST', payload);
@@ -200,7 +235,6 @@ export function MyWithdrawals({
             <p className="mt-1 text-3xl font-bold tabular-nums sm:text-4xl">
               {loading ? <Loader2 className="h-7 w-7 animate-spin text-zinc-400" /> : available ?? 'Non établi'}
             </p>
-            <WalletCards className="sr-only" />
           </div>
           <div className="flex flex-col items-end gap-3">
             <div className="flex rounded-full border border-white/10 bg-white/[0.06] p-1">
@@ -210,6 +244,7 @@ export function MyWithdrawals({
                   type="button"
                   onClick={() => {
                     setCurrency(code);
+                    setPayoutMethodId('');
                     key.current = null;
                   }}
                   className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${
@@ -240,7 +275,7 @@ export function MyWithdrawals({
             <div className="rounded-xl bg-white/[0.06] p-3">
               <dt className="text-zinc-400">Solde initial</dt>
               <dd className="mt-0.5 font-semibold">
-                {balance.opening === null ? 'Â' : formatMinorUnits(BigInt(balance.opening), currency)}
+                {balance.opening === null ? '—' : formatMinorUnits(BigInt(balance.opening), currency)}
               </dd>
             </div>
             <div className="rounded-xl bg-white/[0.06] p-3">
@@ -257,17 +292,22 @@ export function MyWithdrawals({
             </div>
           </dl>
         ) : null}
+
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => setRequestOpen(true)} disabled={available === null} aria-expanded={requestOpen} className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-[#191923] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
-            <PlusCircle className="h-3.5 w-3.5" /> Retirer de l'argent
-          </button>
-          <button type="button" onClick={() => window.dispatchEvent(new Event('rh-open-payouts'))} className="inline-flex items-center gap-1.5 rounded-xl border border-white/30 px-4 py-2 text-xs font-bold text-white hover:bg-white/10">
-            Moyens de paiement
+          <button
+            type="button"
+            ref={triggerRef}
+            onClick={() => { setError(''); setRequestOpen(open => !open); }}
+            disabled={available === null}
+            aria-expanded={requestOpen}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 ${available === null ? 'bg-white/20 text-white/60' : 'bg-white text-[#191923] hover:opacity-90'}`}
+          >
+            <PlusCircle className="h-3.5 w-3.5" /> {requestOpen ? 'Fermer' : 'Nouvelle demande'}
           </button>
         </div>
       </section>
 
-      {error && (
+      {error && !requestOpen && (
         <p role="alert" className="rounded-xl bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">
           {error}
         </p>
@@ -278,12 +318,12 @@ export function MyWithdrawals({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-lg font-bold">Mes demandes de retrait</h2>
-            </div>
+          </div>
           <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
             {items.length}
           </span>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer lâ„¢historique des retraits">
+        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filtrer l’historique des retraits">
           {historyFilters.map(({ value, label }) => (
             <button
               key={value}
@@ -302,7 +342,7 @@ export function MyWithdrawals({
         </div>
         <div className="mt-3 space-y-2">
           {loading ? (
-            <p className="text-sm text-muted-foreground">ChargementÂ¦</p>
+            <p className="text-sm text-muted-foreground">Chargement…</p>
           ) : failed ? null : items.length === 0 ? (
             <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">Aucune demande de retrait.</p>
           ) : visibleItems.length === 0 ? (
@@ -317,7 +357,7 @@ export function MyWithdrawals({
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       {methodsList[item.method]}
-                      {item.payoutLabel ? ` · ${item.payoutLabel}` : ''}
+                      {item.payoutLabel ? ` · ${repairLegacyMojibake(item.payoutLabel)}` : ''}
                       {item.paymentDate ? ` · payé le ${item.paymentDate}` : ''}
                       {item.paymentReference ? ` · référence : ${item.paymentReference}` : ''}
                     </p>
@@ -331,7 +371,7 @@ export function MyWithdrawals({
                   </span>
                 </div>
                 {item.decisionNote && (
-                  <p className="mt-1 text-[11px] text-muted-foreground">Motif : {item.decisionNote}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">Motif : {repairLegacyMojibake(item.decisionNote)}</p>
                 )}
                 {item.status === 'pending' && (
                   <button
@@ -365,94 +405,80 @@ export function MyWithdrawals({
       </section>
 
       <MyPaymentHistory refresh={reload} />
-      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Un paiement ancien n'apparaît pas ? Déclarez-le pour vérification</Link>
+      <Link href="/mon-rh/paiements-anciens" className="block rounded-xl border border-border bg-card p-4 text-sm font-semibold text-primary underline">Déclarer un paiement ancien</Link>
 
-      {requestOpen && (<div className="fixed inset-x-0 top-0 z-[90] flex items-end justify-center overflow-hidden bg-black/55 p-0 sm:items-center sm:p-4" style={viewportBox ? { top: viewportBox.top, height: viewportBox.height, bottom: 'auto' } : { top: 0, height: '100dvh' }} role="dialog" aria-modal="true" aria-labelledby="withdraw-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}><form id="nouvelle-demande" onSubmit={submit} onFocusCapture={(event) => { const target = event.target as HTMLElement; window.setTimeout(() => target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 200); }} className="relative max-h-full w-full max-w-xl overscroll-contain space-y-3 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6"><button type="button" onClick={() => setRequestOpen(false)} disabled={busy} aria-label="Fermer le formulaire" className="absolute right-4 top-4 rounded-full border border-border bg-card p-2 text-muted-foreground disabled:opacity-50">âÅ“•</button><h2 id="withdraw-form-title" className="font-display text-lg font-bold">Retirer de l argent</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Un solde initial doit être établi par lâ„¢administrateur. Ne saisissez pas vos coordonnées bancaires ou Mobile
-            Money ici.
-          </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            Montant
-            <input
-              required
-              value={amount}
-              disabled={busy}
-              inputMode="decimal"
-              maxLength={18}
-              onChange={(event) => {
-                setAmount(event.target.value);
-                key.current = null;
-              }}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
-            />
-          </label>
-          <label className="text-sm">
-            Devise
-            <select
-              disabled={busy}
-              value={currency}
-              onChange={(event) => {
-                setCurrency(event.target.value as RhCurrency);
-                setPayoutMethodId('');
-                key.current = null;
-              }}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
-            >
-              <option value="CDF">CDF</option>
-              <option value="USD">USD</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            Moyen
-            <select
-              disabled={busy}
-              value={method}
-              onChange={(event) => {
-                setMethod(event.target.value as WithdrawalMethod);
-                key.current = null;
-              }}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
-            >
-              {Object.entries(methodsList).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            Destination (moyen enregistré)
-            <select
-              disabled={busy}
-              value={payoutMethodId}
-              onChange={(event) => {
-                setPayoutMethodId(event.target.value);
-                key.current = null;
-              }}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
-            >
-              <option value="">Non précisée</option>
-              {methods
-                .filter((entry) => entry.active && entry.currency === currency)
-                .map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.provider} · {entry.accountName} · {entry.accountNumber.slice(-4).padStart(4, 'Â¢')}
-                  </option>
-                ))}
-            </select>
-          </label>
-        </div>
-        <button
-          type="submit"
-          disabled={busy || available === null}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+      {submitted && mounted && createPortal(<div style={{ '--rh-viewport-top': viewport.top, '--rh-viewport-height': viewport.height } as React.CSSProperties} className="fixed inset-x-0 top-[var(--rh-viewport-top)] z-[150] flex h-[var(--rh-viewport-height)] items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget) setSubmitted(null); }}>
+        <section id="withdrawal-success-dialog" role="dialog" aria-modal="true" aria-labelledby="withdrawal-success-title" aria-describedby="withdrawal-success-description" onKeyDown={event => { if (event.key === 'Escape') setSubmitted(null); }} className="relative w-full max-w-md rounded-t-3xl border border-border bg-card p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center shadow-2xl sm:rounded-3xl sm:p-8">
+          <button id="withdrawal-success-close" type="button" aria-label="Fermer" onClick={() => setSubmitted(null)} className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-muted"><X className="h-5 w-5" /></button>
+          <div className="relative mx-auto mb-5 grid h-24 w-24 place-items-center rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">
+            <span className="absolute inset-1 rounded-full border-2 border-dashed border-amber-500/45 motion-safe:animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            <Clock3 className="h-11 w-11" aria-hidden="true" />
+          </div>
+          <h2 id="withdrawal-success-title" className="font-display text-xl font-bold">Demande de retrait envoyée</h2>
+          <p id="withdrawal-success-description" className="mt-3 text-sm leading-6 text-muted-foreground">Votre demande de {formatMinorUnits(BigInt(submitted.amountMinor), submitted.currency)} a bien été enregistrée. Elle est en attente de vérification puis de paiement par l’administration.</p>
+          <p className="mt-4 rounded-xl bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-900 dark:text-amber-300">En attente de paiement · aucun versement n’a encore été effectué.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Suivi : {withdrawalRef(submitted)}</p>
+          <button type="button" autoFocus onClick={() => setSubmitted(null)} className="mt-6 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">Voir mes demandes</button>
+        </section>
+      </div>, document.body)}
+
+      {requestOpen && mounted && createPortal(<div style={{ '--rh-viewport-top': viewport.top, '--rh-viewport-height': viewport.height } as React.CSSProperties} className="fixed inset-x-0 top-[var(--rh-viewport-top)] z-[150] flex h-[var(--rh-viewport-height)] items-end justify-center bg-black/65 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}>
+        <form role="dialog" aria-modal="true" aria-labelledby="withdrawal-request-title" id="withdrawal-request-dialog"
+          onSubmit={submit} onKeyDown={event => { if (event.key === 'Escape' && !busy) setRequestOpen(false); }}
+          className="flex max-h-full w-full max-w-lg min-h-0 flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl sm:max-h-[calc(100%-2rem)] sm:rounded-3xl"
         >
-          {busy ? 'Envoi...' : 'Envoyer la demande'}
-        </button>
-        <button type="button" onClick={() => setRequestOpen(false)} disabled={busy} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-muted-foreground disabled:opacity-50">Annuler</button>
-      </form></div>)}
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5 py-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Wallet className="h-6 w-6" aria-hidden="true" /></span><div className="min-w-0"><h2 id="withdrawal-request-title" className="font-display text-lg font-bold">Nouveau retrait</h2><p className="truncate text-xs text-muted-foreground">Disponible : {available ?? '—'}</p></div></div>
+            <button ref={closeRef} type="button" disabled={busy} aria-label="Fermer le formulaire" onClick={() => setRequestOpen(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border text-foreground hover:bg-muted disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
+          </div>
+          <div ref={contentRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            {error && <p role="alert" className="rounded-xl bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+              <label className="min-w-0 text-sm font-semibold">Montant
+                <input required value={amount} disabled={busy} inputMode="decimal" maxLength={18}
+                  onChange={event => { setAmount(event.target.value); key.current = null; }}
+                  className="mt-2 block min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary" placeholder="0,00" />
+              </label>
+              <label className="min-w-0 text-sm font-semibold">Devise
+                <select disabled={busy} value={currency} onChange={event => { setCurrency(event.target.value as RhCurrency); setPayoutMethodId(''); key.current = null; }}
+                  className="mt-2 block min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <option value="CDF">CDF</option><option value="USD">USD</option>
+                </select>
+              </label>
+              <fieldset className="min-w-0 sm:col-span-2">
+                <legend className="text-sm font-semibold">Moyen de paiement</legend>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {(Object.entries(methodsList) as [WithdrawalMethod, string][]).map(([value, label]) => {
+                    const Icon = methodIcons[value];
+                    return <button key={value} type="button" disabled={busy} aria-pressed={method === value}
+                      onClick={() => { setMethod(value); setPayoutMethodId(''); key.current = null; }}
+                      className={`flex min-h-14 min-w-0 items-center gap-2 rounded-xl border px-3 text-left text-sm font-semibold transition-colors disabled:opacity-50 ${method === value ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-background text-foreground hover:bg-muted'}`}>
+                      <Icon className="h-5 w-5 shrink-0" aria-hidden="true" /><span className="min-w-0 break-words">{label}</span>
+                    </button>;
+                  })}
+                </div>
+              </fieldset>
+              {payoutKindForWithdrawal(method) && <label className="min-w-0 text-sm font-semibold sm:col-span-2">Destination
+                <select disabled={busy} value={payoutMethodId} onChange={event => { setPayoutMethodId(event.target.value); key.current = null; }}
+                  className="mt-2 block min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <option value="">Non précisée</option>
+                  {methods.filter(entry => entry.active && entry.currency === currency && entry.kind === payoutKindForWithdrawal(method)).map(entry =>
+                    <option key={entry.id} value={entry.id}>{repairLegacyMojibake(entry.provider)} · {repairLegacyMojibake(entry.accountName)} · {entry.accountNumber.slice(-4).padStart(4, '•')}</option>)}
+                </select>
+              </label>}
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2 border-t border-border bg-card px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row-reverse sm:px-6">
+            <button type="submit" disabled={busy || available === null} className="inline-flex min-h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground disabled:opacity-50 sm:w-auto">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4 shrink-0" aria-hidden="true" />}
+              <span>{busy ? 'Envoi…' : 'Envoyer la demande'}</span>
+            </button>
+            <button type="button" disabled={busy} onClick={() => setRequestOpen(false)} className="inline-flex min-h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-border bg-background px-5 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50 sm:w-auto">
+              <X className="h-4 w-4 shrink-0" aria-hidden="true" /><span>Annuler</span>
+            </button>
+          </div>
+        </form>
+      </div>, document.body)}
     </div>
   );
 }

@@ -6,9 +6,11 @@ import { ArrowDownUp, CheckCircle2, Clock3, Loader2, ReceiptText, WalletCards, X
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
 import { validateOpeningBalance } from '@/lib/redaction/rh/opening-balances';
-import { validateWithdrawalDecision, type Balance, type Withdrawal } from '@/lib/redaction/rh/withdrawals';
+import { validateWithdrawalDecision, type AdminWithdrawal, type Balance, type Withdrawal } from '@/lib/redaction/rh/withdrawals';
 import type { Collaborator } from '@/lib/redaction/rh/collaborator';
 import { PaymentReceipt } from './payment-receipt';
+import { providerLabel } from '@/lib/redaction/rh/payouts';
+import { repairLegacyMojibake } from '@/lib/redaction/rh/repair-text';
 
 const labels = {
   pending: 'En attente',
@@ -56,7 +58,7 @@ export function WithdrawalReview({
   const [people, setPeople] = useState<Collaborator[]>([]);
   const [person, setPerson] = useState(initialCollaboratorId ?? '');
   const [balances, setBalances] = useState<Balance[]>([]);
-  const [items, setItems] = useState<Withdrawal[]>([]);
+  const [items, setItems] = useState<AdminWithdrawal[]>([]);
   const [displayCurrency, setDisplayCurrency] = useState<RhCurrency>(initialCurrency ?? 'USD');
   const [filter, setFilter] = useState<Filter>('to_process');
   const [openingCurrency, setOpeningCurrency] = useState<RhCurrency>(initialCurrency ?? 'USD');
@@ -477,6 +479,7 @@ export function WithdrawalReview({
                         </p>
                         <p className="text-[11px] text-muted-foreground">
                           {methods[item.method]}
+                          {item.payoutLabel ? ` · ${repairLegacyMojibake(item.payoutLabel)}` : ''}
                           {item.paymentDate ? ` · payé le ${item.paymentDate}` : ''}
                           {item.paymentReference ? ` · référence : ${item.paymentReference}` : ''}
                         </p>
@@ -489,6 +492,14 @@ export function WithdrawalReview({
                         {labels[item.status]}
                       </span>
                     </div>
+                    {!readOnly && (item.method === 'mobile_money' || item.method === 'virement') && (item.payoutDestination
+                      ? <div className="rounded-xl border border-primary/20 bg-primary/[0.05] p-3 text-xs">
+                          <p className="font-bold">Destination choisie par le collaborateur · {methods[item.method]}</p>
+                          <p className="mt-1">{providerLabel(item.payoutDestination.kind, item.payoutDestination.provider)} · {repairLegacyMojibake(item.payoutDestination.accountName)}</p>
+                          <p className="mt-1 break-all font-mono text-sm font-bold tabular-nums">{item.payoutDestination.accountNumber} · {item.payoutDestination.currency}</p>
+                          <p className="mt-1 text-muted-foreground">Vérifiez le destinataire avant tout versement. Le paiement n’est pas effectué par l’application.</p>
+                        </div>
+                      : <p role="alert" className="rounded-lg border border-amber-400/50 bg-amber-50 p-2 text-xs text-amber-900">Destination non renseignée ou indisponible pour cette demande. Confirmez les coordonnées avec le collaborateur avant de payer.</p>)}
                     {item.decisionNote && <p className="text-[11px] text-muted-foreground">Motif : {item.decisionNote}</p>}
                     {item.status === 'paid' && selected && <button type="button" onClick={() => setReceiptWithdrawal(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/[0.05]"><ReceiptText className="h-3.5 w-3.5" />Voir / imprimer le reçu PDF</button>}
                     {!readOnly && (item.status === 'pending' || item.status === 'approved') && (

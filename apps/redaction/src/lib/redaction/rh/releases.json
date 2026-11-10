@@ -1,5 +1,17 @@
 [
   {
+    "id": "rh-2026-11-retrait-destination-confirmation",
+    "title": "Suivez votre demande de retrait",
+    "body": "Après l’envoi d’une demande de retrait, une confirmation vous indique qu’elle est enregistrée et en attente de traitement. Si vous choisissez un moyen enregistré, la gestion financière voit la destination pour effectuer le paiement hors de l’application.",
+    "highlights": [
+      "Choisissez un moyen de paiement compatible avec la devise et le mode de retrait.",
+      "Une animation d’attente confirme la soumission, pas le versement.",
+      "Retrouvez ensuite le statut de votre demande dans Mes retraits."
+    ],
+    "url": "/mon-rh/retraits",
+    "requiresWithdrawals": true
+  },
+  {
     "id": "rh-2026-11-documents-navigateur",
     "title": "Vos documents RH dans le navigateur",
     "body": "Depuis l’application Android, ouvrez vos contrats et autres documents RH en PDF ou PNG dans le navigateur externe pour les enregistrer ou les imprimer. Le lien privé est valable dix minutes.",

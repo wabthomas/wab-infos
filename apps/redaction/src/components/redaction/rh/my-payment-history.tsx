@@ -55,8 +55,7 @@ export function MyPaymentHistory({ refresh = 0 }: { refresh?: number }) {
 
   return <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h2 className="font-display text-lg font-bold">Historique des paiements</h2>
-        <p className="mt-1 text-xs text-muted-foreground">{expanded ? 'Paiements enregistrés par l’administration' : 'Jusqu’à 6 paiements de cette semaine'}</p></div>
+      <h2 className="font-display text-lg font-bold">Historique des paiements</h2>
       <div className="flex gap-3">
         <button type="button" onClick={() => { setPage(1); setReload((n) => n + 1); }} aria-label="Actualiser les paiements" className="rounded-lg p-2 text-muted-foreground hover:bg-muted"><RefreshCw className="h-4 w-4" /></button>
         <button type="button" aria-expanded={expanded} onClick={() => changeView(!expanded)} className="text-sm font-semibold text-primary underline">{expanded ? 'Réduire' : 'Voir plus'}</button>
