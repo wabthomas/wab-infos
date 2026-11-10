@@ -3,7 +3,7 @@ import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { ArrowDownUp, CheckCircle2, Clock3, Loader2, PlusCircle, WalletCards, X } from 'lucide-react';
+import { ArrowDownUp, CheckCircle2, Clock3, Loader2, PlusCircle, X, Send } from 'lucide-react';
 import { MyPaymentHistory } from './my-payment-history';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
@@ -187,7 +187,6 @@ export function MyWithdrawals({
             <p className="mt-1 text-3xl font-bold tabular-nums sm:text-4xl">
               {loading ? <Loader2 className="h-7 w-7 animate-spin text-zinc-400" /> : available ?? 'Non établi'}
             </p>
-            <WalletCards className="sr-only" />
           </div>
           <div className="flex flex-col items-end gap-3">
             <div className="flex rounded-full border border-white/10 bg-white/[0.06] p-1">
@@ -197,6 +196,7 @@ export function MyWithdrawals({
                   type="button"
                   onClick={() => {
                     setCurrency(code);
+                    setPayoutMethodId('');
                     key.current = null;
                   }}
                   className={`rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${
@@ -248,16 +248,13 @@ export function MyWithdrawals({
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setRequestOpen((open) => !open)}
+            onClick={() => { setError(''); setRequestOpen(open => !open); }}
             disabled={available === null}
             aria-expanded={requestOpen}
             className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 ${available === null ? 'bg-white/20 text-white/60' : 'bg-white text-[#191923] hover:opacity-90'}`}
           >
             <PlusCircle className="h-3.5 w-3.5" /> {requestOpen ? 'Fermer' : 'Nouvelle demande'}
           </button>
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
-            <WalletCards className="h-3.5 w-3.5" /> Aucun transfert automatique
-          </span>
         </div>
       </section>
 
@@ -272,9 +269,6 @@ export function MyWithdrawals({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="font-display text-lg font-bold">Mes demandes de retrait</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Chaque demande porte un numéro de suivi. Le paiement est enregistré par l’administration.
-            </p>
           </div>
           <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
             {items.length}
@@ -379,102 +373,56 @@ export function MyWithdrawals({
         </section>
       </div>}
 
-      {requestOpen && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}>
-      <form role="dialog" aria-modal="true" aria-labelledby="withdrawal-request-title"
-        id="nouvelle-demande"
-        onSubmit={submit}
-        className="max-h-[92dvh] w-full max-w-xl space-y-3 overflow-y-auto rounded-t-2xl border border-border bg-card p-5 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl"
-      >
-        <div>
-          <h2 id="withdrawal-request-title" className="font-display text-lg font-bold">Demander un retrait</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Un solde initial doit être établi par l’administrateur. Ne saisissez pas vos coordonnées bancaires ou Mobile
-            Money ici.
-          </p>
-        </div>
-        {error && <p role="alert" className="rounded-lg bg-red-500/10 p-2 text-xs text-red-700 dark:text-red-300">{error}</p>}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            Montant
-            <input
-              required
-              value={amount}
-              disabled={busy}
-              inputMode="decimal"
-              maxLength={18}
-              onChange={(event) => {
-                setAmount(event.target.value);
-                key.current = null;
-              }}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
-            />
-          </label>
-          <label className="text-sm">
-            Devise
-            <select
-              disabled={busy}
-              value={currency}
-              onChange={(event) => {
-                setCurrency(event.target.value as RhCurrency);
-                setPayoutMethodId('');
-                key.current = null;
-              }}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
-            >
-              <option value="CDF">CDF</option>
-              <option value="USD">USD</option>
-            </select>
-          </label>
-          <label className="text-sm">
-            Moyen
-            <select
-              disabled={busy}
-              value={method}
-              onChange={(event) => {
-                setMethod(event.target.value as WithdrawalMethod);
-                setPayoutMethodId('');
-                key.current = null;
-              }}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
-            >
-              {Object.entries(methodsList).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            Destination (moyen enregistré)
-            <select
-              disabled={busy}
-              value={payoutMethodId}
-              onChange={(event) => {
-                setPayoutMethodId(event.target.value);
-                key.current = null;
-              }}
-              className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2"
-            >
-              <option value="">Non précisée</option>
-              {methods
-                .filter((entry) => entry.active && entry.currency === currency && entry.kind === payoutKindForWithdrawal(method))
-                .map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {repairLegacyMojibake(entry.provider)} · {repairLegacyMojibake(entry.accountName)} · {entry.accountNumber.slice(-4).padStart(4, '•')}
-                  </option>
-                ))}
-            </select>
-          </label>
-        </div>
-        <button
-          type="submit"
-          disabled={busy || available === null}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+      {requestOpen && <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/65 backdrop-blur-sm sm:items-center sm:p-4" onMouseDown={event => { if (event.target === event.currentTarget && !busy) setRequestOpen(false); }}>
+        <form role="dialog" aria-modal="true" aria-labelledby="withdrawal-request-title" id="nouvelle-demande"
+          onSubmit={submit} onKeyDown={event => { if (event.key === 'Escape' && !busy) setRequestOpen(false); }}
+          className="flex max-h-[94dvh] w-full max-w-lg min-h-0 flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl sm:rounded-3xl"
         >
-          {busy ? 'Envoi...' : 'Envoyer la demande'}
-        </button>
-        <button type="button" disabled={busy} onClick={() => setRequestOpen(false)} className="ml-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Annuler</button>
-      </form></div>}
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-5 py-4 sm:px-6">
+            <div className="min-w-0"><h2 id="withdrawal-request-title" className="font-display text-lg font-bold">Demander un retrait</h2><p className="text-xs text-muted-foreground">Solde disponible : {available ?? '—'}</p></div>
+            <button type="button" autoFocus disabled={busy} aria-label="Fermer le formulaire" onClick={() => setRequestOpen(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border text-foreground hover:bg-muted disabled:opacity-50"><X className="h-5 w-5" aria-hidden="true" /></button>
+          </div>
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            {error && <p role="alert" className="rounded-xl bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+              <label className="min-w-0 text-sm font-semibold">Montant
+                <input required value={amount} disabled={busy} inputMode="decimal" maxLength={18}
+                  onChange={event => { setAmount(event.target.value); key.current = null; }}
+                  className="mt-2 block min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary" placeholder="0,00" />
+              </label>
+              <label className="min-w-0 text-sm font-semibold">Devise
+                <select disabled={busy} value={currency} onChange={event => { setCurrency(event.target.value as RhCurrency); setPayoutMethodId(''); key.current = null; }}
+                  className="mt-2 block min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <option value="CDF">CDF</option><option value="USD">USD</option>
+                </select>
+              </label>
+              <label className="min-w-0 text-sm font-semibold">Moyen de paiement
+                <select disabled={busy} value={method} onChange={event => { setMethod(event.target.value as WithdrawalMethod); setPayoutMethodId(''); key.current = null; }}
+                  className="mt-2 block min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  {Object.entries(methodsList).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </label>
+              {payoutKindForWithdrawal(method) && <label className="min-w-0 text-sm font-semibold">Destination
+                <select disabled={busy} value={payoutMethodId} onChange={event => { setPayoutMethodId(event.target.value); key.current = null; }}
+                  className="mt-2 block min-h-12 w-full rounded-xl border border-border bg-background px-3 text-base font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <option value="">Non précisée</option>
+                  {methods.filter(entry => entry.active && entry.currency === currency && entry.kind === payoutKindForWithdrawal(method)).map(entry =>
+                    <option key={entry.id} value={entry.id}>{repairLegacyMojibake(entry.provider)} · {repairLegacyMojibake(entry.accountName)} · {entry.accountNumber.slice(-4).padStart(4, '•')}</option>)}
+                </select>
+              </label>}
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col gap-2 border-t border-border bg-card px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row-reverse sm:px-6">
+            <button type="submit" disabled={busy || available === null} className="inline-flex min-h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground disabled:opacity-50 sm:w-auto">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4 shrink-0" aria-hidden="true" />}
+              <span>{busy ? 'Envoi…' : 'Envoyer la demande'}</span>
+            </button>
+            <button type="button" disabled={busy} onClick={() => setRequestOpen(false)} className="inline-flex min-h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-border bg-background px-5 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50 sm:w-auto">
+              <X className="h-4 w-4 shrink-0" aria-hidden="true" /><span>Annuler</span>
+            </button>
+          </div>
+        </form>
+      </div>}
     </div>
   );
 }

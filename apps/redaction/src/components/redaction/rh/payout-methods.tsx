@@ -3,7 +3,7 @@ import { useRhNotice } from './use-rh-notice';
 
 import { useEffect, useState } from 'react';
 import { MOBILE_MONEY_PROVIDERS as logoProviders } from '@/lib/redaction/rh/payouts';
-import { PlusCircle, ShieldCheck } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import {
   MOBILE_MONEY_PROVIDERS,
@@ -161,9 +161,6 @@ export function PayoutMethods() {
               {entry.currency} {entry.enabled ? 'activée' : 'désactivée'}
             </button>
           ))}
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-[11px] text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5" /> Les numéros sont masqués à l’affichage
-          </span>
         </div>
 
         <div className="mt-4 space-y-2">

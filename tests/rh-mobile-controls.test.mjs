@@ -23,12 +23,15 @@ test('fiche de paiement masquée : la garde couvre le chargement et la création
   assert.match(view, /flags\.paymentSheetsVisible && <RecordSheets type="paiements"/);
 });
 
-test('popup retrait : actions en texte ASCII non ambigu et fermeture après succès', async () => {
+test('popup retrait : actions lisibles, adaptatives et fermeture après succès', async () => {
   const component = await source('components/redaction/rh/my-withdrawals.tsx');
-  assert.match(component, /Envoi\.\.\./);
+  assert.match(component, /Envoi…/);
   assert.match(component, /Envoyer la demande/);
   assert.match(component, /setRequestOpen\(false\)/);
-  assert.match(component, />Annuler<\/button>/);
+  assert.match(component, /<X className="h-4 w-4 shrink-0"[^>]*\/><span>Annuler<\/span>/);
+  assert.match(component, /flex shrink-0 flex-col gap-2 border-t/);
+  assert.match(component, /max-h-\[94dvh\]/);
+  assert.doesNotMatch(component, /Aucun transfert automatique|Chaque demande porte un numéro de suivi|Un solde initial doit être établi par l’administrateur/);
 });
 
 test('nouvelle prestation : fenêtre mobile titrée, visible avec le clavier et fermée après envoi', async () => {
