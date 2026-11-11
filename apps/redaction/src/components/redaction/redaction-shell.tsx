@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { ManagementBell, useManagementNotifications } from '@/components/redaction/rh/management-bell';
 import { MyRhTopbarActions } from '@/components/redaction/rh/my-rh-topbar';
+import { RhChatFab } from '@/components/redaction/rh/rh-chat-fab';
 import { RedactionPushBanner } from '@/components/redaction/redaction-push-setup';
 import {
   RedactionNotificationsBell,
@@ -609,6 +610,7 @@ export function RedactionShell({
   const inRh = pathname === '/rh' || pathname.startsWith('/rh/');
   const inMyRh = pathname === '/mon-rh' || pathname.startsWith('/mon-rh/');
   const inChat = pathname === '/mon-rh/chat';
+  useEffect(() => { if (inRh || inMyRh) setAiOpen(false); }, [inRh, inMyRh]);
   const mobileNav: NavItem[] = inRh ? RH_MOBILE_ADMIN : inMyRh ? RH_MOBILE_MY : MOBILE_NAV;
   useEffect(() => {
     if (!inChat) { setChatConversation(false); return; }
@@ -746,20 +748,20 @@ export function RedactionShell({
           </Link>
         ) : null}
 
-        {!rhOnly && <Link
+        {!rhOnly && !inRh && !inMyRh && <Link
           href="/nouveau"
-          className={`${pathname === '/mon-rh/chat' ? 'hidden' : 'flex'} fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 lg:hidden`}
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 lg:hidden"
           aria-label="Écrire un article"
         >
           <PenLine className="h-6 w-6" />
         </Link>}
 
-        {!rhOnly && !aiOpen ? (
+        {!rhOnly && !inRh && !inMyRh && !aiOpen ? (
           <>
             {/* Mobile : au-dessus du bouton « Rédiger » (h-14 + 0.75rem d'écart). */}
             <AiFab
               onOpen={() => setAiOpen(true)}
-              className={`${pathname === '/mon-rh/chat' ? 'hidden' : ''} bottom-[calc(9rem+env(safe-area-inset-bottom))] right-5 h-12 w-12 lg:hidden`}
+              className="bottom-[calc(9rem+env(safe-area-inset-bottom))] right-5 h-12 w-12 lg:hidden"
             />
             <AiFab
               onOpen={() => setAiOpen(true)}
@@ -768,8 +770,10 @@ export function RedactionShell({
           </>
         ) : null}
 
+        {(inRh || inMyRh) && !inChat && <RhChatFab />}
+
         <AiEditorChat
-          open={aiOpen}
+          open={aiOpen && !inRh && !inMyRh}
           onClose={() => setAiOpen(false)}
           article={{}}
           onActions={handleAiActions}

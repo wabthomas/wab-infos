@@ -8,6 +8,7 @@ export interface RhRelease {
   url: string;
   requiresWithdrawals?: boolean;
   requiresContracts?: boolean;
+  requiresChat?: boolean;
   requiresYoutube?: boolean;
 }
 

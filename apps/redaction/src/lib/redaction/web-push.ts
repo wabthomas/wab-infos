@@ -94,19 +94,28 @@ export async function listPushSubscriptions(): Promise<StoredSubscription[]> {
 export async function listPushSubscriptionsDetailed(): Promise<
   Array<StoredSubscription & { userEmail: string }>
 > {
-  const response = await strapiAdminFetch<{
-    data: Array<StoredSubscription & { userEmail?: string }>;
-  }>('/editor-push-subscriptions', {
-    pagination: { pageSize: 200 },
-    fields: ['documentId', 'fcmToken', 'userEmail'],
-  });
-  return (response.data || [])
-    .filter((row) => row.fcmToken && row.userEmail)
-    .map((row) => ({
-      documentId: row.documentId,
-      fcmToken: row.fcmToken,
-      userEmail: String(row.userEmail).toLowerCase(),
-    }));
+  const subscriptions: Array<StoredSubscription & { userEmail: string }> = [];
+  for (let page = 1; page <= 100; page++) {
+    const response = await strapiAdminFetch<{
+      data: Array<StoredSubscription & { userEmail?: string }>;
+      meta?: { pagination?: { pageCount?: number } };
+    }>('/editor-push-subscriptions', {
+      pagination: { page, pageSize: 100 },
+      fields: ['documentId', 'fcmToken', 'userEmail'],
+    });
+    const rows = response.data || [];
+    subscriptions.push(...rows
+      .filter((row) => row.fcmToken && row.userEmail)
+      .map((row) => ({
+        documentId: row.documentId,
+        fcmToken: row.fcmToken,
+        userEmail: String(row.userEmail).toLowerCase(),
+      })));
+    if (response.meta?.pagination?.pageCount != null
+      ? page >= response.meta.pagination.pageCount
+      : rows.length < 100) break;
+  }
+  return subscriptions;
 }
 
 export async function deletePushSubscription(documentId: string): Promise<void> {

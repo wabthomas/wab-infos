@@ -1,5 +1,17 @@
 [
   {
+    "id": "rh-2026-11-chat-alertes",
+    "title": "Vos messages RH sont plus visibles",
+    "body": "Sur les pages RH, l’accès flottant au Chat indique les messages non lus. Si vous avez activé les notifications de la Rédaction, vous pouvez aussi recevoir un push pour les nouveaux messages et les changements de fonctionnalités annoncés par l’administration.",
+    "highlights": [
+      "Le compteur suit les messages reçus dans vos discussions privées et de groupe.",
+      "Les notifications push demandent une autorisation et un appareil ou navigateur enregistré.",
+      "Votre accès au Chat dépend des réglages de votre administration."
+    ],
+    "url": "/mon-rh/chat",
+    "requiresChat": true
+  },
+  {
     "id": "rh-2026-11-protection-captures-apk",
     "title": "Protection des captures dans l’espace RH",
     "body": "Votre administration peut autoriser ou bloquer les captures et l’enregistrement d’écran dans les pages RH de la nouvelle APK Rédaction. Cette protection Android ne s’applique pas au navigateur, aux documents ouverts hors de l’application ni à une photo prise avec un autre appareil.",
