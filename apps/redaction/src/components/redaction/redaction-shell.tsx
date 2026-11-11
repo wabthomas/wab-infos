@@ -724,6 +724,7 @@ export function RedactionShell({
         />
 
         <main
+          style={(inRh || inMyRh) && !inChat ? { paddingBottom: 'var(--wab-ime-bottom, 0px)' } : undefined}
           id="redaction-main-scroll"
           className="redaction-main-scroll min-h-0 w-full flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"
         >

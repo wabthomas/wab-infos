@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useEditorKeyboardInset } from '@/lib/redaction/use-editor-keyboard-inset';
 
 /** Keeps RH forms outside the scrollable app shell and above the mobile keyboard. */
 export function RhFormModal({ open, busy = false, onClose, children, width = 'max-w-lg' }: {
   open: boolean; busy?: boolean; onClose: () => void; children: ReactNode; width?: string;
 }) {
   const [mounted, setMounted] = useState(false);
+  const { keyboardInset } = useEditorKeyboardInset();
   const [viewport, setViewport] = useState({ top: '0px', height: '100dvh' });
   const nativeInsetRef = useRef(0);
   const layer = useRef<HTMLDivElement>(null);
@@ -39,7 +41,13 @@ export function RhFormModal({ open, busy = false, onClose, children, width = 'ma
     if (!open) return;
     const visual = window.visualViewport;
     if (!visual) return;
-    const resize = () => setViewport({ top: `${Math.max(0, visual.offsetTop)}px`, height: `${Math.max(120, visual.height)}px` });
+    const resize = () => {
+      const offsetTop = Math.max(0, visual.offsetTop);
+      const visualBottom = (visual.height) + offsetTop;
+      const keyboardBottom = window.innerHeight - Math.max(0, keyboardInset);
+      const height = Math.max(120, Math.min(visualBottom, keyboardBottom) - offsetTop);
+      setViewport({ top: `${offsetTop}px`, height: `${height}px` });
+    };
     resize();
     visual.addEventListener('resize', resize);
     visual.addEventListener('scroll', resize);

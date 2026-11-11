@@ -1,0 +1,15 @@
+﻿import fs from 'node:fs';
+const file = 'apps/redaction/src/components/redaction/rh/my-submissions.tsx';
+const eol = fs.readFileSync(file, 'utf8').includes('\r\n') ? '\r\n' : '\n';
+const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+const hook = lines.findIndex(line => line.trim().startsWith('const { keyboardInset }'));
+const decl = lines.findIndex(line => line.includes('const [formOpen, setFormOpen]'));
+const hookLine = lines[hook];
+if (hook >= 0) lines.splice(hook, 1);
+const insertAt = lines.findIndex(line => line.includes('const [formOpen, setFormOpen]'));
+lines.splice(insertAt + 1, 0, hookLine);
+const deps = lines.map((line, i) => ({ line, i })).filter(x => x.line.trim() === '}, [formOpen]);');
+if (deps[0]) lines[deps[0].i] = '  }, [formOpen]);';
+if (deps[1]) lines[deps[1].i] = '  }, [formOpen, keyboardInset]);';
+fs.writeFileSync(file, lines.join(eol), 'utf8');
+console.log('OK');

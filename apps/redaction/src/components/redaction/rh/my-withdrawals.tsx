@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { ArrowDownUp, Banknote, CheckCircle2, Clock3, Landmark, Loader2, PlusCircle, Smartphone, Wallet, WalletCards, X, Send } from 'lucide-react';
 import { MyPaymentHistory } from './my-payment-history';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { useEditorKeyboardInset } from '@/lib/redaction/use-editor-keyboard-inset';
 import { formatMinorUnits, type RhCurrency } from '@/lib/redaction/rh/money';
 import { repairLegacyMojibake } from '@/lib/redaction/rh/repair-text';
 import {
@@ -83,7 +84,7 @@ export function MyWithdrawals({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const busyRef = useRef(busy);
   busyRef.current = busy;
-  const nativeInsetRef = useRef(0);
+  const { keyboardInset } = useEditorKeyboardInset();
   const [viewport, setViewport] = useState({ top: '0px', height: '100dvh' });
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -110,7 +111,10 @@ export function MyWithdrawals({
     const visual = window.visualViewport;
     if (!visual) return;
     const resize = () => {
-      const height = Math.max(120, Math.min(visual.height, window.innerHeight) - nativeInsetRef.current);
+      const offsetTop = Math.max(0, visual.offsetTop);
+      const visualBottom = visual.height + offsetTop;
+      const keyboardBottom = window.innerHeight - Math.max(0, keyboardInset);
+      const height = Math.max(120, Math.min(visualBottom, keyboardBottom) - offsetTop);
       setViewport({top: `${Math.max(0, visual.offsetTop)}px`, height: `${height}px`});
       requestAnimationFrame(() => {
         const content = contentRef.current, focused = document.activeElement;
@@ -120,18 +124,12 @@ export function MyWithdrawals({
       });
     };
     resize();
-    const onNativeInset = (event: Event) => {
-      const detail = (event as CustomEvent<{ inset?: number }>).detail;
-      nativeInsetRef.current = Math.max(0, Number(detail?.inset) || 0);
-      resize();
-    };
     visual.addEventListener('resize', resize);
     visual.addEventListener('scroll', resize);
     visual.addEventListener('resize', resize);
     visual.addEventListener('scroll', resize);
-    window.addEventListener('wab-keyboard-inset', onNativeInset);
-    return () => { visual.removeEventListener('resize', resize); visual.removeEventListener('scroll', resize); window.removeEventListener('wab-keyboard-inset', onNativeInset); };
-  }, [requestOpen, submitted]);
+    return () => { visual.removeEventListener('resize', resize); visual.removeEventListener('scroll', resize); };
+  }, [requestOpen, submitted, keyboardInset]);
 
   useEffect(() => {
     if (!enabled) {

@@ -9,6 +9,7 @@ import { PersonalHistoryControls } from './personal-history-controls';
 import { historyUrl, type HistoryPeriod } from '@/lib/redaction/rh/personal-history';
 import { enqueue, pending, notifyQueue } from '@/lib/redaction/rh/offline-queue';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { useEditorKeyboardInset } from '@/lib/redaction/use-editor-keyboard-inset';
 import { contributionRole, youtubeVideoId } from '@/lib/redaction/rh/youtube-performance';
 import { validateSubmission, type Submission, type SubmissionStatus } from '@/lib/redaction/rh/submissions';
 
@@ -32,6 +33,7 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false); const [reload, setReload] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
+  const { keyboardInset } = useEditorKeyboardInset();
   const [mounted, setMounted] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -57,7 +59,6 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
     window.addEventListener('keydown', onKeyDown);
     return () => { cancelAnimationFrame(frame); document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', onKeyDown); requestAnimationFrame(() => triggerRef.current?.focus()); };
   }, [formOpen]);
-  const nativeInsetRef = useRef(0);
   const [visibleViewport, setVisibleViewport] = useState({ top: '0px', height: '100dvh' });
   useEffect(() => {
     if (!formOpen) return;
@@ -73,28 +74,23 @@ export function MySubmissions({ today, owner = '', youtubeEnabled = false }: { t
       else if (focus.top < bounds.top + 12) form.scrollTop -= bounds.top + 12 - focus.top;
     };
     const resize = () => {
-      const base = Math.min(viewport.height, window.innerHeight);
-      const height = Math.max(120, base - nativeInsetRef.current);
+      const offsetTop = Math.max(0, viewport.offsetTop);
+      const visualBottom = viewport.height + offsetTop;
+      const keyboardBottom = window.innerHeight - Math.max(0, keyboardInset);
+      const height = Math.max(120, Math.min(visualBottom, keyboardBottom) - offsetTop);
       setVisibleViewport({ top: `${Math.max(0, viewport.offsetTop)}px`, height: `${height}px` });
       requestAnimationFrame(keepFocusedFieldVisible);
-    };
-    const onNativeInset = (event: Event) => {
-      const detail = (event as CustomEvent<{ inset?: number }>).detail;
-      nativeInsetRef.current = Math.max(0, Number(detail?.inset) || 0);
-      resize();
     };
     resize();
     viewport.addEventListener('resize', resize);
     viewport.addEventListener('scroll', resize);
     window.addEventListener('resize', resize);
-    window.addEventListener('wab-keyboard-inset', onNativeInset);
     return () => {
       viewport.removeEventListener('resize', resize);
       viewport.removeEventListener('scroll', resize);
       window.removeEventListener('resize', resize);
-      window.removeEventListener('wab-keyboard-inset', onNativeInset);
     };
-  }, [formOpen]);
+  }, [formOpen, keyboardInset]);
   const [queued, setQueued] = useState<Awaited<ReturnType<typeof pending>>>([]);
   useEffect(() => {
     const refresh = () => { void pending(owner).then(setQueued).catch(() => setError('Stockage local indisponible.')); };

@@ -333,7 +333,7 @@ export function RhChat() {
         <p className="mt-2 text-xs text-muted-foreground">Le thème est enregistré sur cet appareil pour cette discussion.</p>
       </div>
     </div>}
-    {contactPicker && <div role="dialog" aria-modal="true" aria-label="Sélectionner un contact" onKeyDown={event => { if (event.key === 'Escape') setContactPicker(false); }} className="fixed inset-0 z-[60] flex flex-col bg-background pt-[env(safe-area-inset-top)] md:hidden">
+    {contactPicker && <div role="dialog" aria-modal="true" aria-label="Sélectionner un contact" onKeyDown={event => { if (event.key === 'Escape') setContactPicker(false); }} style={{ paddingBottom: keyboardInset }} className="fixed inset-0 z-[60] flex flex-col bg-background pt-[env(safe-area-inset-top)] md:hidden">
       <header className="flex min-h-16 shrink-0 items-center gap-2 bg-[#075e54] px-2 text-white">
         <button type="button" onClick={() => { setContactPicker(false); setContactOptions(false); }} aria-label="Retour aux discussions" className="grid h-11 w-10 place-items-center"><ArrowLeft className="h-5 w-5" /></button>
         <div className="min-w-0 flex-1"><h2 className="truncate text-base font-semibold">Sélectionner un contact</h2><p className="text-xs text-white/75">{people.length} contacts</p></div>

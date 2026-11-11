@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { RhFormModal } from './rh-form-modal';
 import { CalendarDays, Clock3, UsersRound } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import type { Collaborator } from '@/lib/redaction/rh/collaborator';
@@ -203,8 +204,8 @@ export function AttendanceReview({ initialMonth, today }: { initialMonth: string
       {corrections.map((item) => <article key={item.id} className="rounded-xl border border-border p-3 text-sm"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-semibold">{item.firstName} {item.lastName} · {item.workDate}</p><p className="mt-0.5 text-xs text-muted-foreground">{item.source === 'employee' ? 'Demande collaborateur' : 'Correction directe admin'} · {item.checkIn ? `Arrivée ${item.checkIn}` : ''}{item.checkIn && item.checkOut ? ' · ' : ''}{item.checkOut ? `Sortie ${item.checkOut}` : ''}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.status === 'pending' ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300' : item.status === 'approved' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-red-500/10 text-red-700 dark:text-red-300'}`}>{item.status === 'pending' ? 'En attente' : item.status === 'approved' ? 'Approuvée' : 'Refusée'}</span></div><p className="mt-2">Motif : {item.reason}</p>{item.decisionNote && <p className="mt-1 text-xs text-muted-foreground">Décision : {item.decisionNote}</p>}{item.history && <p className="mt-1 text-xs text-muted-foreground">Historique : {historyLabel(item.history)}</p>}{item.status === 'pending' && <button type="button" onClick={() => { setReviewing(item); setReviewNote(''); setError(''); }} className="mt-3 min-h-11 w-full rounded-xl border border-primary/25 bg-primary/[0.06] px-4 font-semibold text-primary">Examiner et décider</button>}</article>)}
     </section>
     <p className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3 text-xs leading-5 text-amber-900 dark:text-amber-200">Un jour sans pointage n’est pas automatiquement une absence. Le repère « après 07:00 » est indicatif et ne déclenche aucune sanction automatique. Les pauses ne sont pas suivies. Les demandes de correction sont tracées ; aucune sortie n’est exigée à 15:00 si les prestations sont terminées.</p>
-    {directOpen && <div className="fixed inset-0 z-[90] bg-black/55" onClick={() => { if (!directBusy) setDirectOpen(false); }}>
-      <form onSubmit={submitDirectCorrection} onClick={(event) => event.stopPropagation()} className="absolute inset-x-0 bottom-0 max-h-[92dvh] space-y-4 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl">
+    <RhFormModal open={directOpen} busy={directBusy} onClose={() => setDirectOpen(false)} width="max-w-xl">
+      <form onSubmit={submitDirectCorrection} className="min-h-0 w-full space-y-4 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-primary">Écriture administrative</p><h3 className="mt-1 font-display text-lg font-bold">Ajouter / corriger un pointage</h3></div><button type="button" disabled={directBusy} aria-label="Fermer" onClick={() => setDirectOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg">×</button></div>
         <p className="text-xs leading-5 text-muted-foreground">L’ancienne valeur, la nouvelle valeur, le motif et l’auteur sont conservés. Les heures saisies sont interprétées en heure de Kinshasa. Pour préserver une heure, laissez son champ vide.</p>
         {error && <p role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p>}
@@ -214,9 +215,10 @@ export function AttendanceReview({ initialMonth, today }: { initialMonth: string
         <label className="block text-sm font-semibold">Motif (8 à 500 caractères)<textarea required minLength={8} maxLength={500} value={directReason} onChange={(event) => setDirectReason(event.target.value)} className="mt-1.5 block min-h-24 w-full rounded-xl border border-border bg-background px-3 py-2.5 font-normal" /></label>
         <button type="submit" disabled={directBusy} className="min-h-12 w-full rounded-xl bg-primary px-4 font-semibold text-primary-foreground disabled:opacity-50">{directBusy ? 'Enregistrement…' : 'Enregistrer avec historique'}</button>
       </form>
-    </div>}
-    {reviewing && <div className="fixed inset-0 z-[90] bg-black/55" onClick={() => { if (!reviewBusy) setReviewing(null); }}>
-      <section role="dialog" aria-modal="true" aria-label="Examiner une demande de correction" onClick={(event) => event.stopPropagation()} className="absolute inset-x-0 bottom-0 max-h-[90dvh] space-y-4 overflow-y-auto rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl">
+    </RhFormModal>
+    <RhFormModal open={Boolean(reviewing)} busy={reviewBusy} onClose={() => setReviewing(null)} width="max-w-xl">
+      {reviewing && <>
+      <section aria-label="Examiner une demande de correction" className="min-h-0 w-full space-y-4 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-primary">Demande collaborateur</p><h3 className="mt-1 font-display text-lg font-bold">{reviewing.firstName} {reviewing.lastName} · {reviewing.workDate}</h3></div><button type="button" disabled={reviewBusy} aria-label="Fermer" onClick={() => setReviewing(null)} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg disabled:opacity-50">×</button></div>
         <p className="rounded-xl bg-muted/60 p-3 text-sm">Heures demandées : {reviewing.checkIn ? `arrivée ${reviewing.checkIn}` : ''}{reviewing.checkIn && reviewing.checkOut ? ' · ' : ''}{reviewing.checkOut ? `sortie ${reviewing.checkOut}` : ''}</p>
         <p className="text-sm leading-6">Motif : {reviewing.reason}</p>
@@ -224,6 +226,7 @@ export function AttendanceReview({ initialMonth, today }: { initialMonth: string
         <label className="block text-sm font-semibold">Note de décision<textarea maxLength={500} value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="Obligatoire en cas de refus (8 caractères minimum)" className="mt-1.5 block min-h-20 w-full rounded-xl border border-border bg-background px-3 py-2.5 font-normal" /></label>
         <div className="grid grid-cols-2 gap-3"><button type="button" disabled={reviewBusy} onClick={() => void decideCorrection('approve')} className="min-h-12 rounded-xl bg-primary px-3 font-semibold text-primary-foreground disabled:opacity-50">{reviewBusy ? 'Traitement…' : 'Approuver'}</button><button type="button" disabled={reviewBusy} onClick={() => void decideCorrection('reject')} className="min-h-12 rounded-xl border border-red-500/30 px-3 font-semibold text-red-700 dark:text-red-300 disabled:opacity-50">Refuser</button></div>
       </section>
-    </div>}
+      </>}
+    </RhFormModal>
   </section>;
 }
