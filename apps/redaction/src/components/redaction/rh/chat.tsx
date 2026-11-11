@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
-import { ArrowLeft, Check, CheckCheck, MessageCircle, Mic, MoreVertical, Paperclip, Reply, Search, Send, Smile, Square, Users, X } from 'lucide-react';
+import { ArrowLeft, Check, CheckCheck, Mail, MessageCircle, Mic, MoreVertical, Palette, Paperclip, Phone, Reply, Search, Send, Smile, Square, Users, X } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useRhNotice } from './use-rh-notice';
 
@@ -9,6 +9,8 @@ type Room = { id: string; title: string; kind: 'group' | 'private'; photoId: str
 type Person = { id: string; firstName: string; lastName: string };
 type Msg = { id: string; senderId: string; body: string; replyTo: string | null; replyBody: string | null; createdAt: string; fileName: string | null; fileMime: string | null; firstName: string; lastName: string; read: boolean };
 type Presence = { id: string; online: boolean; typing: boolean };
+type ContactInfo = { id: string; firstName: string; lastName: string; phone: string | null; email: string | null };
+type ChatTheme = 'classic' | 'sand' | 'night';
 const api = '/api/redaction/rh/mon-espace/chat';
 
 function RoomAvatar({ room, size = 'h-11 w-11' }: { room?: Room; size?: string }) {
@@ -28,6 +30,14 @@ export function RhChat() {
   const [contactSearch, setContactSearch] = useState(false);
   const [contactQuery, setContactQuery] = useState('');
   const [contactOptions, setContactOptions] = useState(false);
+  const [conversationMenu, setConversationMenu] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
+  const [contactError, setContactError] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [theme, setTheme] = useState<ChatTheme>('classic');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [online, setOnline] = useState<Presence[]>([]);
   const [text, setText] = useState('');
@@ -80,7 +90,8 @@ export function RhChat() {
 
   useEffect(() => { void loadRooms(); const id = window.setInterval(() => void loadRooms(), 20_000); return () => window.clearInterval(id); }, [loadRooms]);
   useEffect(() => { setMessages([]); setOnline([]); setReply(null); nearBottom.current = true; void loadMessages(); const id = window.setInterval(() => void loadMessages(), 5_000); return () => window.clearInterval(id); }, [loadMessages]);
-  useEffect(() => { if (nearBottom.current) bottom.current?.scrollIntoView({ block: 'end' }); }, [messages, room]);
+  useEffect(() => { if (nearBottom.current && !searchQuery.trim()) bottom.current?.scrollIntoView({ block: 'end' }); }, [messages, room, searchQuery]);
+  useEffect(() => { if (searchQuery.trim()) list.current?.scrollTo({ top: 0 }); }, [searchQuery]);
   useEffect(() => {
     const visual = window.visualViewport;
     const resize = () => {
@@ -97,6 +108,14 @@ export function RhChat() {
   }, [mobileView]);
   useEffect(() => { window.dispatchEvent(new CustomEvent('rh-chat-view', { detail: mobileView })); }, [mobileView]);
   useEffect(() => {
+    setConversationMenu(false); setContactOpen(false); setContactInfo(null);
+    setSearchOpen(false); setSearchQuery(''); setThemeOpen(false);
+    try {
+      const saved = window.localStorage.getItem(`rh-chat-theme:${room}`);
+      setTheme(saved === 'sand' || saved === 'night' ? saved : 'classic');
+    } catch { setTheme('classic'); }
+  }, [room]);
+  useEffect(() => {
     const field = input.current;
     if (!field) return;
     field.style.height = 'auto';
@@ -107,6 +126,23 @@ export function RhChat() {
   }, []);
 
   function switchRoom(id: string) { if (id) { setRoom(id); setMobileView('conversation'); } }
+  async function openContact() {
+    if (!room || rooms.find(item => item.id === room)?.kind !== 'private') return;
+    const requestedRoom = room;
+    setConversationMenu(false); setContactOpen(true); setContactError(''); setContactInfo(null);
+    try {
+      const response = await fetchRedaction(`${api}/rooms/${encodeURIComponent(requestedRoom)}/contact`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Contact indisponible.');
+      if (roomRef.current === requestedRoom) setContactInfo(data.contact);
+    } catch (cause) {
+      if (roomRef.current === requestedRoom) setContactError(cause instanceof Error ? cause.message : 'Contact indisponible.');
+    }
+  }
+  function selectTheme(value: ChatTheme) {
+    setTheme(value); setThemeOpen(false);
+    try { window.localStorage.setItem(`rh-chat-theme:${room}`, value); } catch { /* Storage may be unavailable in the APK. */ }
+  }
   function presence(typing = false) {
     if (!room) return;
     void fetchRedaction(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'presence', roomId: room, typing }) }).catch(() => undefined);
@@ -185,6 +221,9 @@ export function RhChat() {
   const group = rooms.find(item => item.kind === 'group');
   const conversations = rooms.filter(item => item.kind === 'private');
   const mobileRooms = [...rooms].sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
+  const visibleMessages = searchOpen && searchQuery.trim()
+    ? messages.filter(message => `${message.body} ${message.fileName ?? ''} ${message.firstName} ${message.lastName}`.toLocaleLowerCase('fr').includes(searchQuery.trim().toLocaleLowerCase('fr')))
+    : messages;
   const fileUrl = (id: string) => `${api}/fichiers/${id}`;
   return <section ref={section} aria-label="Chat RH" className="relative overflow-hidden bg-card max-lg:border-0 lg:rounded-2xl lg:border lg:border-border lg:shadow-sm">
     <div className="grid h-[var(--rh-chat-height)] min-h-0 md:h-[min(75vh,820px)] md:min-h-[520px] md:grid-cols-[16rem_minmax(0,1fr)]" style={{ '--rh-chat-height': chatHeight } as React.CSSProperties}>
@@ -215,14 +254,25 @@ export function RhChat() {
         <header className="shrink-0 border-b border-border bg-card px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 md:pt-2">
           <div className="flex min-w-0 items-center gap-2">
             <button type="button" aria-label="Retour aux discussions" onClick={() => { setMobileView('list'); input.current?.blur(); }} className="grid h-10 w-8 shrink-0 place-items-center rounded-full hover:bg-muted md:hidden"><ArrowLeft className="h-5 w-5" /></button>
-            <RoomAvatar room={active} size="h-10 w-10" />
-            <div className="min-w-0 flex-1"><h2 className="truncate text-sm font-bold">{active?.title ?? 'Chat RH'}</h2><p className="text-[11px] text-muted-foreground">{online.some(person => person.typing) ? 'Quelqu’un écrit…' : `${online.filter(person => person.online).length} en ligne`}</p></div>
+            {active?.kind === 'private' ? <button type="button" onClick={() => void openContact()} aria-label={`Afficher le contact ${active.title}`} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg text-left hover:bg-muted/50">
+              <RoomAvatar room={active} size="h-10 w-10" />
+              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold">{active.title}</span><span className="block text-[11px] text-muted-foreground">{online.some(person => person.typing) ? 'Écrit…' : online.some(person => person.online) ? 'En ligne' : 'Discussion privée'}</span></span>
+            </button> : <div className="flex min-w-0 flex-1 items-center gap-2"><RoomAvatar room={active} size="h-10 w-10" /><div className="min-w-0 flex-1"><h2 className="truncate text-sm font-bold">{active?.title ?? 'Chat RH'}</h2><p className="text-[11px] text-muted-foreground">{online.some(person => person.typing) ? 'Quelqu’un écrit…' : `${online.filter(person => person.online).length} en ligne`}</p></div></div>}
+            {active?.kind === 'private' && <div className="relative shrink-0 md:hidden">
+              <button type="button" aria-label="Options de la discussion" aria-expanded={conversationMenu} onClick={() => setConversationMenu(value => !value)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-muted"><MoreVertical className="h-5 w-5" /></button>
+              {conversationMenu && <div role="menu" onKeyDown={event => { if (event.key === 'Escape') setConversationMenu(false); }} className="absolute right-0 top-full z-20 min-w-52 rounded-xl border border-border bg-card p-1 text-foreground shadow-xl">
+                <button type="button" role="menuitem" onClick={() => void openContact()} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted">Afficher le contact</button>
+                <button type="button" role="menuitem" onClick={() => { setSearchOpen(true); setConversationMenu(false); }} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted">Rechercher</button>
+                <button type="button" role="menuitem" onClick={() => { setThemeOpen(true); setConversationMenu(false); }} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted">Thème de la discussion</button>
+              </div>}
+            </div>}
           </div>
+          {searchOpen && <div className="mt-2 flex items-center gap-2 rounded-xl bg-muted px-3 py-1"><Search className="h-4 w-4 shrink-0 text-muted-foreground" /><input autoFocus aria-label="Rechercher dans la discussion" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Rechercher un message…" className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none" /><button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }} aria-label="Fermer la recherche"><X className="h-4 w-4" /></button></div>}
         </header>
         {error && <p role="alert" className="shrink-0 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">{error}<button type="button" onClick={() => setError('')} className="ml-2 font-semibold underline">Fermer</button></p>}
-        <div ref={list} onScroll={event => { const node = event.currentTarget; const wasNear = nearBottom.current; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 110; if (!wasNear && nearBottom.current) void loadMessages(); }} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-[#efeae2] p-3 dark:bg-[#182a27] md:bg-muted/20 md:dark:bg-muted/20 sm:p-4">
-          {!messages.length && <p className="py-8 text-center text-xs text-muted-foreground">Aucun message dans cette conversation.</p>}
-          {messages.map(message => { const own = message.senderId === currentId; return <article key={message.id} className={`w-fit max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%] ${own ? 'ml-auto rounded-br-md bg-[#d9fdd3] text-[#1f2c2a] dark:bg-[#005c4b] dark:text-white md:bg-primary md:text-primary-foreground md:dark:bg-primary' : 'rounded-bl-md border border-border bg-card text-foreground'}`}>
+        <div ref={list} onScroll={event => { const node = event.currentTarget; const wasNear = nearBottom.current; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 110; if (!wasNear && nearBottom.current) void loadMessages(); }} className={`min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 sm:p-4 ${theme === 'night' ? 'bg-[#172b28]' : theme === 'sand' ? 'bg-[#f4e9d5]' : 'bg-[#efeae2] dark:bg-[#182a27]'} md:bg-muted/20 md:dark:bg-muted/20`}>
+          {!visibleMessages.length && <p className="py-8 text-center text-xs text-muted-foreground">{searchQuery.trim() ? 'Aucun message trouvé.' : 'Aucun message dans cette conversation.'}</p>}
+          {visibleMessages.map(message => { const own = message.senderId === currentId; return <article key={message.id} className={`w-fit max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%] ${own ? `ml-auto rounded-br-md ${theme === 'night' ? 'bg-[#005c4b] text-white' : theme === 'sand' ? 'bg-[#fff4c6] text-[#332c21]' : 'bg-[#d9fdd3] text-[#1f2c2a] dark:bg-[#005c4b] dark:text-white'} md:bg-primary md:text-primary-foreground md:dark:bg-primary` : `rounded-bl-md border border-border ${theme === 'night' ? 'bg-[#29433d] text-white' : 'bg-card text-foreground'}`}`}>
             {!own && <p className="mb-1 text-[11px] font-bold opacity-80">{message.firstName} {message.lastName}</p>}
             {message.replyBody && <blockquote className="mb-2 max-w-full truncate border-l-2 border-current/40 pl-2 text-xs opacity-75">{message.replyBody}</blockquote>}
             {message.body && <p className="flow-root whitespace-pre-wrap break-words leading-relaxed">{message.body}{!message.fileName && <span className="float-right inline-flex translate-y-1 items-center gap-0.5 whitespace-nowrap pl-2 text-[10px] leading-5 opacity-70"><time dateTime={message.createdAt}>{new Date(message.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time>{own && (message.read ? <CheckCheck aria-label="Lu" className="h-3.5 w-3.5 text-sky-600" /> : <Check aria-label="Envoyé, non lu" className="h-3.5 w-3.5" />)}</span>}</p>}
@@ -245,6 +295,35 @@ export function RhChat() {
         </form>
       </div>
     </div>
+    {contactOpen && active?.kind === 'private' && <div role="dialog" aria-modal="true" aria-label="Informations du contact" onKeyDown={event => { if (event.key === 'Escape') setContactOpen(false); }} className="fixed inset-0 z-[70] flex bg-black/50">
+      <div className="flex h-full w-full flex-col bg-background md:ml-auto md:max-w-[440px] md:shadow-2xl">
+        <header className="flex shrink-0 items-center gap-3 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <button type="button" onClick={() => setContactOpen(false)} aria-label="Retour à la discussion" className="grid h-10 w-10 place-items-center rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></button>
+          <h2 className="text-base font-semibold">Informations du contact</h2>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="relative mb-16 h-48 bg-gradient-to-br from-[#075e54] via-[#128c7e] to-[#a7e0c5]" aria-label="Photo de couverture indisponible">
+            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 rounded-full border-4 border-background bg-background shadow-lg"><RoomAvatar room={active} size="h-24 w-24" /></div>
+          </div>
+          <div className="px-5 pb-10 text-center">
+            <h3 className="text-xl font-bold">{contactInfo ? `${contactInfo.firstName} ${contactInfo.lastName}` : active.title}</h3>
+            {contactError && <p role="alert" className="mt-3 text-sm text-red-600">{contactError}</p>}
+            {!contactInfo && !contactError && <p className="mt-3 text-sm text-muted-foreground">Chargement des informations…</p>}
+            {contactInfo && <div className="mt-7 space-y-2 text-left">
+              <div className="flex items-center gap-4 rounded-2xl bg-muted/50 p-4"><Phone className="h-5 w-5 shrink-0 text-[#00866a]" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Téléphone</p><p className="break-all text-sm font-medium">{contactInfo.phone?.trim() || 'Non renseigné'}</p></div></div>
+              <div className="flex items-center gap-4 rounded-2xl bg-muted/50 p-4"><Mail className="h-5 w-5 shrink-0 text-[#00866a]" /><div className="min-w-0"><p className="text-xs text-muted-foreground">E-mail professionnel</p><p className="break-all text-sm font-medium">{contactInfo.email?.trim() || 'Non renseigné'}</p></div></div>
+            </div>}
+          </div>
+        </div>
+      </div>
+    </div>}
+    {themeOpen && <div role="dialog" aria-modal="true" aria-label="Thème de la discussion" onKeyDown={event => { if (event.key === 'Escape') setThemeOpen(false); }} className="fixed inset-0 z-[65] flex items-end justify-center bg-black/50 md:items-center">
+      <div className="w-full rounded-t-3xl bg-card px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-xl md:max-w-sm md:rounded-2xl">
+        <div className="mb-4 flex items-center justify-between"><h2 className="flex items-center gap-2 text-base font-semibold"><Palette className="h-5 w-5" />Thème de la discussion</h2><button type="button" onClick={() => setThemeOpen(false)} aria-label="Fermer les thèmes" className="rounded-full p-2 hover:bg-muted"><X className="h-5 w-5" /></button></div>
+        {([['classic', 'Classique', 'bg-[#efeae2]'], ['sand', 'Sable', 'bg-[#f4e9d5]'], ['night', 'Nuit', 'bg-[#172b28]']] as const).map(([value, label, swatch]) => <button key={value} type="button" onClick={() => selectTheme(value)} aria-pressed={theme === value} className={`mb-2 flex w-full items-center gap-3 rounded-xl border p-3 text-left text-sm font-medium ${theme === value ? 'border-[#00a884]' : 'border-border'}`}><span className={`h-9 w-9 rounded-full ${swatch}`} />{label}{theme === value && <Check className="ml-auto h-5 w-5 text-[#00866a]" />}</button>)}
+        <p className="mt-2 text-xs text-muted-foreground">Le thème est enregistré sur cet appareil pour cette discussion.</p>
+      </div>
+    </div>}
     {contactPicker && <div role="dialog" aria-modal="true" aria-label="Sélectionner un contact" onKeyDown={event => { if (event.key === 'Escape') setContactPicker(false); }} className="fixed inset-0 z-[60] flex flex-col bg-background pt-[env(safe-area-inset-top)] md:hidden">
       <header className="flex min-h-16 shrink-0 items-center gap-2 bg-[#075e54] px-2 text-white">
         <button type="button" onClick={() => { setContactPicker(false); setContactOptions(false); }} aria-label="Retour aux discussions" className="grid h-11 w-10 place-items-center"><ArrowLeft className="h-5 w-5" /></button>
