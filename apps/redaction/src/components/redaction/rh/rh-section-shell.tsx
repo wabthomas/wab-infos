@@ -154,8 +154,8 @@ export function RhSectionShell({
   const info = titles[pathname] ?? (mode === 'admin' ? ADMIN_TITLES['/rh'] : MY_TITLES['/mon-rh']);
 
   return (
-    <div className="space-y-5 pb-14">
-      <header className={`relative overflow-hidden rounded-[1.75rem] bg-[#191923] px-5 py-6 text-white shadow-sm sm:px-8 sm:py-7 ${(pathname === '/mon-rh/retraits' || pathname === '/mon-rh/remunerations') ? 'hidden lg:block' : ''}`}>
+    <div className={pathname === '/mon-rh/chat' ? 'space-y-0 pb-0 lg:space-y-5 lg:pb-14' : 'space-y-5 pb-14'}>
+      <header className={`relative overflow-hidden rounded-[1.75rem] bg-[#191923] px-5 py-6 text-white shadow-sm sm:px-8 sm:py-7 ${(pathname === '/mon-rh/retraits' || pathname === '/mon-rh/remunerations' || pathname === '/mon-rh/chat') ? 'hidden lg:block' : ''}`}>
         <div aria-hidden className="pointer-events-none absolute -right-10 -top-24 h-64 w-64 rounded-full border border-white/[0.06] bg-white/[0.03]" />
         <div aria-hidden className="pointer-events-none absolute -right-20 top-10 h-44 w-44 rounded-full border border-white/[0.05]" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
@@ -180,10 +180,10 @@ export function RhSectionShell({
         </div>
       </header>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+      <div className={pathname === '/mon-rh/chat' ? 'flex flex-col gap-0 lg:gap-5 lg:flex-row lg:items-start' : 'flex flex-col gap-5 lg:flex-row lg:items-start'}>
         <nav
           aria-label={mode === 'admin' ? 'Sections RH' : 'Sections de mon espace RH'}
-          className={`lg:sticky lg:top-4 lg:w-56 lg:shrink-0 ${(pathname === '/mon-rh/retraits' || pathname === '/mon-rh/remunerations') ? 'order-2 lg:order-none' : ''}`}
+          className={`lg:sticky lg:top-4 lg:w-56 lg:shrink-0 ${(pathname === '/mon-rh/chat') ? 'hidden lg:block' : ''} ${(pathname === '/mon-rh/retraits' || pathname === '/mon-rh/remunerations') ? 'order-2 lg:order-none' : ''}`}
         >
           <p className="mb-3 hidden px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground lg:block">
             {mode === 'admin' ? 'Navigation RH' : 'Mon espace'}

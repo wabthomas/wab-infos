@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowDownUp,
+  ArrowLeft,
   BarChart3,
   CalendarDays,
   ChevronDown,
@@ -606,6 +607,7 @@ export function RedactionShell({
   // Barre mobile contextuelle : le module RH remplace les onglets éditoriaux.
   const inRh = pathname === '/rh' || pathname.startsWith('/rh/');
   const inMyRh = pathname === '/mon-rh' || pathname.startsWith('/mon-rh/');
+  const inChat = pathname === '/mon-rh/chat';
   const mobileNav: NavItem[] = inRh ? RH_MOBILE_ADMIN : inMyRh ? RH_MOBILE_MY : MOBILE_NAV;
 
   const toggleSidebar = useCallback(() => {
@@ -676,16 +678,19 @@ export function RedactionShell({
       {!rhOnly && sidebar}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="redaction-mobile-header z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden">
-          <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
-                {inRh || inMyRh ? 'Espace RH' : 'Rédaction'}
-              </p>
-              <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
-            </div>
+        <header className={cn('redaction-mobile-header z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden', inChat && 'border-transparent !bg-[#075e54] text-white')}>
+            <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
+              {inChat ? <div className="flex min-w-0 items-center gap-2">
+                <Link href="/mon-rh" aria-label="Retour à mon espace RH" className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Link>
+                <span className="truncate font-display text-lg font-bold">Chat RH</span>
+              </div> : <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+                  {inRh || inMyRh ? 'Espace RH' : 'Rédaction'}
+                </p>
+                <p className="truncate font-display text-sm font-bold">{authorName ?? 'Wab-infos'}</p>
+              </div>}
             <div className="flex items-center gap-1">
-              {inMyRh ? <MyRhTopbarActions /> : inRh ? <>
+              {inChat ? null : inMyRh ? <MyRhTopbarActions /> : inRh ? <>
                 <ManagementBell state={managementNotifications} />
                 {rhOnly ? <MyRhTopbarActions /> : <ProfileMenu authorName={authorName} avatarUrl={avatarUrl} isSuperAdmin={isSuperAdmin} />}
               </> : <>
@@ -715,10 +720,11 @@ export function RedactionShell({
           <div
             className={cn(
               'mx-auto w-full px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:px-8 lg:py-8 lg:pb-10',
-              pathname === '/parametres' ? 'lg:max-w-[1440px]' : 'lg:max-w-6xl'
+              pathname === '/parametres' ? 'lg:max-w-[1440px]' : 'lg:max-w-6xl',
+              inChat && 'max-lg:px-0 max-lg:py-0 max-lg:pb-0'
             )}
           >
-            <RedactionPushBanner rhOnly={rhOnly} />
+            <div className={inChat ? 'hidden lg:block' : ''}><RedactionPushBanner rhOnly={rhOnly} /></div>
             {children}
           </div>
         </main>
@@ -726,7 +732,7 @@ export function RedactionShell({
         {isSuperAdmin ? (
           <Link
             href="/parametres"
-            className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-4 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg lg:hidden"
+            className={`${inChat ? 'hidden' : 'flex'} fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-4 z-50 h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-lg lg:hidden`}
             aria-label="Paramètres du site"
           >
             <Settings className="h-5 w-5" />
@@ -762,7 +768,7 @@ export function RedactionShell({
           onActions={handleAiActions}
         />
 
-        <nav className="redaction-mobile-nav fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:hidden">
+        <nav className={`${inChat ? 'hidden' : ''} redaction-mobile-nav fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:hidden`}>
           <div className="mx-auto flex max-w-lg items-end gap-0.5 px-2 pt-2">
             {mobileNav.map((item) => (
               <MobileNavItem

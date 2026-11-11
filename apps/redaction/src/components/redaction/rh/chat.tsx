@@ -1,21 +1,29 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
-import { MessageCircle, Mic, Paperclip, Reply, Send, Smile, Square, Users, X } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Mic, Paperclip, Reply, Send, Smile, Square, Users, X } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useRhNotice } from './use-rh-notice';
 
-type Room = { id: string; title: string; kind: 'group' | 'private' };
+type Room = { id: string; title: string; kind: 'group' | 'private'; photoId: string | null; lastMessageAt: string | null };
 type Person = { id: string; firstName: string; lastName: string };
 type Msg = { id: string; senderId: string; body: string; replyTo: string | null; replyBody: string | null; createdAt: string; fileName: string | null; fileMime: string | null; firstName: string; lastName: string };
 type Presence = { id: string; online: boolean; typing: boolean };
 const api = '/api/redaction/rh/mon-espace/chat';
+
+function RoomAvatar({ room, size = 'h-11 w-11' }: { room?: Room; size?: string }) {
+  return <span aria-hidden="true" className={`relative grid ${size} shrink-0 place-items-center overflow-hidden rounded-full bg-primary/10 font-bold text-primary`}>
+    {room?.kind === 'group' ? <Users className="h-5 w-5" /> : (room?.title?.trim().charAt(0).toUpperCase() || <MessageCircle className="h-5 w-5" />)}
+    {room?.kind === 'private' && room.photoId && <img src={`${api}/photos/${room.photoId}`} alt="" onError={event => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 h-full w-full object-cover" />}
+  </span>;
+}
 
 export function RhChat() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [currentId, setCurrentId] = useState('');
   const [room, setRoom] = useState('');
+  const [mobileView, setMobileView] = useState<'list' | 'conversation'>('list');
   const [messages, setMessages] = useState<Msg[]>([]);
   const [online, setOnline] = useState<Presence[]>([]);
   const [text, setText] = useState('');
@@ -84,7 +92,7 @@ export function RhChat() {
     if (recorder.current?.state === 'recording') recorder.current.stop();
   }, []);
 
-  function switchRoom(id: string) { if (id) setRoom(id); }
+  function switchRoom(id: string) { if (id) { setRoom(id); setMobileView('conversation'); } }
   function presence(typing = false) {
     if (!room) return;
     void fetchRedaction(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'presence', roomId: room, typing }) }).catch(() => undefined);
@@ -162,8 +170,9 @@ export function RhChat() {
   const active = rooms.find(item => item.id === room);
   const group = rooms.find(item => item.kind === 'group');
   const conversations = rooms.filter(item => item.kind === 'private');
+  const mobileRooms = [...rooms].sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
   const fileUrl = (id: string) => `${api}/fichiers/${id}`;
-  return <section ref={section} aria-label="Chat RH" className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+  return <section ref={section} aria-label="Chat RH" className="overflow-hidden bg-card max-lg:border-0 lg:rounded-2xl lg:border lg:border-border lg:shadow-sm">
     <div className="grid h-[var(--rh-chat-height)] min-h-0 md:h-[min(75vh,820px)] md:min-h-[520px] md:grid-cols-[16rem_minmax(0,1fr)]" style={{ '--rh-chat-height': chatHeight } as React.CSSProperties}>
       <aside aria-label="Conversations" className="hidden min-h-0 flex-col border-r border-border bg-muted/20 p-3 md:flex">
         <h2 className="mb-3 flex items-center gap-2 px-2 text-sm font-bold"><MessageCircle className="h-4 w-4 text-primary" />Conversations</h2>
@@ -173,19 +182,33 @@ export function RhChat() {
         </label>
         <div className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto">{conversations.map(item => <button key={item.id} type="button" onClick={() => switchRoom(item.id)} aria-current={room === item.id ? 'page' : undefined} className={`block w-full truncate rounded-xl px-3 py-2.5 text-left text-sm ${room === item.id ? 'bg-primary/10 font-semibold text-primary' : 'hover:bg-muted'}`}>{item.title}</button>)}</div>
       </aside>
-      <div className="flex min-h-0 min-w-0 flex-col">
-        <header className="shrink-0 border-b border-border bg-card px-3 py-2.5 sm:px-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">{active?.kind === 'group' ? <Users className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}</span>
+      <div className={`min-h-0 min-w-0 flex-col bg-[#f8faf9] dark:bg-background md:hidden ${mobileView === 'list' ? 'flex' : 'hidden'}`}>
+        <div className="shrink-0 border-b border-border px-4 py-4">
+          <h2 className="text-xl font-bold tracking-tight">Discussions</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">Votre équipe, au même endroit</p>
+          <select aria-label="Nouvelle discussion privée" disabled={creating} value="" onChange={event => void newPrivate(event.target.value)} className="mt-4 min-h-11 w-full rounded-xl border border-border bg-muted/40 px-3 text-sm font-medium"><option value="">＋ Nouvelle discussion</option>{people.map(person => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}</select>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {mobileRooms.map(item => <button key={item.id} type="button" onClick={() => switchRoom(item.id)} className="flex min-h-18 w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left hover:bg-muted/40 active:bg-muted">
+            <RoomAvatar room={item} size="h-12 w-12" />
+            <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{item.title}</span><span className="mt-1 block text-xs text-muted-foreground">{item.kind === 'group' ? 'Groupe de la rédaction' : 'Discussion privée'}</span></span>
+            {item.lastMessageAt && <time dateTime={item.lastMessageAt} className="self-start whitespace-nowrap text-[11px] text-muted-foreground">{new Date(item.lastMessageAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</time>}
+          </button>)}
+          {!mobileRooms.length && <p className="p-6 text-center text-sm text-muted-foreground">Aucune conversation pour le moment.</p>}
+        </div>
+      </div>
+      <div className={`min-h-0 min-w-0 flex-col md:flex ${mobileView === 'conversation' ? 'flex' : 'hidden'}`}>
+        <header className="shrink-0 border-b border-border bg-card px-2 py-2 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <button type="button" aria-label="Retour aux discussions" onClick={() => { setMobileView('list'); input.current?.blur(); }} className="grid h-10 w-8 shrink-0 place-items-center rounded-full hover:bg-muted md:hidden"><ArrowLeft className="h-5 w-5" /></button>
+            <RoomAvatar room={active} size="h-10 w-10" />
             <div className="min-w-0 flex-1"><h2 className="truncate text-sm font-bold">{active?.title ?? 'Chat RH'}</h2><p className="text-[11px] text-muted-foreground">{online.some(person => person.typing) ? 'Quelqu’un écrit…' : `${online.filter(person => person.online).length} en ligne`}</p></div>
-            <select aria-label="Changer de conversation" value={room} onChange={event => switchRoom(event.target.value)} className="min-h-10 max-w-24 rounded-xl border border-border bg-background px-1 text-xs md:hidden"><option value="">Chats</option>{rooms.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select>
           </div>
-          <select aria-label="Nouvelle discussion privée" disabled={creating} value="" onChange={event => void newPrivate(event.target.value)} className="mt-2 min-h-9 w-full rounded-lg border border-border bg-background px-2 text-xs md:hidden"><option value="">+ Discussion privée</option>{people.map(person => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}</select>
         </header>
         {error && <p role="alert" className="shrink-0 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">{error}<button type="button" onClick={() => setError('')} className="ml-2 font-semibold underline">Fermer</button></p>}
-        <div ref={list} onScroll={event => { const node = event.currentTarget; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 110; }} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-muted/20 p-3 sm:p-4">
+        <div ref={list} onScroll={event => { const node = event.currentTarget; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 110; }} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-[#efeae2] p-3 dark:bg-[#182a27] md:bg-muted/20 md:dark:bg-muted/20 sm:p-4">
           {!messages.length && <p className="py-8 text-center text-xs text-muted-foreground">Aucun message dans cette conversation.</p>}
-          {messages.map(message => { const own = message.senderId === currentId; return <article key={message.id} className={`w-fit max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%] ${own ? 'ml-auto rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md border border-border bg-card text-foreground'}`}>
+          {messages.map(message => { const own = message.senderId === currentId; return <article key={message.id} className={`w-fit max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%] ${own ? 'ml-auto rounded-br-md bg-[#d9fdd3] text-[#1f2c2a] dark:bg-[#005c4b] dark:text-white md:bg-primary md:text-primary-foreground md:dark:bg-primary' : 'rounded-bl-md border border-border bg-card text-foreground'}`}>
             {!own && <p className="mb-1 text-[11px] font-bold opacity-80">{message.firstName} {message.lastName}</p>}
             {message.replyBody && <blockquote className="mb-2 max-w-full truncate border-l-2 border-current/40 pl-2 text-xs opacity-75">{message.replyBody}</blockquote>}
             {message.body && <p className="whitespace-pre-wrap break-words leading-relaxed">{message.body}</p>}
@@ -204,7 +227,7 @@ export function RhChat() {
             <button type="button" aria-label="Ajouter un emoji" title="Ajouter un emoji" onClick={() => { setText(value => value + ' 😊'); input.current?.focus(); }} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground"><Smile className="h-5 w-5" /></button>
           </div>
           <button type="button" disabled={busy || !room} aria-label={recording ? 'Arrêter l’enregistrement vocal' : 'Enregistrer un vocal'} title={recording ? 'Arrêter le vocal' : 'Enregistrer un vocal'} onClick={() => void recordVoice()} className={`grid h-10 w-10 shrink-0 place-items-center rounded-full disabled:opacity-50 ${recording ? 'bg-red-500/10 text-red-600' : 'text-muted-foreground hover:bg-muted'}`}>{recording ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}</button>
-          <button type="submit" disabled={busy || !text.trim() || !room} aria-label="Envoyer le message" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm disabled:opacity-40"><Send className="h-4 w-4" /></button>
+          <button type="submit" disabled={busy || !text.trim() || !room} aria-label="Envoyer le message" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#00a884] text-white shadow-sm disabled:opacity-40 md:bg-primary md:text-primary-foreground"><Send className="h-4 w-4" /></button>
         </form>
       </div>
     </div>
