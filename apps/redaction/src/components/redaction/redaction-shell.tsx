@@ -735,7 +735,7 @@ export function RedactionShell({
 
         {!rhOnly && <Link
           href="/nouveau"
-          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 lg:hidden"
+          className={`${pathname === '/mon-rh/chat' ? 'hidden' : 'flex'} fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-95 lg:hidden`}
           aria-label="Écrire un article"
         >
           <PenLine className="h-6 w-6" />
@@ -746,7 +746,7 @@ export function RedactionShell({
             {/* Mobile : au-dessus du bouton « Rédiger » (h-14 + 0.75rem d'écart). */}
             <AiFab
               onOpen={() => setAiOpen(true)}
-              className="bottom-[calc(9rem+env(safe-area-inset-bottom))] right-5 h-12 w-12 lg:hidden"
+              className={`${pathname === '/mon-rh/chat' ? 'hidden' : ''} bottom-[calc(9rem+env(safe-area-inset-bottom))] right-5 h-12 w-12 lg:hidden`}
             />
             <AiFab
               onOpen={() => setAiOpen(true)}
