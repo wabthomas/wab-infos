@@ -65,6 +65,7 @@ MIGRATIONS=(
   rh-fiches
   rh-service-cards
   rh-chat
+  rh-chat-read-receipts
 )
 
 for migration in "${MIGRATIONS[@]}"; do

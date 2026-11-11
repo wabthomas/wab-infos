@@ -50,3 +50,20 @@ test('Chat mobile plein écran : topbar retour, sans titre RH, onglets ni barre 
   assert.match(api, /AS "photoId"/);
   assert.match(photo, /JOIN redaction_rh\.chat_room_members me/);
 });
+
+test('sélection de contact et conversation immersive sur mobile', async () => {
+  const [chat, shell] = await Promise.all([read('rh/chat.tsx'), read('redaction-shell.tsx')]);
+  assert.match(chat, /aria-label="Sélectionner un contact"/);
+  assert.match(chat, /role="dialog" aria-modal="true" aria-label="Sélectionner un contact"/);
+  assert.match(chat, /aria-label="Rechercher un contact"/);
+  assert.match(chat, /aria-label="Options des contacts"/);
+  assert.match(chat, /setContactPicker\(false\); setContactQuery\(''\); switchRoom/);
+  assert.doesNotMatch(chat, /＋ Nouvelle discussion<\/option>/);
+  assert.match(chat, /<CheckCheck aria-label="Lu"/);
+  assert.match(chat, /<Check aria-label="Envoyé, non lu"/);
+  assert.match(chat, /<span className="float-right inline-flex/);
+  assert.match(chat, /'rh-chat-view', \{ detail: mobileView \}/);
+  assert.match(shell, /inChat && chatConversation && 'hidden'/);
+  assert.ok(chat.indexOf('aria-label="Ajouter un emoji"') < chat.indexOf('<textarea ref={input}'));
+  assert.ok(chat.indexOf('aria-label="Joindre un fichier"') < chat.indexOf('<textarea ref={input}'));
+});
