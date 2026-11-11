@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { ArrowLeft, Check, CheckCheck, Mail, MessageCircle, Mic, MoreVertical, Palette, Paperclip, Phone, Reply, Search, Send, Smile, Square, Users, X } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
+import { useEditorKeyboardInset } from '@/lib/redaction/use-editor-keyboard-inset';
 import { useRhNotice } from './use-rh-notice';
 
 type Room = { id: string; title: string; kind: 'group' | 'private'; photoId: string | null; lastMessageAt: string | null };
@@ -46,6 +47,7 @@ export function RhChat() {
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
+  const { keyboardInset } = useEditorKeyboardInset();
   const [chatHeight, setChatHeight] = useState('calc(100dvh - 15rem)');
   const section = useRef<HTMLElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -96,8 +98,15 @@ export function RhChat() {
     const visual = window.visualViewport;
     const resize = () => {
       const top = section.current?.getBoundingClientRect().top ?? 160;
-      const nav = document.querySelector('.redaction-mobile-nav')?.getBoundingClientRect().height ?? 76;
-      setChatHeight(`${Math.max(120, (visual?.height ?? window.innerHeight) + (visual?.offsetTop ?? 0) - Math.max(0, top) - nav - 4)}px`);
+      const nav = document.querySelector('.redaction-mobile-nav')?.getBoundingClientRect().height ?? 0;
+      // Navigateur : visualViewport se réduit au-dessus du clavier.
+      // APK edge-to-edge : le clavier superpose la WebView ; Android pousse la hauteur IME (__wabImeBottom).
+      const visualBottom = (visual?.height ?? window.innerHeight) + (visual?.offsetTop ?? 0);
+      const keyboardBottom = window.innerHeight - Math.max(0, keyboardInset);
+      // Couvre navigateur (visualViewport) et APK edge-to-edge (IME natif superposé).
+      // Le minimum évite tout dépassement sous le clavier sans double décrément.
+      const viewportBottom = Math.max(120, Math.min(visualBottom, keyboardBottom));
+      setChatHeight(`${Math.max(120, viewportBottom - Math.max(0, top) - nav - 4)}px`);
       if (document.activeElement === input.current) window.setTimeout(() => composer.current?.scrollIntoView({ block: 'nearest' }), 80);
     };
     resize();
@@ -105,7 +114,7 @@ export function RhChat() {
     const delayed = window.setTimeout(resize, 100);
     window.addEventListener('resize', resize); visual?.addEventListener('resize', resize); visual?.addEventListener('scroll', resize);
     return () => { window.cancelAnimationFrame(frame); window.clearTimeout(delayed); window.removeEventListener('resize', resize); visual?.removeEventListener('resize', resize); visual?.removeEventListener('scroll', resize); };
-  }, [mobileView]);
+  }, [mobileView, keyboardInset]);
   useEffect(() => { window.dispatchEvent(new CustomEvent('rh-chat-view', { detail: mobileView })); }, [mobileView]);
   useEffect(() => {
     setConversationMenu(false); setContactOpen(false); setContactInfo(null);
