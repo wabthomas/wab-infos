@@ -1,13 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
-import { ArrowLeft, MessageCircle, Mic, Paperclip, Reply, Send, Smile, Square, Users, X } from 'lucide-react';
+import { ArrowLeft, Check, CheckCheck, MessageCircle, Mic, MoreVertical, Paperclip, Reply, Search, Send, Smile, Square, Users, X } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import { useRhNotice } from './use-rh-notice';
 
 type Room = { id: string; title: string; kind: 'group' | 'private'; photoId: string | null; lastMessageAt: string | null };
 type Person = { id: string; firstName: string; lastName: string };
-type Msg = { id: string; senderId: string; body: string; replyTo: string | null; replyBody: string | null; createdAt: string; fileName: string | null; fileMime: string | null; firstName: string; lastName: string };
+type Msg = { id: string; senderId: string; body: string; replyTo: string | null; replyBody: string | null; createdAt: string; fileName: string | null; fileMime: string | null; firstName: string; lastName: string; read: boolean };
 type Presence = { id: string; online: boolean; typing: boolean };
 const api = '/api/redaction/rh/mon-espace/chat';
 
@@ -24,6 +24,10 @@ export function RhChat() {
   const [currentId, setCurrentId] = useState('');
   const [room, setRoom] = useState('');
   const [mobileView, setMobileView] = useState<'list' | 'conversation'>('list');
+  const [contactPicker, setContactPicker] = useState(false);
+  const [contactSearch, setContactSearch] = useState(false);
+  const [contactQuery, setContactQuery] = useState('');
+  const [contactOptions, setContactOptions] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [online, setOnline] = useState<Presence[]>([]);
   const [text, setText] = useState('');
@@ -42,6 +46,7 @@ export function RhChat() {
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const nearBottom = useRef(true);
+  const lastRead = useRef('');
   const roomRef = useRef(room);
   roomRef.current = room;
 
@@ -65,8 +70,13 @@ export function RhChat() {
       if (roomRef.current !== room) return;
       setMessages(data.messages ?? []);
       setOnline(data.presence ?? []);
+      const last = data.messages?.at(-1)?.id;
+      if (data.receiptsReady && last && nearBottom.current && document.visibilityState === 'visible' && (mobileView === 'conversation' || window.matchMedia('(min-width: 768px)').matches) && lastRead.current !== `${room}:${last}`) {
+        lastRead.current = `${room}:${last}`;
+        void fetchRedaction(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'read', roomId: room, messageId: last }) }).then(response => { if (!response.ok) lastRead.current = ''; }).catch(() => { lastRead.current = ''; });
+      }
     } catch { /* A later refresh retries. */ }
-  }, [room]);
+  }, [room, mobileView]);
 
   useEffect(() => { void loadRooms(); const id = window.setInterval(() => void loadRooms(), 20_000); return () => window.clearInterval(id); }, [loadRooms]);
   useEffect(() => { setMessages([]); setOnline([]); setReply(null); nearBottom.current = true; void loadMessages(); const id = window.setInterval(() => void loadMessages(), 5_000); return () => window.clearInterval(id); }, [loadMessages]);
@@ -76,12 +86,16 @@ export function RhChat() {
     const resize = () => {
       const top = section.current?.getBoundingClientRect().top ?? 160;
       const nav = document.querySelector('.redaction-mobile-nav')?.getBoundingClientRect().height ?? 76;
-      setChatHeight(`${Math.max(180, (visual?.height ?? window.innerHeight) + (visual?.offsetTop ?? 0) - Math.max(0, top) - nav - 12)}px`);
+      setChatHeight(`${Math.max(120, (visual?.height ?? window.innerHeight) + (visual?.offsetTop ?? 0) - Math.max(0, top) - nav - 4)}px`);
       if (document.activeElement === input.current) window.setTimeout(() => composer.current?.scrollIntoView({ block: 'nearest' }), 80);
     };
-    resize(); window.addEventListener('resize', resize); visual?.addEventListener('resize', resize); visual?.addEventListener('scroll', resize);
-    return () => { window.removeEventListener('resize', resize); visual?.removeEventListener('resize', resize); visual?.removeEventListener('scroll', resize); };
-  }, []);
+    resize();
+    const frame = window.requestAnimationFrame(resize);
+    const delayed = window.setTimeout(resize, 100);
+    window.addEventListener('resize', resize); visual?.addEventListener('resize', resize); visual?.addEventListener('scroll', resize);
+    return () => { window.cancelAnimationFrame(frame); window.clearTimeout(delayed); window.removeEventListener('resize', resize); visual?.removeEventListener('resize', resize); visual?.removeEventListener('scroll', resize); };
+  }, [mobileView]);
+  useEffect(() => { window.dispatchEvent(new CustomEvent('rh-chat-view', { detail: mobileView })); }, [mobileView]);
   useEffect(() => {
     const field = input.current;
     if (!field) return;
@@ -126,7 +140,7 @@ export function RhChat() {
       const response = await fetchRedaction(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'private_room', collaboratorId: id }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Conversation impossible.');
-      await loadRooms(); switchRoom(data.room.id);
+      await loadRooms(); setContactPicker(false); setContactQuery(''); switchRoom(data.room.id);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Conversation impossible.'); }
     finally { setCreating(false); }
   }
@@ -172,7 +186,7 @@ export function RhChat() {
   const conversations = rooms.filter(item => item.kind === 'private');
   const mobileRooms = [...rooms].sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
   const fileUrl = (id: string) => `${api}/fichiers/${id}`;
-  return <section ref={section} aria-label="Chat RH" className="overflow-hidden bg-card max-lg:border-0 lg:rounded-2xl lg:border lg:border-border lg:shadow-sm">
+  return <section ref={section} aria-label="Chat RH" className="relative overflow-hidden bg-card max-lg:border-0 lg:rounded-2xl lg:border lg:border-border lg:shadow-sm">
     <div className="grid h-[var(--rh-chat-height)] min-h-0 md:h-[min(75vh,820px)] md:min-h-[520px] md:grid-cols-[16rem_minmax(0,1fr)]" style={{ '--rh-chat-height': chatHeight } as React.CSSProperties}>
       <aside aria-label="Conversations" className="hidden min-h-0 flex-col border-r border-border bg-muted/20 p-3 md:flex">
         <h2 className="mb-3 flex items-center gap-2 px-2 text-sm font-bold"><MessageCircle className="h-4 w-4 text-primary" />Conversations</h2>
@@ -186,7 +200,6 @@ export function RhChat() {
         <div className="shrink-0 border-b border-border px-4 py-4">
           <h2 className="text-xl font-bold tracking-tight">Discussions</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">Votre équipe, au même endroit</p>
-          <select aria-label="Nouvelle discussion privée" disabled={creating} value="" onChange={event => void newPrivate(event.target.value)} className="mt-4 min-h-11 w-full rounded-xl border border-border bg-muted/40 px-3 text-sm font-medium"><option value="">＋ Nouvelle discussion</option>{people.map(person => <option key={person.id} value={person.id}>{person.firstName} {person.lastName}</option>)}</select>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {mobileRooms.map(item => <button key={item.id} type="button" onClick={() => switchRoom(item.id)} className="flex min-h-18 w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left hover:bg-muted/40 active:bg-muted">
@@ -196,9 +209,10 @@ export function RhChat() {
           </button>)}
           {!mobileRooms.length && <p className="p-6 text-center text-sm text-muted-foreground">Aucune conversation pour le moment.</p>}
         </div>
+        <button type="button" aria-label="Sélectionner un contact" onClick={() => setContactPicker(true)} className="absolute bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-5 z-10 grid h-14 w-14 place-items-center rounded-2xl bg-[#00a884] text-white shadow-lg md:hidden"><MessageCircle className="h-6 w-6" /></button>
       </div>
       <div className={`min-h-0 min-w-0 flex-col md:flex ${mobileView === 'conversation' ? 'flex' : 'hidden'}`}>
-        <header className="shrink-0 border-b border-border bg-card px-2 py-2 sm:px-4">
+        <header className="shrink-0 border-b border-border bg-card px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-4 md:pt-2">
           <div className="flex min-w-0 items-center gap-2">
             <button type="button" aria-label="Retour aux discussions" onClick={() => { setMobileView('list'); input.current?.blur(); }} className="grid h-10 w-8 shrink-0 place-items-center rounded-full hover:bg-muted md:hidden"><ArrowLeft className="h-5 w-5" /></button>
             <RoomAvatar room={active} size="h-10 w-10" />
@@ -206,30 +220,48 @@ export function RhChat() {
           </div>
         </header>
         {error && <p role="alert" className="shrink-0 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">{error}<button type="button" onClick={() => setError('')} className="ml-2 font-semibold underline">Fermer</button></p>}
-        <div ref={list} onScroll={event => { const node = event.currentTarget; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 110; }} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-[#efeae2] p-3 dark:bg-[#182a27] md:bg-muted/20 md:dark:bg-muted/20 sm:p-4">
+        <div ref={list} onScroll={event => { const node = event.currentTarget; const wasNear = nearBottom.current; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 110; if (!wasNear && nearBottom.current) void loadMessages(); }} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-[#efeae2] p-3 dark:bg-[#182a27] md:bg-muted/20 md:dark:bg-muted/20 sm:p-4">
           {!messages.length && <p className="py-8 text-center text-xs text-muted-foreground">Aucun message dans cette conversation.</p>}
           {messages.map(message => { const own = message.senderId === currentId; return <article key={message.id} className={`w-fit max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm sm:max-w-[70%] ${own ? 'ml-auto rounded-br-md bg-[#d9fdd3] text-[#1f2c2a] dark:bg-[#005c4b] dark:text-white md:bg-primary md:text-primary-foreground md:dark:bg-primary' : 'rounded-bl-md border border-border bg-card text-foreground'}`}>
             {!own && <p className="mb-1 text-[11px] font-bold opacity-80">{message.firstName} {message.lastName}</p>}
             {message.replyBody && <blockquote className="mb-2 max-w-full truncate border-l-2 border-current/40 pl-2 text-xs opacity-75">{message.replyBody}</blockquote>}
-            {message.body && <p className="whitespace-pre-wrap break-words leading-relaxed">{message.body}</p>}
+            {message.body && <p className="flow-root whitespace-pre-wrap break-words leading-relaxed">{message.body}{!message.fileName && <span className="float-right inline-flex translate-y-1 items-center gap-0.5 whitespace-nowrap pl-2 text-[10px] leading-5 opacity-70"><time dateTime={message.createdAt}>{new Date(message.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time>{own && (message.read ? <CheckCheck aria-label="Lu" className="h-3.5 w-3.5 text-sky-600" /> : <Check aria-label="Envoyé, non lu" className="h-3.5 w-3.5" />)}</span>}</p>}
             {message.fileMime?.startsWith('image/') && <img src={fileUrl(message.id)} alt={message.fileName ?? 'Image partagée'} className="mt-2 max-h-60 max-w-full rounded-xl object-contain" />}
             {message.fileMime?.startsWith('audio/') ? <audio controls src={fileUrl(message.id)} className="mt-2 max-w-full" /> : message.fileName && !message.fileMime?.startsWith('image/') ? <a href={fileUrl(message.id)} className="mt-2 flex items-center gap-1.5 break-all underline" target="_blank" rel="noopener noreferrer"><Paperclip className="h-4 w-4 shrink-0" />{message.fileName}</a> : null}
-            <div className="mt-1.5 flex items-center justify-end gap-2 text-[10px] opacity-70"><time dateTime={message.createdAt}>{new Date(message.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time><button type="button" onClick={() => { setReply(message); input.current?.focus(); }} aria-label={`Répondre à ${message.firstName}`} className="rounded-full p-1 hover:bg-foreground/10"><Reply className="h-4 w-4" /></button></div>
+            <div className="flex items-center justify-end gap-2 text-[10px] opacity-70">{(!message.body || message.fileName) && <span className="inline-flex items-center gap-1"><time dateTime={message.createdAt}>{new Date(message.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time>{own && (message.read ? <CheckCheck aria-label="Lu" className="h-3.5 w-3.5 text-sky-600" /> : <Check aria-label="Envoyé, non lu" className="h-3.5 w-3.5" />)}</span>}<button type="button" onClick={() => { setReply(message); input.current?.focus(); }} aria-label={`Répondre à ${message.firstName}`} className="rounded-full p-1 hover:bg-foreground/10"><Reply className="h-4 w-4" /></button></div>
           </article>; })}
           <div ref={bottom} aria-hidden="true" />
         </div>
         {reply && <div className="mx-3 mt-2 flex min-w-0 items-center gap-2 rounded-xl border-l-4 border-primary bg-muted px-3 py-2 text-xs"><Reply className="h-4 w-4 shrink-0 text-primary" /><span className="min-w-0 flex-1 truncate">{reply.body || reply.fileName || 'Fichier'}</span><button type="button" onClick={() => setReply(null)} aria-label="Annuler la réponse" className="rounded-full p-1"><X className="h-4 w-4" /></button></div>}
         <form ref={composer} onSubmit={send} className="flex shrink-0 items-end gap-1.5 border-t border-border bg-card px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:gap-2 sm:p-3">
           <input type="file" ref={fileInput} onChange={chooseFile} className="hidden" accept="image/*,application/pdf,audio/*,video/mp4" />
-          <button type="button" disabled={busy || !room} aria-label="Joindre un fichier" title="Joindre un fichier" onClick={() => fileInput.current?.click()} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted disabled:opacity-50"><Paperclip className="h-5 w-5" /></button>
-          <div className="flex min-w-0 flex-1 items-end rounded-[1.4rem] border border-border bg-background px-3 py-1.5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/30">
-            <textarea ref={input} rows={1} value={text} maxLength={4000} onChange={event => { setText(event.target.value); presence(true); }} onKeyDown={composerKeyDown} onFocus={() => window.setTimeout(() => composer.current?.scrollIntoView({ block: 'nearest' }), 80)} placeholder="Écrire un message…" aria-label="Écrire un message" className="max-h-36 min-h-7 w-full min-w-0 resize-none overflow-y-auto bg-transparent py-1 text-base leading-6 outline-none placeholder:text-muted-foreground" />
+          <div className="flex min-w-0 flex-1 items-end rounded-[1.4rem] border border-border bg-background px-1 py-1.5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/30">
             <button type="button" aria-label="Ajouter un emoji" title="Ajouter un emoji" onClick={() => { setText(value => value + ' 😊'); input.current?.focus(); }} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground"><Smile className="h-5 w-5" /></button>
+            <button type="button" disabled={busy || !room} aria-label="Joindre un fichier" title="Joindre un fichier" onClick={() => fileInput.current?.click()} className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground disabled:opacity-50"><Paperclip className="h-5 w-5" /></button>
+            <textarea ref={input} rows={1} value={text} maxLength={4000} onChange={event => { setText(event.target.value); presence(true); }} onKeyDown={composerKeyDown} onFocus={() => window.setTimeout(() => composer.current?.scrollIntoView({ block: 'nearest' }), 80)} placeholder="Écrire un message…" aria-label="Écrire un message" className="max-h-36 min-h-7 w-full min-w-0 resize-none overflow-y-auto bg-transparent px-1 py-1 text-base leading-6 outline-none placeholder:text-muted-foreground" />
           </div>
           <button type="button" disabled={busy || !room} aria-label={recording ? 'Arrêter l’enregistrement vocal' : 'Enregistrer un vocal'} title={recording ? 'Arrêter le vocal' : 'Enregistrer un vocal'} onClick={() => void recordVoice()} className={`grid h-10 w-10 shrink-0 place-items-center rounded-full disabled:opacity-50 ${recording ? 'bg-red-500/10 text-red-600' : 'text-muted-foreground hover:bg-muted'}`}>{recording ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}</button>
           <button type="submit" disabled={busy || !text.trim() || !room} aria-label="Envoyer le message" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#00a884] text-white shadow-sm disabled:opacity-40 md:bg-primary md:text-primary-foreground"><Send className="h-4 w-4" /></button>
         </form>
       </div>
     </div>
+    {contactPicker && <div role="dialog" aria-modal="true" aria-label="Sélectionner un contact" onKeyDown={event => { if (event.key === 'Escape') setContactPicker(false); }} className="fixed inset-0 z-[60] flex flex-col bg-background pt-[env(safe-area-inset-top)] md:hidden">
+      <header className="flex min-h-16 shrink-0 items-center gap-2 bg-[#075e54] px-2 text-white">
+        <button type="button" onClick={() => { setContactPicker(false); setContactOptions(false); }} aria-label="Retour aux discussions" className="grid h-11 w-10 place-items-center"><ArrowLeft className="h-5 w-5" /></button>
+        <div className="min-w-0 flex-1"><h2 className="truncate text-base font-semibold">Sélectionner un contact</h2><p className="text-xs text-white/75">{people.length} contacts</p></div>
+        <button type="button" onClick={() => { setContactSearch(value => !value); setContactOptions(false); }} aria-label="Rechercher un contact" className="grid h-11 w-10 place-items-center"><Search className="h-5 w-5" /></button>
+        <div className="relative"><button type="button" onClick={() => setContactOptions(value => !value)} aria-label="Options des contacts" aria-expanded={contactOptions} className="grid h-11 w-10 place-items-center"><MoreVertical className="h-5 w-5" /></button>
+          {contactOptions && <div className="absolute right-0 top-full z-10 min-w-40 rounded-xl bg-card p-1 text-foreground shadow-lg"><button type="button" onClick={() => { setContactOptions(false); void loadRooms(); }} className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted">Actualiser les contacts</button></div>}
+        </div>
+      </header>
+      {contactSearch && <div className="shrink-0 border-b border-border p-3"><input autoFocus value={contactQuery} onChange={event => setContactQuery(event.target.value)} aria-label="Nom du contact" placeholder="Rechercher…" className="h-11 w-full rounded-xl bg-muted px-4 text-base outline-none focus:ring-2 focus:ring-[#00a884]" /></div>}
+      {error && <p role="alert" className="bg-red-500/10 px-4 py-2 text-xs text-red-600">{error}</p>}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain"><p className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#00866a]">Contacts de la rédaction</p>
+        {people.filter(person => `${person.firstName} ${person.lastName}`.toLocaleLowerCase('fr').includes(contactQuery.trim().toLocaleLowerCase('fr'))).map(person => <button key={person.id} type="button" disabled={creating} onClick={() => void newPrivate(person.id)} className="flex min-h-17 w-full items-center gap-3 px-4 py-2 text-left hover:bg-muted disabled:opacity-50">
+          <span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-[#d9fdd3] font-semibold text-[#075e54]">{person.firstName.charAt(0).toUpperCase()}<img src={`${api}/photos/${person.id}`} alt="" onError={event => { event.currentTarget.style.display = 'none'; }} className="absolute inset-0 h-full w-full object-cover" /></span>
+          <span className="min-w-0 truncate text-sm font-medium">{person.firstName} {person.lastName}</span>
+        </button>)}
+      </div>
+    </div>}
   </section>;
 }

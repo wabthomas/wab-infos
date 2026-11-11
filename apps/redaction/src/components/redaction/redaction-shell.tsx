@@ -590,6 +590,7 @@ export function RedactionShell({
   const [pendingComments, setPendingComments] = useState(initialPendingComments);
   const [collapsed, setCollapsed] = useState(initialSidebarCollapsed);
   const [aiOpen, setAiOpen] = useState(false);
+  const [chatConversation, setChatConversation] = useState(false);
 
   /** Hors éditeur : une proposition d'article s'ouvre dans un nouveau brouillon. */
   const handleAiActions = useCallback(
@@ -609,6 +610,12 @@ export function RedactionShell({
   const inMyRh = pathname === '/mon-rh' || pathname.startsWith('/mon-rh/');
   const inChat = pathname === '/mon-rh/chat';
   const mobileNav: NavItem[] = inRh ? RH_MOBILE_ADMIN : inMyRh ? RH_MOBILE_MY : MOBILE_NAV;
+  useEffect(() => {
+    if (!inChat) { setChatConversation(false); return; }
+    const onView = (event: Event) => setChatConversation((event as CustomEvent<string>).detail === 'conversation');
+    window.addEventListener('rh-chat-view', onView);
+    return () => window.removeEventListener('rh-chat-view', onView);
+  }, [inChat]);
 
   const toggleSidebar = useCallback(() => {
     setCollapsed((value) => {
@@ -678,7 +685,7 @@ export function RedactionShell({
       {!rhOnly && sidebar}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className={cn('redaction-mobile-header z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden', inChat && 'border-transparent !bg-[#075e54] text-white')}>
+        <header className={cn('redaction-mobile-header z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden', inChat && 'border-transparent !bg-[#075e54] text-white', inChat && chatConversation && 'hidden')}>
             <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
               {inChat ? <div className="flex min-w-0 items-center gap-2">
                 <Link href="/mon-rh" aria-label="Retour à mon espace RH" className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Link>
