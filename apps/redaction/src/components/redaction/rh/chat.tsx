@@ -228,8 +228,10 @@ export function RhChat() {
 
   const active = rooms.find(item => item.id === room);
   const group = rooms.find(item => item.kind === 'group');
-  const conversations = rooms.filter(item => item.kind === 'private');
-  const mobileRooms = [...rooms].sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
+  // Une seule conversation privée par contact (comme WhatsApp), même si une ancienne base en contient plusieurs.
+  const uniquePrivate = [...new Map(rooms.filter(item => item.kind === 'private' && item.photoId).sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? '')).map(item => [item.photoId as string, item])).values()];
+  const conversations = uniquePrivate;
+  const mobileRooms = [...rooms.filter(item => item.kind !== 'private'), ...uniquePrivate].sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
   const visibleMessages = searchOpen && searchQuery.trim()
     ? messages.filter(message => `${message.body} ${message.fileName ?? ''} ${message.firstName} ${message.lastName}`.toLocaleLowerCase('fr').includes(searchQuery.trim().toLocaleLowerCase('fr')))
     : messages;
