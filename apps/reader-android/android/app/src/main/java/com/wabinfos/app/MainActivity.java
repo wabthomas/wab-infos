@@ -22,6 +22,7 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.animation.AnimationUtils;
 import android.webkit.CookieManager;
 import android.webkit.SslErrorHandler;
@@ -105,6 +106,9 @@ public class MainActivity extends AppCompatActivity {
     private String defaultWebViewUserAgent;
     private boolean googleOAuthChromeUaActive = false;
     private String lastRequestedUrl = SITE_URL;
+    /** Génération des vérifications de politique : une réponse réseau périmée ne débloque pas l'écran. */
+    private int rhScreenshotGeneration = 0;
+    private boolean rhScreenshotPolicyKnown = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Runnable offlineReconnectRunnable = new Runnable() {
         @Override
@@ -407,6 +411,79 @@ public class MainActivity extends AppCompatActivity {
         return "com.wabinfos.redaction".equals(getPackageName());
     }
 
+    private boolean isRhPageUrl(String url) {
+        if (!isRedactionProduct() || url == null) return false;
+        Uri uri = Uri.parse(url);
+        String host = uri.getHost();
+        String path = uri.getPath();
+        if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null || path == null
+                || (uri.getPort() != -1 && uri.getPort() != 443)
+                || !(host.equalsIgnoreCase("app.wab-infos.com")
+                     || host.equalsIgnoreCase("redaction.app.wab-infos.com"))) return false;
+        return path.equals("/rh") || path.startsWith("/rh/")
+                || path.equals("/mon-rh") || path.startsWith("/mon-rh/");
+    }
+
+    private void applyRhScreenshotProtection(boolean blocked) {
+        if (!isRedactionProduct()) return;
+        if (blocked) getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+    }
+
+    /** La WebView ne décide jamais si elle peut lever FLAG_SECURE : même un sous-cadre
+     * appelant AndroidBridge ne peut déclencher qu'une lecture authentifiée du serveur. */
+    private void refreshRhScreenshotProtection() {
+        refreshRhScreenshotProtection(webView != null ? webView.getUrl() : null);
+    }
+
+    private void refreshRhScreenshotProtection(String page) {
+        if (!isRedactionProduct() || webView == null) return;
+        final int generation = ++rhScreenshotGeneration;
+        if (!isRhPageUrl(page)) {
+            rhScreenshotPolicyKnown = false;
+            applyRhScreenshotProtection(false);
+            return;
+        }
+        if (!rhScreenshotPolicyKnown) applyRhScreenshotProtection(true);
+        final Uri uri = Uri.parse(page);
+        final String origin = "https://" + uri.getHost();
+        new Thread(() -> {
+            boolean allowed = false;
+            boolean verified = false;
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(origin + "/api/redaction/rh/screenshot-policy").openConnection();
+                connection.setInstanceFollowRedirects(false);
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
+                connection.setRequestProperty("Accept", "application/json");
+                String cookie = CookieManager.getInstance().getCookie(origin);
+                if (cookie != null && !cookie.isEmpty()) connection.setRequestProperty("Cookie", cookie);
+                if (connection.getResponseCode() == 200) {
+                    StringBuilder content = new StringBuilder();
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                        String line;
+                        while ((line = reader.readLine()) != null && content.length() < 1024) content.append(line);
+                    }
+                    allowed = new JSONObject(content.toString()).getBoolean("allowed");
+                    verified = true;
+                }
+            } catch (Exception error) {
+                Log.w("WabRhScreen", "Politique de capture indisponible", error);
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+            final boolean blocked = !allowed;
+            final boolean policyVerified = verified;
+            runOnUiThread(() -> {
+                if (generation == rhScreenshotGeneration && webView != null && isRhPageUrl(webView.getUrl())) {
+                    rhScreenshotPolicyKnown = policyVerified;
+                    applyRhScreenshotProtection(blocked);
+                }
+            });
+        }, "rh-screenshot-policy").start();
+    }
+
     private void requestPushPermissionFromWeb() {
         if (hasPostNotificationsPermission() && areSystemNotificationsEnabled()) {
             if (!isRedactionProduct()) {
@@ -500,6 +577,28 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                if (isRedactionProduct()) {
+                    rhScreenshotGeneration++;
+                    rhScreenshotPolicyKnown = false;
+                    // Fail closed on RH until the authenticated server policy arrives.
+                    applyRhScreenshotProtection(isRhPageUrl(url));
+                }
+            }
+
+            @Override
+            public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+                super.doUpdateVisitedHistory(view, url, isReload);
+                if (isRedactionProduct()) {
+                    rhScreenshotGeneration++;
+                    rhScreenshotPolicyKnown = false;
+                    applyRhScreenshotProtection(isRhPageUrl(url));
+                    refreshRhScreenshotProtection(url);
+                }
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 Uri parsed = Uri.parse(url);
@@ -552,6 +651,7 @@ public class MainActivity extends AppCompatActivity {
                     lastRequestedUrl = url;
                 }
                 maybeRestoreDefaultUserAgent(url);
+                refreshRhScreenshotProtection();
                 swipeRefresh.setRefreshing(false);
                 progressBar.setVisibility(View.GONE);
                 if (isOnline()) {
@@ -1002,6 +1102,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadUrlInWebView(String url) {
         lastRequestedUrl = (url != null && !url.isEmpty()) ? url : SITE_URL;
+        if (isRedactionProduct()) {
+            rhScreenshotGeneration++;
+            rhScreenshotPolicyKnown = false;
+            applyRhScreenshotProtection(isRhPageUrl(lastRequestedUrl));
+        }
         webView.loadUrl(lastRequestedUrl);
     }
 
@@ -1241,6 +1346,7 @@ public class MainActivity extends AppCompatActivity {
         ensureSystemBarsVisible();
         UpdateManager.resumePlayInAppUpdateIfNeeded(this);
         webView.onResume();
+        refreshRhScreenshotProtection();
     }
 
     @Override
@@ -1265,6 +1371,11 @@ public class MainActivity extends AppCompatActivity {
 
     /** Pont JS exposé au site : permet d'utiliser le partage natif Android depuis les pages web. */
     private class NativeBridge {
+        @android.webkit.JavascriptInterface
+        public void syncRhScreenshotProtection() {
+            runOnUiThread(MainActivity.this::refreshRhScreenshotProtection);
+        }
+
         @android.webkit.JavascriptInterface
         public boolean playRhVoice(String cue) {
             if (!"WabRedactionNative".equals(BuildConfig.UA_MARKER) || cue == null ||

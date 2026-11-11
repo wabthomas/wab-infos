@@ -1,5 +1,16 @@
 [
   {
+    "id": "rh-2026-11-protection-captures-apk",
+    "title": "Protection des captures dans l’espace RH",
+    "body": "Votre administration peut autoriser ou bloquer les captures et l’enregistrement d’écran dans les pages RH de la nouvelle APK Rédaction. Cette protection Android ne s’applique pas au navigateur, aux documents ouverts hors de l’application ni à une photo prise avec un autre appareil.",
+    "highlights": [
+      "La protection s’applique uniquement aux pages RH dans l’APK Rédaction mise à jour.",
+      "En quittant l’espace RH, les autres pages retrouvent leur fonctionnement habituel.",
+      "Un document partagé ou téléchargé reste à protéger par ses destinataires."
+    ],
+    "url": "/mon-rh"
+  },
+  {
     "id": "rh-2026-11-retrait-destination-confirmation",
     "title": "Suivez votre demande de retrait",
     "body": "Après l’envoi d’une demande de retrait, une confirmation vous indique qu’elle est enregistrée et en attente de traitement. Si vous choisissez un moyen enregistré, la gestion financière voit la destination pour effectuer le paiement hors de l’application.",

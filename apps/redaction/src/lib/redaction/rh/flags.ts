@@ -1,7 +1,7 @@
 import 'server-only';
 import { db } from './database';
-export type RhFeatureKey = 'rhEnabled'|'financeEnabled'|'withdrawalsEnabled'|'documentsEnabled'|'contractsEnabled'|'disputesEnabled'|'notificationsEnabled'|'rolesEnabled'|'serviceCardsEnabled'|'chatEnabled'|'paymentSheetsVisible';
-export const RH_FEATURE_LABELS: Record<RhFeatureKey,string> = {rhEnabled:'Espace RH',financeEnabled:'Rémunérations',withdrawalsEnabled:'Retraits',documentsEnabled:'Documents RH',contractsEnabled:'Contrats CDD/CDI',disputesEnabled:'Contestations',notificationsEnabled:'Notifications RH',rolesEnabled:'Rôles RH délégués',serviceCardsEnabled:'Cartes de service',chatEnabled:'Chat RH',paymentSheetsVisible:'Fiche de paiement du collaborateur'};
+export type RhFeatureKey = 'rhEnabled'|'financeEnabled'|'withdrawalsEnabled'|'documentsEnabled'|'contractsEnabled'|'disputesEnabled'|'notificationsEnabled'|'rolesEnabled'|'serviceCardsEnabled'|'chatEnabled'|'paymentSheetsVisible'|'rhScreenshotsAllowed';
+export const RH_FEATURE_LABELS: Record<RhFeatureKey,string> = {rhEnabled:'Espace RH',financeEnabled:'Rémunérations',withdrawalsEnabled:'Retraits',documentsEnabled:'Documents RH',contractsEnabled:'Contrats CDD/CDI',disputesEnabled:'Contestations',notificationsEnabled:'Notifications RH',rolesEnabled:'Rôles RH délégués',serviceCardsEnabled:'Cartes de service',chatEnabled:'Chat RH',paymentSheetsVisible:'Fiche de paiement du collaborateur',rhScreenshotsAllowed:'Autoriser les captures d’écran dans l’espace RH'};
 const ENV_DEFAULTS: Record<RhFeatureKey,boolean> = {
   rhEnabled: process.env.REDACTION_RH_ENABLED !== 'false',
   financeEnabled: process.env.REDACTION_RH_FINANCE_ENABLED === 'true',
@@ -14,6 +14,7 @@ const ENV_DEFAULTS: Record<RhFeatureKey,boolean> = {
   serviceCardsEnabled: process.env.REDACTION_RH_SERVICE_CARDS_ENABLED === 'true',
   chatEnabled: process.env.REDACTION_RH_CHAT_ENABLED === 'true',
   paymentSheetsVisible: true,
+  rhScreenshotsAllowed: true,
 };
 /** Base env + surcharges DB; l'UI d'admin peut modifier ces états sans redéploiement. */
 export async function getRhFlags(): Promise<Record<RhFeatureKey,boolean>> {

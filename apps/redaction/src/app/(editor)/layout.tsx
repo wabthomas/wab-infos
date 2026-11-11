@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { RhOfflineSync } from '@/components/redaction/rh/offline-sync';
+import { RhScreenshotPolicySync } from '@/components/redaction/rh/rh-screenshot-policy';
 import { offlineOwner } from '@/lib/redaction/rh/offline-queue';
 import { RedactionShell } from '@/components/redaction/redaction-shell';
 import { RedactionPushSetup } from '@/components/redaction/redaction-push-setup';
@@ -60,6 +61,7 @@ export default async function RedactionEditorLayout({
     <>
       <RedactionPushSetup />
       <RhOfflineSync owner={shellProps.owner} />
+      <RhScreenshotPolicySync />
       <RedactionShell
         managementNotificationsEnabled={process.env.REDACTION_RH_MANAGEMENT_NOTIFICATIONS_ENABLED === 'true'}
         authorName={shellProps.authorName}
