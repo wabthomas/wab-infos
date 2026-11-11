@@ -26,12 +26,13 @@ test('Chat RH : affichage mobile des conversations, pièces jointes et vocal', a
   assert.match(chat, /visual\?\.addEventListener\('resize', resize\)/);
 });
 
-test('Actions flottantes : masquées uniquement sur Chat RH mobile', async () => {
+test('Actions flottantes : remplacées par Chat RH dans les espaces RH, sauf le Chat', async () => {
   const shell = await read('redaction-shell.tsx');
-  assert.match(shell, /pathname === '\/mon-rh\/chat' \? 'hidden' : 'flex'/);
-  assert.match(shell, /pathname === '\/mon-rh\/chat' \? 'hidden' : ''/);
-  assert.match(shell, /right-4 z-50 h-14 w-14[^\n]*lg:hidden/);
-  assert.match(shell, /right-5 h-12 w-12 lg:hidden/);
+  assert.match(shell, /!rhOnly && !inRh && !inMyRh && <Link/);
+  assert.match(shell, /!rhOnly && !inRh && !inMyRh && !aiOpen/);
+  assert.match(shell, /open=\{aiOpen && !inRh && !inMyRh\}/);
+  assert.match(shell, /\(inRh \|\| inMyRh\) && !inChat && <RhChatFab \/>/);
+  assert.match(shell, /bottom-\[calc\(9rem\+env\(safe-area-inset-bottom\)\)\] right-5 h-12 w-12 lg:hidden/);
   assert.match(shell, /right-6 hidden h-14 w-14 lg:flex/);
 });
 
