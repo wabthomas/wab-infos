@@ -9,6 +9,7 @@ import { validateContractInput, contractInputError, isContractId } from '@/lib/r
 import { pushContractAlert } from '@/lib/redaction/rh/contract-alerts';
 import { contractPartiesFromProfile } from '@/lib/redaction/rh/contract-parties';
 import { DEFAULT_ORGANIZATION_SETTINGS } from '@/lib/redaction/rh/organization';
+import { getActiveSignatory } from '@/lib/redaction/rh/signatories';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,12 @@ export async function PATCH(request: Request) {
         for (const item of saved.rows) if (Object.hasOwn(settings,item.setting_key)) (settings as Record<string,string>)[item.setting_key] = item.setting_value;
         const assets = await client.query("SELECT asset_key,file_bytes FROM redaction_rh.organization_assets WHERE asset_key IN ('director-signature','company-seal','company-logo')");
         const asset = Object.fromEntries(assets.rows.map(item => [item.asset_key,item.file_bytes]));
+        const signer = await getActiveSignatory();
+        if (signer) {
+          settings.directorName = signer.fullName;
+          settings.directorTitle = signer.title;
+          if (signer.signature) asset['director-signature'] = signer.signature;
+        }
         if (!settings.companyName.trim() || !settings.directorName.trim() || !asset['director-signature'] || !asset['company-seal']) { await client.query('ROLLBACK'); return json({ error: 'Configurez l’entreprise, le DG, son image de signature et le sceau avant transmission.' }, 409); }
         // Preserve the logo at transmission: a later change in organization settings must not alter this contract.
         let logoPng: string | null = null;

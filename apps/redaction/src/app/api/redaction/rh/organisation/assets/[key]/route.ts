@@ -4,6 +4,7 @@ import { requireRhPrincipal } from '@/lib/redaction/rh/identity';
 import { db } from '@/lib/redaction/rh/database';
 import { ORGANIZATION_ASSET_KEYS, type OrganizationAssetKey } from '@/lib/redaction/rh/organization';
 import sharp from 'sharp';
+import { getActiveSignatory } from '@/lib/redaction/rh/signatories';
 import { handleError, json, validOrigin } from '@/lib/redaction/rh/api';
 
 export const dynamic = 'force-dynamic';

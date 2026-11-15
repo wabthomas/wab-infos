@@ -5,6 +5,7 @@ import { json, handleError, readBody, validOrigin } from '@/lib/redaction/rh/api
 import { validateOfficialContent } from '@/lib/redaction/rh/official-documents';
 import { formatOfficialReference, validManualReferenceCode, validOfficialReferenceConfig } from '@/lib/redaction/rh/official-reference';
 import { DEFAULT_ORGANIZATION_SETTINGS, type OrganizationSettings } from '@/lib/redaction/rh/organization';
+import { getActiveSignatory } from '@/lib/redaction/rh/signatories';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,12 @@ export async function POST(request: Request) {
     const settings = { ...DEFAULT_ORGANIZATION_SETTINGS };
     for (const row of saved.rows) if (keys.includes(row.setting_key as keyof OrganizationSettings)) settings[row.setting_key as keyof OrganizationSettings] = row.setting_value;
     const hashes = Object.fromEntries(assets.rows.map(row => [row.asset_key, createHash('sha256').update(row.file_bytes).digest('hex')])) as Record<string,string>;
+    const signer = await getActiveSignatory();
+    if (signer) {
+      settings.directorName = signer.fullName;
+      settings.directorTitle = signer.title;
+      if (signer.signature) hashes['director-signature'] = createHash('sha256').update(signer.signature).digest('hex');
+    }
     if (!settings.companyName.trim() || (!settings.companyRegistration.trim() && !settings.companyTaxId.trim())) return json({ error: 'Configurez le nom et le RCCM ou l’identifiant fiscal de l’entreprise pour le registre.' }, 409);
     if (!settings.directorName.trim() || !hashes['company-seal'] || (input.signatureMode === 'image' && !hashes['director-signature'])) return json({ error: 'Configurez le DG, le sceau et la signature image si sélectionnée dans Paramètres RH.' }, 409);
     const mode = settings.communiqueReferenceMode;

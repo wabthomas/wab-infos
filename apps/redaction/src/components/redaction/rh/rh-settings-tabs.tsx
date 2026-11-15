@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Building2, Mail, Megaphone, ShieldCheck, SlidersHorizontal, Users, Volume2 } from 'lucide-react';
+import { Building2, Mail, Megaphone, PenLine, ShieldCheck, SlidersHorizontal, Users, Volume2 } from 'lucide-react';
 
-export type RhSettingsTabIcon = 'building' | 'mail' | 'announcement' | 'voice' | 'features' | 'roles';
+export type RhSettingsTabIcon = 'building' | 'mail' | 'signature' | 'announcement' | 'voice' | 'features' | 'roles';
 
 export interface RhSettingsTab {
   id: string;
@@ -16,6 +16,7 @@ export interface RhSettingsTab {
 const icons = {
   building: Building2,
   mail: Mail,
+  signature: PenLine,
   announcement: Megaphone,
   voice: Volume2,
   features: SlidersHorizontal,

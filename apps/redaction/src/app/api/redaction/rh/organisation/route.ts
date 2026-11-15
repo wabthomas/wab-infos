@@ -5,6 +5,7 @@ import { db } from '@/lib/redaction/rh/database';
 import { DEFAULT_ORGANIZATION_SETTINGS, ORGANIZATION_SETTING_LABELS, type OrganizationSettingKey } from '@/lib/redaction/rh/organization';
 import { validOfficialReferenceConfig } from '@/lib/redaction/rh/official-reference';
 import { handleError, json, readBody, validOrigin } from '@/lib/redaction/rh/api';
+import { getActiveSignatory } from '@/lib/redaction/rh/signatories';
 
 export const dynamic = 'force-dynamic';
 const keys = Object.keys(ORGANIZATION_SETTING_LABELS) as OrganizationSettingKey[];

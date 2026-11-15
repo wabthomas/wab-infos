@@ -6,6 +6,7 @@ import { FeatureSettings } from '@/components/redaction/rh/feature-settings';
 import { RoleManager } from '@/components/redaction/rh/role-manager';
 import { RhVoiceAdminTest } from '@/components/redaction/rh/rh-voice-admin-test';
 import { RhEmailSettings } from '@/components/redaction/rh/rh-email-settings';
+import { SignatoriesSettings } from '@/components/redaction/rh/signatories-settings';
 import { RhSettingsTabs } from '@/components/redaction/rh/rh-settings-tabs';
 import { getRhCapabilities } from '@/lib/redaction/rh/authorization';
 
@@ -33,6 +34,7 @@ export default async function RhSettingsPage() {
     <RhSettingsTabs tabs={[
       { id: 'organisation', label: 'Entreprise & documents', description: 'Coordonnées, logo, sceaux, signatures et mentions officielles.', icon: 'building', content: <OrganizationSettings /> },
       { id: 'email', label: 'E-mails RH', description: 'Serveur SMTP N0C dédié aux notifications push + e-mail.', icon: 'mail', content: <RhEmailSettings /> },
+      { id: 'signatures', label: 'Signataires', description: 'Ajouter, activer et choisir le signataire utilisé sur les documents.', icon: 'signature', content: <SignatoriesSettings /> },
       { id: 'annonce', label: 'Annonce collaborateurs', description: 'Message important affiché à l’ouverture de l’espace RH.', icon: 'announcement', content: <AnnouncementSettings /> },
       { id: 'voice', label: 'Voix des actions RH', description: 'Tester les annonces vocales de pointage et de prestation.', icon: 'voice', content: <RhVoiceAdminTest /> },
       { id: 'features', label: 'Fonctionnalités', description: 'Activer ou désactiver les modules du RH et leurs accès.', icon: 'features', content: <FeatureSettings /> },
