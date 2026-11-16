@@ -16,7 +16,7 @@ npm ci
 npm run dist:win --workspace=apps/redaction-desktop
 ```
 
-L’URL par défaut est `https://wab-infos.com/redaction/login`. Pour un test en développement seulement, l’application accepte `WAB_REDACTION_URL=http://localhost:3001/login`.
+L’URL par défaut est `https://app.wab-infos.com/login`. Pour un test en développement seulement, l’application accepte `WAB_REDACTION_URL=http://localhost:3001/login`.
 
 ## Installation
 
@@ -32,3 +32,21 @@ L’installation par Edge ou Chrome reste disponible depuis la page de connexion
 2. Dans Chrome : icône d’installation dans la barre d’adresse, ou **⋮ → Diffuser, enregistrer et partager → Installer la page en tant qu’application**.
 
 Si l’option n’apparaît pas, vérifier HTTPS, le manifeste `/manifest.webmanifest` et le service worker de la rédaction, puis recharger la page. La PWA et le conteneur Electron requièrent tous deux le serveur Wab-Redaction ; ils ne fonctionnent pas hors ligne pour l’ensemble du contenu dynamique.
+
+## Signature Authenticode
+
+Sans certificat de signature de code, Windows affiche « Éditeur inconnu ». Pour signer les installateurs avec un certificat OV/EV reconnu, fournir le fichier PFX et son mot de passe au build :
+
+```powershell
+$env:CSC_LINK = 'C:\chemin\certificat-code-signing.pfx'
+$env:CSC_KEY_PASSWORD = 'mot-de-passe-du-pfx'
+npm run build:redaction:windows
+```
+
+Electron-builder signe alors l’exécutable, le MSI, l’installateur NSIS et le désinstalleur. Vérifier avec :
+
+```powershell
+Get-AuthenticodeSignature .\apps\redaction-desktop\release\Wab-Redaction-1.0.0-x64.exe
+```
+
+Un certificat auto-signé produit une signature techniquement valide mais **non reconnue** : SmartScreen continue d’afficher un avertissement. Une signature reconnue nécessite un certificat délivré par une autorité de certification.

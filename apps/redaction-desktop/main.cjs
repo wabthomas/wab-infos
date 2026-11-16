@@ -3,7 +3,7 @@
 const { app, BrowserWindow, shell, session } = require('electron');
 const path = require('node:path');
 
-const DEFAULT_APP_URL = 'https://wab-infos.com/redaction/login';
+const DEFAULT_APP_URL = 'https://app.wab-infos.com/login';
 const APP_URL = process.env.WAB_REDACTION_URL || DEFAULT_APP_URL;
 const parsedAppUrl = new URL(APP_URL);
 if (parsedAppUrl.protocol !== 'https:' && !(parsedAppUrl.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsedAppUrl.hostname))) {
