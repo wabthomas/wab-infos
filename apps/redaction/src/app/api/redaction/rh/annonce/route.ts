@@ -8,8 +8,8 @@ export async function GET() {
   try {
     const principal = await requireRhPrincipal();
     const result = await db().query(
-      `SELECT id, title, body, url FROM redaction_rh.announcements
-       WHERE active ORDER BY updated_at DESC LIMIT 1`
+      `SELECT 'global-'||to_char(updated_at AT TIME ZONE 'UTC','YYYYMMDDHH24MISSUS') AS id,title,body,url
+       FROM redaction_rh.announcements WHERE active ORDER BY updated_at DESC LIMIT 1`
     );
     if (!result.rowCount) return json({ message: null, acknowledged: true });
     const message = result.rows[0];
@@ -30,10 +30,14 @@ export async function POST(request: Request) {
     let body: unknown;
     try { body = await readBody(request); } catch { return json({ error: 'Requête invalide.' }, 400); }
     const id = body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>).id : null;
-    if (typeof id !== 'string' || id.length > 40) return json({ error: 'Identifiant invalide.' }, 400);
+    if (typeof id !== 'string' || id.length > 40 || (id !== 'global' && !/^global-\d{20}$/.test(id))) return json({ error: 'Identifiant invalide.' }, 400);
+    const current = await db().query(`SELECT 'global-'||to_char(updated_at AT TIME ZONE 'UTC','YYYYMMDDHH24MISSUS') AS id
+      FROM redaction_rh.announcements WHERE id='global' AND active`);
+    if (!current.rowCount) return json({ error: 'Annonce introuvable.' }, 404);
+    if (id !== 'global' && id !== current.rows[0].id) return json({ error: 'Cette annonce a été remplacée.' }, 409);
     await db().query(
       'INSERT INTO redaction_rh.release_acknowledgements (account_id, release_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
-      [principal.id, id]
+      [principal.id, current.rows[0].id]
     );
     return json({ ok: true });
   } catch (error) {

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { NativeAppSetup } from '@/components/pwa/native-app-setup';
+import { RedactionPwaSetup } from '@/components/pwa/redaction-pwa-setup';
 import { NativeAppUpdate } from '@/components/pwa/native-app-update';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { ToastProvider } from '@/components/ui/toast';
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <ToastProvider>
             <NativeAppSetup />
+            <RedactionPwaSetup />
             <RhAnnouncementPopup />
             <NativeAppUpdate siteUrl={siteDownloadsUrl} />
             {children}

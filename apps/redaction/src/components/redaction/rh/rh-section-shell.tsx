@@ -12,6 +12,7 @@ import {
   FileLock2,
   FileSpreadsheet,
   History,
+  Image,
   LayoutDashboard,
   LayoutGrid,
   LockKeyhole,
@@ -47,6 +48,7 @@ const ADMIN_TITLES: Record<string, { eyebrow: string; title: string }> = {
   '/rh/paiements-anciens': { eyebrow: 'RECONSTITUTION', title: 'Paiements historiques' },
   '/rh/retraits': { eyebrow: 'SUIVI FINANCIER', title: 'Retraits' },
   '/rh/documents': { eyebrow: 'ESPACE CONFIDENTIEL', title: 'Documents' },
+  '/rh/medias': { eyebrow: 'VISUELS PARTAGÉS', title: 'Bibliothèque des médias' },
   '/rh/contrats': { eyebrow: 'GESTION CONTRACTUELLE', title: 'Contrats CDD / CDI' },
   '/rh/correspondance': { eyebrow: 'RÉDACTION OFFICIELLE', title: 'Correspondance RH' },
   '/rh/contestations': { eyebrow: 'ÉCOUTE & RECOURS', title: 'Contestations' },
@@ -110,6 +112,7 @@ export function RhSectionShell({
     ...(capabilities?.accessManage
       ? ([
           ...(flags.documentsEnabled ? [{ href: '/rh/documents', label: 'Documents', icon: FileLock2 }] : []),
+          { href: '/rh/medias', label: 'Bibliothèque des médias', icon: Image },
           { href: '/rh/correspondance', label: 'Correspondance', icon: FileSpreadsheet },
           ...(flags.contractsEnabled ? [{ href: '/rh/contrats', label: 'Contrats CDD / CDI', icon: FileLock2 }] : []),
           ...(flags.disputesEnabled ? [{ href: '/rh/contestations', label: 'Contestations', icon: MessageSquare }] : []),

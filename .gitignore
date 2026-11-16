@@ -51,6 +51,9 @@ npm-debug.log*
 .pm2/
 apps/web/tmp/
 
+# Desktop Windows installers
+/apps/redaction-desktop/release/
+
 # Build artefacts (upload manuel serveur)
 web-next-build.tar.gz
 web-next-build-*.tar.gz
