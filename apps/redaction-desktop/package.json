@@ -32,8 +32,18 @@
     "win": {
       "icon": "icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "msi", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "artifactName": "Wab-Redaction-${version}-${arch}.${ext}"
     },
@@ -50,6 +60,7 @@
       "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
-    }
+    },
+    "electronVersion": "37.10.3"
   }
 }
