@@ -1,0 +1,55 @@
+{
+  "name": "@wab-infos/redaction-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Application Windows installable Wab-Redaction (Electron)",
+  "author": "Wab-infos",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:win:exe": "electron-builder --win nsis --publish never"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.wabinfos.redaction.desktop",
+    "productName": "Wab-Redaction",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "icon.ico",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "main.cjs"
+    },
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "msi", "arch": ["x64"] }
+      ],
+      "artifactName": "Wab-Redaction-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Wab-Redaction"
+    },
+    "msi": {
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

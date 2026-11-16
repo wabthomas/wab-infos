@@ -6,6 +6,7 @@
   "workspaces": [
     "apps/web",
     "apps/redaction",
+    "apps/redaction-desktop",
     "apps/reader-android",
     "packages/*",
     "scripts/*"
@@ -19,6 +20,8 @@
     "build:web": "npm run build --workspace=apps/web",
     "build:redaction": "npm run pwa:fcm --workspace=apps/redaction && npm run build --workspace=apps/redaction",
     "build:redaction:pack": "npm run build:redaction && npm run pack:redaction-build",
+    "build:redaction:windows": "npm run dist:win --workspace=apps/redaction-desktop",
+    "build:redaction:windows:exe": "npm run dist:win:exe --workspace=apps/redaction-desktop",
     "build:web:low-mem": "npm run build:low-mem --workspace=apps/web",
     "build:web:pack": "npm run build:web && npm run pack:web-build",
     "reader-android:icons": "node scripts/reader-android-icons.mjs",

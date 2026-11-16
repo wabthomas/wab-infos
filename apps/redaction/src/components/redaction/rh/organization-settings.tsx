@@ -3,6 +3,8 @@ import { useRhNotice } from './use-rh-notice';
 import { useToast } from '@/components/ui/toast';
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { MediaLibrarySheet } from '@/components/redaction/media-library-sheet';
+import type { RedactionMediaItem } from '@/lib/redaction/types';
 import { Building2, Check, FileText, ImagePlus, Save, Trash2, Upload } from 'lucide-react';
 import { DEFAULT_OFFICIAL_REFERENCE_FORMAT, MANUAL_OFFICIAL_REFERENCE_FORMAT, formatOfficialReference, validOfficialReferenceConfig } from '@/lib/redaction/rh/official-reference';
 import { fetchRedaction } from '@/lib/redaction/public-path';
@@ -29,6 +31,7 @@ export function OrganizationSettings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useRhNotice('error');
   const [notice, setNotice] = useRhNotice('success');
+  const [libraryFor, setLibraryFor] = useState<OrganizationAssetKey | null>(null);
 
   async function loadAsset(key: string) {
     try {
@@ -74,15 +77,12 @@ export function OrganizationSettings() {
     finally { setSaving(false); }
   }
 
-  async function upload(key: OrganizationAssetKey, event: ChangeEvent<HTMLInputElement>) {
-    const input = event.currentTarget;
-    const file = input.files?.[0];
+  async function uploadFile(key: OrganizationAssetKey, file: File) {
     if (!file) return;
     const imageByName = /\.(jpe?g|png|webp)$/i.test(file.name);
     if (!(['image/jpeg','image/png','image/webp'].includes(file.type) || imageByName) || file.size > 2_000_000) {
       setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: 'Choisissez une image JPG, PNG (transparence acceptée) ou WebP de 2 Mo maximum.' } }));
       toast.error('Choisissez une image JPG, PNG (transparence acceptée) ou WebP de 2 Mo maximum.');
-      input.value = '';
       return;
     }
     setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: true, error: '' } }));
@@ -95,7 +95,31 @@ export function OrganizationSettings() {
     } catch (cause) {
       setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: cause instanceof Error ? cause.message : 'Téléversement impossible.' } }));
       toast.error(cause instanceof Error ? cause.message : 'Téléversement impossible.');
-    } finally { input.value = ''; }
+    }
+  }
+
+  async function upload(key: OrganizationAssetKey, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (file) await uploadFile(key, file);
+  }
+
+  async function selectLibraryMedia(media: RedactionMediaItem) {
+    const key = libraryFor;
+    setLibraryFor(null);
+    if (!key) return;
+    setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: true, error: '' } }));
+    try {
+      const response = await fetchRedaction(`/api/redaction/rh/medias/${media.id}/download`, { cache: 'no-store' });
+      if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.error || 'Lecture du média impossible.'); }
+      const blob = await response.blob();
+      const extension = media.mime === 'image/png' ? 'png' : media.mime === 'image/webp' ? 'webp' : 'jpg';
+      await uploadFile(key, new File([blob], media.name || `media.${extension}`, { type: media.mime || blob.type }));
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Import depuis la bibliothèque impossible.';
+      setAssets((current) => ({ ...current, [key]: { data: current[key]?.data ?? null, busy: false, error: message } }));
+      toast.error(message);
+    }
   }
 
   async function removeAsset(key: OrganizationAssetKey) {
@@ -160,6 +184,7 @@ export function OrganizationSettings() {
 
     <section className="space-y-4 rounded-2xl border border-border bg-card p-5 sm:p-6">
       <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/[0.08] text-primary"><ImagePlus className="h-5 w-5" /></span><div><h2 className="font-display text-lg font-bold">Identité visuelle et signatures</h2><p className="mt-1 text-sm text-muted-foreground">Les visuels sont conservés dans la base RH privée ; JPG, PNG ou WebP jusqu’à 2 Mo.</p></div></div>
+      <p className="text-xs leading-5 text-muted-foreground">Choisissez un fichier local ou une image déjà téléversée. La sélection évite un nouvel upload dans le CMS ; l’image est copiée dans le stockage RH privé afin de garder les documents confidentiels indépendants de la médiathèque publique.</p>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {assetList.map((asset) => {
           const state = assets[asset.key] ?? { data: null, busy: false, error: '' };
@@ -170,7 +195,8 @@ export function OrganizationSettings() {
             </div>
             {state.error && <p role="alert" className="mt-2 text-xs text-red-700">{state.error}</p>}
             <div className="mt-3 flex items-center gap-2">
-              <button type="button" disabled={state.busy} onClick={() => fileInputs.current[asset.key]?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"><Upload className="h-3.5 w-3.5" />{state.busy ? 'Traitement…' : 'Téléverser'}</button>
+              <button type="button" disabled={state.busy} onClick={() => fileInputs.current[asset.key]?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"><Upload className="h-3.5 w-3.5" />Fichier local</button>
+              <button type="button" disabled={state.busy} onClick={() => setLibraryFor(asset.key)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50">Bibliothèque</button>
               <input ref={(node) => { fileInputs.current[asset.key] = node; }} type="file" accept="image/jpeg,image/png,image/webp" disabled={state.busy} onChange={(event) => void upload(asset.key, event)} className="hidden" />
               {state.data && <button type="button" disabled={state.busy} onClick={() => void removeAsset(asset.key)} className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-red-600 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" />Retirer</button>}
             </div>
@@ -178,5 +204,6 @@ export function OrganizationSettings() {
         })}
       </div>
     </section>
+    <MediaLibrarySheet open={libraryFor !== null} onClose={() => setLibraryFor(null)} onSelect={(media) => void selectLibraryMedia(media)} title="Choisir un média pour RH" apiBase="/api/redaction/rh/medias" browseOnly />
   </div>;
 }

@@ -29,6 +29,8 @@ interface MediaLibrarySheetProps {
   onClose: () => void;
   onSelect: (media: RedactionMediaItem) => void;
   title?: string;
+  apiBase?: string;
+  browseOnly?: boolean;
 }
 
 function mediaPreviewSrc(item: RedactionMediaItem): string {
@@ -88,6 +90,8 @@ export function MediaLibrarySheet({
   onClose,
   onSelect,
   title = 'Choisir une image',
+  apiBase = '/api/redaction/media',
+  browseOnly = false,
 }: MediaLibrarySheetProps) {
   const toast = useToast();
   const [tab, setTab] = useState<LibraryTab>('library');
@@ -149,7 +153,7 @@ export function MediaLibrarySheet({
       if (query) params.set('q', query);
       if (targetPage > 1) params.set('withCount', '0');
 
-      const res = await fetchRedaction(`/api/redaction/media?${params}`);
+      const res = await fetchRedaction(`${apiBase}?${params}`);
       const data = await readApiJsonResponse<{
         items?: RedactionMediaItem[];
         pageCount?: number;
@@ -176,7 +180,7 @@ export function MediaLibrarySheet({
         loadPageInFlightRef.current = 0;
       }
     }
-  }, []);
+  }, [apiBase]);
 
   useEffect(() => {
     if (!open) return;
@@ -344,7 +348,7 @@ export function MediaLibrarySheet({
             <FolderOpen className="h-4 w-4" />
             Bibliothèque
           </button>
-          <button
+          {!browseOnly && <button
             type="button"
             onClick={() => setTab('upload')}
             className={cn(
@@ -354,7 +358,7 @@ export function MediaLibrarySheet({
           >
             <Upload className="h-4 w-4" />
             Importer
-          </button>
+          </button>}
         </div>
       </header>
 
@@ -379,7 +383,7 @@ export function MediaLibrarySheet({
             />
           </div>
 
-          {duplicateCount > 0 ? (
+          {!browseOnly && duplicateCount > 0 ? (
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-2 text-xs text-amber-950">
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <Copy className="h-3.5 w-3.5" />
@@ -404,13 +408,13 @@ export function MediaLibrarySheet({
             <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
               <ImagePlus className="h-10 w-10 opacity-50" />
               <p className="text-sm">Aucune image trouvée</p>
-              <button
+              {!browseOnly && <button
                 type="button"
                 onClick={() => setTab('upload')}
                 className="text-sm font-semibold text-primary"
               >
                 Importer une image
-              </button>
+              </button>}
             </div>
           ) : visibleItems.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
@@ -428,7 +432,7 @@ export function MediaLibrarySheet({
             <div ref={scrollRef} className="flex-1 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-5">
                 {visibleItems.map((item) => {
-                  const deletable = isDeletableDuplicate(item, items);
+                  const deletable = !browseOnly && isDeletableDuplicate(item, items);
                   return (
                     <div key={item.id} className="group relative aspect-square">
                       <button

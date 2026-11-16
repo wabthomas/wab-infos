@@ -40,7 +40,12 @@ export function AnnouncementSettings() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Enregistrement impossible.');
-      setMessage('Message enregistré. Les collaborateurs le verront à leur prochaine ouverture.');
+      if (!form.active) setMessage('Annonce enregistrée mais désactivée : aucun collaborateur ne sera notifié.');
+      else if (data.notificationError) setMessage('Annonce enregistrée, mais la diffusion n’a pas abouti. Vérifiez la migration de diffusion et les journaux serveur.');
+      else if (data.notifications) {
+        const n = data.notifications as { recipients: number; emailSent: number; pushSent: number; failed: number };
+        setMessage(`Annonce publiée : ${n.recipients} compte(s) RH actif(s), ${n.emailSent} e-mail(s), ${n.pushSent} push livré(s)${n.failed ? `, ${n.failed} canal(aux) en échec ou non configuré(s)` : ''}. La pop-up restera visible jusqu’à confirmation.`);
+      } else setMessage('Annonce enregistrée. Les collaborateurs la verront à leur prochaine ouverture.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Enregistrement impossible.');
     } finally {
@@ -57,7 +62,7 @@ export function AnnouncementSettings() {
         <div>
           <h2 className="font-display text-lg font-bold">Message important aux collaborateurs</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Affiché en pop-up à l’ouverture de l’espace RH, avec un bouton de confirmation.
+            À la publication, envoi immédiat par e-mail et push aux comptes RH actifs liés, puis affichage en pop-up jusqu’à confirmation. Les canaux non configurés ou en échec sont indiqués après l’enregistrement.
           </p>
         </div>
       </div>

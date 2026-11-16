@@ -17,6 +17,8 @@ interface PwaInstallBannerProps {
   placement?: 'fixed' | 'inline';
 }
 
+type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
+
 const COPY = {
   site: {
     iosTitle: 'Ajouter Wab-infos à l’écran d’accueil',
@@ -53,6 +55,8 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
   const [inNativeApp, setInNativeApp] = useState(false);
   const [ios, setIos] = useState(false);
   const [android, setAndroid] = useState(false);
+  const [windows, setWindows] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [needsSafari, setNeedsSafari] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -85,6 +89,10 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
     if (isAndroidDevice()) {
       setAndroid(true);
     }
+    setWindows(/Windows NT/i.test(navigator.userAgent));
+    const captureInstall = (event: Event) => { event.preventDefault(); setInstallPrompt(event as InstallPromptEvent); };
+    window.addEventListener('beforeinstallprompt', captureInstall);
+    return () => window.removeEventListener('beforeinstallprompt', captureInstall);
   }, [dismissKey]);
 
   function dismiss() {
@@ -108,6 +116,14 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
 
   if (!mounted || dismissed || isStandalonePwa() || inNativeApp) return null;
 
+  async function installOnWindows() {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    setInstallPrompt(null);
+    if (choice.outcome === 'accepted') setInNativeApp(true);
+  }
+
   let content: React.ReactNode = null;
 
   if (android && APK_URL_BY_VARIANT[variant]) {
@@ -128,6 +144,18 @@ export function PwaInstallBanner({ variant, placement = 'inline' }: PwaInstallBa
           <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
             Autorisez l&apos;installation depuis cette source si Android le demande.
           </p>
+        </div>
+        <DismissButton onClick={dismiss} />
+      </div>
+    );
+  } else if (windows) {
+    content = (
+      <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-card p-4 shadow-lg">
+        <Download className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">Installer Wab-Redaction sur Windows</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Installez l’application depuis Microsoft Edge ou Google Chrome pour l’ouvrir dans sa propre fenêtre depuis le menu Démarrer.</p>
+          {installPrompt ? <button type="button" onClick={() => void installOnWindows()} className="mt-3 inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"><Download className="h-4 w-4" />Installer l’application</button> : <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Dans Edge : menu <strong>⋯ → Applications → Installer ce site en tant qu’application</strong>. Dans Chrome : menu <strong>⋮ → Diffuser, enregistrer et partager → Installer la page en tant qu’application</strong> (ou l’icône d’installation à droite de la barre d’adresse).</p>}
         </div>
         <DismissButton onClick={dismiss} />
       </div>
