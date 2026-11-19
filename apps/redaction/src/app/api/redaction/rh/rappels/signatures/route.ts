@@ -38,8 +38,8 @@ export async function GET(request: Request) {
     const delivered: Array<{ email: string; type: string }> = [];
     for (const person of candidates.rows) {
       for (const reminder of [
-        ...(person.missingExit ? [{ type: 'sortie', title: 'Pensez à signer votre sortie', body: 'Votre pointage ne contient pas encore de signature de sortie aujourd’hui. Si vous avez déjà terminé, ouvrez votre espace RH pour la compléter.', url: '/mon-rh/presence' }] : []),
-        ...(person.missingActivity ? [{ type: 'prestation', title: 'Pensez à signer votre prestation', body: 'Aucune prestation n’a été enregistrée pour aujourd’hui. Si vous avez travaillé, ouvrez votre espace RH pour la déclarer.', url: '/mon-rh/prestations' }] : []),
+        ...(person.missingExit ? [{ type: 'sortie', title: 'Votre sortie n’est pas encore signée', subject: 'Pensez à signer votre sortie', body: 'Votre pointage du jour ne comporte pas encore de signature de sortie. Si votre journée est terminée, vous pouvez la signer maintenant.', ctaLabel: 'Signer ma sortie', url: '/mon-rh/presence', audience: 'employee' as const }] : []),
+        ...(person.missingActivity ? [{ type: 'prestation', title: 'Votre prestation n’est pas encore déclarée', subject: 'Pensez à déclarer votre prestation', body: 'Aucune déclaration n’a été enregistrée pour aujourd’hui. Si vous avez travaillé, vous pouvez la déclarer depuis votre espace RH.', ctaLabel: 'Déclarer ma prestation', url: '/mon-rh/prestations', audience: 'employee' as const }] : []),
       ]) {
         const inserted = await db().query(`INSERT INTO redaction_rh.work_reminders(collaborator_id,work_date,reminder_type)
           VALUES($1,$2::date,$3) ON CONFLICT DO NOTHING RETURNING collaborator_id`, [person.collaboratorId, day, reminder.type]);

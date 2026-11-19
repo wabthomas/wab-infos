@@ -24,8 +24,11 @@ export async function notifyAnnouncement(payload: AnnouncementPayload): Promise<
   const targetUrl = payload.url || '/mon-rh';
   const notice = {
     title: payload.title.slice(0, 140),
+    subject: payload.title.slice(0, 140),
     body: payload.body.slice(0, 500),
     url: targetUrl,
+    ctaLabel: 'Lire l’annonce',
+    audience: 'employee' as const,
   };
 
   // Bounded concurrency keeps SMTP, Strapi and the RH pool responsive on larger teams.

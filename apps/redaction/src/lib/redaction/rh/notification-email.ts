@@ -2,12 +2,35 @@ import 'server-only';
 import nodemailer from 'nodemailer';
 import { getEmailSettingsForSend } from './email-settings';
 import { loadRhEmailBrand, renderRhNotificationEmail } from './email-template';
+import { db } from './database';
+import type { RhNotificationContent } from './notifications';
 
-type NotificationPayload = { title: string; body: string; url: string };
+type NotificationPayload = Pick<RhNotificationContent, 'title' | 'body' | 'url'> & Partial<Pick<RhNotificationContent, 'subject' | 'ctaLabel' | 'audience'>> & { greetingName?: string };
 
 function absoluteUrl(path: string): string {
   const base = (process.env.REDACTION_APP_URL || process.env.NEXT_PUBLIC_REDACTION_URL || 'https://app.wab-infos.com').replace(/\/$/, '');
   return path.startsWith('http') ? path : `${base}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+async function recipientFirstName(email: string): Promise<string | undefined> {
+  try {
+    const result = await db().query(
+      `SELECT c.first_name AS "firstName" FROM redaction_rh.account_links l
+       JOIN redaction_rh.collaborators c ON c.id=l.collaborator_id
+       WHERE lower(l.account_email)=lower($1) AND NOT c.archived
+       ORDER BY l.account_id LIMIT 1`,
+      [email],
+    );
+    const value = String(result.rows[0]?.firstName ?? '').trim();
+    return value || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function emailSubject(payload: NotificationPayload): string {
+  const raw = (payload.subject?.trim() || payload.title.trim()).replace(/^\[WAB RH\]\s*/i, '');
+  return `[WAB RH] ${raw}`.slice(0, 160);
 }
 
 async function build(payload: NotificationPayload) {
@@ -18,6 +41,9 @@ async function build(payload: NotificationPayload) {
     link: absoluteUrl(payload.url),
     brand,
     preheader: payload.body,
+    greetingName: payload.greetingName,
+    ctaLabel: payload.ctaLabel,
+    audience: payload.audience,
   });
 }
 
@@ -26,8 +52,10 @@ export async function sendRhNotificationEmail(to: string, payload: NotificationP
   if (process.env.RH_NOTIFICATION_EMAILS_ENABLED === 'false') return false;
   const email = to.trim().toLowerCase();
   if (!email) return false;
-  const { html, text } = await build(payload);
-  const title = payload.title.slice(0, 140);
+  const greetingName = payload.greetingName ?? await recipientFirstName(email);
+  const content = { ...payload, greetingName };
+  const { html, text } = await build(content);
+  const subject = emailSubject(content);
 
   const settings = await getEmailSettingsForSend();
   if (settings) {
@@ -45,7 +73,7 @@ export async function sendRhNotificationEmail(to: string, payload: NotificationP
       await transport.sendMail({
         from: { name: settings.fromName, address: settings.fromEmail },
         to: email,
-        subject: title,
+        subject,
         html,
         text,
         replyTo: settings.replyTo || settings.fromEmail,
@@ -70,7 +98,7 @@ export async function sendRhNotificationEmail(to: string, payload: NotificationP
       body: JSON.stringify({
         sender: { name: senderName, email: senderEmail },
         to: [{ email }],
-        subject: title,
+        subject,
         htmlContent: html,
         textContent: text,
       }),

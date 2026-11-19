@@ -203,16 +203,18 @@ export async function sendEmailSettingsTest(to: string): Promise<{ ok: boolean; 
     });
     const brand = await loadRhEmailBrand();
     const { html, text } = renderRhNotificationEmail({
-      title: 'Test de configuration SMTP',
-      body: 'Ce message confirme que le serveur SMTP des notifications RH est correctement configuré et que ce modèle e-mail est bien appliqué.',
+      title: 'Configuration SMTP validée',
+      body: 'Cet e-mail confirme que le serveur SMTP des notifications RH est correctement configuré et que le modèle e-mail est bien appliqué.',
       link: `${brand.siteUrl}/rh/parametres`,
       brand,
       preheader: 'Test SMTP RH réussi.',
+      ctaLabel: 'Ouvrir les paramètres RH',
+      audience: 'manager',
     });
     await transport.sendMail({
       from: { name: settings.fromName, address: settings.fromEmail },
       to,
-      subject: 'Test SMTP RH — Wab-infos',
+      subject: '[WAB RH] Test de configuration SMTP',
       text,
       html,
       replyTo: settings.replyTo || settings.fromEmail,

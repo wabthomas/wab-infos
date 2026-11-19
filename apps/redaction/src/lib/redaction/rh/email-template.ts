@@ -55,6 +55,9 @@ export function renderRhNotificationEmail(input: {
   link: string;
   brand: RhEmailBrand;
   preheader?: string;
+  greetingName?: string;
+  ctaLabel?: string;
+  audience?: 'employee' | 'manager';
 }): { html: string; text: string } {
   const { brand } = input;
   const title = input.title.slice(0, 140);
@@ -63,6 +66,14 @@ export function renderRhNotificationEmail(input: {
   const year = new Date().getFullYear();
   const websiteLabel = brand.website.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const footerContact = [brand.address, brand.phone, brand.email].filter(Boolean).map(escapeHtml).join(' · ');
+  const greetingName = input.greetingName?.trim().slice(0, 60);
+  const greeting = greetingName ? `Bonjour ${escapeHtml(greetingName)},` : 'Bonjour,';
+  const ctaLabel = input.ctaLabel?.trim().slice(0, 48) || 'Ouvrir Mon espace RH';
+  const manager = input.audience === 'manager';
+  const badgeLabel = manager ? 'Action requise' : 'Notification';
+  const badgeStyle = manager
+    ? 'background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;'
+    : 'background:#fdf2f4;border:1px solid #f6d6dc;color:#a31630;';
 
   const html = `<!doctype html>
 <html lang="fr">
@@ -101,16 +112,16 @@ export function renderRhNotificationEmail(input: {
               </tr></table>
             </td>
             <td align="right" style="vertical-align:middle;">
-              <span style="display:inline-block;padding:6px 11px;border-radius:999px;background:#fdf2f4;border:1px solid #f6d6dc;color:#a31630;font:700 10px/1 Arial,Helvetica,sans-serif;letter-spacing:.08em;text-transform:uppercase;">Notification</span>
+              <span style="display:inline-block;padding:6px 11px;border-radius:999px;${badgeStyle}font:700 10px/1 Arial,Helvetica,sans-serif;letter-spacing:.08em;text-transform:uppercase;">${badgeLabel}</span>
             </td>
           </tr></table>
         </td></tr>
         <tr><td class="rh-body" style="padding:30px 28px 26px;">
-          <p style="margin:0 0 8px;font:600 12px/1.4 Arial,Helvetica,sans-serif;color:#6b7280;">Bonjour,</p>
+          <p style="margin:0 0 8px;font:600 12px/1.4 Arial,Helvetica,sans-serif;color:#6b7280;">${greeting}</p>
           <h1 style="margin:0 0 12px;font:700 22px/1.3 Arial,Helvetica,sans-serif;color:#111827;letter-spacing:-.01em;">${escapeHtml(title)}</h1>
           <p style="margin:0 0 24px;font:400 15px/1.65 Arial,Helvetica,sans-serif;color:#374151;">${escapeHtml(body)}</p>
           <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td class="rh-cta" style="border-radius:10px;background:#c41e3a;">
-            <a href="${escapeHtml(input.link)}" style="display:inline-block;padding:13px 22px;border-radius:10px;background:#c41e3a;color:#ffffff;text-decoration:none;font:700 14px/1.2 Arial,Helvetica,sans-serif;">Ouvrir Mon espace RH</a>
+            <a href="${escapeHtml(input.link)}" style="display:inline-block;padding:13px 22px;border-radius:10px;background:#c41e3a;color:#ffffff;text-decoration:none;font:700 14px/1.2 Arial,Helvetica,sans-serif;">${escapeHtml(ctaLabel)}</a>
           </td></tr></table>
           <p style="margin:22px 0 0;font:400 12px/1.6 Arial,Helvetica,sans-serif;color:#6b7280;">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br /><a href="${escapeHtml(input.link)}" style="color:#c41e3a;word-break:break-all;text-decoration:underline;">${escapeHtml(input.link)}</a></p>
         </td></tr>
@@ -124,16 +135,16 @@ export function renderRhNotificationEmail(input: {
             <td align="right" style="vertical-align:bottom;font:400 10px/1.5 Arial,Helvetica,sans-serif;color:#9ca3af;">© ${year}</td>
           </tr></table>
           <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e9edf2;font:400 10px/1.6 Arial,Helvetica,sans-serif;color:#9ca3af;">
-            Notification automatique de votre espace RH. Aucun montant, aucune donnée bancaire et aucune pièce jointe ne sont envoyés par e-mail. Pour toute question, écrivez à <a href="mailto:${escapeHtml(brand.email)}" style="color:#9ca3af;text-decoration:underline;">${escapeHtml(brand.email)}</a>.
+            Message automatique du service RH. Aucun montant, aucune donnée bancaire et aucune pièce jointe ne sont envoyés par e-mail. Pour toute question, écrivez à <a href="mailto:${escapeHtml(brand.email)}" style="color:#9ca3af;text-decoration:underline;">${escapeHtml(brand.email)}</a>.
           </div>
         </td></tr>
       </table>
-      <div style="max-width:600px;margin:14px auto 0;text-align:center;font:400 10px/1.6 Arial,Helvetica,sans-serif;color:#9ca3af;">Cet e-mail vous a été adressé car un compte collaborateur est lié à votre adresse.</div>
+      <div style="max-width:600px;margin:14px auto 0;text-align:center;font:400 10px/1.6 Arial,Helvetica,sans-serif;color:#9ca3af;">Cet e-mail vous a été adressé car votre adresse est associée à un compte RH.</div>
     </td></tr>
   </table>
 </body>
 </html>`;
 
-  const text = `${brand.companyName} — Espace RH\n\n${title}\n\n${body}\n\nOuvrir Mon espace RH : ${input.link}\n\n${footerContact}\n${brand.website}\n\nNotification automatique de votre espace RH. Aucun montant ni donnée bancaire n'est envoyé par e-mail.`;
+  const text = `${brand.companyName} — Espace RH\n\n${greeting}\n\n${title}\n\n${body}\n\n${ctaLabel} : ${input.link}\n\n${footerContact}\n${brand.website}\n\nMessage automatique du service RH. Aucun montant ni donnée bancaire n'est envoyé par e-mail.`;
   return { html, text };
 }

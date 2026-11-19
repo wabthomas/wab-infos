@@ -1,5 +1,6 @@
 import 'server-only';
 import { getRhFlags } from './flags';
+import type { RhNotificationContent } from './notifications';
 
 type ContractAlertEvent = 'proposed' | 'signed' | 'signedEmployee' | 'approved' | 'term' | 'termAdmin';
 
@@ -12,13 +13,55 @@ export async function pushContractAlert(emails: (string | null | undefined)[], e
       import('../web-push'),
       import('./notification-email'),
     ]);
-    const messages: Record<ContractAlertEvent, { title: string; body: string; url: string }> = {
-      proposed: { title: 'Contrat à signer', body: 'Votre contrat est prêt. Ouvrez Mes contrats pour le lire et le signer.', url: '/mon-rh/contrats' },
-      signed: { title: 'Contrat signé à approuver', body: 'Un collaborateur a signé son contrat. Ouvrez RH → Contrats pour l’approuver.', url: '/rh/contrats' },
-      signedEmployee: { title: 'Contrat transmis', body: 'Votre signature a été enregistrée. Le contrat attend l’approbation de l’administration.', url: '/mon-rh/contrats' },
-      approved: { title: 'Contrat approuvé', body: 'Votre contrat est approuvé. Consultez-le dans Mes contrats.', url: '/mon-rh/contrats' },
-      termAdmin: { title: 'CDD bientôt échu', body: 'Un contrat CDD approche de son terme. Consultez RH → Contrats.', url: '/rh/contrats' },
-      term: { title: 'CDD bientôt échu', body: 'Votre contrat CDD arrive à échéance. Contactez l’administration RH.', url: '/mon-rh/contrats' },
+    const messages: Record<ContractAlertEvent, RhNotificationContent> = {
+      proposed: {
+        title: 'Votre contrat est prêt à être signé',
+        subject: 'Votre contrat est prêt à signer',
+        body: 'Votre contrat a été préparé par le service RH. Relisez-le puis signez-le en ligne.',
+        ctaLabel: 'Lire et signer mon contrat',
+        url: '/mon-rh/contrats',
+        audience: 'employee',
+      },
+      signed: {
+        title: 'Un contrat attend votre validation',
+        subject: 'Contrat à valider',
+        body: 'Un collaborateur a signé son contrat. Votre approbation est nécessaire pour le finaliser.',
+        ctaLabel: 'Ouvrir les contrats à valider',
+        url: '/rh/contrats',
+        audience: 'manager',
+      },
+      signedEmployee: {
+        title: 'Votre signature a bien été enregistrée',
+        subject: 'Signature enregistrée — contrat en attente de validation',
+        body: 'Le contrat est maintenant en attente de validation par le service RH. Vous serez notifié dès qu’il sera validé.',
+        ctaLabel: 'Suivre mon contrat',
+        url: '/mon-rh/contrats',
+        audience: 'employee',
+      },
+      approved: {
+        title: 'Votre contrat est validé',
+        subject: 'Votre contrat est validé',
+        body: 'Votre contrat a été validé par le service RH. Vous pouvez le consulter à tout moment.',
+        ctaLabel: 'Consulter mon contrat',
+        url: '/mon-rh/contrats',
+        audience: 'employee',
+      },
+      termAdmin: {
+        title: 'Un contrat CDD arrive à échéance',
+        subject: 'Échéance CDD proche',
+        body: 'Un contrat CDD arrive à échéance. Vérifiez s’il doit être renouvelé ou clôturé.',
+        ctaLabel: 'Ouvrir les contrats',
+        url: '/rh/contrats',
+        audience: 'manager',
+      },
+      term: {
+        title: 'Votre contrat CDD arrive à échéance',
+        subject: 'Votre CDD arrive à échéance',
+        body: 'Votre contrat CDD arrive à son terme. Le service RH vous contactera si un renouvellement est prévu.',
+        ctaLabel: 'Voir mon contrat',
+        url: '/mon-rh/contrats',
+        audience: 'employee',
+      },
     };
     const unique = [...new Set(emails.filter((email): email is string => !!email?.trim()).map((email) => email.trim().toLowerCase()))];
     if (!unique.length) return;
