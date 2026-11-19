@@ -1,6 +1,8 @@
 # Refonte des textes e-mail RH — proposition à valider
 
-> Aucun code n’est modifié par ce document. Les textes ci-dessous sont proposés pour choix avant application.
+> **Décision retenue (19/11/2026)** : option **A — Professionnel et direct**, boutons contextualisés par rôle, salutation avec le prénom du destinataire, préfixe de sujet **`[WAB RH]`**. Ces choix sont appliqués dans le code et déployés.
+
+> Les textes ci-dessous ont servi de base à l’application ; ils restent la référence éditoriale.
 
 ## 1. Problèmes constatés
 
