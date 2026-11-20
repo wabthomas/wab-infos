@@ -7,9 +7,10 @@ import { Bell, LogOut, UserRound, UserRoundPen } from 'lucide-react';
 import { fetchRedaction } from '@/lib/redaction/public-path';
 import type { RhNotification } from '@/lib/redaction/rh/notifications';
 
-export function MyRhTopbarActions() {
+export function MyRhTopbarActions({ tone = 'default' }: { tone?: 'default' | 'inverse' } = {}) {
   const router = useRouter();
   const pathname = usePathname();
+  const inverse = tone === 'inverse';
   const menuRef = useRef<HTMLDivElement>(null);
   const [photo, setPhoto] = useState('');
   const [open, setOpen] = useState(false);
@@ -62,7 +63,7 @@ export function MyRhTopbarActions() {
       <Link
         href="/mon-rh/notifications"
         aria-label={`Notifications RH${unread ? `, ${unread} non lues` : ''}`}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground hover:bg-muted"
+        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full ${inverse ? 'text-white hover:bg-white/20' : 'text-foreground hover:bg-muted'}`}
       >
         <Bell className="h-5 w-5" />
         {unread > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">{unread > 99 ? '99+' : unread}</span>}
@@ -75,7 +76,7 @@ export function MyRhTopbarActions() {
           aria-label="Ouvrir mon profil RH"
           aria-haspopup="menu"
           aria-expanded={open}
-          className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-card text-foreground shadow-sm"
+          className={`inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border shadow-sm ${inverse ? 'border-white/30 bg-white/15 text-white' : 'border-border bg-card text-foreground'}`}
         >
           {photo ? <img src={photo} alt="Photo de profil" className="h-full w-full object-cover" /> : <UserRound className="h-5 w-5" />}
         </button>

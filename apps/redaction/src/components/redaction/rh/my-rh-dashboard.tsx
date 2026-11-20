@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { MyRhTopbarActions } from './my-rh-topbar';
 import {
   ArrowDownUp,
   ArrowRight,
@@ -65,7 +67,7 @@ export function MyRhDashboard({
   };
 }) {
   const quickLinks = [
-    { href: '/mon-rh/prestations', label: 'Présences', icon: CalendarDays, show: true },
+    { href: '/mon-rh/presence', label: 'Présences', icon: CalendarDays, show: true },
     { href: '/mon-rh/prestations', label: 'Prestations', icon: ClipboardList, show: true },
     { href: '/mon-rh/paiements-anciens', label: 'Anciens paiements', icon: WalletCards, show: true },
     { href: '/mon-rh/retraits', label: 'Retraits', icon: ArrowDownUp, show: flags.financeEnabled && flags.withdrawalsEnabled },
@@ -77,7 +79,7 @@ export function MyRhDashboard({
 
   return (
     <div className="space-y-5 rounded-3xl bg-muted/40 p-2 sm:p-4">
-      <div className="relative overflow-hidden rounded-b-[2rem] rounded-t-2xl bg-gradient-to-br from-[#c41e3a] via-[#9e172e] to-[#1d3557] px-5 pt-6 pb-20 text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-b-[2rem] rounded-t-2xl bg-gradient-to-br from-[#c41e3a] via-[#9e172e] to-[#1d3557] px-5 pt-[max(1.5rem,env(safe-area-inset-top))] pb-20 text-white shadow-lg">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">WAB Infos · Mon RH</p>
@@ -85,20 +87,10 @@ export function MyRhDashboard({
               {person.firstName} {person.lastName}
             </h1>
           </div>
-          {flags.notificationsEnabled ? (
-            <Link
-              href="/mon-rh/notifications"
-              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition hover:bg-white/25"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-              {notificationsUnread > 0 ? (
-                <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-white shadow">
-                  {notificationsUnread}
-                </span>
-              ) : null}
-            </Link>
-          ) : null}
+          <div className="flex items-center gap-1.5 lg:hidden">
+            <ThemeToggle tone="inverse" className="h-10 w-10 rounded-full" />
+            <MyRhTopbarActions tone="inverse" />
+          </div>
         </div>
       </div>
 
@@ -123,7 +115,7 @@ export function MyRhDashboard({
 
         <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3">
           <Link
-            href="/mon-rh/prestations"
+            href="/mon-rh/presence"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-xs font-bold text-primary-foreground shadow-sm shadow-primary/30 transition hover:bg-primary/90 sm:text-sm"
           >
             <CalendarDays className="h-4 w-4" />
