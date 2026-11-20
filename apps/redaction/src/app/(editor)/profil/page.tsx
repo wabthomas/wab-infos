@@ -35,7 +35,7 @@ export default async function RedactionProfilePage() {
 
   return (
     <div className="space-y-5 rounded-3xl bg-muted/40 p-2 sm:p-4">
-      <div className="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-br from-[#c41e3a] via-[#9e172e] to-[#1d3557] px-5 pt-6 pb-20 text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-br from-[#c41e3a] via-[#9e172e] to-[#1d3557] px-5 pt-[max(1.5rem,env(safe-area-inset-top))] pb-20 text-white shadow-lg">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">WAB Infos · Rédaction</p>
         <h1 className="mt-1 font-display text-2xl font-bold tracking-tight">Profil</h1>
         <p className="mt-0.5 text-xs text-white/80">Votre compte rédaction</p>

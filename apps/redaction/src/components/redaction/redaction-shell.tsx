@@ -71,6 +71,41 @@ const NAV_ADMIN: NavItem[] = [
   { href: '/parametres', label: 'Paramètres', icon: Settings },
 ];
 
+const RH_MOBILE_TITLES: Record<string, string> = {
+  '/rh': 'Ressources humaines',
+  '/rh/equipe': 'Collaborateurs',
+  '/rh/prestations': 'Prestations',
+  '/rh/presence': 'Présence',
+  '/rh/conges': 'Congés et absences',
+  '/rh/remunerations': 'Rémunérations',
+  '/rh/paiements-anciens': 'Paiements historiques',
+  '/rh/retraits': 'Retraits',
+  '/rh/documents': 'Documents',
+  '/rh/medias': 'Bibliothèque des médias',
+  '/rh/contrats': 'Contrats',
+  '/rh/correspondance': 'Correspondance RH',
+  '/rh/contestations': 'Contestations',
+  '/rh/rapports': 'Rapports',
+  '/rh/parametres': 'Paramètres RH',
+  '/rh/plus': 'Plus',
+  '/mon-rh': 'Mon espace RH',
+  '/mon-rh/conges': 'Mes congés',
+  '/mon-rh/prestations': 'Mes prestations',
+  '/mon-rh/presence': 'Ma présence',
+  '/mon-rh/fiche': 'Ma fiche',
+  '/mon-rh/carte-service': 'Ma carte de service',
+  '/mon-rh/chat': 'Chat RH',
+  '/mon-rh/remunerations': 'Mes rémunérations',
+  '/mon-rh/paiements-anciens': 'Anciens paiements',
+  '/mon-rh/retraits': 'Mes retraits',
+  '/mon-rh/contrats': 'Mes contrats',
+  '/mon-rh/documents': 'Mes documents',
+  '/mon-rh/contestations': 'Mes contestations',
+  '/mon-rh/notifications': 'Mes notifications',
+  '/mon-rh/parametres': 'Paramètres',
+  '/mon-rh/plus': 'Plus',
+};
+
 const MOBILE_NAV: NavItem[] = [
   { href: '/', label: 'Accueil', icon: Home, exact: true },
   { href: '/articles', label: 'Articles', icon: FileText, badge: 'drafts' },
@@ -609,6 +644,8 @@ export function RedactionShell({
   const inRh = pathname === '/rh' || pathname.startsWith('/rh/');
   const inMyRh = pathname === '/mon-rh' || pathname.startsWith('/mon-rh/');
   const inChat = pathname === '/mon-rh/chat';
+  const inProfile = pathname === '/profil';
+  const rhMobileTitle = RH_MOBILE_TITLES[pathname] ?? (inMyRh ? 'Mon espace RH' : inRh ? 'Ressources humaines' : authorName ?? 'Wab-infos');
   useEffect(() => { if (inRh || inMyRh) setAiOpen(false); }, [inRh, inMyRh]);
   const mobileNav: NavItem[] = inRh ? RH_MOBILE_ADMIN : inMyRh ? RH_MOBILE_MY : MOBILE_NAV;
   useEffect(() => {
@@ -686,7 +723,7 @@ export function RedactionShell({
       {!rhOnly && sidebar}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className={cn('redaction-mobile-header z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden', inChat && 'border-transparent !bg-[#075e54] text-white', inChat && chatConversation && 'hidden')}>
+        <header className={cn('redaction-mobile-header z-40 shrink-0 border-b border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden', inChat && 'border-transparent !bg-[#075e54] text-white', inChat && chatConversation && 'hidden', inProfile && 'hidden')}>
             <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
               {inChat ? <div className="flex min-w-0 items-center gap-2">
                 <Link href="/mon-rh" aria-label="Retour à mon espace RH" className="-ml-2 grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-muted"><ArrowLeft className="h-5 w-5" /></Link>
