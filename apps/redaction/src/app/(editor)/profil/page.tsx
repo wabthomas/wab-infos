@@ -34,15 +34,16 @@ export default async function RedactionProfilePage() {
     : null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-bold">Profil</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Votre compte rédaction</p>
+    <div className="space-y-5 rounded-3xl bg-muted/40 p-2 sm:p-4">
+      <div className="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-br from-[#c41e3a] via-[#9e172e] to-[#1d3557] px-5 pt-6 pb-20 text-white shadow-lg">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">WAB Infos · Rédaction</p>
+        <h1 className="mt-1 font-display text-2xl font-bold tracking-tight">Profil</h1>
+        <p className="mt-0.5 text-xs text-white/80">Votre compte rédaction</p>
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-5">
+      <section className="relative z-10 -mt-14 mx-1 rounded-2xl border border-border/80 bg-card p-5 shadow-md sm:mx-2">
         <div className="flex items-center gap-4">
-          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-primary">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-primary ring-2 ring-primary/20">
             {avatarSrc ? (
               <Image
                 src={avatarSrc}
@@ -71,8 +72,8 @@ export default async function RedactionProfilePage() {
         <Link
           href="/profil/modifier"
           className={cn(
-            'mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border',
-            'bg-background text-sm font-semibold transition-colors hover:border-primary/40 hover:bg-primary/5'
+            'mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-primary',
+            'bg-primary/10 text-sm font-bold text-primary transition-colors hover:bg-primary/15'
           )}
         >
           <Pencil className="h-4 w-4 text-primary" />
