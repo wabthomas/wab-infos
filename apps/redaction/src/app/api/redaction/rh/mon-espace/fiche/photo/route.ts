@@ -28,3 +28,15 @@ export async function POST(request: Request) {
     return json({ photo: `data:${type};base64,${bytes.toString('base64')}` });
   } catch (error) { return handleError(error); }
 }
+
+export async function GET() {
+  try {
+    const principal = await requireRhPrincipal();
+    const person = await getMyCollaborator(principal);
+    if (!person?.hasPhoto) return new Response(null, { status: 404 });
+    const result = await db().query('SELECT photo_bytes AS bytes, photo_mime AS mime FROM redaction_rh.employee_profiles WHERE collaborator_id=$1', [person.id]);
+    const row = result.rows[0];
+    if (!row?.bytes) return new Response(null, { status: 404 });
+    return new Response(row.bytes, { headers: { 'Content-Type': row.mime || 'image/jpeg', 'Cache-Control': 'private, no-store' } });
+  } catch (error) { return handleError(error); }
+}

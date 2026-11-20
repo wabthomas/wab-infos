@@ -135,7 +135,7 @@ function ToastViewport() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 top-0 z-[200] flex flex-col items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-end sm:px-4"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[400] flex flex-col items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-end sm:px-4"
       aria-live="polite"
       aria-relevant="additions"
     >

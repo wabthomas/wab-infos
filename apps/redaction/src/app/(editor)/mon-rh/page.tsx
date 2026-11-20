@@ -2,8 +2,7 @@ import { redirect } from 'next/navigation';
 import { MyRhDashboard } from '@/components/redaction/rh/my-rh-dashboard';
 import {
   getMyCollaborator,
-  listMyAbsences,
-  listMyDisputes,
+  getMyDashboardStats,
   listMyDocuments,
   listMyNotifications,
   myWithdrawalView,
@@ -23,24 +22,21 @@ export default async function MyRhPage() {
   if (!person) redirect('/profil');
 
   const flags = await getRhFlags();
-  const [absences, withdrawalView, notifications, disputes, documents, currencyPreferences, performances] = await Promise.all([
-    listMyAbsences(principal).catch(() => []),
+  const [withdrawalView, documents, currencyPreferences, performances, dashboardStats] = await Promise.all([
     flags.withdrawalsEnabled ? myWithdrawalView(principal).catch(() => null) : Promise.resolve(null),
-    flags.notificationsEnabled ? listMyNotifications(principal).catch(() => []) : Promise.resolve([]),
-    flags.disputesEnabled ? listMyDisputes(principal).catch(() => []) : Promise.resolve([]),
     flags.documentsEnabled ? listMyDocuments(principal).catch(() => []) : Promise.resolve([]),
     flags.financeEnabled && flags.withdrawalsEnabled ? listMyCurrencyPreferences(principal).catch(() => []) : Promise.resolve([]),
     youtubePerformanceEnabled() ? myYoutubePerformances(principal).catch(() => []) : Promise.resolve([]),
+    getMyDashboardStats(principal).catch(() => ({ presences: 0, prestations: 0 })),
   ]);
 
   return (
     <MyRhDashboard
-      person={{ firstName: person.firstName, lastName: person.lastName }}
+      person={person}
       balances={(withdrawalView?.balances ?? []).filter((balance) => currencyPreferences.every((preference) => preference.currency !== balance.currency || preference.enabled))}
       withdrawals={withdrawalView?.withdrawals ?? []}
-      absencesPending={absences.filter((row) => row.status === 'pending').length}
-      notificationsUnread={notifications.filter((row) => !row.readAt).length}
-      disputesOpen={disputes.filter((row) => row.status === 'open').length}
+      presencesCount={dashboardStats.presences}
+      prestationsCount={dashboardStats.prestations}
       documentsCount={documents.length}
       youtubeEnabled={youtubePerformanceEnabled()}
       performances={performances.filter(item => item.status === 'approved' && item.submissionStatus === 'approved')}

@@ -244,9 +244,19 @@ export async function changeAccountLink(collaboratorId: string, version: number,
   } finally { client.release(); }
 }
 
-export async function getMyCollaborator(principal: import('./principal').RhPrincipal): Promise<{ id: string; firstName: string; lastName: string } | null> {
-  const result = await db().query(`SELECT c.id,c.first_name AS "firstName",c.last_name AS "lastName" FROM redaction_rh.collaborators c JOIN redaction_rh.account_links l ON l.collaborator_id=c.id WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived`, [principal.id, principal.email]);
+export async function getMyCollaborator(principal: import('./principal').RhPrincipal): Promise<{ id: string; firstName: string; lastName: string; jobTitle: string | null; team: string | null; hasPhoto: boolean } | null> {
+  const result = await db().query(`SELECT c.id,c.first_name AS "firstName",c.last_name AS "lastName",c.job_title AS "jobTitle",c.team,EXISTS(SELECT 1 FROM redaction_rh.employee_profiles p WHERE p.collaborator_id=c.id AND p.photo_bytes IS NOT NULL) AS "hasPhoto" FROM redaction_rh.collaborators c JOIN redaction_rh.account_links l ON l.collaborator_id=c.id WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived`, [principal.id, principal.email]);
   return result.rows[0] ?? null;
+}
+
+/** Compteurs réels de l’accueil personnel : jours de présence et prestations déclarées. */
+export async function getMyDashboardStats(principal: import('./principal').RhPrincipal): Promise<{ presences: number; prestations: number }> {
+  const result = await db().query(`SELECT
+    (SELECT count(*)::int FROM redaction_rh.attendance a WHERE a.collaborator_id=c.id AND a.check_in IS NOT NULL) AS presences,
+    (SELECT count(*)::int FROM redaction_rh.activity_submissions s WHERE s.collaborator_id=c.id AND s.status<>'cancelled') AS prestations
+    FROM redaction_rh.collaborators c JOIN redaction_rh.account_links l ON l.collaborator_id=c.id
+    WHERE l.account_id=$1 AND l.account_email=$2 AND NOT c.archived`, [principal.id, principal.email]);
+  return { presences: Number(result.rows[0]?.presences ?? 0), prestations: Number(result.rows[0]?.prestations ?? 0) };
 }
 
 /** Une seule requête réévalue l'appartenance au dossier pour toute lecture. */
